@@ -20,15 +20,13 @@ type ResetHomeStackOnTabPressProps = {
 
 function LoggedNavigation() {
   return (
-    <AssistantProvider>
-      <HomeStack.Navigator initialRouteName={views.HOME}>
-        <HomeStack.Screen
-          options={{headerShown: false}}
-          component={MainTabs}
-          name={views.HOME}
-        />
-      </HomeStack.Navigator>
-    </AssistantProvider>
+    <HomeStack.Navigator initialRouteName={views.HOME}>
+      <HomeStack.Screen
+        options={{headerShown: false}}
+        component={MainTabs}
+        name={views.HOME}
+      />
+    </HomeStack.Navigator>
   );
 }
 export default LoggedNavigation;

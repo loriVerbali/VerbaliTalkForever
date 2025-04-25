@@ -11,10 +11,11 @@ const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
 const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
 // Add history type
 interface HistoryItem {
-  type: 'text' | 'status' | 'error';
+  type: 'text' | 'status' | 'error' | 'image';
   content: string;
   timestamp: Date;
   isUserInput?: boolean;
+  imageUrl?: string;
 }
 
 interface AssistantContextType {
@@ -30,6 +31,7 @@ interface AssistantContextType {
   setThreadId: (id: string) => void;
   setRunId: (id: string) => void;
   resetHistory: () => void;
+  generateImage: (prompt: string) => Promise<string>;
 }
 
 const AssistantContext = createContext<AssistantContextType | undefined>(
@@ -37,7 +39,11 @@ const AssistantContext = createContext<AssistantContextType | undefined>(
 );
 
 // Move useAssistantResponse hook logic here
-const useAssistantResponse = (threadId: string, runId: string) => {
+const useAssistantResponse = (
+  threadId: string,
+  runId: string,
+  generateImage: (prompt: string) => Promise<string>,
+) => {
   const [status, setStatus] = useState<
     'queued' | 'in_progress' | 'completed' | 'failed' | null
   >(null);
@@ -76,7 +82,29 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               messagesResponse.data &&
               messagesResponse.data[0]?.content[0]?.text?.value
             ) {
-              setResponse(messagesResponse.data[0].content[0].text.value);
+              const responseText =
+                messagesResponse.data[0].content[0].text.value;
+              setResponse(responseText);
+
+              // Extract possible answers from the response
+              // Assuming answers are separated by newlines or specific markers
+              const possibleAnswers = responseText
+                .split('\n')
+                .filter((line: string) => line.trim().length > 0)
+                .map((line: string) => line.trim());
+
+              // Generate images for each possible answer
+              for (const answer of possibleAnswers) {
+                try {
+                  await generateImage(answer);
+                } catch (err) {
+                  console.error(
+                    'Failed to generate image for answer:',
+                    answer,
+                    err,
+                  );
+                }
+              }
             }
             break;
           }
@@ -104,7 +132,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
     return () => {
       isSubscribed = false;
     };
-  }, [threadId, runId]);
+  }, [threadId, runId, generateImage]);
 
   return {status, response, error};
 };
@@ -134,7 +162,47 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     setLocalError(null);
   };
 
-  const {status, response, error} = useAssistantResponse(threadId, runId);
+  const generateImage = async (prompt: string) => {
+    try {
+      // Encode the prompt for URL
+      const encodedPrompt = encodeURIComponent(prompt);
+      // Generate a random seed for variety
+      const seed = Math.floor(Math.random() * 1000);
+
+      const response = await fetchHelper(
+        'generateImage',
+        {
+          prompt: encodedPrompt,
+          seed: seed.toString(),
+        },
+        {},
+      );
+
+      // The response is the direct image URL
+      const imageUrl = response;
+
+      setHistory(prev => [
+        ...prev,
+        {
+          type: 'image',
+          content: prompt,
+          timestamp: new Date(),
+          imageUrl: imageUrl,
+        },
+      ]);
+      console.log({imageUrl});
+      return imageUrl;
+    } catch (error) {
+      console.error('Failed to generate image:', error);
+      throw error;
+    }
+  };
+
+  const {status, response, error} = useAssistantResponse(
+    threadId,
+    runId,
+    generateImage,
+  );
 
   // Update history when status changes
   useEffect(() => {
@@ -253,6 +321,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         setThreadId,
         setRunId,
         resetHistory,
+        generateImage,
       }}>
       {children}
     </AssistantContext.Provider>

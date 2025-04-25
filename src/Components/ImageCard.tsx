@@ -1,5 +1,6 @@
 import React from 'react';
-import {View, Image, Text, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet, ActivityIndicator} from 'react-native';
+import FastImage from 'react-native-fast-image';
 
 export interface ImageCardProps {
   images: Array<{url: string}>;
@@ -16,10 +17,13 @@ const ImageCard: React.FC<ImageCardProps> = ({
     <View style={styles.container}>
       {images.map((image, index) => (
         <View key={index} style={styles.imageContainer}>
-          <Image
-            source={require('../assets/welcome.png')}
+          <FastImage
+            source={{uri: image.url}}
             style={[styles.image, {width, height}]}
-            resizeMode="cover"
+            resizeMode={FastImage.resizeMode.cover}
+            onLoadStart={() => (
+              <ActivityIndicator size="small" color="#0000ff" />
+            )}
           />
         </View>
       ))}
@@ -39,6 +43,7 @@ const styles = StyleSheet.create({
   },
   image: {
     borderRadius: 8,
+    backgroundColor: '#f0f0f0', // Light gray background while loading
   },
   label: {
     marginTop: 8,

@@ -15,12 +15,14 @@ export interface MethodObject {
 export interface ConfigType {
   baseUrl: string;
   openAiUrl: string;
+  picsUrl: string;
   methods: Record<string, MethodObject>;
 }
 
 const Config: ConfigType = {
   baseUrl: 'https://niche.ink/api',
   openAiUrl: 'https://api.openai.com/v1',
+  picsUrl: 'https://image.pollinations.ai/prompt',
   methods: {
     registerUser: {
       description: 'registerUser',
@@ -138,6 +140,19 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: true,
+      contentType: 'application/json',
+    },
+    generateImage: {
+      description: 'generateImage',
+      isAuthenticated: false,
+      verb: 'GET',
+      sendDeviceKey: false,
+      jsonMethod: false,
+      suffixUrl: '{prompt}?width=200&height=200&seed={seed}',
+      mustStringify: false,
+      isFlatResponse: true,
+      openAi: false,
+      isBeta: false,
       contentType: 'application/json',
     },
     // Add other methods as needed

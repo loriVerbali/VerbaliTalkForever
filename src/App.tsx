@@ -11,13 +11,16 @@ import {StyleSheet, Linking} from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
 import {ConnectionProvider} from './utils/connection';
+import {AssistantProvider} from './contexts/AssistantContext';
 
 const App = () => {
   return (
     <>
       <ConnectionProvider>
         <AppSettingsProvider>
-          <RootControllerView />
+          <AssistantProvider>
+            <RootControllerView />
+          </AssistantProvider>
         </AppSettingsProvider>
       </ConnectionProvider>
     </>

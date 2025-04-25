@@ -125,6 +125,8 @@ const fetchHelper = async (
 
   const url = methodObject.openAi
     ? Config.openAiUrl + parsedUrl
+    : methodName === 'generateImage'
+    ? Config.picsUrl + parsedUrl
     : Config.baseUrl + parsedUrl;
 
   // Add body data for POST or PUT requests
