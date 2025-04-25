@@ -9,6 +9,7 @@ import {
 import HomeScreen from '../Views/Home';
 import {views} from '../utils/constants';
 import {AssistantProvider} from '../contexts/AssistantContext';
+import OpenScreen from '../Views/Open';
 
 const HomeStack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -24,7 +25,7 @@ function LoggedNavigation() {
       <HomeStack.Screen
         options={{headerShown: false}}
         component={MainTabs}
-        name={views.HOME}
+        name={views.OPEN}
       />
     </HomeStack.Navigator>
   );
@@ -47,7 +48,16 @@ const MainTabs = () => {
         tabBarActiveTintColor: '#8E24AA', // Active icon color
       }}>
       <Tabs.Screen
-        name="Home"
+        name={views.OPEN}
+        component={OpenScreen}
+        options={{
+          tabBarLabel: '',
+          headerShown: false,
+          tabBarAccessibilityLabel: 'Home',
+        }}
+      />
+      <Tabs.Screen
+        name={views.HOME}
         component={HomeScreen}
         options={{
           tabBarLabel: '',

@@ -12,15 +12,18 @@ import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
 import {ConnectionProvider} from './utils/connection';
 import {AssistantProvider} from './contexts/AssistantContext';
+import {AdminProvider} from './contexts/adminContext';
 
 const App = () => {
   return (
     <>
       <ConnectionProvider>
         <AppSettingsProvider>
-          <AssistantProvider>
-            <RootControllerView />
-          </AssistantProvider>
+          <AdminProvider>
+            <AssistantProvider>
+              <RootControllerView />
+            </AssistantProvider>
+          </AdminProvider>
         </AppSettingsProvider>
       </ConnectionProvider>
     </>

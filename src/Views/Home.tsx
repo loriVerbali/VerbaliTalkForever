@@ -7,6 +7,8 @@ import {useNavigation, NavigationProp} from '@react-navigation/native';
 import Inputs from '../Components/Inputs';
 import Transcription from '../Components/Transcription';
 import ImageGallery from '../Components/ImageGallery';
+import {useAssistant} from '../contexts/AssistantContext';
+import {useAdmin} from '../contexts/adminContext';
 
 const {width} = Dimensions.get('window');
 
@@ -15,16 +17,21 @@ type RootStackParamList = {
 };
 
 const HomeScreen: React.FC = () => {
-  const images = Array(9).fill({url: require('../assets/welcome.png')});
+  const {imageUrls} = useAssistant();
+  const {showLog} = useAdmin();
+
   return (
     <View style={styles.container}>
       <Inputs />
       <View style={styles.contentContainer}>
-        <View style={styles.transcriptionContainer}>
-          <Transcription />
-        </View>
+        {showLog ? (
+          <View style={styles.transcriptionContainer}>
+            <Transcription />
+          </View>
+        ) : null}
+
         <View style={styles.imageCardContainer}>
-          <ImageGallery images={images} />
+          {imageUrls?.length > 0 ? <ImageGallery images={imageUrls} /> : null}
         </View>
       </View>
     </View>

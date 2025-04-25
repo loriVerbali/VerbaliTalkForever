@@ -10,6 +10,7 @@ export interface MethodObject {
   openAi: boolean;
   contentType: string;
   isBeta: boolean;
+  isPicsUrl: boolean;
 }
 
 export interface ConfigType {
@@ -35,6 +36,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: false,
       isBeta: false,
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     saveFCM: {
@@ -48,6 +50,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: false,
       isBeta: false,
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     transcribeAudio: {
@@ -61,6 +64,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: false,
+      isPicsUrl: false,
       contentType: 'multipart/form-data',
     },
     assistantAPI: {
@@ -74,6 +78,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: true,
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     createThread: {
@@ -87,7 +92,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: true,
-
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     sendMessage: {
@@ -101,6 +106,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: true,
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     runAssistant: {
@@ -114,6 +120,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: true,
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     checkRunStatus: {
@@ -127,6 +134,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: true,
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     getMessages: {
@@ -140,6 +148,7 @@ const Config: ConfigType = {
       isFlatResponse: false,
       openAi: true,
       isBeta: true,
+      isPicsUrl: false,
       contentType: 'application/json',
     },
     generateImage: {
@@ -148,11 +157,12 @@ const Config: ConfigType = {
       verb: 'GET',
       sendDeviceKey: false,
       jsonMethod: false,
-      suffixUrl: '{prompt}?width=200&height=200&seed={seed}',
+      suffixUrl: '/{prompt}?width=200&height=200&seed={seed}',
       mustStringify: false,
       isFlatResponse: true,
       openAi: false,
       isBeta: false,
+      isPicsUrl: true,
       contentType: 'application/json',
     },
     // Add other methods as needed

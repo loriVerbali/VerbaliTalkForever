@@ -3,7 +3,7 @@ import {View, StyleSheet, ScrollView} from 'react-native';
 import ImageCard from './ImageCard';
 
 interface ImageGalleryProps {
-  images: Array<{url: string}>;
+  images: Array<{url: {url: string}; prompt: string}>;
   imageWidth?: number;
   imageHeight?: number;
 }

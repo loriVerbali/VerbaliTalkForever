@@ -2,58 +2,46 @@ import Config, {MethodObject} from './config';
 import _ from 'lodash';
 import DefaultPreference from 'react-native-default-preference';
 
-const METHODTODEBUG = 'checkRunStatus'; ////remove this after debugging//
+const METHODTODEBUG = 'generateImage'; ////remove this after debugging//
 
 // Retry-enabled fetch function
 const fetchWithRetry = async (
   url: string,
+  methodName: keyof typeof Config.methods,
   request: RequestInit,
   retries = 3,
   delay = 1000,
 ): Promise<any> => {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url, request);
+  try {
+    const response = await fetch(url, request);
 
-      // Handle successful responses
-      if (response.status >= 200 && response.status < 300) {
-        if (response.status === 204) return response;
-        return await response.json();
-      }
-
-      // Handle specific status codes
-      if (response.status === 500) {
-        return Promise.reject('Server error');
-      }
-      if (response.status === 401) {
-        return Promise.reject('Not authenticated');
-      }
-      if (response.status === 400) {
+    // Handle successful responses
+    if (response.status >= 200 && response.status < 300) {
+      if (response.status === 204) return response;
+      if (response.status === 200 && Config.methods[methodName].isPicsUrl)
         return response;
-      }
-
-      // Retry on 504 status
-      if (response.status === 504) {
-        if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        } else {
-          return Promise.reject(
-            'WE made a bubu! Sorry about that , please open the app again',
-          );
-        }
-      }
-    } catch (error) {
-      console.warn('Error:', error);
-
-      // Retry on network or transient errors
-      if (attempt < retries) {
-        //console.warn(`Retrying... (${attempt}/${retries})`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        return Promise.reject(error);
-      }
+      return await response.json();
     }
+
+    // Handle specific status codes
+    if (response.status === 500) {
+      return Promise.reject('Server error');
+    }
+    if (response.status === 401) {
+      return Promise.reject('Not authenticated');
+    }
+    if (response.status === 400) {
+      return response;
+    }
+
+    // Retry on 504 status
+    if (response.status === 504) {
+      return Promise.reject(
+        'WE made a bubu! Sorry about that , please open the app again',
+      );
+    }
+  } catch (error) {
+    console.warn('Error:', error);
   }
 };
 
@@ -62,27 +50,29 @@ const fetchHelper = async (
   dynamicUrlData: Record<string, string>,
   bodyData: any = '',
 ): Promise<any> => {
-  if (methodName === METHODTODEBUG) {
-    debugger;
-    console.log('checkRunStatus called with:', {
-      dynamicUrlData,
-      bodyData,
-    });
+  // if (methodName === METHODTODEBUG) {
+  //   console.log('generateImage called with:', {
+  //     dynamicUrlData,
+  //     bodyData,
+  //   });
 
-    // Add URL debugging
-    const baseUrl = Config.methods[methodName].openAi
-      ? Config.openAiUrl
-      : Config.baseUrl;
-    const suffixUrl = Config.methods[methodName].suffixUrl;
-    let finalUrl = `${baseUrl}${suffixUrl}`;
+  //   // Add URL debugging
+  //   const baseUrl = Config.methods[methodName].openAi
+  //     ? Config.openAiUrl
+  //     : Config.methods[methodName].isPicsUrl
+  //     ? Config.picsUrl
+  //     : Config.baseUrl;
 
-    // Replace dynamic parameters in URL
-    Object.keys(dynamicUrlData).forEach(key => {
-      finalUrl = finalUrl.replace(`{${key}}`, dynamicUrlData[key]);
-    });
+  //   const suffixUrl = Config.methods[methodName].suffixUrl;
+  //   let finalUrl = `${baseUrl}${suffixUrl}`;
 
-    console.log('checkRunStatus URL:', finalUrl);
-  }
+  //   // Replace dynamic parameters in URL
+  //   Object.keys(dynamicUrlData).forEach(key => {
+  //     finalUrl = finalUrl.replace(`{${key}}`, dynamicUrlData[key]);
+  //   });
+
+  //   console.log('checkRunStatus URL:', finalUrl);
+  // }
 
   const methodObject: MethodObject = Config.methods[methodName];
 
@@ -135,7 +125,7 @@ const fetchHelper = async (
   }
 
   // Use fetchWithRetry for the request
-  return fetchWithRetry(url, request);
+  return fetchWithRetry(url, methodName, request);
 };
 
 export default fetchHelper;

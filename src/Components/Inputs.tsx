@@ -12,6 +12,7 @@ import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
 import fetchHelper from '../utils/fetcher';
 import {useAssistant} from '../contexts/AssistantContext';
+import {useAdmin} from '../contexts/adminContext';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
@@ -23,6 +24,7 @@ const Inputs: React.FC = () => {
   const [audoioAfterRecording, setAudoioAfterRecording] = useState<string>('');
   const {createThread, sendMessage, runAssistant, resetHistory, threadId} =
     useAssistant();
+  const {showLog, setShowLog} = useAdmin();
   const requestPermission = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -119,7 +121,7 @@ const Inputs: React.FC = () => {
       //     setRecordedText(transcribeResponse.text);
       if (1 == 1) {
         if (threadId) {
-          const messageId = await sendMessage('How are you feeling today?');
+          const messageId = await sendMessage('How was school today');
           if (messageId) {
             await runAssistant();
           }
@@ -131,6 +133,10 @@ const Inputs: React.FC = () => {
     } finally {
       setIsTranscribing(false);
     }
+  };
+
+  const handleShowLog = async () => {
+    setShowLog(!showLog);
   };
 
   const handlePlay = async () => {
@@ -158,6 +164,11 @@ const Inputs: React.FC = () => {
           style={[styles.button, styles.playButton]}
           disabled={!audioPath}>
           <Text style={styles.buttonText}>Play</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleShowLog}
+          style={[styles.button, styles.playButton]}>
+          <Text style={styles.buttonText}>Show Log</Text>
         </TouchableOpacity>
       </View>
     </View>

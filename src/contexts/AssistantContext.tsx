@@ -6,6 +6,7 @@ import React, {
   useEffect,
 } from 'react';
 import fetchHelper from '../utils/fetcher';
+import {useAdmin} from './adminContext';
 
 const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
 const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
@@ -31,7 +32,8 @@ interface AssistantContextType {
   setThreadId: (id: string) => void;
   setRunId: (id: string) => void;
   resetHistory: () => void;
-  generateImage: (prompt: string) => Promise<string>;
+  generateImage: (prompt: string) => Promise<{url: string}>;
+  imageUrls: Array<{url: string; prompt: string}>;
 }
 
 const AssistantContext = createContext<AssistantContextType | undefined>(
@@ -39,16 +41,16 @@ const AssistantContext = createContext<AssistantContextType | undefined>(
 );
 
 // Move useAssistantResponse hook logic here
-const useAssistantResponse = (
-  threadId: string,
-  runId: string,
-  generateImage: (prompt: string) => Promise<string>,
-) => {
+const useAssistantResponse = (threadId: string, runId: string) => {
   const [status, setStatus] = useState<
     'queued' | 'in_progress' | 'completed' | 'failed' | null
   >(null);
   const [response, setResponse] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [possibleAnswers, setPossibleAnswers] = useState<string[] | null>(null);
+  const [questionContext, setQuestionContext] = useState<string>('');
+  const [questionTopic, setQuestionTopic] = useState<string>('');
+  const [identifiedQuestion, setIdentifiedQuestion] = useState<string>('');
 
   useEffect(() => {
     let isSubscribed = true;
@@ -66,7 +68,6 @@ const useAssistantResponse = (
           );
 
           const data = await statusResponse;
-          console.log('data in pollStatus', data);
 
           if (data?.status === 'completed') {
             setStatus(data.status);
@@ -86,24 +87,23 @@ const useAssistantResponse = (
                 messagesResponse.data[0].content[0].text.value;
               setResponse(responseText);
 
-              // Extract possible answers from the response
-              // Assuming answers are separated by newlines or specific markers
-              const possibleAnswers = responseText
-                .split('\n')
-                .filter((line: string) => line.trim().length > 0)
-                .map((line: string) => line.trim());
+              try {
+                // Parse the JSON response
+                const responseData = JSON.parse(responseText);
+                console.log({responseData});
 
-              // Generate images for each possible answer
-              for (const answer of possibleAnswers) {
-                try {
-                  await generateImage(answer);
-                } catch (err) {
-                  console.error(
-                    'Failed to generate image for answer:',
-                    answer,
-                    err,
-                  );
-                }
+                // Extract possible answers from the JSON
+                const answers = responseData['Possible answers']
+                  .split(',')
+                  .map((answer: string) => answer.trim());
+
+                setQuestionContext(responseData['context']);
+                setQuestionTopic(responseData['topic']);
+                setIdentifiedQuestion(responseData['Identified Question']);
+
+                setPossibleAnswers(answers);
+              } catch (parseError) {
+                console.error('Failed to parse response as JSON:', parseError);
               }
             }
             break;
@@ -132,9 +132,17 @@ const useAssistantResponse = (
     return () => {
       isSubscribed = false;
     };
-  }, [threadId, runId, generateImage]);
+  }, [threadId, runId]);
 
-  return {status, response, error};
+  return {
+    status,
+    response,
+    error,
+    possibleAnswers,
+    questionContext,
+    questionTopic,
+    identifiedQuestion,
+  };
 };
 
 interface AssistantProviderProps {
@@ -152,6 +160,9 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   >(null);
   const [localResponse, setLocalResponse] = useState<string>('');
   const [localError, setLocalError] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<
+    Array<{url: string; prompt: string}>
+  >([]);
 
   const resetHistory = () => {
     setHistory([]);
@@ -165,7 +176,26 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   const generateImage = async (prompt: string) => {
     try {
       // Encode the prompt for URL
-      const encodedPrompt = encodeURIComponent(prompt);
+      const encodedPrompt = encodeURIComponent(
+        'Create a realistic image as an answer to this question or statement ' +
+          identifiedQuestion +
+          ' tailored to a boy, the topic is ' +
+          questionTopic +
+          ', the context is ' +
+          questionContext +
+          'and the possible answer is ' +
+          prompt,
+      );
+      console.log(
+        'Create a realistic image as an answer to this question or statement ' +
+          identifiedQuestion +
+          ' tailored to a boy, the topic is ' +
+          questionTopic +
+          ', the context is ' +
+          questionContext +
+          ' and the possible answer is ' +
+          prompt,
+      );
       // Generate a random seed for variety
       const seed = Math.floor(Math.random() * 1000);
 
@@ -190,19 +220,44 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
           imageUrl: imageUrl,
         },
       ]);
-      console.log({imageUrl});
-      return imageUrl;
+      return {url: imageUrl};
     } catch (error) {
       console.error('Failed to generate image:', error);
       throw error;
     }
   };
 
-  const {status, response, error} = useAssistantResponse(
-    threadId,
-    runId,
-    generateImage,
-  );
+  const {
+    status,
+    response,
+    error,
+    possibleAnswers,
+    questionContext,
+    questionTopic,
+    identifiedQuestion,
+  } = useAssistantResponse(threadId, runId);
+
+  // Effect for generating images when status is completed
+  useEffect(() => {
+    const generateImages = async () => {
+      if (status === 'completed' && possibleAnswers) {
+        const newImageUrls: Array<{url: string; prompt: string}> = [];
+        for (const answer of possibleAnswers) {
+          try {
+            const imageURLResponse = await generateImage(answer);
+            if (imageURLResponse?.url) {
+              newImageUrls.push({url: imageURLResponse.url, prompt: answer});
+            }
+          } catch (err) {
+            console.error('Failed to generate image for answer:', answer, err);
+          }
+        }
+        setImageUrls(newImageUrls);
+      }
+    };
+
+    generateImages();
+  }, [status, possibleAnswers]);
 
   // Update history when status changes
   useEffect(() => {
@@ -281,7 +336,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         },
       );
       const data = await response;
-      console.log('sendMessage to thread', threadId, data);
       return data.id;
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -297,7 +351,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         {assistant_id: ASSISTANT_ID_MATAN},
       );
       const data = await response;
-      console.log('runAssistant on thread', threadId, data);
       setRunId(data.id);
       return data.id;
     } catch (error) {
@@ -322,6 +375,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         setRunId,
         resetHistory,
         generateImage,
+        imageUrls,
       }}>
       {children}
     </AssistantContext.Provider>

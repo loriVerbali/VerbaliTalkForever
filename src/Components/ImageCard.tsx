@@ -3,7 +3,7 @@ import {View, Text, StyleSheet, ActivityIndicator} from 'react-native';
 import FastImage from 'react-native-fast-image';
 
 export interface ImageCardProps {
-  images: Array<{url: string}>;
+  images: Array<{url: {url: string}; prompt: string}>;
   width?: number;
   height?: number;
 }
@@ -15,18 +15,23 @@ const ImageCard: React.FC<ImageCardProps> = ({
 }) => {
   return (
     <View style={styles.container}>
-      {images.map((image, index) => (
-        <View key={index} style={styles.imageContainer}>
-          <FastImage
-            source={{uri: image.url}}
-            style={[styles.image, {width, height}]}
-            resizeMode={FastImage.resizeMode.cover}
-            onLoadStart={() => (
-              <ActivityIndicator size="small" color="#0000ff" />
-            )}
-          />
-        </View>
-      ))}
+      {images.map((image, index) => {
+        return (
+          <View key={index} style={styles.imageContainer}>
+            <View style={{flexDirection: 'column', alignItems: 'center'}}>
+              <FastImage
+                source={{uri: image.url.url}}
+                style={[styles.image, {width, height}]}
+                resizeMode={FastImage.resizeMode.cover}
+                onLoadStart={() => (
+                  <ActivityIndicator size="small" color="#0000ff" />
+                )}
+              />
+              <Text style={{fontWeight: '600'}}>{image.prompt}</Text>
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 };
