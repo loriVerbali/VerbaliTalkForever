@@ -21,11 +21,11 @@ type ResetHomeStackOnTabPressProps = {
 
 function LoggedNavigation() {
   return (
-    <HomeStack.Navigator initialRouteName={views.HOME}>
+    <HomeStack.Navigator initialRouteName={'MainTab'}>
       <HomeStack.Screen
         options={{headerShown: false}}
         component={MainTabs}
-        name={views.OPEN}
+        name={'MainTab'}
       />
     </HomeStack.Navigator>
   );
@@ -35,7 +35,7 @@ export default LoggedNavigation;
 const MainTabs = () => {
   return (
     <Tabs.Navigator
-      initialRouteName="Home"
+      initialRouteName={views.OPEN}
       screenOptions={{
         tabBarStyle: {
           backgroundColor: '#F1F6F6', // Match this with your app's background color

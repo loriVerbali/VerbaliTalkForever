@@ -1,7 +1,10 @@
 import React, {useState, useEffect} from 'react';
 import {View, Text, StyleSheet, Dimensions} from 'react-native';
-
-import {useNavigation, NavigationProp} from '@react-navigation/native';
+import {
+  useNavigation,
+  NavigationProp,
+  RouteProp,
+} from '@react-navigation/native';
 
 // Add imports for the components
 import Inputs from '../Components/Inputs';
@@ -13,16 +16,23 @@ import {useAdmin} from '../contexts/adminContext';
 const {width} = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: undefined;
+  Home: {stateof: string};
 };
 
-const HomeScreen: React.FC = () => {
+type HomeScreenRouteProp = RouteProp<RootStackParamList, 'view.HOME'>;
+
+interface HomeScreenProps {
+  route: HomeScreenRouteProp;
+}
+
+const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {imageUrls} = useAssistant();
   const {showLog} = useAdmin();
+  const {stateof} = route.params;
 
   return (
     <View style={styles.container}>
-      <Inputs />
+      <Inputs mode={stateof} />
       <View style={styles.contentContainer}>
         {showLog ? (
           <View style={styles.transcriptionContainer}>

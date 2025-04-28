@@ -7,6 +7,7 @@ import {
   Platform,
   PermissionsAndroid,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
@@ -16,12 +17,17 @@ import {useAdmin} from '../contexts/adminContext';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
-const Inputs: React.FC = () => {
+interface InputsProps {
+  mode: string;
+}
+
+const Inputs: React.FC<InputsProps> = ({mode}) => {
   const [recordedText, setRecordedText] = useState<string>('');
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [audioPath, setAudioPath] = useState<string>('');
   const [audoioAfterRecording, setAudoioAfterRecording] = useState<string>('');
+  const [inputText, setInputText] = useState<string>('');
   const {createThread, sendMessage, runAssistant, resetHistory, threadId} =
     useAssistant();
   const {showLog, setShowLog} = useAdmin();
@@ -148,29 +154,59 @@ const Inputs: React.FC = () => {
     }
   };
 
+  const handleSendText = async () => {
+    if (!inputText.trim()) return;
+
+    resetHistory();
+    createThread();
+    const messageId = await sendMessage(inputText);
+    if (messageId) {
+      await runAssistant();
+    }
+    setInputText('');
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          onPress={handleRecord}
-          style={[styles.button, isTranscribing && {opacity: 0.5}]}
-          disabled={isTranscribing}>
-          <Text style={styles.buttonText}>
-            {isRecording ? 'Stop' : 'Record'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handlePlay}
-          style={[styles.button, styles.playButton]}
-          disabled={!audioPath}>
-          <Text style={styles.buttonText}>Play</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={handleShowLog}
-          style={[styles.button, styles.playButton]}>
-          <Text style={styles.buttonText}>Show Log</Text>
-        </TouchableOpacity>
-      </View>
+      {mode === 'Talk' ? (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            onPress={handleRecord}
+            style={[styles.button, isTranscribing && {opacity: 0.5}]}
+            disabled={isTranscribing}>
+            <Text style={styles.buttonText}>
+              {isRecording ? 'Stop' : 'Record'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handlePlay}
+            style={[styles.button, styles.playButton]}
+            disabled={!audioPath}>
+            <Text style={styles.buttonText}>Play</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleShowLog}
+            style={[styles.button, styles.playButton]}>
+            <Text style={styles.buttonText}>Show Log</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Type your message here..."
+            multiline
+            autoFocus={true}
+          />
+          <TouchableOpacity
+            onPress={handleSendText}
+            style={[styles.button, styles.sendButton]}>
+            <Text style={styles.buttonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };
@@ -181,13 +217,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-
     marginTop: 40,
     marginBottom: 20,
   },
   buttonContainer: {
     flexDirection: 'column',
     gap: 8,
+  },
+  inputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  textInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    minHeight: 40,
+    maxHeight: 100,
   },
   button: {
     backgroundColor: '#007AFF',
@@ -199,20 +249,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  playButton: {
+    backgroundColor: '#34C759',
+  },
+  sendButton: {
+    backgroundColor: '#007AFF',
+  },
   recordedText: {
     fontSize: 16,
     color: '#333',
-  },
-  inputContainer: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
-    marginLeft: 10,
-  },
-  playButton: {
-    backgroundColor: '#34C759', // iOS green color
   },
   historyItem: {
     padding: 8,
