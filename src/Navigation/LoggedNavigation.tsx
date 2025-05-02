@@ -9,6 +9,8 @@ import {
 import HomeScreen from '../Views/Home';
 import {views} from '../utils/constants';
 import {AssistantProvider} from '../contexts/AssistantContext';
+import {SoundProvider} from '../contexts/soundContext';
+
 import OpenScreen from '../Views/Open';
 
 const HomeStack = createStackNavigator();
@@ -21,13 +23,17 @@ type ResetHomeStackOnTabPressProps = {
 
 function LoggedNavigation() {
   return (
-    <HomeStack.Navigator initialRouteName={'MainTab'}>
-      <HomeStack.Screen
-        options={{headerShown: false}}
-        component={MainTabs}
-        name={'MainTab'}
-      />
-    </HomeStack.Navigator>
+    <AssistantProvider>
+      <SoundProvider>
+        <HomeStack.Navigator initialRouteName={'MainTab'}>
+          <HomeStack.Screen
+            options={{headerShown: false}}
+            component={MainTabs}
+            name={'MainTab'}
+          />
+        </HomeStack.Navigator>
+      </SoundProvider>
+    </AssistantProvider>
   );
 }
 export default LoggedNavigation;
@@ -58,7 +64,7 @@ const MainTabs = () => {
       />
       <Tabs.Screen
         name={views.HOME}
-        component={HomeScreen}
+        component={(props: any) => <HomeScreen {...props} />}
         options={{
           tabBarLabel: '',
           headerShown: false,

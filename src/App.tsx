@@ -11,7 +11,6 @@ import {StyleSheet, Linking} from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
 import {ConnectionProvider} from './utils/connection';
-import {AssistantProvider} from './contexts/AssistantContext';
 import {AdminProvider} from './contexts/adminContext';
 
 const App = () => {
@@ -20,9 +19,7 @@ const App = () => {
       <ConnectionProvider>
         <AppSettingsProvider>
           <AdminProvider>
-            <AssistantProvider>
-              <RootControllerView />
-            </AssistantProvider>
+            <RootControllerView />
           </AdminProvider>
         </AppSettingsProvider>
       </ConnectionProvider>

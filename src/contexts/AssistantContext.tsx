@@ -27,8 +27,8 @@ interface AssistantContextType {
   error: string | null;
   history: HistoryItem[];
   createThread: () => Promise<string>;
-  sendMessage: (content: string) => Promise<string>;
-  runAssistant: () => Promise<string>;
+  sendMessage: (content: string, threadIdOverride?: string) => Promise<string>;
+  runAssistant: (threadIdOverride?: string) => Promise<string>;
   setThreadId: (id: string) => void;
   setRunId: (id: string) => void;
   resetHistory: () => void;
@@ -90,7 +90,6 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               try {
                 // Parse the JSON response
                 const responseData = JSON.parse(responseText);
-                console.log({responseData});
 
                 // Extract possible answers from the JSON
                 const answers = responseData['Possible answers']
@@ -114,7 +113,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             break;
           }
 
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise<void>(resolve => setTimeout(resolve, 1000));
         }
       } catch (err: unknown) {
         if (isSubscribed) {
@@ -314,7 +313,8 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     }
   };
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, threadIdOverride?: string) => {
+    const idToUse = threadIdOverride || threadId;
     try {
       // Add user message to history
       setHistory(prev => [
@@ -329,7 +329,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
       const response = await fetchHelper(
         'sendMessage',
-        {thread_id: threadId},
+        {thread_id: idToUse},
         {
           role: 'user',
           content: content,
@@ -343,11 +343,13 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     }
   };
 
-  const runAssistant = async () => {
+  const runAssistant = async (threadIdOverride?: string) => {
+    const idToUse = threadIdOverride || threadId;
+
     try {
       const response = await fetchHelper(
         'runAssistant',
-        {thread_id: threadId},
+        {thread_id: idToUse},
         {assistant_id: ASSISTANT_ID_MATAN},
       );
       const data = await response;

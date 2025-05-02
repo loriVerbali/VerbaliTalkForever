@@ -2,7 +2,7 @@ import Config, {MethodObject} from './config';
 import _ from 'lodash';
 import DefaultPreference from 'react-native-default-preference';
 
-const METHODTODEBUG = 'generateImage'; ////remove this after debugging//
+const METHODTODEBUG = 'transcribeAudio'; ////remove this after debugging//
 
 // Retry-enabled fetch function
 const fetchWithRetry = async (
@@ -50,30 +50,6 @@ const fetchHelper = async (
   dynamicUrlData: Record<string, string>,
   bodyData: any = '',
 ): Promise<any> => {
-  // if (methodName === METHODTODEBUG) {
-  //   console.log('generateImage called with:', {
-  //     dynamicUrlData,
-  //     bodyData,
-  //   });
-
-  //   // Add URL debugging
-  //   const baseUrl = Config.methods[methodName].openAi
-  //     ? Config.openAiUrl
-  //     : Config.methods[methodName].isPicsUrl
-  //     ? Config.picsUrl
-  //     : Config.baseUrl;
-
-  //   const suffixUrl = Config.methods[methodName].suffixUrl;
-  //   let finalUrl = `${baseUrl}${suffixUrl}`;
-
-  //   // Replace dynamic parameters in URL
-  //   Object.keys(dynamicUrlData).forEach(key => {
-  //     finalUrl = finalUrl.replace(`{${key}}`, dynamicUrlData[key]);
-  //   });
-
-  //   console.log('checkRunStatus URL:', finalUrl);
-  // }
-
   const methodObject: MethodObject = Config.methods[methodName];
 
   const headers: Record<string, string> = {};
@@ -91,7 +67,10 @@ const fetchHelper = async (
   }
 
   // Set content type for JSON requests
-  if (methodObject.jsonMethod) {
+  if (
+    methodObject.jsonMethod &&
+    methodObject.contentType !== 'multipart/form-data'
+  ) {
     headers['Content-Type'] = methodObject.contentType;
     methodObject.isBeta && methodObject.openAi
       ? (headers['OpenAI-Beta'] = 'assistants=v2')
@@ -121,7 +100,20 @@ const fetchHelper = async (
 
   // Add body data for POST or PUT requests
   if (methodObject.verb === 'POST' || methodObject.verb === 'PUT') {
-    request.body = JSON.stringify(bodyData);
+    if (methodObject.contentType === 'multipart/form-data') {
+      request.body = bodyData; // send FormData as-is
+      // Do NOT set Content-Type header, let fetch handle it
+      delete headers['Content-Type'];
+    } else {
+      request.body = JSON.stringify(bodyData);
+    }
+  }
+
+  if (methodName === METHODTODEBUG) {
+    console.log({url});
+    console.log({methodName});
+    console.log({request});
+    debugger;
   }
 
   // Use fetchWithRetry for the request

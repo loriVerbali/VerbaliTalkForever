@@ -17,6 +17,7 @@ export interface ConfigType {
   baseUrl: string;
   openAiUrl: string;
   picsUrl: string;
+  openAiKey: string;
   methods: Record<string, MethodObject>;
 }
 
@@ -24,6 +25,9 @@ const Config: ConfigType = {
   baseUrl: 'https://niche.ink/api',
   openAiUrl: 'https://api.openai.com/v1',
   picsUrl: 'https://image.pollinations.ai/prompt',
+  openAiKey:
+    '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',
+
   methods: {
     registerUser: {
       description: 'registerUser',
@@ -59,7 +63,7 @@ const Config: ConfigType = {
       verb: 'POST',
       sendDeviceKey: false,
       jsonMethod: true,
-      suffixUrl: '/audio/transcribe',
+      suffixUrl: '/audio/transcriptions',
       mustStringify: true,
       isFlatResponse: false,
       openAi: true,

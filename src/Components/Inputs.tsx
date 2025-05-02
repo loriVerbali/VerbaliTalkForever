@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, forwardRef, useImperativeHandle, useRef} from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,9 @@ import {
 } from 'react-native';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
-import fetchHelper from '../utils/fetcher';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
+import fetchHelper from '../utils/fetcher';
 
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
@@ -21,16 +21,27 @@ interface InputsProps {
   mode: string;
 }
 
-const Inputs: React.FC<InputsProps> = ({mode}) => {
+export interface InputsRef {
+  handleRecord: () => Promise<void>;
+}
+
+const Inputs = forwardRef<InputsRef, InputsProps>(({mode}, ref) => {
   const [recordedText, setRecordedText] = useState<string>('');
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [audioPath, setAudioPath] = useState<string>('');
   const [audoioAfterRecording, setAudoioAfterRecording] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
   const {createThread, sendMessage, runAssistant, resetHistory, threadId} =
     useAssistant();
   const {showLog, setShowLog} = useAdmin();
+  const isRecordingRef = useRef(false);
+  const lastSoundTimeRef = useRef(0);
+  const threadIDRef = useRef('');
+
+  useImperativeHandle(ref, () => ({
+    handleRecord,
+  }));
+
   const requestPermission = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -65,9 +76,12 @@ const Inputs: React.FC<InputsProps> = ({mode}) => {
         setRecordedText('Permission denied');
         return;
       }
-
+      threadIDRef.current = await createThread();
+      const currentTime = Date.now();
       setIsRecording(true);
-      createThread();
+      isRecordingRef.current = true;
+      lastSoundTimeRef.current = 0;
+
       setRecordedText('Recording in progress...');
 
       try {
@@ -77,59 +91,93 @@ const Inputs: React.FC<InputsProps> = ({mode}) => {
         })!;
 
         await audioRecorderPlayer.startRecorder();
-
         audioRecorderPlayer.addRecordBackListener(e => {
+          if (lastSoundTimeRef.current == 0)
+            lastSoundTimeRef.current = currentTime;
+
+          // Check if the current meter value indicates sound (you might need to adjust this threshold)
+          if (e.currentMetering !== undefined && e.currentMetering > -60) {
+            lastSoundTimeRef.current = Date.now();
+          }
+          if (
+            lastSoundTimeRef.current - currentTime > 4000 &&
+            lastSoundTimeRef.current > 0
+          ) {
+            lastSoundTimeRef.current = 0;
+            isRecordingRef.current = false;
+            stopRecording();
+          }
+
           setRecordedText(`Recording: ${e.currentPosition}ms`);
           return true;
         });
-        setAudioPath(path);
+
+        // Set timeout to stop recording after 8 seconds
+        setTimeout(async () => {
+          if (isRecordingRef.current) {
+            await stopRecording();
+          }
+        }, 8000);
       } catch (error) {
         console.error('Recording failed to start:', error);
         setRecordedText('Failed to start recording');
         setIsRecording(false);
       }
     } else {
-      try {
-        setIsRecording(false);
-        const audio = await audioRecorderPlayer.stopRecorder();
-        audioRecorderPlayer.removeRecordBackListener();
-        setAudoioAfterRecording(audio);
-        setRecordedText('Recording completed. Transcribing...');
-      } catch (error) {
-        console.error('Recording failed to stop:', error);
-        setRecordedText('Failed to stop recording');
-        setIsRecording(true);
-      }
+      await stopRecording();
     }
   };
 
-  const transcribeAudio = async () => {
+  const stopRecording = async () => {
+    // if (!isRecording) return;
+
+    try {
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      const audio = await audioRecorderPlayer.stopRecorder();
+      setAudoioAfterRecording(audio);
+      audioRecorderPlayer.removeRecordBackListener();
+      setRecordedText('Recording completed. Transcribing...');
+      // Call handlePlay after stopping the recording
+      await handlePlay(audio);
+    } catch (error) {
+      console.error('Recording failed to stop:', error);
+      setRecordedText('Failed to stop recording');
+      setIsRecording(true);
+    }
+  };
+
+  const transcribeAudio = async (audioPath: string) => {
     if (!audioPath) return;
 
     setIsTranscribing(true);
     try {
-      //   const formData = new FormData();
-      //   formData.append('file', {
-      //     uri: audioPath.replace('file://', ''),
-      //     type: Platform.OS === 'ios' ? 'audio/x-m4a' : 'audio/mp3',
-      //     name: Platform.OS === 'ios' ? 'recording.m4a' : 'recording.mp3',
-      //   });
-      //   formData.append('model', 'whisper-1');
-      //   formData.append('language', 'en');
+      const formData = new FormData();
+      formData.append('file', {
+        uri: audioPath.replace('file://', ''),
+        type: Platform.OS === 'ios' ? 'audio/x-m4a' : 'audio/mp3',
+        name: Platform.OS === 'ios' ? 'recording.m4a' : 'recording.mp3',
+      });
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'en');
+      const transcribeResponse = await fetchHelper(
+        'transcribeAudio',
+        {},
+        formData,
+      );
 
-      //   const transcribeResponse = await fetchHelper(
-      //     'transcribeAudio',
-      //     {},
-      //     formData,
-      //   );
+      console.log({transcribeResponse});
+      console.log(transcribeResponse?.text);
 
-      //   if (transcribeResponse.text) {
-      //     setRecordedText(transcribeResponse.text);
-      if (1 == 1) {
-        if (threadId) {
-          const messageId = await sendMessage('How was school today');
+      if (transcribeResponse.text) {
+        setRecordedText(transcribeResponse.text);
+        if (threadIDRef.current) {
+          const messageId = await sendMessage(
+            transcribeResponse.text,
+            threadIDRef.current,
+          );
           if (messageId) {
-            await runAssistant();
+            await runAssistant(threadIDRef.current);
           }
         }
       }
@@ -145,10 +193,10 @@ const Inputs: React.FC<InputsProps> = ({mode}) => {
     setShowLog(!showLog);
   };
 
-  const handlePlay = async () => {
+  const handlePlay = async (audioPath: string) => {
     try {
-      await audioRecorderPlayer.startPlayer(audioPath);
-      await transcribeAudio();
+      //  await audioRecorderPlayer.startPlayer(audoioAfterRecording);
+      await transcribeAudio(audioPath);
     } catch (error) {
       console.error('Failed to play recording:', error);
     }
@@ -168,27 +216,31 @@ const Inputs: React.FC<InputsProps> = ({mode}) => {
 
   return (
     <View style={styles.container}>
-      {mode === 'Talk' ? (
+      {mode === 'Talk' || mode === 'Attention' ? (
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            onPress={handleRecord}
-            style={[styles.button, isTranscribing && {opacity: 0.5}]}
-            disabled={isTranscribing}>
-            <Text style={styles.buttonText}>
-              {isRecording ? 'Stop' : 'Record'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handlePlay}
-            style={[styles.button, styles.playButton]}
-            disabled={!audioPath}>
-            <Text style={styles.buttonText}>Play</Text>
-          </TouchableOpacity>
           <TouchableOpacity
             onPress={handleShowLog}
             style={[styles.button, styles.playButton]}>
             <Text style={styles.buttonText}>Show Log</Text>
           </TouchableOpacity>
+          {showLog ? (
+            <>
+              <TouchableOpacity
+                onPress={handleRecord}
+                style={[styles.button, isTranscribing && {opacity: 0.5}]}
+                disabled={isTranscribing}>
+                <Text style={styles.buttonText}>
+                  {isRecording ? 'Stop' : 'Record'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => handlePlay(audoioAfterRecording)}
+                style={[styles.button, styles.playButton]}
+                disabled={!audoioAfterRecording}>
+                <Text style={styles.buttonText}>Play</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
         </View>
       ) : (
         <View style={styles.inputContainer}>
@@ -209,7 +261,7 @@ const Inputs: React.FC<InputsProps> = ({mode}) => {
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
