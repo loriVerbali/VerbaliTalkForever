@@ -25,8 +25,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
 
   const sayAnswer = (prompt: string) => {
     Tts.speak(prompt, {
-      iosVoiceId: 'com.apple.ttsbundle.Samantha-compact',
-      rate: 0.556,
+      iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
+      rate: 0.46,
       androidParams: {
         KEY_PARAM_PAN: 0,
         KEY_PARAM_VOLUME: 1,

@@ -53,7 +53,15 @@ const OpenScreen: React.FC = () => {
     });
   };
 
-  const handKeyboard = async () => {};
+  const handKeyboard = async () => {
+    const saa = Tts.voices().then(voices =>
+      voices.filter(a => {
+        return a.language === 'en-US';
+      }),
+    );
+
+    console.log({saa});
+  };
   useEffect(() => {
     Voice.onSpeechResults = async e => {
       const text = e.value?.[0]?.toLowerCase() || '';
