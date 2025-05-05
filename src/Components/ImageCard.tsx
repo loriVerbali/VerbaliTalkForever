@@ -1,7 +1,14 @@
 import React from 'react';
-import {View, Text, StyleSheet, ActivityIndicator} from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  Pressable,
+} from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Config from '../utils/config';
+import Tts from 'react-native-tts';
 
 export interface ImageCardProps {
   images: Array<{url: {url: string}; prompt: string}>;
@@ -16,11 +23,27 @@ const ImageCard: React.FC<ImageCardProps> = ({
 }) => {
   debugger;
 
+  const sayAnswer = (prompt: string) => {
+    Tts.speak(prompt, {
+      iosVoiceId: 'com.apple.ttsbundle.Samantha-compact',
+      rate: 0.556,
+      androidParams: {
+        KEY_PARAM_PAN: 0,
+        KEY_PARAM_VOLUME: 1,
+        KEY_PARAM_STREAM: 'STREAM_MUSIC',
+      },
+    });
+  };
   return (
     <View style={styles.container}>
       {images.map((image, index) => {
         return (
-          <View key={index} style={styles.imageContainer}>
+          <Pressable
+            key={index}
+            style={styles.imageContainer}
+            onPress={() => {
+              sayAnswer(image.prompt);
+            }}>
             <View style={{flexDirection: 'column', alignItems: 'center'}}>
               {Config.picGeneration === 'Gemini' ? (
                 <FastImage
@@ -43,7 +66,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
               )}
               <Text style={{fontWeight: '600'}}>{image.prompt}</Text>
             </View>
-          </View>
+          </Pressable>
         );
       })}
     </View>

@@ -15,6 +15,7 @@ import {views} from '../utils/constants';
 import Voice from '@react-native-voice/voice';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAssistant} from '../contexts/AssistantContext';
+import Tts from 'react-native-tts';
 
 type RootStackParamList = {
   MainTab: {
@@ -52,10 +53,7 @@ const OpenScreen: React.FC = () => {
     });
   };
 
-  const handKeyboard = async () => {
-    debugger;
-    const a = await geminiGenerateImage('I want pancakes');
-  };
+  const handKeyboard = async () => {};
   useEffect(() => {
     Voice.onSpeechResults = async e => {
       const text = e.value?.[0]?.toLowerCase() || '';
