@@ -7,6 +7,8 @@ import React, {
 } from 'react';
 import fetchHelper from '../utils/fetcher';
 import {useAdmin} from './adminContext';
+import {GoogleGenAI, Modality} from '@google/genai';
+import Config from '../utils/config';
 
 const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
 const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
@@ -33,6 +35,7 @@ interface AssistantContextType {
   setRunId: (id: string) => void;
   resetHistory: () => void;
   generateImage: (prompt: string) => Promise<{url: string}>;
+  geminiGenerateImage: (prompt: string) => Promise<string>;
   imageUrls: Array<{url: string; prompt: string}>;
 }
 
@@ -226,6 +229,28 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     }
   };
 
+  const geminiGenerateImage = async (prompt: string) => {
+    debugger;
+    const ai = new GoogleGenAI({apiKey: Config.geminiAPIKey});
+
+    const imagePrompt =
+      'Create a realistic image as an answer to this question or statement ' +
+      prompt;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash-exp-image-generation',
+      contents: imagePrompt,
+      config: {
+        responseModalities: [Modality.IMAGE],
+      },
+    });
+    if (response?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+      return response.candidates[0].content.parts[0].inlineData.data;
+    } else {
+      return 'noImage';
+    }
+  };
+
   const {
     status,
     response,
@@ -241,17 +266,31 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     const generateImages = async () => {
       if (status === 'completed' && possibleAnswers) {
         const newImageUrls: Array<{url: string; prompt: string}> = [];
-        for (const answer of possibleAnswers) {
-          try {
-            const imageURLResponse = await generateImage(answer);
-            if (imageURLResponse?.url) {
-              newImageUrls.push({url: imageURLResponse.url, prompt: answer});
+
+        if (Config.picGeneration === 'Gemini') {
+          for (const answer of possibleAnswers) {
+            const imageURLResponse = await geminiGenerateImage(answer);
+            if (imageURLResponse) {
+              newImageUrls.push({url: imageURLResponse, prompt: answer});
             }
-          } catch (err) {
-            console.error('Failed to generate image for answer:', answer, err);
           }
+        } else {
+          for (const answer of possibleAnswers) {
+            try {
+              const imageURLResponse = await generateImage(answer);
+              if (imageURLResponse?.url) {
+                newImageUrls.push({url: imageURLResponse.url, prompt: answer});
+              }
+            } catch (err) {
+              console.error(
+                'Failed to generate image for answer:',
+                answer,
+                err,
+              );
+            }
+          }
+          setImageUrls(newImageUrls);
         }
-        setImageUrls(newImageUrls);
       }
     };
 
@@ -377,6 +416,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         setRunId,
         resetHistory,
         generateImage,
+        geminiGenerateImage,
         imageUrls,
       }}>
       {children}

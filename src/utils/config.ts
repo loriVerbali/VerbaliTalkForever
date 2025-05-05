@@ -18,6 +18,8 @@ export interface ConfigType {
   openAiUrl: string;
   picsUrl: string;
   openAiKey: string;
+  geminiAPIKey: string;
+  picGeneration: string;
   methods: Record<string, MethodObject>;
 }
 
@@ -25,6 +27,8 @@ const Config: ConfigType = {
   baseUrl: 'https://niche.ink/api',
   openAiUrl: 'https://api.openai.com/v1',
   picsUrl: 'https://image.pollinations.ai/prompt',
+  geminiAPIKey: 'AIzaSyB_8RqAlGXY7UPgN0j8bXsIll59U-P_BaA',
+  picGeneration: 'polli',
   openAiKey:
     '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',
 

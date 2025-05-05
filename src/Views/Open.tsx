@@ -14,6 +14,7 @@ import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
 import Voice from '@react-native-voice/voice';
 import LinearGradient from 'react-native-linear-gradient';
+import {useAssistant} from '../contexts/AssistantContext';
 
 type RootStackParamList = {
   MainTab: {
@@ -32,6 +33,7 @@ const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
   const [recognizedText, setRecognizedText] = useState('');
+  const {geminiGenerateImage} = useAssistant();
   const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetSilenceTimer = () => {
@@ -50,6 +52,10 @@ const OpenScreen: React.FC = () => {
     });
   };
 
+  const handKeyboard = async () => {
+    debugger;
+    const a = await geminiGenerateImage('I want pancakes');
+  };
   useEffect(() => {
     Voice.onSpeechResults = async e => {
       const text = e.value?.[0]?.toLowerCase() || '';
@@ -146,9 +152,7 @@ const OpenScreen: React.FC = () => {
               </Pressable>
             </View>
             <View style={styles.rowContent}>
-              <Pressable
-                style={styles.tileWrapper}
-                onPress={() => handleNavigation('KB')}>
+              <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
                 <FastImage
                   source={require('../assets/keyboard.png')}
                   style={{width: '100%', height: '100%'}}
@@ -215,3 +219,6 @@ const styles = StyleSheet.create({
 });
 
 export default OpenScreen;
+function geminiGenerateImage(arg0: string) {
+  throw new Error('Function not implemented.');
+}
