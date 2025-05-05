@@ -218,7 +218,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(({mode}, ref) => {
     <View style={styles.container}>
       {mode === 'Talk' || mode === 'Attention' ? (
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={handleShowLog}
             style={[styles.button, styles.playButton]}>
             <Text style={styles.buttonText}>Show Log</Text>
@@ -240,7 +240,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(({mode}, ref) => {
                 <Text style={styles.buttonText}>Play</Text>
               </TouchableOpacity>
             </>
-          ) : null}
+          ) : null} */}
         </View>
       ) : (
         <View style={styles.inputContainer}>

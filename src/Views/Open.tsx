@@ -12,10 +12,10 @@ import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
-import Voice from '@react-native-voice/voice';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAssistant} from '../contexts/AssistantContext';
-import Tts from 'react-native-tts';
+import VoiceService from '../utils/VoiceService';
+import TTSService from '../utils/TTSService';
 
 type RootStackParamList = {
   MainTab: {
@@ -35,16 +35,57 @@ const OpenScreen: React.FC = () => {
   const isListening = useRef(false);
   const [recognizedText, setRecognizedText] = useState('');
   const {geminiGenerateImage} = useAssistant();
-  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const resetSilenceTimer = () => {
-    if (silenceTimer.current) {
-      clearTimeout(silenceTimer.current);
-    }
-    silenceTimer.current = setTimeout(() => {
+  // Initialize services on component mount
+  useEffect(() => {
+    const initializeServices = async () => {
+      // Initialize TTS service on component mount
+      await TTSService.initialize();
+
+      // Initialize Voice service and set up callbacks
+      await VoiceService.initialize();
+      VoiceService.setCallbacks(
+        // Handle recognized text
+        text => {
+          setRecognizedText(text);
+
+          // Check for navigation keywords
+          if (
+            text.toLowerCase().includes('verbali') ||
+            text.toLowerCase().includes('verbbali') ||
+            text.toLowerCase().includes('verbally')
+          ) {
+            VoiceService.stopListening();
+            isListening.current = false;
+            navigation.navigate('MainTab', {
+              screen: views.HOME,
+              params: {stateof: 'Attention'},
+            });
+          }
+        },
+        // Handle status changes
+        (status, error) => {
+          if (status === 'error' && error) {
+            console.error('Voice recognition error:', error);
+            isListening.current = false;
+          } else if (status === 'stopped') {
+            isListening.current = false;
+          }
+        },
+      );
+    };
+
+    initializeServices();
+
+    // Clean up on unmount
+    return () => {
+      // Reset voice and text state
       setRecognizedText('');
-    }, 2000);
-  };
+      if (isListening.current) {
+        VoiceService.stopListening();
+      }
+    };
+  }, []);
 
   const handleNavigation = (state: string) => {
     navigation.navigate('MainTab', {
@@ -54,50 +95,19 @@ const OpenScreen: React.FC = () => {
   };
 
   const handKeyboard = async () => {
-    const saa = Tts.voices().then(voices =>
-      voices.filter(a => {
-        return a.language === 'en-US';
-      }),
-    );
-
-    console.log({saa});
+    // Use our optimized TTS service instead
+    TTSService.speak('Keyboard selected');
   };
-  useEffect(() => {
-    Voice.onSpeechResults = async e => {
-      const text = e.value?.[0]?.toLowerCase() || '';
-      console.log(text);
-      setRecognizedText(text);
-      resetSilenceTimer();
-
-      if (
-        text.toLowerCase().includes('verbali') ||
-        text.toLowerCase().includes('verbbali') ||
-        text.toLowerCase().includes('verbally')
-      ) {
-        await Voice.stop();
-        isListening.current = false;
-        navigation.navigate('MainTab', {
-          screen: views.HOME,
-          params: {stateof: 'Attention'},
-        });
-      }
-    };
-
-    return () => {
-      if (silenceTimer.current) {
-        clearTimeout(silenceTimer.current);
-      }
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  }, []);
 
   const startListening = async () => {
     if (!isListening.current) {
       isListening.current = true;
-      try {
-        await Voice.start('en-US');
-      } catch (e) {
-        console.error(e);
+      const success = await VoiceService.startListening(2000, 8000);
+      if (success) {
+        setRecognizedText('Listening...');
+      } else {
+        setRecognizedText('Failed to start listening');
+        isListening.current = false;
       }
     }
   };
