@@ -8,6 +8,7 @@ import {
   Platform,
   Modal,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import {
   useNavigation,
@@ -28,21 +29,22 @@ import {useSound} from '../contexts/soundContext';
 const {width, height} = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: {stateof: string};
+  Home: {stateof?: string};
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 
 interface HomeScreenProps {
-  route: HomeScreenRouteProp;
+  route?: HomeScreenRouteProp;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {imageUrls} = useAssistant();
+  const {imageUrls, status} = useAssistant();
   const {showLog} = useAdmin();
   const stateof = route?.params?.stateof ?? '';
   const [attentionSound, setAttentionSound] = useState<Sound | null>(null);
   const [showTranscription, setShowTranscription] = useState(false);
+  const [transcribedText, setTranscribedText] = useState('');
   const inputsRef = useRef<InputsRef>(null);
   const lastSoundTimeRef = useRef<number>(Date.now());
   const {playAttention} = useSound();
@@ -55,13 +57,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   const playSound = async () => {
     const res = await playAttention();
-    // if (res) {
-    //   inputsRef.current?.handleRecord();
-    // } else inputsRef.current?.handleRecord();
+    if (!inputsRef.current?.isRecording) {
+      inputsRef.current?.handleRecord();
+    }
   };
 
   const toggleTranscription = () => {
     setShowTranscription(!showTranscription);
+  };
+
+  const handleTranscriptionUpdate = (text: string) => {
+    setTranscribedText(text);
   };
 
   return (
@@ -73,7 +79,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           <Text style={styles.buttonText}>Show Transcript</Text>
         </TouchableOpacity>
       )}
-      <Inputs ref={inputsRef} mode={stateof} />
+      <Inputs
+        ref={inputsRef}
+        mode={stateof}
+        onTranscriptionUpdate={handleTranscriptionUpdate}
+      />
       <View style={styles.contentContainer}>
         <Modal
           visible={showTranscription}
@@ -88,13 +98,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                   <Text style={styles.closeButton}>Close</Text>
                 </TouchableOpacity>
               </View>
-              <Transcription />
+              <Transcription text={transcribedText} />
             </View>
           </View>
         </Modal>
 
         <View style={styles.imageCardContainer}>
-          {imageUrls?.length > 0 ? <ImageGallery images={imageUrls} /> : null}
+          {status === 'completed' && imageUrls?.length > 0 ? (
+            <ImageGallery images={imageUrls} />
+          ) : status === 'in_progress' ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size={60} color="#007AFF" />
+              <Text style={styles.loadingText}>Generating images...</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -104,6 +121,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '',
   },
   contentContainer: {
     flex: 1,
@@ -167,6 +185,18 @@ const styles = StyleSheet.create({
   imageCardContainer: {
     width: '100%',
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });
 

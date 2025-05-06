@@ -12,14 +12,38 @@ import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
 import {ConnectionProvider} from './utils/connection';
 import {AdminProvider} from './contexts/adminContext';
+import TTSService from './utils/TTSService';
+import VoiceService from './utils/VoiceService';
+import {SoundProvider} from './contexts/soundContext';
 
 const App = () => {
+  // Initialize voice and TTS services at app level for better performance
+  useEffect(() => {
+    const initServices = async () => {
+      // Initialize TTS service when the app starts
+      await TTSService.initialize();
+
+      // Pre-initialize Voice service
+      await VoiceService.initialize();
+    };
+
+    initServices();
+
+    // Clean up resources when app is closed
+    return () => {
+      TTSService.shutdown();
+      VoiceService.destroy();
+    };
+  }, []);
+
   return (
     <>
       <ConnectionProvider>
         <AppSettingsProvider>
           <AdminProvider>
-            <RootControllerView />
+            <SoundProvider>
+              <RootControllerView />
+            </SoundProvider>
           </AdminProvider>
         </AppSettingsProvider>
       </ConnectionProvider>

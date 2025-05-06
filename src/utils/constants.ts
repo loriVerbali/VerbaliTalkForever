@@ -16,6 +16,8 @@ type Views = {
   ONBOARDING: string;
   LOGGEDINSTACK: string;
   OPEN: string;
+  FEELINGS: string;
+  SHORTCUTS: string;
 };
 
 type Stacks = {
@@ -50,6 +52,8 @@ export const views: Views = {
   ABOUTUS: 'view.ABOUTUS',
   CONTACT: 'view.CONTACT',
   OPEN: 'view.OPEN',
+  FEELINGS: 'view.FEELINGS',
+  SHORTCUTS: 'view.SHORTCUTS',
 };
 
 export const stacks: Stacks = {

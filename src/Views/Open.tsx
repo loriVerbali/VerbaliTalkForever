@@ -6,6 +6,8 @@ import {
   Dimensions,
   StatusBar,
   Pressable,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
 import {useBottomTabBarHeight} from '@react-navigation/bottom-tabs';
 import {useNavigation} from '@react-navigation/native';
@@ -22,6 +24,8 @@ type RootStackParamList = {
     screen: string;
     params: {stateof: string};
   };
+  FEELINGS: undefined;
+  SHORTCUTS: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -34,10 +38,17 @@ const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
   const [recognizedText, setRecognizedText] = useState('');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const {geminiGenerateImage} = useAssistant();
 
-  // Initialize services on component mount
   useEffect(() => {
+    // Fade in when the screen mounts
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
     const initializeServices = async () => {
       // Initialize TTS service on component mount
       await TTSService.initialize();
@@ -88,9 +99,16 @@ const OpenScreen: React.FC = () => {
   }, []);
 
   const handleNavigation = (state: string) => {
-    navigation.navigate('MainTab', {
-      screen: views.HOME,
-      params: {stateof: state},
+    // Start fade out before navigation
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start(() => {
+      navigation.navigate('MainTab', {
+        screen: views.HOME,
+        params: {stateof: state},
+      });
     });
   };
 
@@ -113,12 +131,18 @@ const OpenScreen: React.FC = () => {
   };
 
   return (
-    <LinearGradient colors={['#edeafd', '#f3f4fb']} style={{flex: 1}}>
-      <View style={styles.container}>
-        <Pressable style={styles.microphoneButton}>
+    <Animated.View style={[{flex: 1, opacity: fadeAnim}]}>
+      <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+        <Pressable
+          style={styles.microphoneButton}
+          onPress={startListening}
+          disabled={isListening.current}>
           <FastImage
             source={require('../assets/microphone.png')}
-            style={styles.microphoneImage}
+            style={[
+              styles.microphoneImage,
+              isListening.current && {opacity: 0.5},
+            ]}
             resizeMode={FastImage.resizeMode.contain}
           />
         </Pressable>
@@ -141,7 +165,18 @@ const OpenScreen: React.FC = () => {
               </Pressable>
             </View>
             <View style={styles.rowContent}>
-              <Pressable style={styles.tileWrapper} onPress={startListening}>
+              <Pressable
+                style={styles.tileWrapper}
+                onPress={() => {
+                  // Start fade out before navigation
+                  Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 500,
+                    useNativeDriver: true,
+                  }).start(() => {
+                    navigation.navigate(views.SHORTCUTS);
+                  });
+                }}>
                 <FastImage
                   source={require('../assets/shortCuts.png')}
                   style={{width: '100%', height: '100%'}}
@@ -158,7 +193,18 @@ const OpenScreen: React.FC = () => {
               height: height / 2 - tabBarHeight / 2,
             }}>
             <View style={styles.rowContent}>
-              <Pressable style={styles.tileWrapper}>
+              <Pressable
+                style={styles.tileWrapper}
+                onPress={() => {
+                  // Start fade out before navigation
+                  Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 500,
+                    useNativeDriver: true,
+                  }).start(() => {
+                    navigation.navigate(views.FEELINGS);
+                  });
+                }}>
                 <FastImage
                   source={require('../assets/feelings.png')}
                   style={{width: '100%', height: '100%'}}
@@ -167,6 +213,7 @@ const OpenScreen: React.FC = () => {
                 <Text style={styles.kidText}>How I Feel</Text>
               </Pressable>
             </View>
+
             <View style={styles.rowContent}>
               <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
                 <FastImage
@@ -179,8 +226,8 @@ const OpenScreen: React.FC = () => {
             </View>
           </View>
         </View>
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </Animated.View>
   );
 };
 
