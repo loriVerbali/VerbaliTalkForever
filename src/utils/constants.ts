@@ -18,6 +18,7 @@ type Views = {
   OPEN: string;
   FEELINGS: string;
   SHORTCUTS: string;
+  CONVO: string;
 };
 
 type Stacks = {
@@ -40,7 +41,7 @@ type CarouselItem = {
 
 // Export the constants with types
 export const views: Views = {
-  HOME: 'view.HOME',
+  HOME: 'HOME',
   SETTINGS: 'view.SETTINGS',
   AUTHORS: 'AUTHORS',
   INITVIEW: 'view.INITVIEW',
@@ -52,8 +53,9 @@ export const views: Views = {
   ABOUTUS: 'view.ABOUTUS',
   CONTACT: 'view.CONTACT',
   OPEN: 'view.OPEN',
-  FEELINGS: 'view.FEELINGS',
-  SHORTCUTS: 'view.SHORTCUTS',
+  FEELINGS: 'FEELINGS',
+  SHORTCUTS: 'SHORTCUTS',
+  CONVO: 'Convo',
 };
 
 export const stacks: Stacks = {

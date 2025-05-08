@@ -41,28 +41,24 @@ const leftEmotions: EmotionLevel[] = [
     icon: '😤',
   },
   {
-    emotion: 'WORRIED',
-    color: '#F57F17',
-    icon: '😟',
-  },
-  {
     emotion: 'SAD',
     color: '#0277BD',
     icon: '😢',
   },
   {
-    emotion: 'FINE',
-    color: '#2E7D32',
-    icon: '😌',
+    emotion: 'WORRIED',
+    color: '#F57F17',
+    icon: '😟',
   },
-];
-
-const rightEmotions: EmotionLevel[] = [
   {
     emotion: 'BORED',
     color: '#6A1B9A',
     icon: '😑',
   },
+];
+
+const rightEmotions: EmotionLevel[] = [
+  {emotion: 'FINE', color: '#2E7D32', icon: '😌'},
   {
     emotion: 'HAPPY',
     color: '#00695C',

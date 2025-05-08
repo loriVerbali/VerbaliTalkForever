@@ -15,6 +15,7 @@ import {AdminProvider} from './contexts/adminContext';
 import TTSService from './utils/TTSService';
 import VoiceService from './utils/VoiceService';
 import {SoundProvider} from './contexts/soundContext';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 
 const App = () => {
   // Initialize voice and TTS services at app level for better performance
@@ -38,15 +39,17 @@ const App = () => {
 
   return (
     <>
-      <ConnectionProvider>
-        <AppSettingsProvider>
-          <AdminProvider>
-            <SoundProvider>
-              <RootControllerView />
-            </SoundProvider>
-          </AdminProvider>
-        </AppSettingsProvider>
-      </ConnectionProvider>
+      <GestureHandlerRootView>
+        <ConnectionProvider>
+          <AppSettingsProvider>
+            <AdminProvider>
+              <SoundProvider>
+                <RootControllerView />
+              </SoundProvider>
+            </AdminProvider>
+          </AppSettingsProvider>
+        </ConnectionProvider>
+      </GestureHandlerRootView>
     </>
   );
 };

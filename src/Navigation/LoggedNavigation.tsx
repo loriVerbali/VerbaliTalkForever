@@ -13,6 +13,7 @@ import {SoundProvider} from '../contexts/soundContext';
 import OpenScreen from '../Views/Open';
 import FeelingsScreen from '../Views/Feelings';
 import ShortCutsScreen from '../Views/ShortCuts';
+import Convo from '../Views/Convo';
 
 const HomeStack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -42,6 +43,13 @@ function LoggedNavigation() {
           <HomeStack.Screen
             name={views.SHORTCUTS}
             component={ShortCutsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <HomeStack.Screen
+            name={views.CONVO}
+            component={Convo}
             options={{
               headerShown: false,
             }}

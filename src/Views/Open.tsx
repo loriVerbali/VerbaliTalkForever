@@ -26,6 +26,7 @@ type RootStackParamList = {
   };
   FEELINGS: undefined;
   SHORTCUTS: undefined;
+  CONVO: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -105,16 +106,49 @@ const OpenScreen: React.FC = () => {
       duration: 500,
       useNativeDriver: true,
     }).start(() => {
-      navigation.navigate('MainTab', {
-        screen: views.HOME,
-        params: {stateof: state},
-      });
+      if (state === 'Talk') {
+        navigation.navigate('Convo' as const);
+      } else {
+        navigation.navigate('MainTab', {
+          screen: views.HOME,
+          params: {stateof: state},
+        });
+      }
     });
   };
 
   const handKeyboard = async () => {
     // Use our optimized TTS service instead
-    TTSService.speak('Keyboard selected');
+    console.log('Starting image generation');
+    const options = {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        authorization:
+          'Bearer 87b780bc3a3781f203761cefffb755fb39d9f061b8840f066df0279b80f2647a',
+      },
+      body: JSON.stringify({
+        model: 'black-forest-labs/FLUX.1-schnell-Free',
+        steps: 4,
+        n: 1,
+        height: 256,
+        width: 256,
+        guidance: 3.5,
+        output_format: 'jpeg',
+        prompt: 'create an image of a kid describing a feeling of sadness',
+        image_url: 'string',
+        seed: 0,
+        negative_prompt: 'string',
+        response_format: 'url',
+      }),
+    };
+
+    fetch('https://api.together.xyz/v1/images/generations', options)
+      .then(res => res.json())
+      .then(res => console.log(res))
+      .catch(err => console.error(err));
+    // TTSService.speak('Keyboard selected');
   };
 
   const startListening = async () => {
@@ -168,13 +202,12 @@ const OpenScreen: React.FC = () => {
               <Pressable
                 style={styles.tileWrapper}
                 onPress={() => {
-                  // Start fade out before navigation
                   Animated.timing(fadeAnim, {
                     toValue: 0,
                     duration: 500,
                     useNativeDriver: true,
                   }).start(() => {
-                    navigation.navigate(views.SHORTCUTS);
+                    navigation.navigate('SHORTCUTS' as const);
                   });
                 }}>
                 <FastImage
@@ -196,13 +229,12 @@ const OpenScreen: React.FC = () => {
               <Pressable
                 style={styles.tileWrapper}
                 onPress={() => {
-                  // Start fade out before navigation
                   Animated.timing(fadeAnim, {
                     toValue: 0,
                     duration: 500,
                     useNativeDriver: true,
                   }).start(() => {
-                    navigation.navigate(views.FEELINGS);
+                    navigation.navigate('FEELINGS' as const);
                   });
                 }}>
                 <FastImage
