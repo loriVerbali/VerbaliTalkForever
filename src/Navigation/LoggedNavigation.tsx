@@ -10,8 +10,10 @@ import HomeScreen from '../Views/Home';
 import {views} from '../utils/constants';
 import {AssistantProvider} from '../contexts/AssistantContext';
 import {SoundProvider} from '../contexts/soundContext';
-
 import OpenScreen from '../Views/Open';
+import FeelingsScreen from '../Views/Feelings';
+import ShortCutsScreen from '../Views/ShortCuts';
+import Convo from '../Views/Convo';
 
 const HomeStack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -31,12 +33,32 @@ function LoggedNavigation() {
             component={MainTabs}
             name={'MainTab'}
           />
+          <HomeStack.Screen
+            name={views.FEELINGS}
+            component={FeelingsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <HomeStack.Screen
+            name={views.SHORTCUTS}
+            component={ShortCutsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <HomeStack.Screen
+            name={views.CONVO}
+            component={Convo}
+            options={{
+              headerShown: false,
+            }}
+          />
         </HomeStack.Navigator>
       </SoundProvider>
     </AssistantProvider>
   );
 }
-export default LoggedNavigation;
 
 const MainTabs = () => {
   return (
@@ -64,7 +86,7 @@ const MainTabs = () => {
       />
       <Tabs.Screen
         name={views.HOME}
-        component={(props: any) => <HomeScreen {...props} />}
+        component={HomeScreen}
         options={{
           tabBarLabel: '',
           headerShown: false,
@@ -74,3 +96,5 @@ const MainTabs = () => {
     </Tabs.Navigator>
   );
 };
+
+export default LoggedNavigation;

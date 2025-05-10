@@ -1,32 +1,14 @@
 import React from 'react';
-import {View, Text, ScrollView, StyleSheet} from 'react-native';
-import {useAssistant} from '../contexts/AssistantContext';
+import {View, Text, StyleSheet, ScrollView} from 'react-native';
 
-const Transcription: React.FC = () => {
-  const {history} = useAssistant();
+interface TranscriptionProps {
+  text: string;
+}
 
+const Transcription: React.FC<TranscriptionProps> = ({text}) => {
   return (
     <ScrollView style={styles.container}>
-      {history.map((item, index) => (
-        <View
-          key={index}
-          style={[
-            styles.historyItem,
-            item.isUserInput ? styles.userMessage : styles.assistantMessage,
-          ]}>
-          <Text style={styles.timestamp}>
-            {item.timestamp.toLocaleTimeString()}
-          </Text>
-          <Text
-            style={[
-              styles.messageText,
-              item.type === 'error' && styles.errorText,
-              item.type === 'status' && styles.statusText,
-            ]}>
-            {item.content}
-          </Text>
-        </View>
-      ))}
+      <Text style={styles.text}>{text}</Text>
     </ScrollView>
   );
 };
@@ -36,33 +18,10 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 10,
   },
-  historyItem: {
-    padding: 8,
-    marginVertical: 4,
-    borderRadius: 8,
-  },
-  userMessage: {
-    backgroundColor: '#E3F2FD',
-    alignSelf: 'flex-end',
-  },
-  assistantMessage: {
-    backgroundColor: '#F5F5F5',
-    alignSelf: 'flex-start',
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  messageText: {
+  text: {
     fontSize: 16,
-  },
-  errorText: {
-    color: 'red',
-  },
-  statusText: {
-    color: '#666',
-    fontStyle: 'italic',
+    color: '#333',
+    lineHeight: 24,
   },
 });
 

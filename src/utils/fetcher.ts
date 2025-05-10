@@ -113,7 +113,6 @@ const fetchHelper = async (
     console.log({url});
     console.log({methodName});
     console.log({request});
-    debugger;
   }
 
   // Use fetchWithRetry for the request

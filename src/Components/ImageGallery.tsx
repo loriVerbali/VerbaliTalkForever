@@ -6,12 +6,14 @@ interface ImageGalleryProps {
   images: Array<{url: {url: string}; prompt: string}>;
   imageWidth?: number;
   imageHeight?: number;
+  onRefresh?: () => void;
 }
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({
   images,
   imageWidth = 200,
   imageHeight = 200,
+  onRefresh,
 }) => {
   // Group images into chunks of 3 for display
   const imageGroups = [];
@@ -22,7 +24,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     <ScrollView style={styles.container}>
       {imageGroups.map((group, index) => (
         <View key={index} style={styles.row}>
-          <ImageCard images={group} width={imageWidth} height={imageHeight} />
+          <ImageCard
+            images={group}
+            width={imageWidth}
+            height={imageHeight}
+            onRefresh={onRefresh}
+          />
         </View>
       ))}
     </ScrollView>
@@ -32,6 +39,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    borderRadius: 10,
   },
   row: {
     flexDirection: 'row',

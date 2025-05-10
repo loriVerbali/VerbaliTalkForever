@@ -6,20 +6,27 @@ import {
   Dimensions,
   StatusBar,
   Pressable,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
 import {useBottomTabBarHeight} from '@react-navigation/bottom-tabs';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
-import Voice from '@react-native-voice/voice';
 import LinearGradient from 'react-native-linear-gradient';
+import {useAssistant} from '../contexts/AssistantContext';
+import VoiceService from '../utils/VoiceService';
+import TTSService from '../utils/TTSService';
 
 type RootStackParamList = {
   MainTab: {
     screen: string;
     params: {stateof: string};
   };
+  FEELINGS: undefined;
+  SHORTCUTS: undefined;
+  CONVO: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -32,71 +39,144 @@ const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
   const [recognizedText, setRecognizedText] = useState('');
-  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const {geminiGenerateImage} = useAssistant();
 
-  const resetSilenceTimer = () => {
-    if (silenceTimer.current) {
-      clearTimeout(silenceTimer.current);
-    }
-    silenceTimer.current = setTimeout(() => {
+  useEffect(() => {
+    // Fade in when the screen mounts
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    const initializeServices = async () => {
+      // Initialize TTS service on component mount
+      await TTSService.initialize();
+
+      // Initialize Voice service and set up callbacks
+      await VoiceService.initialize();
+      VoiceService.setCallbacks(
+        // Handle recognized text
+        text => {
+          setRecognizedText(text);
+
+          // Check for navigation keywords
+          if (
+            text.toLowerCase().includes('verbali') ||
+            text.toLowerCase().includes('verbbali') ||
+            text.toLowerCase().includes('verbally')
+          ) {
+            VoiceService.stopListening();
+            isListening.current = false;
+            navigation.navigate('MainTab', {
+              screen: views.HOME,
+              params: {stateof: 'Attention'},
+            });
+          }
+        },
+        // Handle status changes
+        (status, error) => {
+          if (status === 'error' && error) {
+            console.error('Voice recognition error:', error);
+            isListening.current = false;
+          } else if (status === 'stopped') {
+            isListening.current = false;
+          }
+        },
+      );
+    };
+
+    initializeServices();
+
+    // Clean up on unmount
+    return () => {
+      // Reset voice and text state
       setRecognizedText('');
-    }, 2000);
-  };
+      if (isListening.current) {
+        VoiceService.stopListening();
+      }
+    };
+  }, []);
 
   const handleNavigation = (state: string) => {
-    navigation.navigate('MainTab', {
-      screen: views.HOME,
-      params: {stateof: state},
+    // Start fade out before navigation
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start(() => {
+      if (state === 'Talk') {
+        navigation.navigate('Convo' as const);
+      } else {
+        navigation.navigate('MainTab', {
+          screen: views.HOME,
+          params: {stateof: state},
+        });
+      }
     });
   };
 
-  useEffect(() => {
-    Voice.onSpeechResults = async e => {
-      const text = e.value?.[0]?.toLowerCase() || '';
-      console.log(text);
-      setRecognizedText(text);
-      resetSilenceTimer();
-
-      if (
-        text.toLowerCase().includes('verbali') ||
-        text.toLowerCase().includes('verbbali') ||
-        text.toLowerCase().includes('verbally')
-      ) {
-        await Voice.stop();
-        isListening.current = false;
-        navigation.navigate('MainTab', {
-          screen: views.HOME,
-          params: {stateof: 'Attention'},
-        });
-      }
+  const handKeyboard = async () => {
+    // Use our optimized TTS service instead
+    console.log('Starting image generation');
+    const options = {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        authorization:
+          'Bearer 87b780bc3a3781f203761cefffb755fb39d9f061b8840f066df0279b80f2647a',
+      },
+      body: JSON.stringify({
+        model: 'black-forest-labs/FLUX.1-schnell-Free',
+        steps: 4,
+        n: 1,
+        height: 256,
+        width: 256,
+        guidance: 3.5,
+        output_format: 'jpeg',
+        prompt: 'create an image of a kid describing a feeling of sadness',
+        image_url: 'string',
+        seed: 0,
+        negative_prompt: 'string',
+        response_format: 'url',
+      }),
     };
 
-    return () => {
-      if (silenceTimer.current) {
-        clearTimeout(silenceTimer.current);
-      }
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  }, []);
+    fetch('https://api.together.xyz/v1/images/generations', options)
+      .then(res => res.json())
+      .then(res => console.log(res))
+      .catch(err => console.error(err));
+    // TTSService.speak('Keyboard selected');
+  };
 
   const startListening = async () => {
     if (!isListening.current) {
       isListening.current = true;
-      try {
-        await Voice.start('en-US');
-      } catch (e) {
-        console.error(e);
+      const success = await VoiceService.startListening(2000, 8000);
+      if (success) {
+        setRecognizedText('Listening...');
+      } else {
+        setRecognizedText('Failed to start listening');
+        isListening.current = false;
       }
     }
   };
 
   return (
-    <LinearGradient colors={['#edeafd', '#f3f4fb']} style={{flex: 1}}>
-      <View style={styles.container}>
-        <Pressable style={styles.microphoneButton}>
+    <Animated.View style={[{flex: 1, opacity: fadeAnim}]}>
+      <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+        <Pressable
+          style={styles.microphoneButton}
+          onPress={startListening}
+          disabled={isListening.current}>
           <FastImage
             source={require('../assets/microphone.png')}
-            style={styles.microphoneImage}
+            style={[
+              styles.microphoneImage,
+              isListening.current && {opacity: 0.5},
+            ]}
             resizeMode={FastImage.resizeMode.contain}
           />
         </Pressable>
@@ -119,7 +199,17 @@ const OpenScreen: React.FC = () => {
               </Pressable>
             </View>
             <View style={styles.rowContent}>
-              <Pressable style={styles.tileWrapper} onPress={startListening}>
+              <Pressable
+                style={styles.tileWrapper}
+                onPress={() => {
+                  Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 500,
+                    useNativeDriver: true,
+                  }).start(() => {
+                    navigation.navigate('SHORTCUTS' as const);
+                  });
+                }}>
                 <FastImage
                   source={require('../assets/shortCuts.png')}
                   style={{width: '100%', height: '100%'}}
@@ -136,7 +226,17 @@ const OpenScreen: React.FC = () => {
               height: height / 2 - tabBarHeight / 2,
             }}>
             <View style={styles.rowContent}>
-              <Pressable style={styles.tileWrapper}>
+              <Pressable
+                style={styles.tileWrapper}
+                onPress={() => {
+                  Animated.timing(fadeAnim, {
+                    toValue: 0,
+                    duration: 500,
+                    useNativeDriver: true,
+                  }).start(() => {
+                    navigation.navigate('FEELINGS' as const);
+                  });
+                }}>
                 <FastImage
                   source={require('../assets/feelings.png')}
                   style={{width: '100%', height: '100%'}}
@@ -145,10 +245,9 @@ const OpenScreen: React.FC = () => {
                 <Text style={styles.kidText}>How I Feel</Text>
               </Pressable>
             </View>
+
             <View style={styles.rowContent}>
-              <Pressable
-                style={styles.tileWrapper}
-                onPress={() => handleNavigation('KB')}>
+              <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
                 <FastImage
                   source={require('../assets/keyboard.png')}
                   style={{width: '100%', height: '100%'}}
@@ -159,8 +258,8 @@ const OpenScreen: React.FC = () => {
             </View>
           </View>
         </View>
-      </View>
-    </LinearGradient>
+      </LinearGradient>
+    </Animated.View>
   );
 };
 
@@ -215,3 +314,6 @@ const styles = StyleSheet.create({
 });
 
 export default OpenScreen;
+function geminiGenerateImage(arg0: string) {
+  throw new Error('Function not implemented.');
+}
