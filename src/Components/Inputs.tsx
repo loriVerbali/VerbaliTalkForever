@@ -48,14 +48,19 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [audioPath, setAudioPath] = useState<string>('');
     const [inputText, setInputText] = useState<string>('');
-    const {createThread, sendMessage, runAssistant, resetHistory, threadId} =
-      useAssistant();
+    const {
+      createThreadIfNeeded,
+      sendMessage,
+      runAssistant,
+      resetHistory,
+      threadId,
+    } = useAssistant();
     const {showLog, setShowLog} = useAdmin();
     const isRecordingRef = useRef(false);
     const lastSoundTimeRef = useRef(0);
     const threadIDRef = useRef('');
     const metering = useRef<number>(-100);
-    const recordingTimer = useRef<NodeJS.Timeout | null>(null);
+    const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Initialize TTSService once when component mounts
     useEffect(() => {
@@ -113,7 +118,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
           return;
         }
 
-        threadIDRef.current = await createThread();
+        threadIDRef.current = await createThreadIfNeeded();
         const currentTime = Date.now();
         setIsRecording(true);
         isRecordingRef.current = true;
@@ -248,6 +253,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
             const messageId = await sendMessage(
               transcribedText,
               threadIDRef.current,
+              'questions',
             );
             if (messageId) {
               await runAssistant(threadIDRef.current);
@@ -274,8 +280,8 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
       if (!inputText.trim()) return;
 
       resetHistory();
-      createThread();
-      const messageId = await sendMessage(inputText);
+      createThreadIfNeeded();
+      const messageId = await sendMessage(inputText, undefined, 'questions');
       if (messageId) {
         await runAssistant();
       }

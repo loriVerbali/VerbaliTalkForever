@@ -7,6 +7,8 @@ interface Preferences {
   wasWelcomed: string;
   showInit: string;
   token: string;
+  threadId: string;
+  threadCreatedAt: string;
 }
 
 const initEnum = {
@@ -27,6 +29,8 @@ const initialPreferences: Preferences = {
   wasWelcomed: initEnum.false,
   showInit: initEnum.false,
   token: initEnum.notSet,
+  threadId: '',
+  threadCreatedAt: '',
 };
 
 interface AppSettingsContextProps {

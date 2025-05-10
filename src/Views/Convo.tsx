@@ -17,10 +17,12 @@ import TTSService from '../utils/TTSService';
 import {views} from '../utils/constants';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
+import {useAssistant} from '../contexts/AssistantContext';
 
-type Topic = 'Talk' | 'Play';
-type Action = 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
+type Topic = 'NA' | 'Talk' | 'Play';
+type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
 type Object =
+  | 'NA'
   | 'hello'
   | 'goodbye'
   | 'please'
@@ -75,10 +77,18 @@ const Convo = () => {
   const [inputText, setInputText] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
+  // Get assistant context
+  const {
+    createThreadIfNeeded,
+    sendMessage,
+    runAssistant,
+    resetHistory,
+    response,
+  } = useAssistant();
+
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const scrollViewRef = useRef<ScrollView>(null);
   const speakerCarouselRef = useRef<ICarouselInstance>(null);
   const audienceCarouselRef = useRef<ICarouselInstance>(null);
   const sentenceTypeCarouselRef = useRef<ICarouselInstance>(null);
@@ -95,22 +105,16 @@ const Convo = () => {
   const [topicIndex, setTopicIndex] = useState(0);
   const [actionIndex, setActionIndex] = useState(0);
   const [objectIndex, setObjectIndex] = useState(0);
+  const [topic, setTopic] = useState<Topic>('NA');
+  const [action, setAction] = useState<Action>('NA');
+  const [object, setObject] = useState<Object>('NA');
 
-  // Define actions for each topic
-  const topicActions: Record<Topic, Action[]> = {
-    Talk: ['say', 'ask', 'tell'],
-    Play: ['run', 'jump', 'dance'],
-  };
-
-  // Define objects for each action
-  const actionObjects: Record<Action, Object[]> = {
-    say: ['hello', 'goodbye', 'please'],
-    ask: ['question', 'help', 'permission'],
-    tell: ['story', 'joke', 'secret'],
-    run: ['fast', 'slow', 'together'],
-    jump: ['high', 'low', 'rope'],
-    dance: ['music', 'party', 'together'],
-  };
+  // Add states for dynamic topics, actions and objects
+  const [availableTopics, setAvailableTopics] = useState<Topic[]>([]);
+  const [availableActions, setAvailableActions] = useState<Action[]>([]);
+  const [availableObjects, setAvailableObjects] = useState<Object[]>([]);
+  const [generatedSentence, setGeneratedSentence] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Update input text when sentence changes
   useEffect(() => {
@@ -123,6 +127,248 @@ const Convo = () => {
       );
     }
   }, [sentence]);
+
+  // Helper to parse JSON responses from the assistant
+  const parseAssistantResponse = (jsonString: any) => {
+    console.log('🔍 Attempting to parse assistant response:', jsonString);
+    try {
+      if (jsonString?.response) {
+        console.log('✅ Successfully parsed response:', jsonString.response);
+        return jsonString.response;
+      } else {
+        console.log('❌ No response found in JSON string');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error parsing assistant response:', error);
+      return null;
+    }
+  };
+
+  // Helper function to use the Assistant API
+  const callAssistant = async (mode: string, prompt: string) => {
+    console.log(`🔄 Starting assistant call - Mode: ${mode}`);
+    console.log(`📤 Prompt: ${prompt}`);
+    try {
+      setIsLoading(true);
+
+      // Create a thread if needed
+      console.log('📋 Checking if a new thread is needed...');
+      const threadId = await createThreadIfNeeded();
+      console.log(`🧵 Using thread ID: ${threadId}`);
+
+      // Prepare the message with the mode and content
+      // Format the message to clearly indicate the mode for the assistant
+      const message = `${prompt}`;
+      console.log(`💬 Sending message with mode ${mode}:`, message);
+
+      // Send the message
+      const messageId = await sendMessage(
+        message,
+        undefined,
+        mode as 'object' | 'topic' | 'action' | 'questions' | 'sentence',
+      );
+      console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
+
+      // Run the assistant
+      console.log('🤖 Running assistant...');
+      const runId = await runAssistant();
+      console.log(`🏃 Assistant run started with ID: ${runId}`);
+
+      console.log('⏳ Waiting for assistant response...');
+      return true;
+    } catch (error) {
+      console.error(`❌ Error calling assistant in ${mode} mode:`, error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  // Handle assistant responses
+  useEffect(() => {
+    if (response) {
+      console.log('📩 Received assistant response:', response);
+      try {
+        // Handle the response based on its modeType
+        if (response.modeType === 'topic') {
+          try {
+            const topicsArray = JSON.parse(response.response);
+            if (Array.isArray(topicsArray) && topicsArray.length > 0) {
+              console.log('📋 Got topics array:', topicsArray);
+              setAvailableTopics(topicsArray.slice(0, 4) as Topic[]);
+              console.log('✅ Topics updated');
+            }
+          } catch (error) {
+            console.error('Error parsing topics:', error);
+          }
+        } else if (response.modeType === 'action') {
+          try {
+            const actionsData = JSON.parse(response.response);
+            if (actionsData && Array.isArray(actionsData)) {
+              console.log('🎯 Got actions:', actionsData);
+              setAvailableActions(actionsData.slice(0, 4) as Action[]);
+              //setSentence({...sentence, action: '', object: ''});
+              console.log(
+                '✅ Actions updated, cleared action and object selections',
+              );
+            }
+          } catch (error) {
+            console.error('Error parsing actions:', error);
+          }
+        } else if (response.modeType === 'object') {
+          try {
+            const objectsData = JSON.parse(response.response);
+            if (objectsData && Array.isArray(objectsData)) {
+              console.log('📦 Got objects:', objectsData);
+              setAvailableObjects(objectsData.slice(0, 4) as Object[]);
+              // setSentence({...sentence, object: ''});
+              console.log('✅ Objects updated, cleared object selection');
+            }
+          } catch (error) {
+            console.error('Error parsing objects:', error);
+          }
+        } else if (response.modeType === 'sentence') {
+          try {
+            const sentenceData = response?.response;
+
+            if (sentenceData) {
+              console.log('📝 Got generated sentence:', sentenceData);
+              setGeneratedSentence(sentenceData);
+              setInputText(sentenceData);
+              console.log('✅ Generated sentence applied to input');
+            }
+          } catch (error) {
+            console.error('Error parsing sentence:', error);
+          }
+        } else {
+          console.log('⚠️ Unrecognized mode type:', response.modeType);
+        }
+      } catch (error) {
+        console.error('❌ Error processing assistant response:', error);
+      }
+
+      setIsLoading(false);
+      console.log('🏁 Assistant processing complete, loading state cleared');
+    }
+  }, [response]);
+
+  // Watch for speaker, audience, and sentenceType selections to generate topics
+  useEffect(() => {
+    const generateTopics = async () => {
+      const {speaker, audience, sentenceType} = sentence;
+      console.log('👁️ Checking if we should generate topics...');
+      console.log('  Speaker:', speaker);
+      console.log('  Audience:', audience);
+      console.log('  SentenceType:', sentenceType);
+
+      // Only proceed if all three are selected
+      if (speaker && audience && sentenceType) {
+        console.log('✅ All prerequisites met, generating topics');
+        const prompt = `Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
+          sentenceType === '?' ? 'question' : 'statement'
+        }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'topics'`;
+
+        console.log('🔄 Calling assistant for topics');
+        await callAssistant('topic', prompt);
+      } else {
+        console.log(
+          '⏳ Waiting for all prerequisites before generating topics',
+        );
+      }
+    };
+
+    generateTopics();
+  }, [sentence.speaker, sentence.audience, sentence.sentenceType]);
+
+  // Watch for topic selection to generate actions
+  useEffect(() => {
+    const generateActions = async () => {
+      const {speaker, audience, sentenceType} = sentence;
+      console.log('👁️ Checking if we should generate actions...');
+      console.log('  Speaker:', speaker);
+      console.log('  Audience:', audience);
+      console.log('  SentenceType:', sentenceType);
+      console.log('  Topic:', topic);
+
+      // Only proceed if topic is selected
+      if (speaker && audience && sentenceType && topic) {
+        console.log('✅ Topic selected, generating actions');
+        const prompt = `Please list possible action verbs related to the topic "${topic}" for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
+          sentenceType === '?' ? 'question' : 'statement'
+        }. I need up to 3 simple, kid-friendly action verbs. The message.metadata.mode = 'actions'`;
+
+        console.log('🔄 Calling assistant for actions');
+        await callAssistant('action', prompt);
+      } else {
+        console.log('⏳ Waiting for topic selection before generating actions');
+      }
+    };
+
+    if (topic) {
+      console.log('🔵 Topic changed to:', topic);
+      generateActions();
+    }
+  }, [topic]);
+
+  // Watch for action selection to generate objects
+  useEffect(() => {
+    const generateObjects = async () => {
+      const {speaker, audience, sentenceType} = sentence;
+      console.log('👁️ Checking if we should generate objects...');
+      console.log('  Speaker:', speaker);
+      console.log('  Audience:', audience);
+      console.log('  SentenceType:', sentenceType);
+      console.log('  Topic:', topic);
+      console.log('  Action:', action);
+
+      // Only proceed if action is selected
+      if (speaker && audience && sentenceType && topic && action) {
+        console.log('✅ Action selected, generating objects');
+        const objectsPrompt = `Please list possible direct objects or noun phrases for the action "${action}" related to the topic "${topic}" in a conversation where ${speaker} is speaking to ${audience} with sentence type ${
+          sentenceType === '?' ? 'question' : 'statement'
+        }. I need up to 3 simple, kid-friendly objects. The message.metadata.mode = 'objects'`;
+
+        console.log('🔄 Calling assistant for objects');
+        const objectsResult = await callAssistant('object', objectsPrompt);
+        console.log('Objects result:', objectsResult);
+      } else {
+        console.log(
+          '⏳ Waiting for action selection before generating objects',
+        );
+      }
+    };
+
+    if (action) {
+      console.log('🔵 Action changed to:', action);
+      generateObjects();
+    }
+  }, [action]);
+
+  useEffect(() => {
+    const {speaker, audience, sentenceType} = sentence;
+    const generateSentence = async () => {
+      console.log('🔵 Topic:', topic);
+      console.log('🔵 Action:', action);
+      console.log('🔵 Object:', object);
+
+      const sentencePrompt = `Please create a complete, kid-friendly sentence where ${speaker} wants to ${action} with the topic "${topic}" to ${audience}. The sentence should be a ${
+        sentenceType === '?' ? 'question' : 'statement'
+      }. Return just the sentence.`;
+      console.log('🔵 All selected, generating sentence');
+      await callAssistant('sentence', sentencePrompt);
+    };
+
+    if (
+      topic &&
+      action &&
+      object &&
+      topic !== 'NA' &&
+      action !== 'NA' &&
+      object !== 'NA'
+    ) {
+      generateSentence();
+    }
+  }, [topic, action, object]);
 
   const handleSpeakerSelect = (speaker: Speaker, index: number) => {
     setSentence({...sentence, speaker});
@@ -155,17 +401,20 @@ const Convo = () => {
   };
 
   const handleTopicSelect = (topic: Topic, index: number) => {
-    setSentence({...sentence, topic});
+    //setSentence({...sentence, topic, action: '', object: ''});
+    setTopic(topic);
     setTopicIndex(index);
   };
 
   const handleActionSelect = (action: Action, index: number) => {
-    setSentence({...sentence, action});
+    // setSentence({...sentence, action});
+    setAction(action);
     setActionIndex(index);
   };
 
   const handleObjectSelect = (object: Object, index: number) => {
-    setSentence({...sentence, object});
+    //setSentence({...sentence, object});
+    setObject(object);
     setObjectIndex(index);
   };
 
@@ -200,6 +449,12 @@ const Convo = () => {
           onChangeText={setInputText}
         />
       </View>
+
+      {isLoading && (
+        <View style={styles.loadingOverlay}>
+          <Text style={styles.loadingText}>Generating options...</Text>
+        </View>
+      )}
 
       <View style={styles.columnsContainer}>
         {/* Column 1: Speaker & Audience */}
@@ -270,7 +525,7 @@ const Convo = () => {
                 setCurrentIndex={setTopicIndex}
                 sentence={sentence}
                 setSentence={setSentence}
-                data={['Talk', 'Play']}
+                data={availableTopics.length > 0 ? availableTopics : []}
                 handleItemSelect={handleTopicSelect}
                 fieldName="topic"
               />
@@ -280,7 +535,7 @@ const Convo = () => {
 
         {/* Column 3: Action */}
         <View style={styles.column}>
-          {sentence.topic && (
+          {topic && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the action:</Text>
               <View style={styles.optionsContainer}>
@@ -290,7 +545,7 @@ const Convo = () => {
                   setCurrentIndex={setActionIndex}
                   sentence={sentence}
                   setSentence={setSentence}
-                  data={topicActions[sentence.topic]}
+                  data={availableActions.length > 0 ? availableActions : []}
                   handleItemSelect={handleActionSelect}
                   fieldName="action"
                 />
@@ -301,7 +556,7 @@ const Convo = () => {
 
         {/* Column 4: Object */}
         <View style={styles.column}>
-          {sentence.action && (
+          {action && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the object:</Text>
               <View style={styles.optionsContainer}>
@@ -311,7 +566,7 @@ const Convo = () => {
                   setCurrentIndex={setObjectIndex}
                   sentence={sentence}
                   setSentence={setSentence}
-                  data={actionObjects[sentence.action]}
+                  data={availableObjects.length > 0 ? availableObjects : []}
                   handleItemSelect={handleObjectSelect}
                   fieldName="object"
                 />
@@ -474,6 +729,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
+  verticalOption: {
+    height: 60,
+    marginBottom: 10,
+    width: '100%',
+  },
   keyboardOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -527,6 +787,21 @@ const styles = StyleSheet.create({
     height: 80,
     resizeMode: 'contain',
   },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 80,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 10,
+    zIndex: 100,
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default Convo;
@@ -554,6 +829,30 @@ const ConvoCarousel = <T extends string>({
   showPersonIcon?: boolean;
   showTalkIcon?: boolean;
 }) => {
+  const isVerticalLayout =
+    fieldName === 'action' || fieldName === 'object' || fieldName === 'topic';
+
+  if (isVerticalLayout) {
+    // For vertical layout, render items in a ScrollView instead of Carousel
+    return (
+      <ScrollView style={{width: '100%', maxHeight: SCREEN_HEIGHT * 0.5}}>
+        {data.map((item, index) => (
+          <Pressable
+            key={`${fieldName}-${item}-${index}`}
+            style={[
+              styles.speakerOption,
+              sentence[fieldName] === item && styles.selectedOption,
+              styles.verticalOption,
+            ]}
+            onPress={() => handleItemSelect(item, index)}>
+            <Text style={styles.optionText}>{item}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    );
+  }
+
+  // For horizontal/regular layout, use Carousel as before
   return (
     <Carousel
       ref={carouselRef}
