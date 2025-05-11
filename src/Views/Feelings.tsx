@@ -21,10 +21,7 @@ interface EmotionLevel {
 }
 
 type RootStackParamList = {
-  MainTab: {
-    screen: string;
-    params: {stateof: string};
-  };
+  OPEN: undefined;
 };
 
 type NavigationProps = NativeStackNavigationProp<RootStackParamList>;
@@ -142,10 +139,7 @@ const FeelingsScreen: React.FC = () => {
         duration: 800,
         useNativeDriver: true,
       }).start(() => {
-        navigation.navigate('MainTab', {
-          screen: views.OPEN,
-          params: {stateof: ''},
-        });
+        navigation.navigate(views.OPEN as never);
       });
     }, 700);
   };

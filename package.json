@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/genai": "^0.12.0",
     "@react-native-community/netinfo": "^11.4.1",
+    "@react-native-community/slider": "^4.5.6",
     "@react-native-voice/voice": "^3.2.4",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
@@ -23,6 +24,7 @@
     "react": "19.0.0",
     "react-native": "0.78.0",
     "react-native-audio-recorder-player": "^3.6.12",
+    "react-native-auth0": "^4.6.0",
     "react-native-default-preference": "^1.4.4",
     "react-native-fast-image": "^8.6.3",
     "react-native-fs": "^2.20.0",
@@ -35,6 +37,7 @@
     "react-native-svg": "^15.11.2",
     "react-native-svg-transformer": "^1.5.0",
     "react-native-tts": "^4.1.1",
+    "react-native-webview": "^13.13.5",
     "yarn": "^1.22.22"
   },
   "devDependencies": {

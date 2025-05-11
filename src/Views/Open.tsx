@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import {useBottomTabBarHeight} from '@react-navigation/bottom-tabs';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
@@ -18,15 +17,16 @@ import LinearGradient from 'react-native-linear-gradient';
 import {useAssistant} from '../contexts/AssistantContext';
 import VoiceService from '../utils/VoiceService';
 import TTSService from '../utils/TTSService';
+import {useAuth0} from 'react-native-auth0';
+import {useAppSettings} from '../utils/persistance';
 
 type RootStackParamList = {
-  MainTab: {
-    screen: string;
-    params: {stateof: string};
-  };
+  LOGIN: undefined;
+  HOME: undefined;
   FEELINGS: undefined;
   SHORTCUTS: undefined;
   CONVO: undefined;
+  SETTINGS: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -35,12 +35,13 @@ const {height} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40; // fallback for iOS
 
 const OpenScreen: React.FC = () => {
-  const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
   const [recognizedText, setRecognizedText] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {geminiGenerateImage} = useAssistant();
+  const {clearSession} = useAuth0();
+  const {setItem} = useAppSettings();
 
   useEffect(() => {
     // Fade in when the screen mounts
@@ -69,10 +70,7 @@ const OpenScreen: React.FC = () => {
           ) {
             VoiceService.stopListening();
             isListening.current = false;
-            navigation.navigate('MainTab', {
-              screen: views.HOME,
-              params: {stateof: 'Attention'},
-            });
+            navigation.navigate(views.HOME as never);
           }
         },
         // Handle status changes
@@ -107,14 +105,25 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start(() => {
       if (state === 'Talk') {
-        navigation.navigate('Convo' as const);
+        navigation.navigate(views.CONVO as never);
       } else {
-        navigation.navigate('MainTab', {
-          screen: views.HOME,
-          params: {stateof: state},
-        });
+        navigation.navigate(views.HOME as never);
       }
     });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await clearSession();
+      console.log('Clearing session');
+      // Clear stored user data on logout
+      await setItem('loggedIn', '0');
+      await setItem('username', '');
+      // Navigate to login screen
+      navigation.navigate(views.LOGIN as never);
+    } catch (e) {
+      console.log('Log out cancelled', e);
+    }
   };
 
   const handKeyboard = async () => {
@@ -180,11 +189,30 @@ const OpenScreen: React.FC = () => {
             resizeMode={FastImage.resizeMode.contain}
           />
         </Pressable>
+
+        <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <FastImage
+            source={require('../assets/logout.png')}
+            style={[styles.microphoneImage]}
+            resizeMode={FastImage.resizeMode.contain}
+          />
+        </Pressable>
+
+        <Pressable
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate(views.SETTINGS as never)}>
+          <FastImage
+            source={require('../assets/settings.png')}
+            style={[styles.microphoneImage]}
+            resizeMode={FastImage.resizeMode.contain}
+          />
+        </Pressable>
+
         <View style={styles.contentContainer}>
           <View
             style={{
               flexDirection: 'row',
-              height: height / 2 - tabBarHeight / 2 - statusBarHeight,
+              height: height / 2 - statusBarHeight,
             }}>
             <View style={styles.rowContent}>
               <Pressable
@@ -207,7 +235,7 @@ const OpenScreen: React.FC = () => {
                     duration: 500,
                     useNativeDriver: true,
                   }).start(() => {
-                    navigation.navigate('SHORTCUTS' as const);
+                    navigation.navigate(views.SHORTCUTS as never);
                   });
                 }}>
                 <FastImage
@@ -223,7 +251,7 @@ const OpenScreen: React.FC = () => {
           <View
             style={{
               flexDirection: 'row',
-              height: height / 2 - tabBarHeight / 2,
+              height: height / 2,
             }}>
             <View style={styles.rowContent}>
               <Pressable
@@ -234,7 +262,7 @@ const OpenScreen: React.FC = () => {
                     duration: 500,
                     useNativeDriver: true,
                   }).start(() => {
-                    navigation.navigate('FEELINGS' as const);
+                    navigation.navigate(views.FEELINGS as never);
                   });
                 }}>
                 <FastImage
@@ -300,6 +328,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoutButton: {
+    position: 'absolute',
+    top: 120,
+    left: 10,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f44336',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: 200,
+    left: 10,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#3498db',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    zIndex: 10,
+  },
   microphoneImage: {
     width: '100%',
     height: '100%',
@@ -310,6 +366,12 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     marginTop: -10,
+  },
+
+  logoutText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
 

@@ -19,6 +19,7 @@ type Views = {
   FEELINGS: string;
   SHORTCUTS: string;
   CONVO: string;
+  LOGIN: string;
 };
 
 type Stacks = {
@@ -56,6 +57,7 @@ export const views: Views = {
   FEELINGS: 'FEELINGS',
   SHORTCUTS: 'SHORTCUTS',
   CONVO: 'Convo',
+  LOGIN: 'LOGIN',
 };
 
 export const stacks: Stacks = {
