@@ -22,10 +22,7 @@ interface EmotionLevel {
 }
 
 type RootStackParamList = {
-  MainTab: {
-    screen: string;
-    params: {stateof: string};
-  };
+  OPEN: undefined;
 };
 
 const leftEmotions: EmotionLevel[] = [
@@ -148,10 +145,7 @@ const ShortCutsScreen: React.FC = () => {
         duration: 800,
         useNativeDriver: true,
       }).start(() => {
-        navigation.navigate('MainTab', {
-          screen: views.OPEN,
-          params: {stateof: ''},
-        });
+        navigation.navigate(views.OPEN as never);
       });
     }, 700);
   };

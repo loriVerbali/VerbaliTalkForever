@@ -9,6 +9,10 @@ interface Preferences {
   token: string;
   threadId: string;
   threadCreatedAt: string;
+  returnedMessages: string;
+  topicsCount: string;
+  actionsCount: string;
+  objectsCount: string;
 }
 
 const initEnum = {
@@ -31,6 +35,10 @@ const initialPreferences: Preferences = {
   token: initEnum.notSet,
   threadId: '',
   threadCreatedAt: '',
+  returnedMessages: '5',
+  topicsCount: '4',
+  actionsCount: '4',
+  objectsCount: '4',
 };
 
 interface AppSettingsContextProps {
@@ -61,6 +69,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
     value: string,
   ): Promise<void> => {
     try {
+      console.log('Setting item in DefaultPreference', key, value);
       await DefaultPreference.set(key, value);
       setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
     } catch (error) {
@@ -70,6 +79,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const getItem = async (key: keyof Preferences): Promise<string> => {
     try {
+      console.log('Getting item from DefaultPreference', key);
       const item = await DefaultPreference.get(key);
       return item ?? initialPreferences[key];
     } catch (error) {
@@ -80,6 +90,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const removeItem = async (key: keyof Preferences): Promise<void> => {
     try {
+      console.log('Removing item from DefaultPreference', key);
       await DefaultPreference.clear(key);
       setPreferences(prevPreferences => ({
         ...prevPreferences,
@@ -92,6 +103,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const clear = async (): Promise<void> => {
     try {
+      console.log('Clearing DefaultPreference');
       await DefaultPreference.clearAll();
       setPreferences(initialPreferences);
     } catch (error) {
@@ -101,6 +113,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const initializePreferences = async (): Promise<Preferences> => {
     try {
+      console.log('Initializing preferences');
       const newPreferences = await Object.keys(initialPreferences).reduce<
         Promise<Preferences>
       >(async (accPromise, key) => {

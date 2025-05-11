@@ -54,12 +54,7 @@ interface Sentence {
   object: Object | '';
 }
 
-type RootStackParamList = {
-  MainTab: {
-    screen: string;
-    params: {stateof: string};
-  };
-};
+type RootStackParamList = {};
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -419,10 +414,7 @@ const Convo = () => {
   };
 
   const handleHome = () => {
-    navigation.navigate('MainTab', {
-      screen: views.OPEN,
-      params: {stateof: ''},
-    });
+    navigation.navigate(views.OPEN as never);
   };
 
   const toggleKeyboard = () => {

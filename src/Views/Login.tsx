@@ -45,10 +45,10 @@ const Login: React.FC = () => {
       }
     };
 
-    if (!isLoading) {
+    if (!isLoading && user) {
       checkAuthState();
     }
-  }, [user, isLoading, navigation, setItem, getItem]);
+  }, [user, isLoading]);
 
   const onPress = async () => {
     try {
