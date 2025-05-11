@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {createStackNavigator, TransitionSpecs} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {
@@ -14,6 +14,8 @@ import OpenScreen from '../Views/Open';
 import FeelingsScreen from '../Views/Feelings';
 import ShortCutsScreen from '../Views/ShortCuts';
 import Convo from '../Views/Convo';
+import Login from '../Views/Login';
+import {useAppSettings} from '../utils/persistance';
 
 const HomeStack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -61,9 +63,28 @@ function LoggedNavigation() {
 }
 
 const MainTabs = () => {
+  const {getItem} = useAppSettings();
+  const [initialRoute, setInitialRoute] = useState(views.LOGIN);
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const checkLoginStatus = async () => {
+      try {
+        const loggedInValue = await getItem('loggedIn');
+        if (loggedInValue === '1') {
+          setInitialRoute(views.OPEN);
+        }
+      } catch (e) {
+        console.log('Error checking login status:', e);
+      }
+    };
+
+    checkLoginStatus();
+  }, [getItem]);
+
   return (
     <Tabs.Navigator
-      initialRouteName={views.OPEN}
+      initialRouteName={initialRoute}
       screenOptions={{
         tabBarStyle: {
           backgroundColor: '#F1F6F6', // Match this with your app's background color
@@ -82,6 +103,15 @@ const MainTabs = () => {
           tabBarLabel: '',
           headerShown: false,
           tabBarAccessibilityLabel: 'Home',
+        }}
+      />
+      <Tabs.Screen
+        name={views.LOGIN}
+        component={Login}
+        options={{
+          tabBarLabel: '',
+          headerShown: false,
+          tabBarAccessibilityLabel: 'Login',
         }}
       />
       <Tabs.Screen

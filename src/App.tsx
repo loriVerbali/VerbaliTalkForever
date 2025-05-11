@@ -16,6 +16,7 @@ import TTSService from './utils/TTSService';
 import VoiceService from './utils/VoiceService';
 import {SoundProvider} from './contexts/soundContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {useAuth0, Auth0Provider} from 'react-native-auth0';
 
 const App = () => {
   // Initialize voice and TTS services at app level for better performance
@@ -38,7 +39,9 @@ const App = () => {
   }, []);
 
   return (
-    <>
+    <Auth0Provider
+      domain={'dev-64l2kpebzn1y4zm7.us.auth0.com'}
+      clientId={'9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX'}>
       <GestureHandlerRootView>
         <ConnectionProvider>
           <AppSettingsProvider>
@@ -50,7 +53,7 @@ const App = () => {
           </AppSettingsProvider>
         </ConnectionProvider>
       </GestureHandlerRootView>
-    </>
+    </Auth0Provider>
   );
 };
 

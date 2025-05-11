@@ -18,6 +18,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import {useAssistant} from '../contexts/AssistantContext';
 import VoiceService from '../utils/VoiceService';
 import TTSService from '../utils/TTSService';
+import {useAuth0} from 'react-native-auth0';
+import {useAppSettings} from '../utils/persistance';
 
 type RootStackParamList = {
   MainTab: {
@@ -26,7 +28,7 @@ type RootStackParamList = {
   };
   FEELINGS: undefined;
   SHORTCUTS: undefined;
-  CONVO: undefined;
+  Convo: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -41,6 +43,8 @@ const OpenScreen: React.FC = () => {
   const [recognizedText, setRecognizedText] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {geminiGenerateImage} = useAssistant();
+  const {clearSession} = useAuth0();
+  const {setItem} = useAppSettings();
 
   useEffect(() => {
     // Fade in when the screen mounts
@@ -107,7 +111,7 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start(() => {
       if (state === 'Talk') {
-        navigation.navigate('Convo' as const);
+        navigation.navigate('Convo');
       } else {
         navigation.navigate('MainTab', {
           screen: views.HOME,
@@ -115,6 +119,22 @@ const OpenScreen: React.FC = () => {
         });
       }
     });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await clearSession();
+      // Clear stored user data on logout
+      await setItem('loggedIn', '0');
+      await setItem('username', '');
+      // Navigate to login screen
+      navigation.navigate('MainTab', {
+        screen: views.LOGIN,
+        params: {stateof: ''},
+      });
+    } catch (e) {
+      console.log('Log out cancelled', e);
+    }
   };
 
   const handKeyboard = async () => {
@@ -180,6 +200,15 @@ const OpenScreen: React.FC = () => {
             resizeMode={FastImage.resizeMode.contain}
           />
         </Pressable>
+
+        <Pressable style={styles.logoutButton} onPress={handleLogout}>
+          <FastImage
+            source={require('../assets/logout.png')}
+            style={[styles.microphoneImage]}
+            resizeMode={FastImage.resizeMode.contain}
+          />
+        </Pressable>
+
         <View style={styles.contentContainer}>
           <View
             style={{
@@ -207,7 +236,7 @@ const OpenScreen: React.FC = () => {
                     duration: 500,
                     useNativeDriver: true,
                   }).start(() => {
-                    navigation.navigate('SHORTCUTS' as const);
+                    navigation.navigate('SHORTCUTS');
                   });
                 }}>
                 <FastImage
@@ -234,7 +263,7 @@ const OpenScreen: React.FC = () => {
                     duration: 500,
                     useNativeDriver: true,
                   }).start(() => {
-                    navigation.navigate('FEELINGS' as const);
+                    navigation.navigate('FEELINGS');
                   });
                 }}>
                 <FastImage
@@ -300,6 +329,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoutButton: {
+    position: 'absolute',
+    top: 120,
+    left: 10,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   microphoneImage: {
     width: '100%',
     height: '100%',
@@ -310,6 +348,12 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
     marginTop: -10,
+  },
+
+  logoutText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
 
