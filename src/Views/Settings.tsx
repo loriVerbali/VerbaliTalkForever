@@ -179,20 +179,23 @@ const SettingsScreen: React.FC = () => {
   const [topicsCount, setTopicsCount] = useState(4);
   const [actionsCount, setActionsCount] = useState(4);
   const [objectsCount, setObjectsCount] = useState(4);
+  const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(false);
+  const [showOnboardingInfo, setShowOnboardingInfo] = useState(false);
 
   useEffect(() => {
-    // Load saved settings
     const loadSettings = async () => {
       try {
         const savedReturnedMessages = await getItem('returnedMessages');
         const savedTopicsCount = await getItem('topicsCount');
         const savedActionsCount = await getItem('actionsCount');
         const savedObjectsCount = await getItem('objectsCount');
+        const wasOnboarded = await getItem('wasOnboarded');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
         setActionsCount(parseInt(savedActionsCount) || 4);
         setObjectsCount(parseInt(savedObjectsCount) || 4);
+        setShowOnboardingEnabled(wasOnboarded !== '1');
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -244,6 +247,11 @@ const SettingsScreen: React.FC = () => {
     const newValue = Math.round(value);
     setObjectsCount(newValue);
     setItem('objectsCount', newValue.toString());
+  };
+
+  const handleOnboardingToggle = async (value: boolean) => {
+    setShowOnboardingEnabled(value);
+    await setItem('wasOnboarded', value ? '0' : '1');
   };
 
   const MemoizedSlider = memo(
@@ -392,6 +400,24 @@ const SettingsScreen: React.FC = () => {
                 description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
               />
             </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabel}>
+                <Text style={styles.settingLabel}>Show Onboarding</Text>
+                <TouchableOpacity
+                  onPress={() => setShowOnboardingInfo(true)}
+                  style={styles.infoButton}>
+                  <Text style={styles.infoIcon}>?</Text>
+                </TouchableOpacity>
+              </View>
+              <Switch
+                trackColor={{false: '#767577', true: '#8E24AA'}}
+                thumbColor={showOnboardingEnabled ? '#fff' : '#f4f3f4'}
+                ios_backgroundColor="#3e3e3e"
+                onValueChange={handleOnboardingToggle}
+                value={showOnboardingEnabled}
+              />
+            </View>
           </View>
         </View>
 
@@ -401,7 +427,7 @@ const SettingsScreen: React.FC = () => {
           <Pressable
             style={styles.linkRow}
             onPress={() =>
-              handleLinkPress('https://verbali.io/privacy', 'Privacy Policy')
+              handleLinkPress('https://verbali.io/', 'Privacy Policy')
             }>
             <Text style={styles.linkText}>Privacy Policy</Text>
             <Text style={styles.linkArrow}>→</Text>
@@ -410,7 +436,7 @@ const SettingsScreen: React.FC = () => {
           <Pressable
             style={styles.linkRow}
             onPress={() =>
-              handleLinkPress('https://verbali.io/termsofuse', 'Terms of Use')
+              handleLinkPress('https://verbali.io/', 'Terms of Use')
             }>
             <Text style={styles.linkText}>Terms of Use</Text>
             <Text style={styles.linkArrow}>→</Text>
@@ -429,6 +455,13 @@ const SettingsScreen: React.FC = () => {
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2023 Matalk</Text>
         </View>
+
+        <InfoModal
+          visible={showOnboardingInfo}
+          onClose={() => setShowOnboardingInfo(false)}
+          title="Show Onboarding"
+          description="Enable this option to see the onboarding screens again on your next app launch. This can be helpful if you want to review the app's features and functionality."
+        />
       </ScrollView>
     </LinearGradient>
   );
@@ -639,6 +672,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  switchLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });
 

@@ -1,52 +1,90 @@
-import React, {Suspense, useEffect, useState} from 'react';
+import React, {Suspense, useEffect, useState, useCallback} from 'react';
 import {NavigationContainer} from '@react-navigation/native';
 import {createStackNavigator} from '@react-navigation/stack';
 import LoggedNavigation from '../Navigation/LoggedNavigation';
-import SetupNavigation from '../Navigation/SetupNavigation';
 import InitNavigation from '../Navigation/InitNavigation';
 import {useAppSettings} from '../utils/persistance';
 import {stacks} from '../utils/constants';
 import {useConnection} from '../utils/connection';
 import {View, Text} from 'react-native';
 
+// Create a context to set onboarding state
+export const OnboardingContext = React.createContext<{
+  completeOnboarding: () => void;
+}>({
+  completeOnboarding: () => {},
+});
+
 const RootStack = createStackNavigator();
 
 const RootStackScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
-  const [showInit, setShowInit] = useState(true);
-  const [user, setUser] = useState(null);
-  const {preferences, initializePreferences} = useAppSettings();
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const {preferences, initializePreferences, getItem} = useAppSettings();
   const {isConnected} = useConnection();
 
-  useEffect(() => {
-    if (isLoading) {
-      initializePreferences().then(res => {});
-    }
+  // Function to complete onboarding from children
+  const completeOnboarding = useCallback(() => {
+    setShowOnboarding(false);
   }, []);
+
+  useEffect(() => {
+    const initApp = async () => {
+      if (isLoading) {
+        await initializePreferences();
+        const wasOnboarded = await getItem('wasOnboarded');
+        setShowOnboarding(wasOnboarded !== '1');
+        setIsLoading(false);
+      }
+    };
+
+    initApp();
+  }, [isLoading]);
 
   if (!isConnected) {
     return <NoInternetConnection />;
   }
 
+  if (isLoading) {
+    return null;
+  }
+
   return (
-    <RootStack.Navigator>
-      <RootStack.Screen
-        options={{headerShown: false}}
-        name={stacks.LOGGEDINSTACK}
-        component={LoggedNavigation}
-      />
-    </RootStack.Navigator>
+    <OnboardingContext.Provider value={{completeOnboarding}}>
+      <RootStack.Navigator>
+        {showOnboarding ? (
+          <RootStack.Screen
+            options={{headerShown: false}}
+            name={stacks.INITSTACK}
+            component={InitNavigation}
+          />
+        ) : (
+          <RootStack.Screen
+            options={{headerShown: false}}
+            name={stacks.LOGGEDINSTACK}
+            component={LoggedNavigation}
+          />
+        )}
+      </RootStack.Navigator>
+    </OnboardingContext.Provider>
   );
 };
 
 const RootControllerView: React.FC = () => {
   return (
-    <Suspense>
+    <Suspense fallback={<LoadingScreen />}>
       <NavigationContainer>
         <RootStackScreen />
       </NavigationContainer>
     </Suspense>
+  );
+};
+
+const LoadingScreen = () => {
+  return (
+    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+      <Text>Loading...</Text>
+    </View>
   );
 };
 

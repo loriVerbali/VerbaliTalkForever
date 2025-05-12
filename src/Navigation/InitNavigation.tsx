@@ -1,19 +1,17 @@
 import React from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import {views} from '../utils/constants';
-import Onboarding from '../Views/Onboarding';
+import OnboardingScreen from '../Views/Onboarding';
 
 const InitStack = createStackNavigator();
 
-const InitNavigation: React.FC = () => {
+const InitNavigation = () => {
   return (
     <InitStack.Navigator>
       <InitStack.Screen
+        options={{headerShown: false}}
         name={views.ONBOARDING}
-        component={Onboarding}
-        options={{
-          headerShown: false,
-        }}
+        component={OnboardingScreen}
       />
     </InitStack.Navigator>
   );
