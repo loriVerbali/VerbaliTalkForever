@@ -55,7 +55,6 @@ const Login: React.FC = () => {
       const result = await authorize();
       console.log(result);
     } catch (e) {
-      debugger;
       console.log(e);
     }
   };

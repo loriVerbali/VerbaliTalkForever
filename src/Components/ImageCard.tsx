@@ -11,6 +11,7 @@ import {
 import FastImage from 'react-native-fast-image';
 import Config from '../utils/config';
 import Tts from 'react-native-tts';
+import {useAppSettings} from '../utils/persistance';
 
 export interface ImageCardProps {
   images: Array<{url: {url: string}; prompt: string}>;
@@ -26,6 +27,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
   height = 200,
   onRefresh,
 }) => {
+  const {preferences} = useAppSettings();
   const sayAnswer = (prompt: string) => {
     Tts.speak(prompt, {
       iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
@@ -47,7 +49,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   // Create a 6th card for refresh if we're at the end of a set
-  const shouldShowRefreshCard = images.length === 2;
+  const shouldShowRefreshCard =
+    images.length === parseInt(preferences.returnedMessages) / 5;
 
   return (
     <View style={styles.container}>

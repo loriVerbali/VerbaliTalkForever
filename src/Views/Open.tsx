@@ -22,7 +22,7 @@ import {useAppSettings} from '../utils/persistance';
 
 type RootStackParamList = {
   LOGIN: undefined;
-  HOME: undefined;
+  HOME: {stateof?: string};
   FEELINGS: undefined;
   SHORTCUTS: undefined;
   CONVO: undefined;
@@ -61,16 +61,21 @@ const OpenScreen: React.FC = () => {
         // Handle recognized text
         text => {
           setRecognizedText(text);
-
+          console.log('text', text);
           // Check for navigation keywords
           if (
             text.toLowerCase().includes('verbali') ||
             text.toLowerCase().includes('verbbali') ||
-            text.toLowerCase().includes('verbally')
+            text.toLowerCase().includes('verbally') ||
+            text.toLowerCase().includes('verbbali') ||
+            text.toLowerCase().includes('verb ali') ||
+            text.toLowerCase().includes('verbali')
           ) {
             VoiceService.stopListening();
             isListening.current = false;
-            navigation.navigate(views.HOME as never);
+            navigation.navigate(views.HOME as never, {
+              stateof: 'Attention',
+            });
           }
         },
         // Handle status changes
@@ -162,6 +167,7 @@ const OpenScreen: React.FC = () => {
 
   const startListening = async () => {
     if (!isListening.current) {
+      console.log('Starting listening');
       isListening.current = true;
       const success = await VoiceService.startListening(2000, 8000);
       if (success) {

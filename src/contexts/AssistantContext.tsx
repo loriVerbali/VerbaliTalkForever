@@ -44,7 +44,7 @@ interface AssistantContextType {
   sendMessage: (
     content: string,
     threadIdOverride?: string,
-    mode?: 'topic' | 'object' | 'action' | 'questions' | 'sentence',
+    mode?: 'topic' | 'object' | 'action' | 'generate_answers' | 'sentence',
   ) => Promise<string>;
   runAssistant: (threadIdOverride?: string) => Promise<string>;
   setThreadId: (id: string) => void;
@@ -109,6 +109,8 @@ const useAssistantResponse = (threadId: string, runId: string) => {
 
   useEffect(() => {
     let isSubscribed = true;
+
+    console.log('🔄 Polling status for thread:', threadId, runId);
 
     const pollStatus = async () => {
       try {
@@ -185,6 +187,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             }
 
             if (messageType === 'sentence') {
+              debugger;
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -194,8 +197,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 );
               }
             }
-
-            if (messageType === 'questions') {
+            if (messageType === 'generate_answers') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -203,7 +205,10 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 const responseText =
                   messagesResponse.data[0].content[0].text.value;
                 console.log('📝 Response text:', responseText);
-                setResponse({response: responseText, modeType: 'questions'});
+                setResponse({
+                  response: responseText,
+                  modeType: 'generate_answers',
+                });
 
                 try {
                   // Parse the JSON response
@@ -212,9 +217,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                   console.log('✅ Successfully parsed JSON:', responseData);
 
                   // Extract possible answers from the JSON
-                  const answers = responseData['Possible answers']
-                    ?.split(',')
-                    .map((answer: string) => answer.trim());
+                  const answers = responseData['Possible answers'];
 
                   if (answers) {
                     console.log('📋 Extracted answers:', answers);
@@ -326,6 +329,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   // Initialize thread on app load
   useEffect(() => {
     const initThread = async () => {
+      console.log('🔄 Initializing thread...');
       const savedThreadId = await getItem('threadId');
       const savedThreadCreatedAt = await getItem('threadCreatedAt');
 
@@ -363,6 +367,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       // If we have a fresh thread, just return it
       if (threadId && isThreadFresh) {
         console.log('🧵 Using existing fresh thread:', threadId);
+        setThreadId(threadId);
         return threadId;
       }
 
@@ -393,7 +398,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   const sendMessage = async (
     content: string,
     threadIdOverride?: string,
-    mode?: 'topic' | 'object' | 'action' | 'questions' | 'sentence',
+    mode?: 'topic' | 'object' | 'action' | 'generate_answers' | 'sentence',
   ) => {
     // Ensure we have a thread ID first by checking if we need a new one
     console.log('🔍 Sending message:', content);

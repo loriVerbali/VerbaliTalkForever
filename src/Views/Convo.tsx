@@ -161,7 +161,7 @@ const Convo = () => {
       const messageId = await sendMessage(
         message,
         undefined,
-        mode as 'object' | 'topic' | 'action' | 'questions' | 'sentence',
+        mode as 'object' | 'topic' | 'action' | 'generate_answers' | 'sentence',
       );
       console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
 

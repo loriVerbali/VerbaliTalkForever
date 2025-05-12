@@ -253,7 +253,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
             const messageId = await sendMessage(
               transcribedText,
               threadIDRef.current,
-              'questions',
+              'generate_answers',
             );
             if (messageId) {
               await runAssistant(threadIDRef.current);
@@ -281,7 +281,11 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
 
       resetHistory();
       createThreadIfNeeded();
-      const messageId = await sendMessage(inputText, undefined, 'questions');
+      const messageId = await sendMessage(
+        inputText,
+        undefined,
+        'generate_answers',
+      );
       if (messageId) {
         await runAssistant();
       }
