@@ -16,6 +16,7 @@ interface Preferences {
   wasOnboarded: string;
   heroName: string;
   adminCode: string;
+  gender: string;
 }
 
 const initEnum = {
@@ -45,6 +46,7 @@ const initialPreferences: Preferences = {
   wasOnboarded: initEnum.false,
   heroName: '',
   adminCode: '',
+  gender: '',
 };
 
 interface AppSettingsContextProps {

@@ -36,6 +36,12 @@ const onboardingSteps = [
     buttonText: 'Next',
   },
   {
+    id: 'gender',
+    question: 'Choose your gender',
+    additionalComponents: 'gender-selection',
+    buttonText: 'Next',
+  },
+  {
     id: 'admin-code',
     question: 'Set Admin Code',
     additionalComponents: 'admin-code-input',
@@ -57,6 +63,7 @@ const OnboardingScreen: React.FC = () => {
   const [heroName, setHeroName] = useState('');
   const [adminCode, setAdminCode] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [selectedGender, setSelectedGender] = useState('');
 
   const handleNext = async () => {
     if (currentStep < onboardingSteps.length - 1) {
@@ -69,6 +76,9 @@ const OnboardingScreen: React.FC = () => {
       }
       if (adminCode) {
         await setItem('adminCode', adminCode);
+      }
+      if (selectedGender) {
+        await setItem('gender', selectedGender);
       }
 
       // Use the context to complete onboarding
@@ -98,6 +108,68 @@ const OnboardingScreen: React.FC = () => {
               autoComplete="name-given"
               maxLength={20}
             />
+          </View>
+        );
+      case 'gender-selection':
+        return (
+          <View style={styles.genderContainer}>
+            <TouchableOpacity
+              style={[
+                styles.genderOption,
+                selectedGender === 'boy' && styles.selectedGender,
+              ]}
+              onPress={() => setSelectedGender('boy')}>
+              <FastImage
+                source={require('../assets/boy.png')}
+                style={styles.genderImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+              <Text
+                style={[
+                  styles.genderText,
+                  selectedGender === 'boy' && styles.selectedGenderText,
+                ]}>
+                Boy
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.genderOption,
+                selectedGender === 'girl' && styles.selectedGender,
+              ]}
+              onPress={() => setSelectedGender('girl')}>
+              <FastImage
+                source={require('../assets/girl.png')}
+                style={styles.genderImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+              <Text
+                style={[
+                  styles.genderText,
+                  selectedGender === 'girl' && styles.selectedGenderText,
+                ]}>
+                Girl
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.genderOption,
+                selectedGender === 'other' && styles.selectedGender,
+              ]}
+              onPress={() => setSelectedGender('other')}>
+              <FastImage
+                source={require('../assets/person.png')}
+                style={styles.genderImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+              <Text
+                style={[
+                  styles.genderText,
+                  selectedGender === 'other' && styles.selectedGenderText,
+                ]}>
+                Other
+              </Text>
+            </TouchableOpacity>
           </View>
         );
       case 'admin-code-input':
@@ -179,7 +251,8 @@ const OnboardingScreen: React.FC = () => {
                 disabled={
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
                   (currentStepData.id === 'admin-code' &&
-                    adminCode.length !== 4)
+                    adminCode.length !== 4) ||
+                  (currentStepData.id === 'gender' && !selectedGender)
                 }>
                 <Text style={styles.buttonText}>
                   {currentStepData.buttonText}
@@ -297,6 +370,39 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 20,
+    fontWeight: 'bold',
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginVertical: 20,
+  },
+  genderOption: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 15,
+    padding: 20,
+    width: width * 0.25,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedGender: {
+    borderColor: '#8E24AA',
+    backgroundColor: 'rgba(142, 36, 170, 0.1)',
+  },
+  genderImage: {
+    width: 60,
+    height: 60,
+    marginBottom: 10,
+  },
+  genderText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  selectedGenderText: {
+    color: '#8E24AA',
     fontWeight: 'bold',
   },
 });

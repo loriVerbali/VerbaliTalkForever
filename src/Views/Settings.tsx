@@ -444,6 +444,71 @@ const SettingsScreen: React.FC = () => {
               />
             </View>
 
+            <View style={styles.genderSection}>
+              <Text style={styles.settingLabel}>Gender</Text>
+              <View style={styles.genderContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.genderOption,
+                    preferences.gender === 'boy' && styles.selectedGender,
+                  ]}
+                  onPress={() => setItem('gender', 'boy')}>
+                  <FastImage
+                    source={require('../assets/boy.png')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      preferences.gender === 'boy' && styles.selectedGenderText,
+                    ]}>
+                    Boy
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderOption,
+                    preferences.gender === 'girl' && styles.selectedGender,
+                  ]}
+                  onPress={() => setItem('gender', 'girl')}>
+                  <FastImage
+                    source={require('../assets/girl.png')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      preferences.gender === 'girl' &&
+                        styles.selectedGenderText,
+                    ]}>
+                    Girl
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderOption,
+                    preferences.gender === 'other' && styles.selectedGender,
+                  ]}
+                  onPress={() => setItem('gender', 'other')}>
+                  <FastImage
+                    source={require('../assets/person.png')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      preferences.gender === 'other' &&
+                        styles.selectedGenderText,
+                    ]}>
+                    Other
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <View style={styles.adminSection}>
               <View style={styles.adminCodeRow}>
                 <View style={styles.adminCodeInfo}>
@@ -917,6 +982,46 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  genderSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 12,
+  },
+  genderOption: {
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 16,
+    width: SCREEN_WIDTH * 0.25,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedGender: {
+    borderColor: '#8E24AA',
+    backgroundColor: 'rgba(142, 36, 170, 0.1)',
+  },
+  genderImage: {
+    width: 48,
+    height: 48,
+    marginBottom: 8,
+  },
+  genderText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  selectedGenderText: {
+    color: '#8E24AA',
+    fontWeight: 'bold',
   },
 });
 

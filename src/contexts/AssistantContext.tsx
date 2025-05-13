@@ -633,7 +633,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       const response = await fetchHelper(
         'runAssistant',
         {thread_id: idToUse},
-        {assistant_id: ASSISTANT_ID_MATAN},
+        {assistant_id: ASSISTANT_ID_LORI},
       );
       const data = await response;
       console.log('🏃‍♂️ Assistant run started with ID:', data.id);

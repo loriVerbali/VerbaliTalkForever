@@ -20,6 +20,7 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {useAssistant} from '../contexts/AssistantContext';
 import SpeakerSection from './SpeakerSection';
+import fetchHelper from '../utils/fetcher';
 
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
@@ -181,6 +182,33 @@ const Convo = () => {
     }
   };
 
+  const generateImage = async (prompt: string) => {
+    try {
+      // Encode the prompt for URL
+      const encodedPrompt = encodeURIComponent(prompt);
+
+      // Generate a random seed for variety
+      const seed = Math.floor(Math.random() * 1000);
+
+      const response = await fetchHelper(
+        'generateImage',
+        {
+          prompt: encodedPrompt,
+          seed: seed.toString(),
+        },
+        {},
+      );
+
+      // The response is the direct image URL
+      const imageUrl = response;
+
+      return {url: imageUrl};
+    } catch (error) {
+      console.error('Failed to generate image:', error);
+      throw error;
+    }
+  };
+
   // Handle assistant responses
   useEffect(() => {
     if (response) {
@@ -198,6 +226,8 @@ const Convo = () => {
               setAvailableTopics(
                 topicsArray.output_schema.slice(0, 4) as Topic[],
               );
+              debugger;
+              // generateImage(topicsArray.output_schema);
               console.log('✅ Topics updated');
             }
           } catch (error) {
