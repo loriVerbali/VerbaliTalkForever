@@ -12,6 +12,9 @@ import {
   TouchableOpacity,
   Modal,
   useWindowDimensions,
+  TextInput,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
@@ -181,6 +184,13 @@ const SettingsScreen: React.FC = () => {
   const [objectsCount, setObjectsCount] = useState(4);
   const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(false);
   const [showOnboardingInfo, setShowOnboardingInfo] = useState(false);
+  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [isEditingAdminCode, setIsEditingAdminCode] = useState(false);
+  const [newAdminCode, setNewAdminCode] = useState('');
+  const [adminCodeError, setAdminCodeError] = useState('');
+  const [isAdminCodeVisible, setIsAdminCodeVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -190,12 +200,14 @@ const SettingsScreen: React.FC = () => {
         const savedActionsCount = await getItem('actionsCount');
         const savedObjectsCount = await getItem('objectsCount');
         const wasOnboarded = await getItem('wasOnboarded');
+        const savedAdminCode = await getItem('adminCode');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
         setActionsCount(parseInt(savedActionsCount) || 4);
         setObjectsCount(parseInt(savedObjectsCount) || 4);
         setShowOnboardingEnabled(wasOnboarded !== '1');
+        setAdminCode(savedAdminCode || '');
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -250,8 +262,39 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleOnboardingToggle = async (value: boolean) => {
+    debugger;
     setShowOnboardingEnabled(value);
     await setItem('wasOnboarded', value ? '0' : '1');
+  };
+
+  const handleAdminCodeChange = async () => {
+    if (newAdminCode.length !== 4) {
+      setAdminCodeError('Admin code must be 4 digits');
+      return;
+    }
+
+    if (isSaving) return;
+
+    setIsSaving(true);
+    try {
+      await setItem('adminCode', newAdminCode);
+      setAdminCode(newAdminCode);
+      setNewAdminCode('');
+      setIsEditingAdminCode(false);
+      setAdminCodeError('');
+      setIsAdminCodeVisible(false);
+    } catch (e) {
+      console.log('Error saving admin code:', e);
+      setAdminCodeError('Failed to save admin code');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelAdminCodeEdit = () => {
+    setIsEditingAdminCode(false);
+    setNewAdminCode('');
+    setAdminCodeError('');
   };
 
   const MemoizedSlider = memo(
@@ -399,6 +442,99 @@ const SettingsScreen: React.FC = () => {
                 onChange={handleObjectsChange}
                 description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
               />
+            </View>
+
+            <View style={styles.adminSection}>
+              <View style={styles.adminCodeRow}>
+                <View style={styles.adminCodeInfo}>
+                  <Text style={styles.settingLabel}>Admin Code</Text>
+                  {isEditingAdminCode ? (
+                    <View style={styles.adminCodeEditContainer}>
+                      <TextInput
+                        style={[
+                          styles.codeInput,
+                          adminCodeError ? styles.errorInput : null,
+                        ]}
+                        value={newAdminCode}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setNewAdminCode(numericText);
+                            setAdminCodeError('');
+                          }
+                        }}
+                        keyboardType="numeric"
+                        maxLength={4}
+                        placeholder="Enter new 4-digit code"
+                        secureTextEntry={false}
+                        editable={!isSaving}
+                        returnKeyType="done"
+                        onSubmitEditing={() => {
+                          if (newAdminCode.length === 4) {
+                            handleAdminCodeChange();
+                          }
+                        }}
+                        autoFocus
+                      />
+                      {adminCodeError ? (
+                        <Text style={styles.errorText}>{adminCodeError}</Text>
+                      ) : null}
+                      <View style={styles.adminCodeButtons}>
+                        <Pressable
+                          style={[styles.adminButton, styles.cancelButton]}
+                          onPress={cancelAdminCodeEdit}
+                          disabled={isSaving}>
+                          <Text style={styles.buttonText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.adminButton,
+                            styles.submitButton,
+                            (newAdminCode.length !== 4 || isSaving) &&
+                              styles.disabledButton,
+                          ]}
+                          onPress={handleAdminCodeChange}
+                          disabled={newAdminCode.length !== 4 || isSaving}>
+                          <Text style={styles.buttonText}>
+                            {isSaving ? 'Saving...' : 'Save'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.adminCodeContainer}>
+                      <Text style={styles.adminCodeValue}>
+                        {isAdminCodeVisible
+                          ? adminCode
+                          : adminCode
+                          ? '••••'
+                          : 'Not set'}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.eyeButton}
+                        onPress={() =>
+                          setIsAdminCodeVisible(!isAdminCodeVisible)
+                        }>
+                        <FastImage
+                          source={require('../assets/eye.png')}
+                          style={[
+                            styles.eyeIcon,
+                            !isAdminCodeVisible && styles.eyeIconHidden,
+                          ]}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+                {!isEditingAdminCode && (
+                  <Pressable
+                    style={styles.changeButton}
+                    onPress={() => setIsEditingAdminCode(true)}>
+                    <Text style={styles.changeButtonText}>Change</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
 
             <View style={styles.switchRow}>
@@ -685,6 +821,102 @@ const styles = StyleSheet.create({
   switchLabel: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  adminSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
+  adminCodeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  adminCodeInfo: {
+    flex: 1,
+  },
+  adminCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  adminCodeValue: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 4,
+  },
+  changeButton: {
+    backgroundColor: '#8E24AA',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  changeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  adminCodeEditContainer: {
+    width: '100%',
+    marginTop: 8,
+  },
+  adminCodeButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 8,
+  },
+  adminButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  codeInput: {
+    height: 40,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  errorInput: {
+    borderColor: '#ff3b30',
+    backgroundColor: '#fff0f0',
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  eyeIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#8E24AA',
+  },
+  eyeIconHidden: {
+    opacity: 0.5,
+  },
+  cancelButton: {
+    backgroundColor: '#ff3b30',
+  },
+  submitButton: {
+    backgroundColor: '#34c759',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

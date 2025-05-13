@@ -9,6 +9,7 @@ import {
   Pressable,
   Dimensions,
   Image,
+  Platform,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -18,6 +19,7 @@ import {views} from '../utils/constants';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {useAssistant} from '../contexts/AssistantContext';
+import SpeakerSection from './SpeakerSection';
 
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
@@ -188,9 +190,14 @@ const Convo = () => {
         if (response.modeType === 'topic') {
           try {
             const topicsArray = JSON.parse(response.response);
-            if (Array.isArray(topicsArray) && topicsArray.length > 0) {
-              console.log('📋 Got topics array:', topicsArray);
-              setAvailableTopics(topicsArray.slice(0, 4) as Topic[]);
+            if (
+              Array.isArray(topicsArray.output_schema) &&
+              topicsArray.output_schema.length > 0
+            ) {
+              console.log('📋 Got topics array:', topicsArray.output_schema);
+              setAvailableTopics(
+                topicsArray.output_schema.slice(0, 4) as Topic[],
+              );
               console.log('✅ Topics updated');
             }
           } catch (error) {
@@ -199,9 +206,15 @@ const Convo = () => {
         } else if (response.modeType === 'action') {
           try {
             const actionsData = JSON.parse(response.response);
-            if (actionsData && Array.isArray(actionsData)) {
-              console.log('🎯 Got actions:', actionsData);
-              setAvailableActions(actionsData.slice(0, 4) as Action[]);
+            if (
+              actionsData &&
+              Array.isArray(actionsData.output_schema) &&
+              actionsData.output_schema.length > 0
+            ) {
+              console.log('🎯 Got actions:', actionsData.output_schema);
+              setAvailableActions(
+                actionsData.output_schema.slice(0, 4) as Action[],
+              );
               //setSentence({...sentence, action: '', object: ''});
               console.log(
                 '✅ Actions updated, cleared action and object selections',
@@ -213,9 +226,15 @@ const Convo = () => {
         } else if (response.modeType === 'object') {
           try {
             const objectsData = JSON.parse(response.response);
-            if (objectsData && Array.isArray(objectsData)) {
-              console.log('📦 Got objects:', objectsData);
-              setAvailableObjects(objectsData.slice(0, 4) as Object[]);
+            if (
+              objectsData &&
+              Array.isArray(objectsData.output_schema) &&
+              objectsData.output_schema.length > 0
+            ) {
+              console.log('📦 Got objects:', objectsData.output_schema);
+              setAvailableObjects(
+                objectsData.output_schema.slice(0, 4) as Object[],
+              );
               // setSentence({...sentence, object: ''});
               console.log('✅ Objects updated, cleared object selection');
             }
@@ -224,6 +243,7 @@ const Convo = () => {
           }
         } else if (response.modeType === 'sentence') {
           try {
+            debugger;
             const sentenceData = response?.response;
 
             if (sentenceData) {
@@ -423,14 +443,16 @@ const Convo = () => {
 
   return (
     <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
-      {/* Play button and input section */}
-      <View style={styles.inputSection}>
+      {/* Input and Navigation Section - Adjusted with safe area padding */}
+      <View style={styles.safeAreaPadding} />
+
+      <View style={styles.inputNavigationContainer}>
         <Pressable
           style={styles.playButton}
           onPress={() => TTSService.speak(inputText, true)}>
           <FastImage
             source={require('../assets/play.png')}
-            style={[styles.playIcon, {opacity: 0.5}]}
+            style={styles.playIcon}
             resizeMode={FastImage.resizeMode.contain}
           />
         </Pressable>
@@ -440,6 +462,14 @@ const Convo = () => {
           value={inputText}
           onChangeText={setInputText}
         />
+        <View style={styles.inlineNavigationButtons}>
+          <Pressable style={styles.smallNavButton} onPress={toggleKeyboard}>
+            <Text style={styles.smallNavIcon}>⌨️</Text>
+          </Pressable>
+          <Pressable style={styles.smallNavButton} onPress={handleHome}>
+            <Text style={styles.smallNavIcon}>🏠</Text>
+          </Pressable>
+        </View>
       </View>
 
       {isLoading && (
@@ -568,16 +598,6 @@ const Convo = () => {
         </View>
       </View>
 
-      {/* Navigation Buttons */}
-      <View style={styles.navigationButtons}>
-        <Pressable style={styles.navButton} onPress={toggleKeyboard}>
-          <Text style={styles.navIcon}>⌨️</Text>
-        </Pressable>
-        <Pressable style={styles.navButton} onPress={handleHome}>
-          <Text style={styles.navIcon}>🏠</Text>
-        </Pressable>
-      </View>
-
       {isKeyboardVisible && (
         <View style={styles.keyboardOverlay}>
           <TextInput
@@ -598,33 +618,67 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  inputSection: {
+  safeAreaPadding: {
+    height: Platform.OS === 'ios' ? SCREEN_HEIGHT * 0.05 : SCREEN_HEIGHT * 0.03,
+  },
+  inputNavigationContainer: {
     flexDirection: 'row',
-    padding: 15,
+    width: '90%',
+    alignSelf: 'center',
     alignItems: 'center',
-    gap: 20,
-    marginTop: 20,
+    marginVertical: SCREEN_HEIGHT * 0.02,
+    justifyContent: 'space-between',
   },
   playButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: SCREEN_WIDTH * 0.12,
+    height: SCREEN_WIDTH * 0.12,
+    maxWidth: 60,
+    maxHeight: 60,
+    borderRadius: SCREEN_WIDTH * 0.06,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   playIcon: {
-    width: 50,
-    height: 50,
+    width: '80%',
+    height: '80%',
     resizeMode: 'contain',
   },
   input: {
     flex: 1,
-    height: 50,
+    height: SCREEN_HEIGHT * 0.06,
+    maxHeight: 60,
     backgroundColor: '#E5E5E5',
     borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
+    fontSize: SCREEN_HEIGHT * 0.02,
+    marginHorizontal: SCREEN_WIDTH * 0.02,
+  },
+  inlineNavigationButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallNavButton: {
+    width: SCREEN_WIDTH * 0.08,
+    height: SCREEN_WIDTH * 0.08,
+    maxWidth: 50,
+    maxHeight: 50,
+    borderRadius: SCREEN_WIDTH * 0.04,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SCREEN_WIDTH * 0.02,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  smallNavIcon: {
+    fontSize: SCREEN_WIDTH * 0.02,
   },
   columnsContainer: {
     flex: 1,
@@ -675,33 +729,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
-  navigationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 30,
-    marginTop: 40,
-    paddingBottom: 40,
-    paddingRight: 40,
-  },
-  navButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  navIcon: {
-    fontSize: 60,
-  },
   speakerContainer: {
     height: 170,
     width: COLUMN_WIDTH,
@@ -722,7 +749,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   verticalOption: {
-    height: 60,
+    height: SCREEN_HEIGHT * 0.3,
     marginBottom: 10,
     width: '100%',
   },
@@ -794,6 +821,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  itemContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  itemImage: {
+    width: '80%',
+    height: '80%',
+    marginBottom: 5,
+  },
 });
 
 export default Convo;
@@ -817,7 +855,15 @@ const ConvoCarousel = <T extends string>({
   setSentence: (sentence: Sentence) => void;
   data: T[];
   handleItemSelect: (item: T, index: number) => void;
-  fieldName: keyof Sentence;
+  fieldName:
+    | 'topic'
+    | 'object'
+    | 'action'
+    | 'questions'
+    | 'generate_answers'
+    | 'speaker'
+    | 'audience'
+    | 'sentenceType';
   showPersonIcon?: boolean;
   showTalkIcon?: boolean;
 }) => {
@@ -827,7 +873,12 @@ const ConvoCarousel = <T extends string>({
   if (isVerticalLayout) {
     // For vertical layout, render items in a ScrollView instead of Carousel
     return (
-      <ScrollView style={{width: '100%', maxHeight: SCREEN_HEIGHT * 0.5}}>
+      <ScrollView
+        style={{
+          width: '100%',
+          maxHeight: SCREEN_HEIGHT * 0.8,
+          minHeight: SCREEN_HEIGHT * 0.8,
+        }}>
         {data.map((item, index) => (
           <Pressable
             key={`${fieldName}-${item}-${index}`}
@@ -837,7 +888,14 @@ const ConvoCarousel = <T extends string>({
               styles.verticalOption,
             ]}
             onPress={() => handleItemSelect(item, index)}>
-            <Text style={styles.optionText}>{item}</Text>
+            <View style={styles.itemContainer}>
+              <Image
+                source={require('../assets/welcome.png')}
+                style={styles.itemImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.optionText}>{item}</Text>
+            </View>
           </Pressable>
         ))}
       </ScrollView>
@@ -876,7 +934,8 @@ const ConvoCarousel = <T extends string>({
         <Pressable
           style={[
             styles.speakerOption,
-            sentence[fieldName] === cardItemValue && styles.selectedOption,
+            sentence[fieldName as keyof Sentence] === cardItemValue &&
+              styles.selectedOption,
           ]}
           onPress={() => handleItemSelect(cardItemValue as T, index)}>
           {showPersonIcon ? (
@@ -907,7 +966,16 @@ const ConvoCarousel = <T extends string>({
               <Text style={styles.optionText}>{cardItemValue}</Text>
             </>
           ) : (
-            <Text style={styles.optionText}>{cardItemValue}</Text>
+            <>
+              <View style={styles.itemContainer}>
+                <Image
+                  source={require('../assets/welcome.png')}
+                  style={styles.itemImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.optionText}>{cardItemValue}</Text>
+              </View>
+            </>
           )}
         </Pressable>
       )}

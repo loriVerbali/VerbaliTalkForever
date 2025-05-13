@@ -36,6 +36,12 @@ const onboardingSteps = [
     buttonText: 'Next',
   },
   {
+    id: 'admin-code',
+    question: 'Set Admin Code',
+    additionalComponents: 'admin-code-input',
+    buttonText: 'Next',
+  },
+  {
     id: 'wake-word',
     question: "Let's set your Wake word",
     additionalComponents: 'microphone',
@@ -49,6 +55,7 @@ const OnboardingScreen: React.FC = () => {
   const {completeOnboarding} = useContext(OnboardingContext);
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
+  const [adminCode, setAdminCode] = useState('');
   const [isRecording, setIsRecording] = useState(false);
 
   const handleNext = async () => {
@@ -59,6 +66,9 @@ const OnboardingScreen: React.FC = () => {
       await setItem('wasOnboarded', '1');
       if (heroName) {
         await setItem('heroName', heroName);
+      }
+      if (adminCode) {
+        await setItem('adminCode', adminCode);
       }
 
       // Use the context to complete onboarding
@@ -87,6 +97,27 @@ const OnboardingScreen: React.FC = () => {
               autoCapitalize="words"
               autoComplete="name-given"
               maxLength={20}
+            />
+          </View>
+        );
+      case 'admin-code-input':
+        return (
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Set a 4 digit code"
+              placeholderTextColor="#888"
+              value={adminCode}
+              onChangeText={text => {
+                // Only allow numbers and limit to 4 digits
+                const numericText = text.replace(/[^0-9]/g, '');
+                if (numericText.length <= 4) {
+                  setAdminCode(numericText);
+                }
+              }}
+              keyboardType="numeric"
+              maxLength={4}
+              secureTextEntry={true}
             />
           </View>
         );
@@ -146,7 +177,9 @@ const OnboardingScreen: React.FC = () => {
                 style={styles.button}
                 onPress={handleNext}
                 disabled={
-                  currentStepData.id === 'name' && !heroName.trim().length
+                  (currentStepData.id === 'name' && !heroName.trim().length) ||
+                  (currentStepData.id === 'admin-code' &&
+                    adminCode.length !== 4)
                 }>
                 <Text style={styles.buttonText}>
                   {currentStepData.buttonText}

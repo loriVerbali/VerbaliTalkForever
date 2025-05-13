@@ -9,6 +9,7 @@ import {
   Modal,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import {
   useNavigation,
@@ -16,6 +17,7 @@ import {
   RouteProp,
 } from '@react-navigation/native';
 import Sound from 'react-native-sound';
+import {views} from '../utils/constants';
 
 // Add imports for the components
 import Inputs, {InputsRef} from '../Components/Inputs';
@@ -45,9 +47,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [attentionSound, setAttentionSound] = useState<Sound | null>(null);
   const [showTranscription, setShowTranscription] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const inputsRef = useRef<InputsRef>(null);
   const lastSoundTimeRef = useRef<number>(Date.now());
   const {playAttention} = useSound();
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (stateof === 'Attention') {
@@ -70,6 +74,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setTranscribedText(text);
   };
 
+  const toggleKeyboard = () => {
+    setIsKeyboardVisible(!isKeyboardVisible);
+  };
+
+  const handleHome = () => {
+    navigation.navigate(views.OPEN as never);
+  };
+
   return (
     <View style={styles.container}>
       {showLog && (
@@ -84,6 +96,30 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         mode={stateof}
         onTranscriptionUpdate={handleTranscriptionUpdate}
       />
+
+      {/* Input and Navigation Section */}
+      <View style={styles.inputNavigationContainer}>
+        <Pressable style={styles.playButton} onPress={() => playSound()}>
+          <Text style={styles.playIcon}>▶️</Text>
+        </Pressable>
+
+        <TextInput
+          style={styles.input}
+          placeholder="Waiting for input..."
+          value={transcribedText}
+          onChangeText={setTranscribedText}
+        />
+
+        <View style={styles.inlineNavigationButtons}>
+          <Pressable style={styles.smallNavButton} onPress={toggleKeyboard}>
+            <Text style={styles.smallNavIcon}>⌨️</Text>
+          </Pressable>
+          <Pressable style={styles.smallNavButton} onPress={handleHome}>
+            <Text style={styles.smallNavIcon}>🏠</Text>
+          </Pressable>
+        </View>
+      </View>
+
       <View style={styles.contentContainer}>
         <Modal
           visible={showTranscription}
@@ -114,6 +150,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           ) : null}
         </View>
       </View>
+
+      {isKeyboardVisible && (
+        <View style={styles.keyboardOverlay}>
+          <TextInput
+            style={styles.keyboardInput}
+            value={transcribedText}
+            onChangeText={setTranscribedText}
+            multiline
+            autoFocus
+            onBlur={() => setIsKeyboardVisible(false)}
+          />
+        </View>
+      )}
     </View>
   );
 };
@@ -122,6 +171,66 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '',
+  },
+  inputNavigationContainer: {
+    flexDirection: 'row',
+    width: '90%',
+    alignSelf: 'center',
+    alignItems: 'center',
+    marginVertical: 15,
+    justifyContent: 'space-between',
+  },
+  playButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  playIcon: {
+    fontSize: 24,
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    backgroundColor: '#E5E5E5',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    marginHorizontal: 10,
+  },
+  inlineNavigationButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallNavButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  smallNavIcon: {
+    fontSize: 24,
   },
   contentContainer: {
     flex: 1,
@@ -197,6 +306,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#007AFF',
     fontWeight: '600',
+  },
+  keyboardOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFF',
+    padding: 15,
+    borderTopWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  keyboardInput: {
+    height: 100,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 16,
+    textAlignVertical: 'top',
   },
 });
 

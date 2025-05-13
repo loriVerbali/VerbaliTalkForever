@@ -8,11 +8,15 @@ import {
   Pressable,
   ActivityIndicator,
   Animated,
+  Modal,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
-import {views} from '../utils/constants';
+import {SCREEN_WIDTH, views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAssistant} from '../contexts/AssistantContext';
 import VoiceService from '../utils/VoiceService';
@@ -41,9 +45,13 @@ const OpenScreen: React.FC = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {geminiGenerateImage} = useAssistant();
   const {clearSession} = useAuth0();
-  const {setItem} = useAppSettings();
+  const {setItem, getItem} = useAppSettings();
+  const [adminCodeInput, setAdminCodeInput] = useState('');
+  const [isError, setIsError] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
+    console.log('OpenScreen mounted');
     // Fade in when the screen mounts
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -102,6 +110,10 @@ const OpenScreen: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    console.log('Modal visibility changed:', modalVisible);
+  }, [modalVisible]);
+
   const handleNavigation = (state: string) => {
     // Start fade out before navigation
     Animated.timing(fadeAnim, {
@@ -115,20 +127,6 @@ const OpenScreen: React.FC = () => {
         navigation.navigate(views.HOME as never);
       }
     });
-  };
-
-  const handleLogout = async () => {
-    try {
-      await clearSession();
-      console.log('Clearing session');
-      // Clear stored user data on logout
-      await setItem('loggedIn', '0');
-      await setItem('username', '');
-      // Navigate to login screen
-      navigation.navigate(views.LOGIN as never);
-    } catch (e) {
-      console.log('Log out cancelled', e);
-    }
   };
 
   const handKeyboard = async () => {
@@ -179,121 +177,190 @@ const OpenScreen: React.FC = () => {
     }
   };
 
+  const handleSettingsPress = () => {
+    console.log('Settings button pressed, current modal state:', modalVisible);
+    setModalVisible(true);
+    console.log('Setting modal visible to true');
+  };
+
+  const closeModal = () => {
+    console.log('Closing modal');
+    setModalVisible(false);
+    setAdminCodeInput('');
+    setIsError(false);
+  };
+
+  const handleAdminCodeSubmit = async () => {
+    console.log('Submitting admin code:', adminCodeInput);
+    const storedAdminCode = await getItem('adminCode');
+    console.log('Stored admin code:', storedAdminCode);
+    if (adminCodeInput === storedAdminCode) {
+      closeModal();
+      navigation.navigate(views.SETTINGS as never);
+    } else {
+      setIsError(true);
+      setTimeout(closeModal, 1000);
+    }
+  };
+
   return (
-    <Animated.View style={[{flex: 1, opacity: fadeAnim}]}>
-      <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
-        <Pressable
-          style={styles.microphoneButton}
-          onPress={startListening}
-          disabled={isListening.current}>
-          <FastImage
-            source={require('../assets/microphone.png')}
-            style={[
-              styles.microphoneImage,
-              isListening.current && {opacity: 0.5},
-            ]}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </Pressable>
+    <>
+      <Animated.View style={[{flex: 1, opacity: fadeAnim}]}>
+        <LinearGradient
+          colors={['#ffffff', '#f8f9fe']}
+          style={styles.container}>
+          <Pressable
+            style={styles.microphoneButton}
+            onPress={startListening}
+            disabled={isListening.current}>
+            <FastImage
+              source={require('../assets/microphone.png')}
+              style={[
+                styles.microphoneImage,
+                isListening.current && {opacity: 0.5},
+              ]}
+              resizeMode={FastImage.resizeMode.contain}
+            />
+          </Pressable>
 
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <FastImage
-            source={require('../assets/logout.png')}
-            style={[styles.microphoneImage]}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </Pressable>
+          <Pressable
+            style={styles.settingsButton}
+            onPress={handleSettingsPress}>
+            <FastImage
+              source={require('../assets/settings.png')}
+              style={[styles.microphoneImage]}
+              resizeMode={FastImage.resizeMode.contain}
+            />
+          </Pressable>
 
-        <Pressable
-          style={styles.settingsButton}
-          onPress={() => navigation.navigate(views.SETTINGS as never)}>
-          <FastImage
-            source={require('../assets/settings.png')}
-            style={[styles.microphoneImage]}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </Pressable>
-
-        <View style={styles.contentContainer}>
-          <View
-            style={{
-              flexDirection: 'row',
-              height: height / 2 - statusBarHeight,
-            }}>
-            <View style={styles.rowContent}>
-              <Pressable
-                style={styles.tileWrapper}
-                onPress={() => handleNavigation('Talk')}>
-                <FastImage
-                  source={require('../assets/talk.png')}
-                  style={{width: '100%', height: '100%'}}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <Text style={styles.kidText}>Start Talking</Text>
-              </Pressable>
-            </View>
-            <View style={styles.rowContent}>
-              <Pressable
-                style={styles.tileWrapper}
-                onPress={() => {
-                  Animated.timing(fadeAnim, {
-                    toValue: 0,
-                    duration: 500,
-                    useNativeDriver: true,
-                  }).start(() => {
-                    navigation.navigate(views.SHORTCUTS as never);
-                  });
-                }}>
-                <FastImage
-                  source={require('../assets/shortCuts.png')}
-                  style={{width: '100%', height: '100%'}}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <Text style={styles.kidText}>ShortCuts!</Text>
-              </Pressable>
-            </View>
-          </View>
-
-          <View
-            style={{
-              flexDirection: 'row',
-              height: height / 2,
-            }}>
-            <View style={styles.rowContent}>
-              <Pressable
-                style={styles.tileWrapper}
-                onPress={() => {
-                  Animated.timing(fadeAnim, {
-                    toValue: 0,
-                    duration: 500,
-                    useNativeDriver: true,
-                  }).start(() => {
-                    navigation.navigate(views.FEELINGS as never);
-                  });
-                }}>
-                <FastImage
-                  source={require('../assets/feelings.png')}
-                  style={{width: '100%', height: '100%'}}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <Text style={styles.kidText}>How I Feel</Text>
-              </Pressable>
+          <View style={styles.contentContainer}>
+            <View
+              style={{
+                flexDirection: 'row',
+                height: height / 2 - statusBarHeight,
+              }}>
+              <View style={styles.rowContent}>
+                <Pressable
+                  style={styles.tileWrapper}
+                  onPress={() => handleNavigation('Talk')}>
+                  <FastImage
+                    source={require('../assets/talk.png')}
+                    style={{width: '100%', height: '100%'}}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text style={styles.kidText}>Start Talking</Text>
+                </Pressable>
+              </View>
+              <View style={styles.rowContent}>
+                <Pressable
+                  style={styles.tileWrapper}
+                  onPress={() => {
+                    Animated.timing(fadeAnim, {
+                      toValue: 0,
+                      duration: 500,
+                      useNativeDriver: true,
+                    }).start(() => {
+                      navigation.navigate(views.SHORTCUTS as never);
+                    });
+                  }}>
+                  <FastImage
+                    source={require('../assets/shortCuts.png')}
+                    style={{width: '100%', height: '100%'}}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text style={styles.kidText}>ShortCuts!</Text>
+                </Pressable>
+              </View>
             </View>
 
-            <View style={styles.rowContent}>
-              <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
-                <FastImage
-                  source={require('../assets/keyboard.png')}
-                  style={{width: '100%', height: '100%'}}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <Text style={styles.kidText}>Type Here!</Text>
-              </Pressable>
+            <View
+              style={{
+                flexDirection: 'row',
+                height: height / 2,
+              }}>
+              <View style={styles.rowContent}>
+                <Pressable
+                  style={styles.tileWrapper}
+                  onPress={() => {
+                    Animated.timing(fadeAnim, {
+                      toValue: 0,
+                      duration: 500,
+                      useNativeDriver: true,
+                    }).start(() => {
+                      navigation.navigate(views.FEELINGS as never);
+                    });
+                  }}>
+                  <FastImage
+                    source={require('../assets/feelings.png')}
+                    style={{width: '100%', height: '100%'}}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text style={styles.kidText}>How I Feel</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.rowContent}>
+                <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
+                  <FastImage
+                    source={require('../assets/keyboard.png')}
+                    style={{width: '100%', height: '100%'}}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text style={styles.kidText}>Type Here!</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
-      </LinearGradient>
-    </Animated.View>
+        </LinearGradient>
+      </Animated.View>
+
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeModal}>
+        <TouchableWithoutFeedback onPress={closeModal}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Enter Admin Code</Text>
+                <TextInput
+                  style={[styles.codeInput, isError && styles.errorInput]}
+                  value={adminCodeInput}
+                  onChangeText={text => {
+                    const numericText = text.replace(/[^0-9]/g, '');
+                    if (numericText.length <= 4) {
+                      setAdminCodeInput(numericText);
+                    }
+                  }}
+                  keyboardType="numeric"
+                  maxLength={4}
+                  secureTextEntry={true}
+                  autoFocus={true}
+                />
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={closeModal}>
+                    <Text style={styles.buttonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton,
+                      styles.submitButton,
+                      adminCodeInput.length !== 4 && styles.disabledButton,
+                    ]}
+                    onPress={handleAdminCodeSubmit}
+                    disabled={adminCodeInput.length !== 4}>
+                    <Text style={styles.buttonText}>Submit</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </>
   );
 };
 
@@ -327,31 +394,18 @@ const styles = StyleSheet.create({
   },
   microphoneButton: {
     position: 'absolute',
-    top: 40,
-    left: 10,
+    top: height * 0.1,
+    left: SCREEN_WIDTH * 0.01,
     width: 60,
     height: 60,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoutButton: {
-    position: 'absolute',
-    top: 120,
-    left: 10,
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f44336',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    zIndex: 10,
-  },
+
   settingsButton: {
     position: 'absolute',
-    top: 200,
-    left: 10,
+    top: height * 0.2,
+    left: SCREEN_WIDTH * 0.01,
     width: 60,
     height: 60,
     justifyContent: 'center',
@@ -361,6 +415,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 20,
     zIndex: 10,
+    elevation: 5,
   },
   microphoneImage: {
     width: '100%',
@@ -378,6 +433,76 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+  },
+  codeInput: {
+    width: '100%',
+    height: 60,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    fontSize: 24,
+    textAlign: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  errorInput: {
+    borderColor: '#ff3b30',
+    backgroundColor: '#fff0f0',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#ff3b30',
+  },
+  submitButton: {
+    backgroundColor: '#34c759',
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

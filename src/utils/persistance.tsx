@@ -15,6 +15,7 @@ interface Preferences {
   objectsCount: string;
   wasOnboarded: string;
   heroName: string;
+  adminCode: string;
 }
 
 const initEnum = {
@@ -43,6 +44,7 @@ const initialPreferences: Preferences = {
   objectsCount: '4',
   wasOnboarded: initEnum.false,
   heroName: '',
+  adminCode: '',
 };
 
 interface AppSettingsContextProps {
