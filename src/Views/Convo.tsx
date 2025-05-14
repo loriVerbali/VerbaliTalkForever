@@ -270,7 +270,6 @@ const Convo = () => {
       console.log('📩 Received assistant response:', response);
       try {
         // Handle the response based on its modeType
-        debugger;
         if (response.modeType === 'list_possible_topics') {
           try {
             const topicsArray = JSON.parse(response.response);

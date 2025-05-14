@@ -267,7 +267,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
           console.log(
             `💤 Waiting 1 second before next poll (attempt ${pollCount}/${maxPolls})...`,
           );
-          await new Promise<void>(resolve => setTimeout(resolve, 1000));
+          await new Promise<void>(resolve => setTimeout(resolve, 500));
         }
 
         if (pollCount >= maxPolls) {
@@ -350,6 +350,9 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
           if (now.getTime() - createdAt.getTime() < THREAD_EXPIRATION_MS) {
             setIsThreadFresh(true);
+          } else {
+            setIsThreadFresh(false);
+            createThreadIfNeeded();
           }
         }
       }
@@ -415,7 +418,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     console.log('🔍 Sending message:', content);
     console.log('threadOverride:', threadIdOverride);
     let idToUse = threadIdOverride || threadId;
-
+    debugger;
     if (!idToUse) {
       console.log('⚠️ No thread ID available, creating a new thread...');
       idToUse = await createThreadIfNeeded();
@@ -447,6 +450,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         },
       );
       const data = await response;
+      console.log('📩 Message sent successfully, data:', data);
       console.log('📩 Message sent successfully, ID:', data.id);
       return data.id;
     } catch (error) {
