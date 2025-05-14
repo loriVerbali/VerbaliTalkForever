@@ -262,7 +262,6 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleOnboardingToggle = async (value: boolean) => {
-    debugger;
     setShowOnboardingEnabled(value);
     await setItem('wasOnboarded', value ? '0' : '1');
   };

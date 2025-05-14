@@ -44,7 +44,12 @@ interface AssistantContextType {
   sendMessage: (
     content: string,
     threadIdOverride?: string,
-    mode?: 'topic' | 'object' | 'action' | 'generate_answers' | 'sentence',
+    mode?:
+      | 'list_possible_topics'
+      | 'list_possible_objects'
+      | 'list_possible_actions'
+      | 'generate_answers'
+      | 'sentence',
   ) => Promise<string>;
   runAssistant: (threadIdOverride?: string) => Promise<string>;
   setThreadId: (id: string) => void;
@@ -82,23 +87,23 @@ const useAssistantResponse = (threadId: string, runId: string) => {
 
   const getTopicFromResponse = (response: string) => {
     setConvoTopic(response);
-    setModeType('topic');
+    setModeType('list_possible_topics');
     console.log('🔍 Convo topic:', response);
-    setResponse({response: response, modeType: 'topic'});
+    setResponse({response: response, modeType: 'list_possible_topics'});
   };
 
   const getObjectFromResponse = (response: string) => {
     setConvoObject(response);
-    setModeType('object');
+    setModeType('list_possible_objects');
     console.log('🔍 Convo object:', response);
-    setResponse({response: response, modeType: 'object'});
+    setResponse({response: response, modeType: 'list_possible_objects'});
   };
 
   const getActionFromResponse = (response: string) => {
     setConvoAction(response);
-    setModeType('action');
+    setModeType('list_possible_actions');
     console.log('🔍 Convo action:', response);
-    setResponse({response: response, modeType: 'action'});
+    setResponse({response: response, modeType: 'list_possible_actions'});
   };
 
   const getSentenceFromResponse = (response: string) => {
@@ -153,7 +158,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             const messageType = messagesResponse.data[1].metadata.mode;
             console.log('🔍 Message type:', messageType);
 
-            if (messageType === 'topic') {
+            if (messageType === 'list_possible_topics') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -164,7 +169,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               }
             }
 
-            if (messageType === 'object') {
+            if (messageType === 'list_possible_objects') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -175,7 +180,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               }
             }
 
-            if (messageType === 'action') {
+            if (messageType === 'list_possible_actions') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -187,7 +192,6 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             }
 
             if (messageType === 'sentence') {
-              debugger;
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -222,7 +226,9 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                   if (answers) {
                     console.log('📋 Extracted answers:', answers);
                     setQuestionContext(responseData['context'] || '');
-                    setQuestionTopic(responseData['topic'] || '');
+                    setQuestionTopic(
+                      responseData['list_possible_topics'] || '',
+                    );
                     setIdentifiedQuestion(
                       responseData['Identified Question'] || '',
                     );
@@ -398,7 +404,12 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   const sendMessage = async (
     content: string,
     threadIdOverride?: string,
-    mode?: 'topic' | 'object' | 'action' | 'generate_answers' | 'sentence',
+    mode?:
+      | 'list_possible_topics'
+      | 'list_possible_objects'
+      | 'list_possible_actions'
+      | 'generate_answers'
+      | 'sentence',
   ) => {
     // Ensure we have a thread ID first by checking if we need a new one
     console.log('🔍 Sending message:', content);

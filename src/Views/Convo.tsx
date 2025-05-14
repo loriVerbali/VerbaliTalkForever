@@ -52,7 +52,7 @@ interface Sentence {
   speaker: Speaker | '';
   audience: Audience | '';
   sentenceType: SentenceType | '';
-  topic: Topic | '';
+  list_possible_topics: Topic | '';
   action: Action | '';
   object: Object | '';
 }
@@ -63,12 +63,22 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const COLUMN_WIDTH = SCREEN_WIDTH / 4;
 
+interface ImagePrompt {
+  image_prompt: string;
+  text: string;
+}
+
+interface ImageGenerated {
+  text: string;
+  url: string;
+}
+
 const Convo = () => {
   const [sentence, setSentence] = useState<Sentence>({
     speaker: '',
     audience: '',
     sentenceType: '',
-    topic: '',
+    list_possible_topics: '',
     action: '',
     object: '',
   });
@@ -112,12 +122,21 @@ const Convo = () => {
   const [availableActions, setAvailableActions] = useState<Action[]>([]);
   const [availableObjects, setAvailableObjects] = useState<Object[]>([]);
   const [generatedSentence, setGeneratedSentence] = useState('');
+  const [generatedTopicImages, setGeneratedTopicImages] = useState<
+    ImageGenerated[]
+  >([]);
+  const [generatedActionImages, setGeneratedActionImages] = useState<
+    ImageGenerated[]
+  >([]);
+  const [generatedObjectImages, setGeneratedObjectImages] = useState<
+    ImageGenerated[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Update input text when sentence changes
   useEffect(() => {
-    const {speaker, audience, topic, action, object} = sentence;
-    if (speaker && topic && action && object) {
+    const {speaker, audience, list_possible_topics, action, object} = sentence;
+    if (speaker && list_possible_topics && action && object) {
       setInputText(
         `${speaker} want to ${action} ${object} ${
           audience ? 'to ' + audience : ''
@@ -164,7 +183,12 @@ const Convo = () => {
       const messageId = await sendMessage(
         message,
         undefined,
-        mode as 'object' | 'topic' | 'action' | 'generate_answers' | 'sentence',
+        mode as
+          | 'list_possible_objects'
+          | 'list_possible_topics'
+          | 'list_possible_actions'
+          | 'generate_answers'
+          | 'sentence',
       );
       console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
 
@@ -182,27 +206,58 @@ const Convo = () => {
     }
   };
 
-  const generateImage = async (prompt: string) => {
+  const generateImage = async (array: ImagePrompt[], mode: string) => {
     try {
-      // Encode the prompt for URL
-      const encodedPrompt = encodeURIComponent(prompt);
+      const images: ImageGenerated[] = [];
+      // Process each prompt in the array
+      for (const prompt of array) {
+        const text = prompt.text;
+        const encodedPrompt = encodeURIComponent(prompt.image_prompt);
 
-      // Generate a random seed for variety
-      const seed = Math.floor(Math.random() * 1000);
+        // Generate a random seed for variety
+        const seed = Math.floor(Math.random() * 1000);
 
-      const response = await fetchHelper(
-        'generateImage',
-        {
-          prompt: encodedPrompt,
-          seed: seed.toString(),
-        },
-        {},
-      );
+        const response = await fetchHelper(
+          'generateImage',
+          {
+            prompt: encodedPrompt,
+            seed: seed.toString(),
+          },
+          {},
+        );
 
-      // The response is the direct image URL
-      const imageUrl = response;
+        // Handle different possible response formats
+        let imageUrl = '';
+        if (typeof response === 'string') {
+          // Direct URL string response
+          imageUrl = response;
+        } else if (
+          response &&
+          typeof response === 'object' &&
+          'url' in response
+        ) {
+          // Object response with url property
+          imageUrl = response.url || '';
+        }
 
-      return {url: imageUrl};
+        if (imageUrl) {
+          // Add both the text prompt and image URL to the array
+          images.push({
+            text: text,
+            url: imageUrl,
+          });
+        }
+      }
+
+      // Update state with generated images
+      if (mode === 'topic') {
+        setGeneratedTopicImages(images);
+      } else if (mode === 'list_possible_actions') {
+        setGeneratedActionImages(images);
+      } else if (mode === 'list_possible_objects') {
+        setGeneratedObjectImages(images);
+      }
+      return images;
     } catch (error) {
       console.error('Failed to generate image:', error);
       throw error;
@@ -215,65 +270,64 @@ const Convo = () => {
       console.log('📩 Received assistant response:', response);
       try {
         // Handle the response based on its modeType
-        if (response.modeType === 'topic') {
+        debugger;
+        if (response.modeType === 'list_possible_topics') {
           try {
             const topicsArray = JSON.parse(response.response);
             if (
-              Array.isArray(topicsArray.output_schema) &&
-              topicsArray.output_schema.length > 0
+              Array.isArray(topicsArray.topics) &&
+              topicsArray.topics.length > 0
             ) {
-              console.log('📋 Got topics array:', topicsArray.output_schema);
+              console.log('📋 Got topics array:', topicsArray.topics);
               setAvailableTopics(
-                topicsArray.output_schema.slice(0, 4) as Topic[],
+                topicsArray.topics
+                  .slice(0, 4)
+                  .map((item: {text: any}) => item.text) as Topic[],
               );
-              debugger;
-              // generateImage(topicsArray.output_schema);
+              generateImage(topicsArray.topics, 'topic');
               console.log('✅ Topics updated');
             }
           } catch (error) {
             console.error('Error parsing topics:', error);
           }
-        } else if (response.modeType === 'action') {
+        } else if (response.modeType === 'list_possible_actions') {
           try {
             const actionsData = JSON.parse(response.response);
             if (
               actionsData &&
-              Array.isArray(actionsData.output_schema) &&
-              actionsData.output_schema.length > 0
+              Array.isArray(actionsData.verbs) &&
+              actionsData.verbs.length > 0
             ) {
-              console.log('🎯 Got actions:', actionsData.output_schema);
-              setAvailableActions(
-                actionsData.output_schema.slice(0, 4) as Action[],
-              );
+              console.log('🎯 Got actions:', actionsData.verbs);
+              setAvailableActions(actionsData.verbs.slice(0, 4) as Action[]);
               //setSentence({...sentence, action: '', object: ''});
               console.log(
                 '✅ Actions updated, cleared action and object selections',
               );
+              generateImage(actionsData.verbs, 'list_possible_actions');
             }
           } catch (error) {
             console.error('Error parsing actions:', error);
           }
-        } else if (response.modeType === 'object') {
+        } else if (response.modeType === 'list_possible_objects') {
           try {
             const objectsData = JSON.parse(response.response);
             if (
               objectsData &&
-              Array.isArray(objectsData.output_schema) &&
-              objectsData.output_schema.length > 0
+              Array.isArray(objectsData.objects) &&
+              objectsData.objects.length > 0
             ) {
-              console.log('📦 Got objects:', objectsData.output_schema);
-              setAvailableObjects(
-                objectsData.output_schema.slice(0, 4) as Object[],
-              );
+              console.log('📦 Got objects:', objectsData.objects);
+              setAvailableObjects(objectsData.objects.slice(0, 4) as Object[]);
               // setSentence({...sentence, object: ''});
               console.log('✅ Objects updated, cleared object selection');
+              generateImage(objectsData.objects, 'list_possible_objects');
             }
           } catch (error) {
             console.error('Error parsing objects:', error);
           }
         } else if (response.modeType === 'sentence') {
           try {
-            debugger;
             const sentenceData = response?.response;
 
             if (sentenceData) {
@@ -311,10 +365,9 @@ const Convo = () => {
         console.log('✅ All prerequisites met, generating topics');
         const prompt = `Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
-        }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'topics'`;
-
-        console.log('🔄 Calling assistant for topics');
-        await callAssistant('topic', prompt);
+        }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'list_possible_topics'`;
+        console.log('🔄 Calling assistant for list_possible_topics');
+        await callAssistant('list_possible_topics', prompt);
       } else {
         console.log(
           '⏳ Waiting for all prerequisites before generating topics',
@@ -343,7 +396,7 @@ const Convo = () => {
         }. I need up to 3 simple, kid-friendly action verbs. The message.metadata.mode = 'actions'`;
 
         console.log('🔄 Calling assistant for actions');
-        await callAssistant('action', prompt);
+        await callAssistant('list_possible_actions', prompt);
       } else {
         console.log('⏳ Waiting for topic selection before generating actions');
       }
@@ -374,7 +427,10 @@ const Convo = () => {
         }. I need up to 3 simple, kid-friendly objects. The message.metadata.mode = 'objects'`;
 
         console.log('🔄 Calling assistant for objects');
-        const objectsResult = await callAssistant('object', objectsPrompt);
+        const objectsResult = await callAssistant(
+          'list_possible_objects',
+          objectsPrompt,
+        );
         console.log('Objects result:', objectsResult);
       } else {
         console.log(
@@ -445,21 +501,39 @@ const Convo = () => {
     }
   };
 
-  const handleTopicSelect = (topic: Topic, index: number) => {
-    //setSentence({...sentence, topic, action: '', object: ''});
-    setTopic(topic);
+  const handleTopicSelect = (item: Topic | ImageGenerated, index: number) => {
+    // Extract the text if it's an ImageGenerated object
+    const topicValue =
+      typeof item === 'object' && 'text' in item
+        ? (item.text as Topic)
+        : (item as Topic);
+    setTopic(topicValue);
     setTopicIndex(index);
   };
 
-  const handleActionSelect = (action: Action, index: number) => {
+  const handleActionSelect = (
+    action: Action | ImageGenerated,
+    index: number,
+  ) => {
     // setSentence({...sentence, action});
-    setAction(action);
+    const actionValue =
+      typeof action === 'object' && 'text' in action
+        ? (action.text as Action)
+        : (action as Action);
+    setAction(actionValue);
     setActionIndex(index);
   };
 
-  const handleObjectSelect = (object: Object, index: number) => {
+  const handleObjectSelect = (
+    object: Object | ImageGenerated,
+    index: number,
+  ) => {
     //setSentence({...sentence, object});
-    setObject(object);
+    const objectValue =
+      typeof object === 'object' && 'text' in object
+        ? (object.text as Object)
+        : (object as Object);
+    setObject(objectValue);
     setObjectIndex(index);
   };
 
@@ -571,15 +645,17 @@ const Convo = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Choose the topic:</Text>
             <View style={styles.optionsContainer}>
-              <ConvoCarousel<Topic>
+              <ConvoCarousel<Topic | ImageGenerated>
                 carouselRef={topicCarouselRef}
                 currentIndex={topicIndex}
                 setCurrentIndex={setTopicIndex}
                 sentence={sentence}
                 setSentence={setSentence}
-                data={availableTopics.length > 0 ? availableTopics : []}
+                data={
+                  generatedTopicImages.length > 0 ? generatedTopicImages : []
+                }
                 handleItemSelect={handleTopicSelect}
-                fieldName="topic"
+                fieldName="list_possible_topics"
               />
             </View>
           </View>
@@ -597,9 +673,13 @@ const Convo = () => {
                   setCurrentIndex={setActionIndex}
                   sentence={sentence}
                   setSentence={setSentence}
-                  data={availableActions.length > 0 ? availableActions : []}
+                  data={
+                    generatedActionImages.length > 0
+                      ? generatedActionImages
+                      : []
+                  }
                   handleItemSelect={handleActionSelect}
-                  fieldName="action"
+                  fieldName="list_possible_actions"
                 />
               </View>
             </View>
@@ -618,9 +698,13 @@ const Convo = () => {
                   setCurrentIndex={setObjectIndex}
                   sentence={sentence}
                   setSentence={setSentence}
-                  data={availableObjects.length > 0 ? availableObjects : []}
+                  data={
+                    generatedObjectImages.length > 0
+                      ? generatedObjectImages
+                      : []
+                  }
                   handleItemSelect={handleObjectSelect}
-                  fieldName="object"
+                  fieldName="list_possible_objects"
                 />
               </View>
             </View>
@@ -866,7 +950,7 @@ const styles = StyleSheet.create({
 
 export default Convo;
 
-const ConvoCarousel = <T extends string>({
+const ConvoCarousel = <T extends string | ImageGenerated>({
   carouselRef,
   currentIndex,
   setCurrentIndex,
@@ -886,9 +970,9 @@ const ConvoCarousel = <T extends string>({
   data: T[];
   handleItemSelect: (item: T, index: number) => void;
   fieldName:
-    | 'topic'
-    | 'object'
-    | 'action'
+    | 'list_possible_topics'
+    | 'list_possible_objects'
+    | 'list_possible_actions'
     | 'questions'
     | 'generate_answers'
     | 'speaker'
@@ -898,7 +982,27 @@ const ConvoCarousel = <T extends string>({
   showTalkIcon?: boolean;
 }) => {
   const isVerticalLayout =
-    fieldName === 'action' || fieldName === 'object' || fieldName === 'topic';
+    fieldName === 'list_possible_actions' ||
+    fieldName === 'list_possible_objects' ||
+    fieldName === 'list_possible_topics';
+
+  // Function to get text value from item, whether it's a string or ImageGenerated
+  const getItemText = (item: T): string => {
+    if (typeof item === 'string') {
+      return item;
+    } else if (typeof item === 'object' && 'text' in item) {
+      return item.text;
+    }
+    return '';
+  };
+
+  // Function to get image URL if available
+  const getItemImageUrl = (item: T): string | undefined => {
+    if (typeof item === 'object' && 'url' in item) {
+      return item.url;
+    }
+    return undefined;
+  };
 
   if (isVerticalLayout) {
     // For vertical layout, render items in a ScrollView instead of Carousel
@@ -911,20 +1015,29 @@ const ConvoCarousel = <T extends string>({
         }}>
         {data.map((item, index) => (
           <Pressable
-            key={`${fieldName}-${item}-${index}`}
+            key={`${fieldName}-${getItemText(item)}-${index}`}
             style={[
               styles.speakerOption,
-              sentence[fieldName] === item && styles.selectedOption,
+              sentence[fieldName as keyof Sentence] === getItemText(item) &&
+                styles.selectedOption,
               styles.verticalOption,
             ]}
             onPress={() => handleItemSelect(item, index)}>
             <View style={styles.itemContainer}>
-              <Image
-                source={require('../assets/welcome.png')}
-                style={styles.itemImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.optionText}>{item}</Text>
+              {getItemImageUrl(item) ? (
+                <FastImage
+                  source={{uri: getItemImageUrl(item)}}
+                  style={styles.itemImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Image
+                  source={require('../assets/welcome.png')}
+                  style={styles.itemImage}
+                  resizeMode="contain"
+                />
+              )}
+              <Text style={styles.optionText}>{getItemText(item)}</Text>
             </View>
           </Pressable>
         ))}
@@ -943,7 +1056,8 @@ const ConvoCarousel = <T extends string>({
       scrollAnimationDuration={1000}
       onSnapToItem={index => {
         // Update only the specific field
-        const value = data[index] as any;
+        const item = data[index];
+        const value = getItemText(item);
         setSentence({...sentence, [fieldName]: value});
       }}
       defaultIndex={0}
@@ -960,14 +1074,14 @@ const ConvoCarousel = <T extends string>({
       style={{
         alignSelf: 'center',
       }}
-      renderItem={({item: cardItemValue, index}) => (
+      renderItem={({item: cardItem, index}) => (
         <Pressable
           style={[
             styles.speakerOption,
-            sentence[fieldName as keyof Sentence] === cardItemValue &&
+            sentence[fieldName as keyof Sentence] === getItemText(cardItem) &&
               styles.selectedOption,
           ]}
-          onPress={() => handleItemSelect(cardItemValue as T, index)}>
+          onPress={() => handleItemSelect(cardItem, index)}>
           {showPersonIcon ? (
             <>
               <View style={styles.personContainer}>
@@ -976,12 +1090,12 @@ const ConvoCarousel = <T extends string>({
                   style={styles.personImage}
                 />
               </View>
-              <Text style={styles.optionText}>{cardItemValue}</Text>
+              <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
             </>
           ) : showTalkIcon ? (
             <>
               <View style={styles.talkContainer}>
-                {cardItemValue === '?' ? (
+                {getItemText(cardItem) === '?' ? (
                   <Image
                     source={require('../assets/boyAsk.png')}
                     style={styles.talkImage}
@@ -993,17 +1107,25 @@ const ConvoCarousel = <T extends string>({
                   />
                 )}
               </View>
-              <Text style={styles.optionText}>{cardItemValue}</Text>
+              <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
             </>
           ) : (
             <>
               <View style={styles.itemContainer}>
-                <Image
-                  source={require('../assets/welcome.png')}
-                  style={styles.itemImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.optionText}>{cardItemValue}</Text>
+                {getItemImageUrl(cardItem) ? (
+                  <FastImage
+                    source={{uri: getItemImageUrl(cardItem)}}
+                    style={styles.itemImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Image
+                    source={require('../assets/welcome.png')}
+                    style={styles.itemImage}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
               </View>
             </>
           )}
