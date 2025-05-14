@@ -86,13 +86,7 @@ const Convo = () => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Get assistant context
-  const {
-    createThreadIfNeeded,
-    sendMessage,
-    runAssistant,
-    resetHistory,
-    response,
-  } = useAssistant();
+  const {threadId, sendMessage, runAssistant, response} = useAssistant();
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -171,7 +165,7 @@ const Convo = () => {
 
       // Create a thread if needed
       console.log('📋 Checking if a new thread is needed...');
-      const threadId = await createThreadIfNeeded();
+
       console.log(`🧵 Using thread ID: ${threadId}`);
 
       // Prepare the message with the mode and content
@@ -666,7 +660,7 @@ const Convo = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the action:</Text>
               <View style={styles.optionsContainer}>
-                <ConvoCarousel<Action>
+                <ConvoCarousel<Action | ImageGenerated>
                   carouselRef={actionCarouselRef}
                   currentIndex={actionIndex}
                   setCurrentIndex={setActionIndex}
@@ -691,7 +685,7 @@ const Convo = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the object:</Text>
               <View style={styles.optionsContainer}>
-                <ConvoCarousel<Object>
+                <ConvoCarousel<Object | ImageGenerated>
                   carouselRef={objectCarouselRef}
                   currentIndex={objectIndex}
                   setCurrentIndex={setObjectIndex}

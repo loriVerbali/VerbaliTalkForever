@@ -48,13 +48,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
     const [isTranscribing, setIsTranscribing] = useState(false);
     const [audioPath, setAudioPath] = useState<string>('');
     const [inputText, setInputText] = useState<string>('');
-    const {
-      createThreadIfNeeded,
-      sendMessage,
-      runAssistant,
-      resetHistory,
-      threadId,
-    } = useAssistant();
+    const {sendMessage, runAssistant, resetHistory, threadId} = useAssistant();
     const {showLog, setShowLog} = useAdmin();
     const isRecordingRef = useRef(false);
     const lastSoundTimeRef = useRef(0);
@@ -87,6 +81,10 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
       isRecording,
     }));
 
+    useEffect(() => {
+      threadIDRef.current = threadId;
+    }, [threadId]);
+
     const requestPermission = async () => {
       if (Platform.OS === 'android') {
         try {
@@ -118,7 +116,6 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
           return;
         }
 
-        threadIDRef.current = await createThreadIfNeeded();
         const currentTime = Date.now();
         setIsRecording(true);
         isRecordingRef.current = true;
@@ -280,7 +277,6 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
       if (!inputText.trim()) return;
 
       resetHistory();
-      createThreadIfNeeded();
       const messageId = await sendMessage(
         inputText,
         undefined,

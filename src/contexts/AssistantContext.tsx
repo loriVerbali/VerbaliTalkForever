@@ -363,22 +363,20 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   const resetHistory = () => {
     setHistory([]);
-    setThreadId('');
     setRunId('');
     setLocalStatus(null);
     setLocalResponse('');
     setLocalError(null);
   };
 
-  // Replace createThread with createThreadIfNeeded
   const createThreadIfNeeded = async () => {
     try {
       // If we have a fresh thread, just return it
-      if (threadId && isThreadFresh) {
-        console.log('🧵 Using existing fresh thread:', threadId);
-        setThreadId(threadId);
-        return threadId;
-      }
+      // if (threadId && isThreadFresh) {
+      //   console.log('🧵 Using existing fresh thread:', threadId);
+      //   setThreadId(threadId);
+      //   return threadId;
+      // }
 
       console.log('🔄 Creating new thread...');
       // Otherwise create a new thread
@@ -418,14 +416,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     console.log('🔍 Sending message:', content);
     console.log('threadOverride:', threadIdOverride);
     let idToUse = threadIdOverride || threadId;
-    debugger;
-    if (!idToUse) {
-      console.log('⚠️ No thread ID available, creating a new thread...');
-      idToUse = await createThreadIfNeeded();
-      console.log('✅ New thread created for message:', idToUse);
-    } else {
-      console.log('🧵 Using existing thread for message:', idToUse);
-    }
 
     try {
       // Add user message to history
@@ -637,7 +627,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       console.log(
         '⚠️ No thread ID available for run, creating a new thread...',
       );
-      idToUse = await createThreadIfNeeded();
       console.log('✅ New thread created for assistant run:', idToUse);
     } else {
       console.log('🧵 Using existing thread for assistant run:', idToUse);
