@@ -12,6 +12,8 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  Platform,
+  Alert,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -49,6 +51,7 @@ const OpenScreen: React.FC = () => {
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
 
   useEffect(() => {
     console.log('OpenScreen mounted');
@@ -59,43 +62,84 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
 
+    // Initialize services
     const initializeServices = async () => {
-      // Initialize TTS service on component mount
-      await TTSService.initialize();
+      try {
+        console.log('initializing voice service');
+        console.log('isListening.current', isListening.current);
 
-      // Initialize Voice service and set up callbacks
-      await VoiceService.initialize();
-      VoiceService.setCallbacks(
-        // Handle recognized text
-        text => {
-          setRecognizedText(text);
-          console.log('text', text);
-          // Check for navigation keywords
-          if (
-            text.toLowerCase().includes('verbali') ||
-            text.toLowerCase().includes('verbbali') ||
-            text.toLowerCase().includes('verbally') ||
-            text.toLowerCase().includes('verbbali') ||
-            text.toLowerCase().includes('verb ali') ||
-            text.toLowerCase().includes('verbali')
-          ) {
-            VoiceService.stopListening();
-            isListening.current = false;
-            navigation.navigate(views.HOME as never, {
-              stateof: 'Attention',
-            });
-          }
-        },
-        // Handle status changes
-        (status, error) => {
-          if (status === 'error' && error) {
-            console.error('Voice recognition error:', error);
-            isListening.current = false;
-          } else if (status === 'stopped') {
-            isListening.current = false;
-          }
-        },
-      );
+        // Initialize voice service
+        await VoiceService.initialize();
+        console.log('voice service initialized');
+
+        // Set up callbacks
+        VoiceService.setCallbacks(
+          // Handle recognized text
+          text => {
+            console.log('setting recognized text', text);
+            setRecognizedText(text);
+            setShowRecognitionStatus(true);
+            console.log('text', text);
+            // Check for navigation keywords
+            if (
+              text.toLowerCase().includes('verbali') ||
+              text.toLowerCase().includes('verbbali') ||
+              text.toLowerCase().includes('verbally') ||
+              text.toLowerCase().includes('verbbali') ||
+              text.toLowerCase().includes('verb ali') ||
+              text.toLowerCase().includes('verbali')
+            ) {
+              VoiceService.stopListening();
+              isListening.current = false;
+              navigation.navigate(views.HOME as never, {
+                stateof: 'Attention',
+              });
+            }
+          },
+          // Handle status changes
+          (status, error) => {
+            if (status === 'error' && error) {
+              console.error('Voice recognition error:', error);
+
+              // If we're getting AF Assistant errors (code 1101), this is likely
+              // a permissions or system issue on iOS
+              if (
+                error.includes('1101') ||
+                error.includes('kAFAssistantErrorDomain')
+              ) {
+                setRecognizedText(
+                  'Speech service error. Please check your permissions in Settings.',
+                );
+
+                // On iOS, show alert to help user understand the issue
+                if (Platform.OS === 'ios') {
+                  Alert.alert(
+                    'Speech Recognition Error',
+                    'Please ensure that Speech Recognition is enabled for this app in your device settings. Go to Settings > Privacy > Speech Recognition.',
+                    [{text: 'OK'}],
+                  );
+                }
+              } else {
+                setRecognizedText(`Error: ${error}`);
+              }
+
+              setShowRecognitionStatus(true);
+              isListening.current = false;
+            } else if (status === 'stopped') {
+              isListening.current = false;
+              // Hide the recognition status after a delay
+              setTimeout(() => {
+                setShowRecognitionStatus(false);
+              }, 2000);
+            } else if (status === 'started') {
+              setRecognizedText('Listening...');
+              setShowRecognitionStatus(true);
+            }
+          },
+        );
+      } catch (error) {
+        console.error('Error initializing services:', error);
+      }
     };
 
     initializeServices();
@@ -107,6 +151,8 @@ const OpenScreen: React.FC = () => {
       if (isListening.current) {
         VoiceService.stopListening();
       }
+      // Destroy the service to clean up resources
+      VoiceService.destroy();
     };
   }, []);
 
@@ -131,35 +177,9 @@ const OpenScreen: React.FC = () => {
 
   const handKeyboard = async () => {
     // Use our optimized TTS service instead
-    console.log('Starting image generation');
-    const options = {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        authorization:
-          'Bearer 87b780bc3a3781f203761cefffb755fb39d9f061b8840f066df0279b80f2647a',
-      },
-      body: JSON.stringify({
-        model: 'black-forest-labs/FLUX.1-schnell-Free',
-        steps: 4,
-        n: 1,
-        height: 256,
-        width: 256,
-        guidance: 3.5,
-        output_format: 'jpeg',
-        prompt: 'create an image of a kid describing a feeling of sadness',
-        image_url: 'string',
-        seed: 0,
-        negative_prompt: 'string',
-        response_format: 'url',
-      }),
-    };
-
-    fetch('https://api.together.xyz/v1/images/generations', options)
-      .then(res => res.json())
-      .then(res => console.log(res))
-      .catch(err => console.error(err));
+    navigation.navigate(views.HOME as never, {
+      stateof: 'Keyboard',
+    });
     // TTSService.speak('Keyboard selected');
   };
 
@@ -167,12 +187,55 @@ const OpenScreen: React.FC = () => {
     if (!isListening.current) {
       console.log('Starting listening');
       isListening.current = true;
-      const success = await VoiceService.startListening(2000, 8000);
-      if (success) {
-        setRecognizedText('Listening...');
-      } else {
-        setRecognizedText('Failed to start listening');
+      setRecognizedText('Initializing...');
+      setShowRecognitionStatus(true);
+
+      // Use longer timeouts for iOS to prevent premature stopping
+      const silenceTimeout = Platform.OS === 'ios' ? 10000 : 2000;
+      const maxDuration = Platform.OS === 'ios' ? 15000 : 8000;
+
+      let success = false;
+      let retries = 0;
+
+      // Try up to 2 times on iOS, which can have intermittent issues
+      while (!success && retries < (Platform.OS === 'ios' ? 2 : 1)) {
+        try {
+          success = await VoiceService.startListening(
+            silenceTimeout,
+            maxDuration,
+          );
+
+          if (success) {
+            setRecognizedText('Listening...');
+            break;
+          }
+        } catch (err) {
+          console.error(
+            `Voice recognition start attempt ${retries + 1} failed:`,
+            err,
+          );
+        }
+
+        // If failed, wait briefly before retrying
+        if (!success && Platform.OS === 'ios') {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          // Re-initialize
+          await VoiceService.initialize();
+        }
+
+        retries++;
+      }
+
+      if (!success) {
+        setRecognizedText(
+          'Speech recognition unavailable. Please check app permissions in Settings.',
+        );
         isListening.current = false;
+
+        // Show a brief alert after a delay
+        setTimeout(() => {
+          setShowRecognitionStatus(false);
+        }, 3000);
       }
     }
   };
@@ -222,6 +285,12 @@ const OpenScreen: React.FC = () => {
               resizeMode={FastImage.resizeMode.contain}
             />
           </Pressable>
+
+          {showRecognitionStatus && (
+            <View style={styles.recognitionStatusContainer}>
+              <Text style={styles.recognitionStatusText}>{recognizedText}</Text>
+            </View>
+          )}
 
           <Pressable
             style={styles.settingsButton}
@@ -503,6 +572,34 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  recognitionStatusContainer: {
+    position: 'absolute',
+    top: height * 0.05,
+    left: 0,
+    right: 0,
+    alignSelf: 'center',
+    width: '80%',
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 10,
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  recognitionStatusText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
   },
 });
 
