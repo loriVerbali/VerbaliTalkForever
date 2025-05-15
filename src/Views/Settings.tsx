@@ -12,6 +12,9 @@ import {
   TouchableOpacity,
   Modal,
   useWindowDimensions,
+  TextInput,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
@@ -179,20 +182,32 @@ const SettingsScreen: React.FC = () => {
   const [topicsCount, setTopicsCount] = useState(4);
   const [actionsCount, setActionsCount] = useState(4);
   const [objectsCount, setObjectsCount] = useState(4);
+  const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(false);
+  const [showOnboardingInfo, setShowOnboardingInfo] = useState(false);
+  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [isEditingAdminCode, setIsEditingAdminCode] = useState(false);
+  const [newAdminCode, setNewAdminCode] = useState('');
+  const [adminCodeError, setAdminCodeError] = useState('');
+  const [isAdminCodeVisible, setIsAdminCodeVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Load saved settings
     const loadSettings = async () => {
       try {
         const savedReturnedMessages = await getItem('returnedMessages');
         const savedTopicsCount = await getItem('topicsCount');
         const savedActionsCount = await getItem('actionsCount');
         const savedObjectsCount = await getItem('objectsCount');
+        const wasOnboarded = await getItem('wasOnboarded');
+        const savedAdminCode = await getItem('adminCode');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
         setActionsCount(parseInt(savedActionsCount) || 4);
         setObjectsCount(parseInt(savedObjectsCount) || 4);
+        setShowOnboardingEnabled(wasOnboarded !== '1');
+        setAdminCode(savedAdminCode || '');
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -244,6 +259,41 @@ const SettingsScreen: React.FC = () => {
     const newValue = Math.round(value);
     setObjectsCount(newValue);
     setItem('objectsCount', newValue.toString());
+  };
+
+  const handleOnboardingToggle = async (value: boolean) => {
+    setShowOnboardingEnabled(value);
+    await setItem('wasOnboarded', value ? '0' : '1');
+  };
+
+  const handleAdminCodeChange = async () => {
+    if (newAdminCode.length !== 4) {
+      setAdminCodeError('Admin code must be 4 digits');
+      return;
+    }
+
+    if (isSaving) return;
+
+    setIsSaving(true);
+    try {
+      await setItem('adminCode', newAdminCode);
+      setAdminCode(newAdminCode);
+      setNewAdminCode('');
+      setIsEditingAdminCode(false);
+      setAdminCodeError('');
+      setIsAdminCodeVisible(false);
+    } catch (e) {
+      console.log('Error saving admin code:', e);
+      setAdminCodeError('Failed to save admin code');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const cancelAdminCodeEdit = () => {
+    setIsEditingAdminCode(false);
+    setNewAdminCode('');
+    setAdminCodeError('');
   };
 
   const MemoizedSlider = memo(
@@ -392,6 +442,182 @@ const SettingsScreen: React.FC = () => {
                 description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
               />
             </View>
+
+            <View style={styles.genderSection}>
+              <Text style={styles.settingLabel}>Gender</Text>
+              <View style={styles.genderContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.genderOption,
+                    preferences.gender === 'boy' && styles.selectedGender,
+                  ]}
+                  onPress={() => setItem('gender', 'boy')}>
+                  <FastImage
+                    source={require('../assets/boy.png')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      preferences.gender === 'boy' && styles.selectedGenderText,
+                    ]}>
+                    Boy
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderOption,
+                    preferences.gender === 'girl' && styles.selectedGender,
+                  ]}
+                  onPress={() => setItem('gender', 'girl')}>
+                  <FastImage
+                    source={require('../assets/girl.png')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      preferences.gender === 'girl' &&
+                        styles.selectedGenderText,
+                    ]}>
+                    Girl
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderOption,
+                    preferences.gender === 'other' && styles.selectedGender,
+                  ]}
+                  onPress={() => setItem('gender', 'other')}>
+                  <FastImage
+                    source={require('../assets/person.png')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <Text
+                    style={[
+                      styles.genderText,
+                      preferences.gender === 'other' &&
+                        styles.selectedGenderText,
+                    ]}>
+                    Other
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.adminSection}>
+              <View style={styles.adminCodeRow}>
+                <View style={styles.adminCodeInfo}>
+                  <Text style={styles.settingLabel}>Admin Code</Text>
+                  {isEditingAdminCode ? (
+                    <View style={styles.adminCodeEditContainer}>
+                      <TextInput
+                        style={[
+                          styles.codeInput,
+                          adminCodeError ? styles.errorInput : null,
+                        ]}
+                        value={newAdminCode}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setNewAdminCode(numericText);
+                            setAdminCodeError('');
+                          }
+                        }}
+                        keyboardType="numeric"
+                        maxLength={4}
+                        placeholder="Enter new 4-digit code"
+                        secureTextEntry={false}
+                        editable={!isSaving}
+                        returnKeyType="done"
+                        onSubmitEditing={() => {
+                          if (newAdminCode.length === 4) {
+                            handleAdminCodeChange();
+                          }
+                        }}
+                        autoFocus
+                      />
+                      {adminCodeError ? (
+                        <Text style={styles.errorText}>{adminCodeError}</Text>
+                      ) : null}
+                      <View style={styles.adminCodeButtons}>
+                        <Pressable
+                          style={[styles.adminButton, styles.cancelButton]}
+                          onPress={cancelAdminCodeEdit}
+                          disabled={isSaving}>
+                          <Text style={styles.buttonText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.adminButton,
+                            styles.submitButton,
+                            (newAdminCode.length !== 4 || isSaving) &&
+                              styles.disabledButton,
+                          ]}
+                          onPress={handleAdminCodeChange}
+                          disabled={newAdminCode.length !== 4 || isSaving}>
+                          <Text style={styles.buttonText}>
+                            {isSaving ? 'Saving...' : 'Save'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.adminCodeContainer}>
+                      <Text style={styles.adminCodeValue}>
+                        {isAdminCodeVisible
+                          ? adminCode
+                          : adminCode
+                          ? '••••'
+                          : 'Not set'}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.eyeButton}
+                        onPress={() =>
+                          setIsAdminCodeVisible(!isAdminCodeVisible)
+                        }>
+                        <FastImage
+                          source={require('../assets/eye.png')}
+                          style={[
+                            styles.eyeIcon,
+                            !isAdminCodeVisible && styles.eyeIconHidden,
+                          ]}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+                {!isEditingAdminCode && (
+                  <Pressable
+                    style={styles.changeButton}
+                    onPress={() => setIsEditingAdminCode(true)}>
+                    <Text style={styles.changeButtonText}>Change</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabel}>
+                <Text style={styles.settingLabel}>Show Onboarding</Text>
+                <TouchableOpacity
+                  onPress={() => setShowOnboardingInfo(true)}
+                  style={styles.infoButton}>
+                  <Text style={styles.infoIcon}>?</Text>
+                </TouchableOpacity>
+              </View>
+              <Switch
+                trackColor={{false: '#767577', true: '#8E24AA'}}
+                thumbColor={showOnboardingEnabled ? '#fff' : '#f4f3f4'}
+                ios_backgroundColor="#3e3e3e"
+                onValueChange={handleOnboardingToggle}
+                value={showOnboardingEnabled}
+              />
+            </View>
           </View>
         </View>
 
@@ -401,7 +627,7 @@ const SettingsScreen: React.FC = () => {
           <Pressable
             style={styles.linkRow}
             onPress={() =>
-              handleLinkPress('https://verbali.io/privacy', 'Privacy Policy')
+              handleLinkPress('https://verbali.io/', 'Privacy Policy')
             }>
             <Text style={styles.linkText}>Privacy Policy</Text>
             <Text style={styles.linkArrow}>→</Text>
@@ -410,7 +636,7 @@ const SettingsScreen: React.FC = () => {
           <Pressable
             style={styles.linkRow}
             onPress={() =>
-              handleLinkPress('https://verbali.io/termsofuse', 'Terms of Use')
+              handleLinkPress('https://verbali.io/', 'Terms of Use')
             }>
             <Text style={styles.linkText}>Terms of Use</Text>
             <Text style={styles.linkArrow}>→</Text>
@@ -429,6 +655,13 @@ const SettingsScreen: React.FC = () => {
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2023 Matalk</Text>
         </View>
+
+        <InfoModal
+          visible={showOnboardingInfo}
+          onClose={() => setShowOnboardingInfo(false)}
+          title="Show Onboarding"
+          description="Enable this option to see the onboarding screens again on your next app launch. This can be helpful if you want to review the app's features and functionality."
+        />
       </ScrollView>
     </LinearGradient>
   );
@@ -639,6 +872,155 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  switchLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  adminSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
+  adminCodeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  adminCodeInfo: {
+    flex: 1,
+  },
+  adminCodeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  adminCodeValue: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 4,
+  },
+  changeButton: {
+    backgroundColor: '#8E24AA',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  changeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  adminCodeEditContainer: {
+    width: '100%',
+    marginTop: 8,
+  },
+  adminCodeButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+    gap: 8,
+  },
+  adminButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  codeInput: {
+    height: 40,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  errorInput: {
+    borderColor: '#ff3b30',
+    backgroundColor: '#fff0f0',
+  },
+  errorText: {
+    color: '#ff3b30',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  eyeIcon: {
+    width: 24,
+    height: 24,
+    tintColor: '#8E24AA',
+  },
+  eyeIconHidden: {
+    opacity: 0.5,
+  },
+  cancelButton: {
+    backgroundColor: '#ff3b30',
+  },
+  submitButton: {
+    backgroundColor: '#34c759',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  genderSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 12,
+  },
+  genderOption: {
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 16,
+    width: SCREEN_WIDTH * 0.25,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedGender: {
+    borderColor: '#8E24AA',
+    backgroundColor: 'rgba(142, 36, 170, 0.1)',
+  },
+  genderImage: {
+    width: 48,
+    height: 48,
+    marginBottom: 8,
+  },
+  genderText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  selectedGenderText: {
+    color: '#8E24AA',
+    fontWeight: 'bold',
   },
 });
 

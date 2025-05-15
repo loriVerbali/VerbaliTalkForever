@@ -44,7 +44,12 @@ interface AssistantContextType {
   sendMessage: (
     content: string,
     threadIdOverride?: string,
-    mode?: 'topic' | 'object' | 'action' | 'questions' | 'sentence',
+    mode?:
+      | 'list_possible_topics'
+      | 'list_possible_objects'
+      | 'list_possible_actions'
+      | 'generate_answers'
+      | 'sentence',
   ) => Promise<string>;
   runAssistant: (threadIdOverride?: string) => Promise<string>;
   setThreadId: (id: string) => void;
@@ -82,23 +87,23 @@ const useAssistantResponse = (threadId: string, runId: string) => {
 
   const getTopicFromResponse = (response: string) => {
     setConvoTopic(response);
-    setModeType('topic');
+    setModeType('list_possible_topics');
     console.log('🔍 Convo topic:', response);
-    setResponse({response: response, modeType: 'topic'});
+    setResponse({response: response, modeType: 'list_possible_topics'});
   };
 
   const getObjectFromResponse = (response: string) => {
     setConvoObject(response);
-    setModeType('object');
+    setModeType('list_possible_objects');
     console.log('🔍 Convo object:', response);
-    setResponse({response: response, modeType: 'object'});
+    setResponse({response: response, modeType: 'list_possible_objects'});
   };
 
   const getActionFromResponse = (response: string) => {
     setConvoAction(response);
-    setModeType('action');
+    setModeType('list_possible_actions');
     console.log('🔍 Convo action:', response);
-    setResponse({response: response, modeType: 'action'});
+    setResponse({response: response, modeType: 'list_possible_actions'});
   };
 
   const getSentenceFromResponse = (response: string) => {
@@ -109,6 +114,8 @@ const useAssistantResponse = (threadId: string, runId: string) => {
 
   useEffect(() => {
     let isSubscribed = true;
+
+    console.log('🔄 Polling status for thread:', threadId, runId);
 
     const pollStatus = async () => {
       try {
@@ -151,7 +158,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             const messageType = messagesResponse.data[1].metadata.mode;
             console.log('🔍 Message type:', messageType);
 
-            if (messageType === 'topic') {
+            if (messageType === 'list_possible_topics') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -162,7 +169,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               }
             }
 
-            if (messageType === 'object') {
+            if (messageType === 'list_possible_objects') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -173,7 +180,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               }
             }
 
-            if (messageType === 'action') {
+            if (messageType === 'list_possible_actions') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -194,8 +201,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 );
               }
             }
-
-            if (messageType === 'questions') {
+            if (messageType === 'generate_answers') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -203,7 +209,10 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 const responseText =
                   messagesResponse.data[0].content[0].text.value;
                 console.log('📝 Response text:', responseText);
-                setResponse({response: responseText, modeType: 'questions'});
+                setResponse({
+                  response: responseText,
+                  modeType: 'generate_answers',
+                });
 
                 try {
                   // Parse the JSON response
@@ -212,14 +221,14 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                   console.log('✅ Successfully parsed JSON:', responseData);
 
                   // Extract possible answers from the JSON
-                  const answers = responseData['Possible answers']
-                    ?.split(',')
-                    .map((answer: string) => answer.trim());
+                  const answers = responseData['Possible answers'];
 
                   if (answers) {
                     console.log('📋 Extracted answers:', answers);
                     setQuestionContext(responseData['context'] || '');
-                    setQuestionTopic(responseData['topic'] || '');
+                    setQuestionTopic(
+                      responseData['list_possible_topics'] || '',
+                    );
                     setIdentifiedQuestion(
                       responseData['Identified Question'] || '',
                     );
@@ -258,7 +267,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
           console.log(
             `💤 Waiting 1 second before next poll (attempt ${pollCount}/${maxPolls})...`,
           );
-          await new Promise<void>(resolve => setTimeout(resolve, 1000));
+          await new Promise<void>(resolve => setTimeout(resolve, 500));
         }
 
         if (pollCount >= maxPolls) {
@@ -326,6 +335,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   // Initialize thread on app load
   useEffect(() => {
     const initThread = async () => {
+      console.log('🔄 Initializing thread...');
       const savedThreadId = await getItem('threadId');
       const savedThreadCreatedAt = await getItem('threadCreatedAt');
 
@@ -340,6 +350,9 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
           if (now.getTime() - createdAt.getTime() < THREAD_EXPIRATION_MS) {
             setIsThreadFresh(true);
+          } else {
+            setIsThreadFresh(false);
+            createThreadIfNeeded();
           }
         }
       }
@@ -350,21 +363,20 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   const resetHistory = () => {
     setHistory([]);
-    setThreadId('');
     setRunId('');
     setLocalStatus(null);
     setLocalResponse('');
     setLocalError(null);
   };
 
-  // Replace createThread with createThreadIfNeeded
   const createThreadIfNeeded = async () => {
     try {
       // If we have a fresh thread, just return it
-      if (threadId && isThreadFresh) {
-        console.log('🧵 Using existing fresh thread:', threadId);
-        return threadId;
-      }
+      // if (threadId && isThreadFresh) {
+      //   console.log('🧵 Using existing fresh thread:', threadId);
+      //   setThreadId(threadId);
+      //   return threadId;
+      // }
 
       console.log('🔄 Creating new thread...');
       // Otherwise create a new thread
@@ -393,20 +405,17 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   const sendMessage = async (
     content: string,
     threadIdOverride?: string,
-    mode?: 'topic' | 'object' | 'action' | 'questions' | 'sentence',
+    mode?:
+      | 'list_possible_topics'
+      | 'list_possible_objects'
+      | 'list_possible_actions'
+      | 'generate_answers'
+      | 'sentence',
   ) => {
     // Ensure we have a thread ID first by checking if we need a new one
     console.log('🔍 Sending message:', content);
     console.log('threadOverride:', threadIdOverride);
     let idToUse = threadIdOverride || threadId;
-
-    if (!idToUse) {
-      console.log('⚠️ No thread ID available, creating a new thread...');
-      idToUse = await createThreadIfNeeded();
-      console.log('✅ New thread created for message:', idToUse);
-    } else {
-      console.log('🧵 Using existing thread for message:', idToUse);
-    }
 
     try {
       // Add user message to history
@@ -431,6 +440,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         },
       );
       const data = await response;
+      console.log('📩 Message sent successfully, data:', data);
       console.log('📩 Message sent successfully, ID:', data.id);
       return data.id;
     } catch (error) {
@@ -617,7 +627,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       console.log(
         '⚠️ No thread ID available for run, creating a new thread...',
       );
-      idToUse = await createThreadIfNeeded();
       console.log('✅ New thread created for assistant run:', idToUse);
     } else {
       console.log('🧵 Using existing thread for assistant run:', idToUse);
@@ -628,7 +637,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       const response = await fetchHelper(
         'runAssistant',
         {thread_id: idToUse},
-        {assistant_id: ASSISTANT_ID_MATAN},
+        {assistant_id: ASSISTANT_ID_LORI},
       );
       const data = await response;
       console.log('🏃‍♂️ Assistant run started with ID:', data.id);

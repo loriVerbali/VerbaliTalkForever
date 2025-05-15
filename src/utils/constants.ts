@@ -25,6 +25,7 @@ type Views = {
 type Stacks = {
   LOGGEDINSTACK: string;
   LOGIN: string;
+  INITSTACK: string;
 };
 
 // Define types for carousel data
@@ -63,6 +64,7 @@ export const views: Views = {
 export const stacks: Stacks = {
   LOGGEDINSTACK: 'LOGGEDINSTACK',
   LOGIN: 'LOGIN',
+  INITSTACK: 'INITSTACK',
 };
 
 export const imageUrl = {

@@ -13,6 +13,10 @@ interface Preferences {
   topicsCount: string;
   actionsCount: string;
   objectsCount: string;
+  wasOnboarded: string;
+  heroName: string;
+  adminCode: string;
+  gender: string;
 }
 
 const initEnum = {
@@ -39,6 +43,10 @@ const initialPreferences: Preferences = {
   topicsCount: '4',
   actionsCount: '4',
   objectsCount: '4',
+  wasOnboarded: initEnum.false,
+  heroName: '',
+  adminCode: '',
+  gender: '',
 };
 
 interface AppSettingsContextProps {
@@ -113,7 +121,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const initializePreferences = async (): Promise<Preferences> => {
     try {
-      console.log('Initializing preferences');
       const newPreferences = await Object.keys(initialPreferences).reduce<
         Promise<Preferences>
       >(async (accPromise, key) => {

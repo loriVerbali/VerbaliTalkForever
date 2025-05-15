@@ -9,6 +9,7 @@ import {
   Pressable,
   Dimensions,
   Image,
+  Platform,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -18,6 +19,8 @@ import {views} from '../utils/constants';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {useAssistant} from '../contexts/AssistantContext';
+import SpeakerSection from './SpeakerSection';
+import fetchHelper from '../utils/fetcher';
 
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
@@ -49,7 +52,7 @@ interface Sentence {
   speaker: Speaker | '';
   audience: Audience | '';
   sentenceType: SentenceType | '';
-  topic: Topic | '';
+  list_possible_topics: Topic | '';
   action: Action | '';
   object: Object | '';
 }
@@ -60,12 +63,22 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const COLUMN_WIDTH = SCREEN_WIDTH / 4;
 
+interface ImagePrompt {
+  image_prompt: string;
+  text: string;
+}
+
+interface ImageGenerated {
+  text: string;
+  url: string;
+}
+
 const Convo = () => {
   const [sentence, setSentence] = useState<Sentence>({
     speaker: '',
     audience: '',
     sentenceType: '',
-    topic: '',
+    list_possible_topics: '',
     action: '',
     object: '',
   });
@@ -73,13 +86,7 @@ const Convo = () => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Get assistant context
-  const {
-    createThreadIfNeeded,
-    sendMessage,
-    runAssistant,
-    resetHistory,
-    response,
-  } = useAssistant();
+  const {threadId, sendMessage, runAssistant, response} = useAssistant();
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -109,12 +116,21 @@ const Convo = () => {
   const [availableActions, setAvailableActions] = useState<Action[]>([]);
   const [availableObjects, setAvailableObjects] = useState<Object[]>([]);
   const [generatedSentence, setGeneratedSentence] = useState('');
+  const [generatedTopicImages, setGeneratedTopicImages] = useState<
+    ImageGenerated[]
+  >([]);
+  const [generatedActionImages, setGeneratedActionImages] = useState<
+    ImageGenerated[]
+  >([]);
+  const [generatedObjectImages, setGeneratedObjectImages] = useState<
+    ImageGenerated[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Update input text when sentence changes
   useEffect(() => {
-    const {speaker, audience, topic, action, object} = sentence;
-    if (speaker && topic && action && object) {
+    const {speaker, audience, list_possible_topics, action, object} = sentence;
+    if (speaker && list_possible_topics && action && object) {
       setInputText(
         `${speaker} want to ${action} ${object} ${
           audience ? 'to ' + audience : ''
@@ -149,7 +165,7 @@ const Convo = () => {
 
       // Create a thread if needed
       console.log('📋 Checking if a new thread is needed...');
-      const threadId = await createThreadIfNeeded();
+
       console.log(`🧵 Using thread ID: ${threadId}`);
 
       // Prepare the message with the mode and content
@@ -161,7 +177,12 @@ const Convo = () => {
       const messageId = await sendMessage(
         message,
         undefined,
-        mode as 'object' | 'topic' | 'action' | 'questions' | 'sentence',
+        mode as
+          | 'list_possible_objects'
+          | 'list_possible_topics'
+          | 'list_possible_actions'
+          | 'generate_answers'
+          | 'sentence',
       );
       console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
 
@@ -179,45 +200,121 @@ const Convo = () => {
     }
   };
 
+  const generateImage = async (array: ImagePrompt[], mode: string) => {
+    try {
+      const images: ImageGenerated[] = [];
+      // Process each prompt in the array
+      for (const prompt of array) {
+        const text = prompt.text;
+        const encodedPrompt = encodeURIComponent(prompt.image_prompt);
+
+        // Generate a random seed for variety
+        const seed = Math.floor(Math.random() * 1000);
+
+        const response = await fetchHelper(
+          'generateImage',
+          {
+            prompt: encodedPrompt,
+            seed: seed.toString(),
+          },
+          {},
+        );
+
+        // Handle different possible response formats
+        let imageUrl = '';
+        if (typeof response === 'string') {
+          // Direct URL string response
+          imageUrl = response;
+        } else if (
+          response &&
+          typeof response === 'object' &&
+          'url' in response
+        ) {
+          // Object response with url property
+          imageUrl = response.url || '';
+        }
+
+        if (imageUrl) {
+          // Add both the text prompt and image URL to the array
+          images.push({
+            text: text,
+            url: imageUrl,
+          });
+        }
+      }
+
+      // Update state with generated images
+      if (mode === 'topic') {
+        setGeneratedTopicImages(images);
+      } else if (mode === 'list_possible_actions') {
+        setGeneratedActionImages(images);
+      } else if (mode === 'list_possible_objects') {
+        setGeneratedObjectImages(images);
+      }
+      return images;
+    } catch (error) {
+      console.error('Failed to generate image:', error);
+      throw error;
+    }
+  };
+
   // Handle assistant responses
   useEffect(() => {
     if (response) {
       console.log('📩 Received assistant response:', response);
       try {
         // Handle the response based on its modeType
-        if (response.modeType === 'topic') {
+        if (response.modeType === 'list_possible_topics') {
           try {
             const topicsArray = JSON.parse(response.response);
-            if (Array.isArray(topicsArray) && topicsArray.length > 0) {
-              console.log('📋 Got topics array:', topicsArray);
-              setAvailableTopics(topicsArray.slice(0, 4) as Topic[]);
+            if (
+              Array.isArray(topicsArray.topics) &&
+              topicsArray.topics.length > 0
+            ) {
+              console.log('📋 Got topics array:', topicsArray.topics);
+              setAvailableTopics(
+                topicsArray.topics
+                  .slice(0, 4)
+                  .map((item: {text: any}) => item.text) as Topic[],
+              );
+              generateImage(topicsArray.topics, 'topic');
               console.log('✅ Topics updated');
             }
           } catch (error) {
             console.error('Error parsing topics:', error);
           }
-        } else if (response.modeType === 'action') {
+        } else if (response.modeType === 'list_possible_actions') {
           try {
             const actionsData = JSON.parse(response.response);
-            if (actionsData && Array.isArray(actionsData)) {
-              console.log('🎯 Got actions:', actionsData);
-              setAvailableActions(actionsData.slice(0, 4) as Action[]);
+            if (
+              actionsData &&
+              Array.isArray(actionsData.verbs) &&
+              actionsData.verbs.length > 0
+            ) {
+              console.log('🎯 Got actions:', actionsData.verbs);
+              setAvailableActions(actionsData.verbs.slice(0, 4) as Action[]);
               //setSentence({...sentence, action: '', object: ''});
               console.log(
                 '✅ Actions updated, cleared action and object selections',
               );
+              generateImage(actionsData.verbs, 'list_possible_actions');
             }
           } catch (error) {
             console.error('Error parsing actions:', error);
           }
-        } else if (response.modeType === 'object') {
+        } else if (response.modeType === 'list_possible_objects') {
           try {
             const objectsData = JSON.parse(response.response);
-            if (objectsData && Array.isArray(objectsData)) {
-              console.log('📦 Got objects:', objectsData);
-              setAvailableObjects(objectsData.slice(0, 4) as Object[]);
+            if (
+              objectsData &&
+              Array.isArray(objectsData.objects) &&
+              objectsData.objects.length > 0
+            ) {
+              console.log('📦 Got objects:', objectsData.objects);
+              setAvailableObjects(objectsData.objects.slice(0, 4) as Object[]);
               // setSentence({...sentence, object: ''});
               console.log('✅ Objects updated, cleared object selection');
+              generateImage(objectsData.objects, 'list_possible_objects');
             }
           } catch (error) {
             console.error('Error parsing objects:', error);
@@ -261,10 +358,9 @@ const Convo = () => {
         console.log('✅ All prerequisites met, generating topics');
         const prompt = `Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
-        }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'topics'`;
-
-        console.log('🔄 Calling assistant for topics');
-        await callAssistant('topic', prompt);
+        }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'list_possible_topics'`;
+        console.log('🔄 Calling assistant for list_possible_topics');
+        await callAssistant('list_possible_topics', prompt);
       } else {
         console.log(
           '⏳ Waiting for all prerequisites before generating topics',
@@ -293,7 +389,7 @@ const Convo = () => {
         }. I need up to 3 simple, kid-friendly action verbs. The message.metadata.mode = 'actions'`;
 
         console.log('🔄 Calling assistant for actions');
-        await callAssistant('action', prompt);
+        await callAssistant('list_possible_actions', prompt);
       } else {
         console.log('⏳ Waiting for topic selection before generating actions');
       }
@@ -324,7 +420,10 @@ const Convo = () => {
         }. I need up to 3 simple, kid-friendly objects. The message.metadata.mode = 'objects'`;
 
         console.log('🔄 Calling assistant for objects');
-        const objectsResult = await callAssistant('object', objectsPrompt);
+        const objectsResult = await callAssistant(
+          'list_possible_objects',
+          objectsPrompt,
+        );
         console.log('Objects result:', objectsResult);
       } else {
         console.log(
@@ -395,21 +494,39 @@ const Convo = () => {
     }
   };
 
-  const handleTopicSelect = (topic: Topic, index: number) => {
-    //setSentence({...sentence, topic, action: '', object: ''});
-    setTopic(topic);
+  const handleTopicSelect = (item: Topic | ImageGenerated, index: number) => {
+    // Extract the text if it's an ImageGenerated object
+    const topicValue =
+      typeof item === 'object' && 'text' in item
+        ? (item.text as Topic)
+        : (item as Topic);
+    setTopic(topicValue);
     setTopicIndex(index);
   };
 
-  const handleActionSelect = (action: Action, index: number) => {
+  const handleActionSelect = (
+    action: Action | ImageGenerated,
+    index: number,
+  ) => {
     // setSentence({...sentence, action});
-    setAction(action);
+    const actionValue =
+      typeof action === 'object' && 'text' in action
+        ? (action.text as Action)
+        : (action as Action);
+    setAction(actionValue);
     setActionIndex(index);
   };
 
-  const handleObjectSelect = (object: Object, index: number) => {
+  const handleObjectSelect = (
+    object: Object | ImageGenerated,
+    index: number,
+  ) => {
     //setSentence({...sentence, object});
-    setObject(object);
+    const objectValue =
+      typeof object === 'object' && 'text' in object
+        ? (object.text as Object)
+        : (object as Object);
+    setObject(objectValue);
     setObjectIndex(index);
   };
 
@@ -423,14 +540,16 @@ const Convo = () => {
 
   return (
     <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
-      {/* Play button and input section */}
-      <View style={styles.inputSection}>
+      {/* Input and Navigation Section - Adjusted with safe area padding */}
+      <View style={styles.safeAreaPadding} />
+
+      <View style={styles.inputNavigationContainer}>
         <Pressable
           style={styles.playButton}
           onPress={() => TTSService.speak(inputText, true)}>
           <FastImage
             source={require('../assets/play.png')}
-            style={[styles.playIcon, {opacity: 0.5}]}
+            style={styles.playIcon}
             resizeMode={FastImage.resizeMode.contain}
           />
         </Pressable>
@@ -440,6 +559,14 @@ const Convo = () => {
           value={inputText}
           onChangeText={setInputText}
         />
+        <View style={styles.inlineNavigationButtons}>
+          <Pressable style={styles.smallNavButton} onPress={toggleKeyboard}>
+            <Text style={styles.smallNavIcon}>⌨️</Text>
+          </Pressable>
+          <Pressable style={styles.smallNavButton} onPress={handleHome}>
+            <Text style={styles.smallNavIcon}>🏠</Text>
+          </Pressable>
+        </View>
       </View>
 
       {isLoading && (
@@ -511,15 +638,17 @@ const Convo = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Choose the topic:</Text>
             <View style={styles.optionsContainer}>
-              <ConvoCarousel<Topic>
+              <ConvoCarousel<Topic | ImageGenerated>
                 carouselRef={topicCarouselRef}
                 currentIndex={topicIndex}
                 setCurrentIndex={setTopicIndex}
                 sentence={sentence}
                 setSentence={setSentence}
-                data={availableTopics.length > 0 ? availableTopics : []}
+                data={
+                  generatedTopicImages.length > 0 ? generatedTopicImages : []
+                }
                 handleItemSelect={handleTopicSelect}
-                fieldName="topic"
+                fieldName="list_possible_topics"
               />
             </View>
           </View>
@@ -531,15 +660,19 @@ const Convo = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the action:</Text>
               <View style={styles.optionsContainer}>
-                <ConvoCarousel<Action>
+                <ConvoCarousel<Action | ImageGenerated>
                   carouselRef={actionCarouselRef}
                   currentIndex={actionIndex}
                   setCurrentIndex={setActionIndex}
                   sentence={sentence}
                   setSentence={setSentence}
-                  data={availableActions.length > 0 ? availableActions : []}
+                  data={
+                    generatedActionImages.length > 0
+                      ? generatedActionImages
+                      : []
+                  }
                   handleItemSelect={handleActionSelect}
-                  fieldName="action"
+                  fieldName="list_possible_actions"
                 />
               </View>
             </View>
@@ -552,30 +685,24 @@ const Convo = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the object:</Text>
               <View style={styles.optionsContainer}>
-                <ConvoCarousel<Object>
+                <ConvoCarousel<Object | ImageGenerated>
                   carouselRef={objectCarouselRef}
                   currentIndex={objectIndex}
                   setCurrentIndex={setObjectIndex}
                   sentence={sentence}
                   setSentence={setSentence}
-                  data={availableObjects.length > 0 ? availableObjects : []}
+                  data={
+                    generatedObjectImages.length > 0
+                      ? generatedObjectImages
+                      : []
+                  }
                   handleItemSelect={handleObjectSelect}
-                  fieldName="object"
+                  fieldName="list_possible_objects"
                 />
               </View>
             </View>
           )}
         </View>
-      </View>
-
-      {/* Navigation Buttons */}
-      <View style={styles.navigationButtons}>
-        <Pressable style={styles.navButton} onPress={toggleKeyboard}>
-          <Text style={styles.navIcon}>⌨️</Text>
-        </Pressable>
-        <Pressable style={styles.navButton} onPress={handleHome}>
-          <Text style={styles.navIcon}>🏠</Text>
-        </Pressable>
       </View>
 
       {isKeyboardVisible && (
@@ -598,33 +725,67 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  inputSection: {
+  safeAreaPadding: {
+    height: Platform.OS === 'ios' ? SCREEN_HEIGHT * 0.05 : SCREEN_HEIGHT * 0.03,
+  },
+  inputNavigationContainer: {
     flexDirection: 'row',
-    padding: 15,
+    width: '90%',
+    alignSelf: 'center',
     alignItems: 'center',
-    gap: 20,
-    marginTop: 20,
+    marginVertical: SCREEN_HEIGHT * 0.02,
+    justifyContent: 'space-between',
   },
   playButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: SCREEN_WIDTH * 0.12,
+    height: SCREEN_WIDTH * 0.12,
+    maxWidth: 60,
+    maxHeight: 60,
+    borderRadius: SCREEN_WIDTH * 0.06,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   playIcon: {
-    width: 50,
-    height: 50,
+    width: '80%',
+    height: '80%',
     resizeMode: 'contain',
   },
   input: {
     flex: 1,
-    height: 50,
+    height: SCREEN_HEIGHT * 0.06,
+    maxHeight: 60,
     backgroundColor: '#E5E5E5',
     borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: 16,
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
+    fontSize: SCREEN_HEIGHT * 0.02,
+    marginHorizontal: SCREEN_WIDTH * 0.02,
+  },
+  inlineNavigationButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallNavButton: {
+    width: SCREEN_WIDTH * 0.08,
+    height: SCREEN_WIDTH * 0.08,
+    maxWidth: 50,
+    maxHeight: 50,
+    borderRadius: SCREEN_WIDTH * 0.04,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SCREEN_WIDTH * 0.02,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  smallNavIcon: {
+    fontSize: SCREEN_WIDTH * 0.02,
   },
   columnsContainer: {
     flex: 1,
@@ -675,33 +836,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
-  navigationButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 30,
-    marginTop: 40,
-    paddingBottom: 40,
-    paddingRight: 40,
-  },
-  navButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  navIcon: {
-    fontSize: 60,
-  },
   speakerContainer: {
     height: 170,
     width: COLUMN_WIDTH,
@@ -722,7 +856,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   verticalOption: {
-    height: 60,
+    height: SCREEN_HEIGHT * 0.3,
     marginBottom: 10,
     width: '100%',
   },
@@ -794,11 +928,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  itemContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+  },
+  itemImage: {
+    width: '80%',
+    height: '80%',
+    marginBottom: 5,
+  },
 });
 
 export default Convo;
 
-const ConvoCarousel = <T extends string>({
+const ConvoCarousel = <T extends string | ImageGenerated>({
   carouselRef,
   currentIndex,
   setCurrentIndex,
@@ -817,27 +962,76 @@ const ConvoCarousel = <T extends string>({
   setSentence: (sentence: Sentence) => void;
   data: T[];
   handleItemSelect: (item: T, index: number) => void;
-  fieldName: keyof Sentence;
+  fieldName:
+    | 'list_possible_topics'
+    | 'list_possible_objects'
+    | 'list_possible_actions'
+    | 'questions'
+    | 'generate_answers'
+    | 'speaker'
+    | 'audience'
+    | 'sentenceType';
   showPersonIcon?: boolean;
   showTalkIcon?: boolean;
 }) => {
   const isVerticalLayout =
-    fieldName === 'action' || fieldName === 'object' || fieldName === 'topic';
+    fieldName === 'list_possible_actions' ||
+    fieldName === 'list_possible_objects' ||
+    fieldName === 'list_possible_topics';
+
+  // Function to get text value from item, whether it's a string or ImageGenerated
+  const getItemText = (item: T): string => {
+    if (typeof item === 'string') {
+      return item;
+    } else if (typeof item === 'object' && 'text' in item) {
+      return item.text;
+    }
+    return '';
+  };
+
+  // Function to get image URL if available
+  const getItemImageUrl = (item: T): string | undefined => {
+    if (typeof item === 'object' && 'url' in item) {
+      return item.url;
+    }
+    return undefined;
+  };
 
   if (isVerticalLayout) {
     // For vertical layout, render items in a ScrollView instead of Carousel
     return (
-      <ScrollView style={{width: '100%', maxHeight: SCREEN_HEIGHT * 0.5}}>
+      <ScrollView
+        style={{
+          width: '100%',
+          maxHeight: SCREEN_HEIGHT * 0.8,
+          minHeight: SCREEN_HEIGHT * 0.8,
+        }}>
         {data.map((item, index) => (
           <Pressable
-            key={`${fieldName}-${item}-${index}`}
+            key={`${fieldName}-${getItemText(item)}-${index}`}
             style={[
               styles.speakerOption,
-              sentence[fieldName] === item && styles.selectedOption,
+              sentence[fieldName as keyof Sentence] === getItemText(item) &&
+                styles.selectedOption,
               styles.verticalOption,
             ]}
             onPress={() => handleItemSelect(item, index)}>
-            <Text style={styles.optionText}>{item}</Text>
+            <View style={styles.itemContainer}>
+              {getItemImageUrl(item) ? (
+                <FastImage
+                  source={{uri: getItemImageUrl(item)}}
+                  style={styles.itemImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Image
+                  source={require('../assets/welcome.png')}
+                  style={styles.itemImage}
+                  resizeMode="contain"
+                />
+              )}
+              <Text style={styles.optionText}>{getItemText(item)}</Text>
+            </View>
           </Pressable>
         ))}
       </ScrollView>
@@ -855,7 +1049,8 @@ const ConvoCarousel = <T extends string>({
       scrollAnimationDuration={1000}
       onSnapToItem={index => {
         // Update only the specific field
-        const value = data[index] as any;
+        const item = data[index];
+        const value = getItemText(item);
         setSentence({...sentence, [fieldName]: value});
       }}
       defaultIndex={0}
@@ -872,13 +1067,14 @@ const ConvoCarousel = <T extends string>({
       style={{
         alignSelf: 'center',
       }}
-      renderItem={({item: cardItemValue, index}) => (
+      renderItem={({item: cardItem, index}) => (
         <Pressable
           style={[
             styles.speakerOption,
-            sentence[fieldName] === cardItemValue && styles.selectedOption,
+            sentence[fieldName as keyof Sentence] === getItemText(cardItem) &&
+              styles.selectedOption,
           ]}
-          onPress={() => handleItemSelect(cardItemValue as T, index)}>
+          onPress={() => handleItemSelect(cardItem, index)}>
           {showPersonIcon ? (
             <>
               <View style={styles.personContainer}>
@@ -887,12 +1083,12 @@ const ConvoCarousel = <T extends string>({
                   style={styles.personImage}
                 />
               </View>
-              <Text style={styles.optionText}>{cardItemValue}</Text>
+              <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
             </>
           ) : showTalkIcon ? (
             <>
               <View style={styles.talkContainer}>
-                {cardItemValue === '?' ? (
+                {getItemText(cardItem) === '?' ? (
                   <Image
                     source={require('../assets/boyAsk.png')}
                     style={styles.talkImage}
@@ -904,10 +1100,27 @@ const ConvoCarousel = <T extends string>({
                   />
                 )}
               </View>
-              <Text style={styles.optionText}>{cardItemValue}</Text>
+              <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
             </>
           ) : (
-            <Text style={styles.optionText}>{cardItemValue}</Text>
+            <>
+              <View style={styles.itemContainer}>
+                {getItemImageUrl(cardItem) ? (
+                  <FastImage
+                    source={{uri: getItemImageUrl(cardItem)}}
+                    style={styles.itemImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Image
+                    source={require('../assets/welcome.png')}
+                    style={styles.itemImage}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
+              </View>
+            </>
           )}
         </Pressable>
       )}
