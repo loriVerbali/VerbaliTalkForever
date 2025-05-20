@@ -1,254 +1,555 @@
-import React, {useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Dimensions,
-  TouchableOpacity,
+  ScrollView,
+  Pressable,
+  Image,
   Animated,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import TTSService from '../utils/TTSService';
+import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {views} from '../utils/constants';
+import TTSService from '../utils/TTSService';
 
 const {width, height} = Dimensions.get('window');
 
-interface EmotionLevel {
-  emotion: string;
-  color: string;
-  icon: string;
-}
+// For simplicity, we'll use the same dog image for all feeling cards
+// In a real app, you would have different images for each feeling
+const dogImg = require('../assets/welcome.png'); // Replace with actual dog image
+const micImg = require('../assets/microphone.png');
+const boyImg = require('../assets/boy.png');
+const matalkImg = require('../assets/matalk.png');
 
-type RootStackParamList = {
-  OPEN: undefined;
-};
-
-const leftEmotions: EmotionLevel[] = [
+// Top category data with emoji representations (since we don't have the actual images)
+const topCategories = [
   {
-    emotion: 'ANGRY',
-    color: '#D32F2F',
-    icon: '😠',
+    label: 'My Body Feels Good',
+    image: boyImg,
+    backgroundColor: '#6CAD50',
+    description: 'Feeling healthy and strong',
   },
   {
-    emotion: 'FRUSTRATED',
-    color: '#E65100',
-    icon: '😤',
+    label: 'My Feelings Are Good',
+    image: boyImg,
+    backgroundColor: '#4FC3F7',
+    description: 'Feeling happy and loved',
   },
   {
-    emotion: 'SAD',
-    color: '#0277BD',
-    icon: '😢',
+    label: 'My Feelings Are Bad',
+    image: boyImg,
+    backgroundColor: '#FF9800',
+    description: 'Feeling sad or upset',
   },
   {
-    emotion: 'FINE',
-    color: '#2E7D32',
-    icon: '😌',
+    label: 'My Body Hurts',
+    image: boyImg,
+    backgroundColor: '#F44336',
+    description: 'Feeling pain or discomfort',
   },
 ];
 
-const middleEmotions: EmotionLevel[] = [
-  {
-    emotion: 'BORED',
-    color: '#6A1B9A',
-    icon: '😑',
-  },
-  {
-    emotion: 'HAPPY',
-    color: '#00695C',
-    icon: '😊',
-  },
-  {
-    emotion: 'EXCITED',
-    color: '#E65100',
-    icon: '🤩',
-  },
-  {
-    emotion: 'TIRED',
-    color: '#455A64',
-    icon: '😴',
-  },
+// Feeling grid data - using the same image for all cards as placeholder
+const goodBody = [
+  {label: 'Comfortable', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Relaxed', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: "I'm OK", image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Warm', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Strong', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Energetic', image: dogImg, backgroundColor: '#FFE4E1'},
 ];
 
-const rightEmotions: EmotionLevel[] = [
-  {
-    emotion: 'HUNGRY',
-    color: '#F9A825',
-    icon: '😋',
-  },
-  {
-    emotion: 'THIRSTY',
-    color: '#0288D1',
-    icon: '🥤',
-  },
-  {
-    emotion: 'SICK',
-    color: '#4E342E',
-    icon: '🤒',
-  },
-  {
-    emotion: 'IN PAIN',
-    color: '#C62828',
-    icon: '🤕',
-  },
+const goodFeelings = [
+  {label: 'Happy', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Excited', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Loved', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Calm', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Proud', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Silly', image: dogImg, backgroundColor: '#FFE4E1'},
 ];
 
-const titleColors = [
-  '#D32F2F', // S
-  '#E65100', // h
-  '#F57F17', // o
-  '#0277BD', // r
-  '#2E7D32', // t
-  '#6A1B9A', // C
-  '#00695C', // u
-  '#E65100', // t
-  '#C62828', // s
+const badFeelings = [
+  {label: 'Sad', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Bored', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Scared', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Worried', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Embarrassed', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Angry', image: dogImg, backgroundColor: '#FFE4E1'},
 ];
 
-const ColorfulTitle = ({text}: {text: string}) => {
-  return (
-    <View style={styles.titleContainer}>
-      {text.split('').map((letter, index) => (
-        <Text
-          key={index}
-          style={[
-            styles.titleLetter,
-            {color: titleColors[index % titleColors.length]},
-          ]}>
-          {letter}
-        </Text>
-      ))}
-    </View>
-  );
-};
+const badBody = [
+  {label: 'Cold', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Hurt', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Sick', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Tired', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Dizzy', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Itchy', image: dogImg, backgroundColor: '#FFE4E1'},
+];
 
-const ShortCutsScreen: React.FC = () => {
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+const GRID_WIDTH = (width - 20) / 4;
+const GRID_IMAGE_HEIGHT = height * 0.25;
+
+const ShortCuts = () => {
+  const navigation = useNavigation();
+  type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
+  const [selectedCategory, setSelectedCategory] =
+    useState<CategoryKey>('goodBody');
+
+  // Use useRef to maintain animated values across renders
+  const animatedValues = useRef({
+    goodBody: new Animated.Value(1), // Start at 1 for initial selected category
+    goodFeelings: new Animated.Value(0),
+    badBody: new Animated.Value(0),
+    badFeelings: new Animated.Value(0),
+  }).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
+    // Initialize TTS when component mounts
+    TTSService.initialize();
+
+    // Clean up TTS when component unmounts
+    return () => {
+      TTSService.stop();
+    };
   }, []);
 
-  const handleEmotionPress = (emotion: EmotionLevel) => {
-    TTSService.speak(emotion.emotion, true);
-
-    setTimeout(() => {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }).start(() => {
-        navigation.navigate(views.OPEN as never);
-      });
-    }, 700);
+  const handleHomePress = () => {
+    navigation.navigate(views.OPEN as never);
   };
 
-  const renderEmotionColumn = (emotions: EmotionLevel[]) => (
-    <View style={styles.column}>
-      {emotions.map((emotion, index) => (
-        <TouchableOpacity
-          key={index}
-          style={[styles.emotionContainer, {backgroundColor: emotion.color}]}
-          onPress={() => handleEmotionPress(emotion)}>
-          <View style={styles.emotionContent}>
-            <Text style={styles.emotionIcon}>{emotion.icon}</Text>
-            <Text style={styles.emotionTitle}>{emotion.emotion}</Text>
-          </View>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
+  const handleCategoryPress = (categoryKey: CategoryKey) => {
+    if (categoryKey !== selectedCategory) {
+      // Create parallel animations
+      Animated.parallel([
+        // Animate previous selection down
+        Animated.timing(animatedValues[selectedCategory], {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        // Animate new selection up
+        Animated.timing(animatedValues[categoryKey], {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      setSelectedCategory(categoryKey);
+    }
+  };
+
+  const handleFeelingPress = (feeling: string) => {
+    // Use TTSService to speak the feeling text
+    TTSService.speak(feeling, true); // Use immediate=true to prioritize this speech
+  };
+
+  // Determine which feeling cards to display based on selected category
+  const getFeelingsToDisplay = () => {
+    switch (selectedCategory) {
+      case 'goodBody':
+        return goodBody;
+      case 'goodFeelings':
+        return goodFeelings;
+      case 'badFeelings':
+        return badFeelings;
+      case 'badBody':
+        return badBody;
+      default:
+        return goodBody;
+    }
+  };
 
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
-      <Animated.View style={[styles.content, {opacity: fadeAnim}]}>
-        <ColorfulTitle text="ShortCuts" />
-        <View style={styles.mainContainer}>
-          {renderEmotionColumn(leftEmotions)}
-          {renderEmotionColumn(middleEmotions)}
-          {renderEmotionColumn(rightEmotions)}
+    <View style={styles.screen}>
+      {/* Microphone Button */}
+      <View style={styles.micIcon}>
+        <FastImage source={micImg} style={styles.iconSize} />
+      </View>
+
+      <View style={styles.matalkIcon}>
+        <FastImage source={matalkImg} style={styles.iconSize} />
+      </View>
+
+      {/* Home Button */}
+      <Pressable
+        onPress={handleHomePress}
+        style={({pressed}) => [
+          styles.homeIcon,
+          pressed && styles.buttonPressed,
+        ]}>
+        <Text style={styles.homeIconText}>🏠</Text>
+      </Pressable>
+
+      <View style={styles.scrollContent}>
+        <View style={styles.topRow}>
+          <Animated.View
+            style={[
+              styles.topItemWrapper,
+              {
+                transform: [
+                  {
+                    translateY: animatedValues.goodBody.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -15],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <Pressable
+              onPress={() => handleCategoryPress('goodBody')}
+              style={({pressed}) => [
+                styles.topItem,
+                selectedCategory === 'goodBody' && styles.topItemSelected,
+                pressed && styles.buttonPressed,
+              ]}>
+              <View style={styles.topImageContainer}>
+                <FastImage
+                  source={topCategories[0].image}
+                  style={[
+                    styles.imageTop,
+                    {backgroundColor: topCategories[0].backgroundColor},
+                  ]}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+                <Text style={styles.labelTop}>{topCategories[0].label}</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.topItemWrapper,
+              {
+                transform: [
+                  {
+                    translateY: animatedValues.goodFeelings.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -15],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <Pressable
+              onPress={() => handleCategoryPress('goodFeelings')}
+              style={({pressed}) => [
+                styles.topItem,
+                selectedCategory === 'goodFeelings' && styles.topItemSelected,
+                pressed && styles.buttonPressed,
+              ]}>
+              <View style={styles.topImageContainer}>
+                <FastImage
+                  source={topCategories[1].image}
+                  style={[
+                    styles.imageTop,
+                    {backgroundColor: topCategories[1].backgroundColor},
+                  ]}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+                <Text style={styles.labelTop}>{topCategories[1].label}</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.topItemWrapper,
+              {
+                transform: [
+                  {
+                    translateY: animatedValues.badBody.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -15],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <Pressable
+              onPress={() => handleCategoryPress('badBody')}
+              style={({pressed}) => [
+                styles.topItem,
+                selectedCategory === 'badBody' && styles.topItemSelected,
+                pressed && styles.buttonPressed,
+              ]}>
+              <View style={styles.topImageContainer}>
+                <FastImage
+                  source={topCategories[2].image}
+                  style={[
+                    styles.imageTop,
+                    {backgroundColor: topCategories[2].backgroundColor},
+                  ]}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+                <Text style={styles.labelTop}>{topCategories[2].label}</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.topItemWrapper,
+              {
+                transform: [
+                  {
+                    translateY: animatedValues.badFeelings.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -15],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <Pressable
+              onPress={() => handleCategoryPress('badFeelings')}
+              style={({pressed}) => [
+                styles.topItem,
+                selectedCategory === 'badFeelings' && styles.topItemSelected,
+                pressed && styles.buttonPressed,
+              ]}>
+              <View style={styles.topImageContainer}>
+                <FastImage
+                  source={topCategories[3].image}
+                  style={[
+                    styles.imageTop,
+                    {backgroundColor: topCategories[3].backgroundColor},
+                  ]}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+                <Text style={styles.labelTop}>{topCategories[3].label}</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
         </View>
-      </Animated.View>
-    </LinearGradient>
+      </View>
+
+      {/* Grid Items - Feelings */}
+      <View style={styles.grid}>
+        {getFeelingsToDisplay().map((feeling, i) => (
+          <Pressable
+            key={i}
+            style={({pressed}) => [
+              styles.gridItem,
+              pressed && styles.buttonPressed,
+            ]}
+            onPress={() => handleFeelingPress(feeling.label)}>
+            <View
+              style={[
+                styles.gridImageContainer,
+                {backgroundColor: feeling.backgroundColor},
+              ]}>
+              <Image
+                source={feeling.image}
+                style={styles.imageGrid}
+                resizeMode="cover"
+              />
+            </View>
+            <View style={styles.gridLabelContainer}>
+              <Text style={styles.labelGrid}>{feeling.label}</Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
+    backgroundColor: '#FFF8E7',
+    borderWidth: 1,
+    borderColor: '#CCC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: width,
   },
-  content: {
-    flex: 1,
-    backgroundColor: 'transparent',
+  scrollContent: {
+    width: width * 0.8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: height * 0.02,
   },
-  mainContainer: {
-    flex: 1,
+  topRow: {
     flexDirection: 'row',
-    paddingHorizontal: 4,
-    height: height * 0.44,
+    justifyContent: 'center',
+    height: height * 0.22,
+    width: '100%',
+    gap: width * 0.03,
+    alignContent: 'center',
+    marginBottom: height * 0.05,
   },
-  column: {
-    flex: 1,
-    marginHorizontal: 2,
+  topItemWrapper: {
+    width: width * 0.16,
+    height: '100%',
+    overflow: 'visible',
+  },
+  topItem: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    overflow: 'visible',
+    shadowColor: 'gray',
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+    backgroundColor: '6CAD50',
+  },
+  topItemSelected: {
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    shadowOffset: {width: 0, height: 12},
+    elevation: 16,
+    borderWidth: 2,
+    borderColor: '#146CF0',
+  },
+  topImageContainer: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  emojiIcon: {
+    fontSize: 50,
+  },
+  topLabelContainer: {
+    backgroundColor: 'white',
+    width: '100%',
+    borderBottomEndRadius: 16,
+    borderBottomStartRadius: 16,
+  },
+  topImageContainerSelected: {
+    borderTopWidth: 2,
+    borderTopColor: '#146CF0',
+    borderLeftWidth: 2,
+    borderLeftColor: '#146CF0',
+    borderRightWidth: 2,
+    borderRightColor: '#146CF0',
+  },
+  topLabelContainerSelected: {
+    borderLeftWidth: 2,
+    borderLeftColor: '#146CF0',
+    borderRightWidth: 2,
+    borderRightColor: '#146CF0',
+    borderBottomWidth: 2,
+    borderBottomColor: '#146CF0',
+  },
+  imageTop: {
+    width: '100%',
+    height: '90%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emotionContainer: {
-    height: height * 0.11,
-    width: width * 0.3,
-    borderRadius: 15,
-    marginVertical: 8,
-    padding: 8,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 3.84,
-  },
-  emotionContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  emotionIcon: {
-    fontSize: 32,
-    marginRight: 8,
-  },
-  emotionTitle: {
-    flex: 1,
-    fontSize: 14,
+  labelTop: {
     fontWeight: 'bold',
-    color: 'rgba(255, 255, 255, 0.95)',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 3,
-    letterSpacing: 0.5,
+    fontSize: width * 0.014,
+    textAlign: 'center',
+    color: '#000',
+    paddingBottom: height * 0.03,
+    paddingTop: height * 0.01,
   },
-  titleContainer: {
+  grid: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: height * 0.02,
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    width: '80%',
   },
-  titleLetter: {
-    fontSize: 32,
+  gridItem: {
+    width: GRID_WIDTH,
+    borderRadius: 16,
+    overflow: 'visible',
+    shadowColor: 'gray',
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+    backgroundColor: 'white',
+    marginBottom: 15,
+  },
+  gridImageContainer: {
+    width: '100%',
+    height: GRID_IMAGE_HEIGHT,
+    backgroundColor: '#FFE4E1',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  gridLabelContainer: {
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    paddingVertical: 8,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  imageGrid: {
+    width: '100%',
+    height: '100%',
+  },
+  labelGrid: {
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0, 0, 0, 0.1)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 2,
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#000',
+  },
+  iconSize: {
+    width: 60,
+    height: 60,
+    resizeMode: 'contain',
+  },
+  micIcon: {
+    top: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    left: width * 0.03,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'absolute',
+  },
+  matalkIcon: {
+    bottom: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    left: width * 0.03,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'absolute',
+  },
+  homeIcon: {
+    top: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    right: width * 0.03,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'absolute',
+    width: width * 0.05,
+    height: width * 0.05,
+    backgroundColor: '#FFF',
+    borderRadius: width * 0.04,
+  },
+  iconText: {
+    fontSize: 60,
+    color: '#FFFFFF',
+  },
+  buttonPressed: {
+    opacity: 0.8,
+    transform: [{scale: 0.98}],
+  },
+  homeIconText: {
+    fontSize: 40,
+    color: '#FFFFFF',
   },
 });
 
-export default ShortCutsScreen;
+export default ShortCuts;

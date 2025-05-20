@@ -17,6 +17,7 @@ import {
   RouteProp,
 } from '@react-navigation/native';
 import Sound from 'react-native-sound';
+import Tts from 'react-native-tts';
 import {views} from '../utils/constants';
 
 // Add imports for the components
@@ -27,11 +28,12 @@ import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
 import {showFiles} from '../utils/helpers';
 import {useSound} from '../contexts/soundContext';
+import TTSService from '../utils/TTSService';
 
 const {width, height} = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: {stateof?: string};
+  Home: {stateof?: 'Attention' | 'Keyboard' | string};
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -59,10 +61,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   }, [stateof]);
 
+  const playWrittenSentence = async () => {
+    debugger;
+    if (transcribedText.trim()) {
+      TTSService.speak(transcribedText, true);
+    }
+  };
+
   const playSound = async () => {
     const res = await playAttention();
-    if (!inputsRef.current?.isRecording) {
-      inputsRef.current?.handleRecord();
+    if (stateof === 'Attention') {
+      if (!inputsRef.current?.isRecording) {
+        inputsRef.current?.handleRecord();
+      }
+    } else if (stateof === 'Keyboard') {
+      if (transcribedText.trim()) {
+        try {
+          await TTSService.speak(transcribedText, true);
+        } catch (error) {
+          console.error('Error in playWrittenSentence:', error);
+        }
+      }
     }
   };
 
@@ -91,11 +110,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           <Text style={styles.buttonText}>Show Transcript</Text>
         </TouchableOpacity>
       )}
-      <Inputs
-        ref={inputsRef}
-        mode={stateof}
-        onTranscriptionUpdate={handleTranscriptionUpdate}
-      />
 
       {/* Input and Navigation Section */}
       <View style={styles.inputNavigationContainer}>
@@ -103,12 +117,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           <Text style={styles.playIcon}>▶️</Text>
         </Pressable>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Waiting for input..."
-          value={transcribedText}
-          onChangeText={setTranscribedText}
-        />
+        {stateof === 'Attention' ? (
+          <Inputs
+            ref={inputsRef}
+            mode={stateof}
+            onTranscriptionUpdate={handleTranscriptionUpdate}
+          />
+        ) : (
+          <TextInput
+            style={styles.input}
+            placeholder="Waiting for input..."
+            value={transcribedText}
+            onChangeText={setTranscribedText}
+          />
+        )}
 
         <View style={styles.inlineNavigationButtons}>
           <Pressable style={styles.smallNavButton} onPress={toggleKeyboard}>
@@ -150,19 +172,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           ) : null}
         </View>
       </View>
-
-      {isKeyboardVisible && (
-        <View style={styles.keyboardOverlay}>
-          <TextInput
-            style={styles.keyboardInput}
-            value={transcribedText}
-            onChangeText={setTranscribedText}
-            multiline
-            autoFocus
-            onBlur={() => setIsKeyboardVisible(false)}
-          />
-        </View>
-      )}
     </View>
   );
 };
@@ -179,10 +188,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 15,
     justifyContent: 'space-between',
+    marginTop: height * 0.1,
+    height: height * 0.2,
   },
   playButton: {
-    width: 50,
-    height: 50,
+    width: 80,
+    height: 80,
     borderRadius: 25,
     backgroundColor: '#FFF',
     justifyContent: 'center',
@@ -197,15 +208,15 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   playIcon: {
-    fontSize: 24,
+    fontSize: 40,
   },
   input: {
     flex: 1,
-    height: 50,
+    height: height * 0.15,
     backgroundColor: '#E5E5E5',
     borderRadius: 8,
     paddingHorizontal: 15,
-    fontSize: 16,
+    fontSize: height * 0.07,
     marginHorizontal: 10,
   },
   inlineNavigationButtons: {
@@ -326,7 +337,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   keyboardInput: {
-    height: 100,
+    height: '90%',
     backgroundColor: '#F5F5F5',
     borderRadius: 8,
     padding: 10,
