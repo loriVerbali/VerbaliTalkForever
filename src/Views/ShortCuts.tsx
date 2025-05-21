@@ -14,37 +14,65 @@ import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
 
-const {width, height} = Dimensions.get('window');
+// General assets
+import micImg from '../assets/microphone.png';
+import boyImg from '../assets/boy.png';
+import matalkImg from '../assets/matalk.png';
+import dogImg from '../assets/welcome.png';
 
-// For simplicity, we'll use the same dog image for all feeling cards
-// In a real app, you would have different images for each feeling
-const dogImg = require('../assets/welcome.png'); // Replace with actual dog image
-const micImg = require('../assets/microphone.png');
-const boyImg = require('../assets/boy.png');
-const matalkImg = require('../assets/matalk.png');
+// Attention category images
+import hiImg from '../assets/shortCuts/attention/hi.png';
+import lookImg from '../assets/shortCuts/attention/look.png';
+import listenImg from '../assets/shortCuts/attention/listen.png';
+import myturnImg from '../assets/shortCuts/attention/myturn.png';
+import questionImg from '../assets/shortCuts/attention/question.png';
+import stopImg from '../assets/shortCuts/attention/Stop.png';
+
+// Want/Need category images
+import eatImg from '../assets/shortCuts/wantNeed/eat.png';
+import drinkImg from '../assets/shortCuts/wantNeed/drink.png';
+import bathroomImg from '../assets/shortCuts/wantNeed/bathroom.png';
+import sleepImg from '../assets/shortCuts/wantNeed/sleep.png';
+import helpImg from '../assets/shortCuts/wantNeed/help.png';
+
+// Fun category images
+import playImg from '../assets/shortCuts/fun/play.png';
+import outsideImg from '../assets/shortCuts/fun/outside.png';
+import mineImg from '../assets/shortCuts/fun/mine.png';
+import goImg from '../assets/shortCuts/fun/go.png';
+import gameImg from '../assets/shortCuts/fun/game.png';
+import bookImg from '../assets/shortCuts/fun/book.png';
+
+const {width, height} = Dimensions.get('window');
 
 // Top category data with emoji representations (since we don't have the actual images)
 const topCategories = [
   {
-    label: 'My Body Feels Good',
+    label: 'Attention',
     image: boyImg,
     backgroundColor: '#6CAD50',
     description: 'Feeling healthy and strong',
   },
   {
-    label: 'My Feelings Are Good',
+    label: 'I want/need',
     image: boyImg,
     backgroundColor: '#4FC3F7',
     description: 'Feeling happy and loved',
   },
   {
-    label: 'My Feelings Are Bad',
+    label: 'Fun',
     image: boyImg,
     backgroundColor: '#FF9800',
     description: 'Feeling sad or upset',
   },
   {
-    label: 'My Body Hurts',
+    label: 'Actions',
+    image: boyImg,
+    backgroundColor: '#F44336',
+    description: 'Feeling pain or discomfort',
+  },
+  {
+    label: 'Positions',
     image: boyImg,
     backgroundColor: '#F44336',
     description: 'Feeling pain or discomfort',
@@ -52,57 +80,75 @@ const topCategories = [
 ];
 
 // Feeling grid data - using the same image for all cards as placeholder
-const goodBody = [
-  {label: 'Comfortable', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Relaxed', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: "I'm OK", image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Warm', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Strong', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Energetic', image: dogImg, backgroundColor: '#FFE4E1'},
+const attention = [
+  {label: 'Hi', image: hiImg, backgroundColor: '#FFE4E1'},
+  {label: 'Look', image: lookImg, backgroundColor: '#FFE4E1'},
+  {label: 'Listen', image: listenImg, backgroundColor: '#FFE4E1'},
+  {label: 'Come', image: myturnImg, backgroundColor: '#FFE4E1'},
+  {label: 'My Turn', image: myturnImg, backgroundColor: '#FFE4E1'},
+  {label: 'Stop', image: stopImg, backgroundColor: '#FFE4E1'},
+  {label: 'I have a question', image: questionImg, backgroundColor: '#FFE4E1'},
 ];
 
-const goodFeelings = [
-  {label: 'Happy', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Excited', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Loved', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Calm', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Proud', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Silly', image: dogImg, backgroundColor: '#FFE4E1'},
+const iWantNeed = [
+  {label: 'Eat', image: eatImg, backgroundColor: '#FFE4E1'},
+  {label: 'Drink', image: drinkImg, backgroundColor: '#FFE4E1'},
+  {label: 'Bathroom', image: bathroomImg, backgroundColor: '#FFE4E1'},
+  {label: 'Sleep', image: sleepImg, backgroundColor: '#FFE4E1'},
+  {label: 'Help', image: helpImg, backgroundColor: '#FFE4E1'},
+  {label: 'More', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'All done', image: dogImg, backgroundColor: '#FFE4E1'},
 ];
 
-const badFeelings = [
-  {label: 'Sad', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Bored', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Scared', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Worried', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Embarrassed', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Angry', image: dogImg, backgroundColor: '#FFE4E1'},
+const actions = [
+  {label: 'Play', image: playImg, backgroundColor: '#FFE4E1'},
+  {label: 'Outside', image: outsideImg, backgroundColor: '#FFE4E1'},
+  {label: 'Mine', image: mineImg, backgroundColor: '#FFE4E1'},
+  {label: 'Go', image: goImg, backgroundColor: '#FFE4E1'},
+  {label: 'Game', image: gameImg, backgroundColor: '#FFE4E1'},
+  {label: 'Book', image: bookImg, backgroundColor: '#FFE4E1'},
 ];
 
-const badBody = [
-  {label: 'Cold', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Hurt', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Sick', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Tired', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Dizzy', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Itchy', image: dogImg, backgroundColor: '#FFE4E1'},
+const fun = [
+  {label: 'Open', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Close', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Turn On', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Turn Off', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Give', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Take', image: dogImg, backgroundColor: '#FFE4E1'},
 ];
 
-const GRID_WIDTH = (width - 20) / 4;
-const GRID_IMAGE_HEIGHT = height * 0.25;
+const positions = [
+  {label: 'Up', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Down', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'In', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Out', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'On', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Under', image: dogImg, backgroundColor: '#FFE4E1'},
+];
+
+// Update the GRID_WIDTH constant to accommodate exactly 4 items per row
+const GRID_WIDTH = (width * 0.8) / 4 - 16; // Explicitly calculate width for 4 items with margins
+const GRID_IMAGE_HEIGHT = height * 0.2;
 
 const ShortCuts = () => {
   const navigation = useNavigation();
-  type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
+  type CategoryKey =
+    | 'attention'
+    | 'iWantNeed'
+    | 'actions'
+    | 'fun'
+    | 'positions';
   const [selectedCategory, setSelectedCategory] =
-    useState<CategoryKey>('goodBody');
+    useState<CategoryKey>('attention');
 
   // Use useRef to maintain animated values across renders
   const animatedValues = useRef({
-    goodBody: new Animated.Value(1), // Start at 1 for initial selected category
-    goodFeelings: new Animated.Value(0),
-    badBody: new Animated.Value(0),
-    badFeelings: new Animated.Value(0),
+    attention: new Animated.Value(1), // Start at 1 for initial selected category
+    iWantNeed: new Animated.Value(0),
+    actions: new Animated.Value(0),
+    fun: new Animated.Value(0),
+    positions: new Animated.Value(0),
   }).current;
 
   useEffect(() => {
@@ -149,18 +195,33 @@ const ShortCuts = () => {
   // Determine which feeling cards to display based on selected category
   const getFeelingsToDisplay = () => {
     switch (selectedCategory) {
-      case 'goodBody':
-        return goodBody;
-      case 'goodFeelings':
-        return goodFeelings;
-      case 'badFeelings':
-        return badFeelings;
-      case 'badBody':
-        return badBody;
+      case 'attention':
+        return attention;
+      case 'iWantNeed':
+        return iWantNeed;
+      case 'fun':
+        return fun;
+      case 'actions':
+        return actions;
+      case 'positions':
+        return positions;
       default:
-        return goodBody;
+        return attention;
     }
   };
+
+  // Get the feelings to display
+  const feelingsToDisplay = getFeelingsToDisplay();
+
+  // Split feelings into rows of 4
+  const rows = [];
+  for (let i = 0; i < feelingsToDisplay.length; i += 4) {
+    rows.push(feelingsToDisplay.slice(i, i + 4));
+  }
+
+  // Calculate how many empty placeholders we need to add for the last row
+  const lastRow = rows[rows.length - 1];
+  const emptyPlaceholders = lastRow.length < 4 ? 4 - lastRow.length : 0;
 
   return (
     <View style={styles.screen}>
@@ -191,7 +252,7 @@ const ShortCuts = () => {
               {
                 transform: [
                   {
-                    translateY: animatedValues.goodBody.interpolate({
+                    translateY: animatedValues.attention.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0, -15],
                     }),
@@ -200,10 +261,10 @@ const ShortCuts = () => {
               },
             ]}>
             <Pressable
-              onPress={() => handleCategoryPress('goodBody')}
+              onPress={() => handleCategoryPress('attention')}
               style={({pressed}) => [
                 styles.topItem,
-                selectedCategory === 'goodBody' && styles.topItemSelected,
+                selectedCategory === 'attention' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
               <View style={styles.topImageContainer}>
@@ -226,7 +287,7 @@ const ShortCuts = () => {
               {
                 transform: [
                   {
-                    translateY: animatedValues.goodFeelings.interpolate({
+                    translateY: animatedValues.iWantNeed.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0, -15],
                     }),
@@ -235,10 +296,10 @@ const ShortCuts = () => {
               },
             ]}>
             <Pressable
-              onPress={() => handleCategoryPress('goodFeelings')}
+              onPress={() => handleCategoryPress('iWantNeed')}
               style={({pressed}) => [
                 styles.topItem,
-                selectedCategory === 'goodFeelings' && styles.topItemSelected,
+                selectedCategory === 'iWantNeed' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
               <View style={styles.topImageContainer}>
@@ -261,7 +322,7 @@ const ShortCuts = () => {
               {
                 transform: [
                   {
-                    translateY: animatedValues.badBody.interpolate({
+                    translateY: animatedValues.actions.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0, -15],
                     }),
@@ -270,10 +331,10 @@ const ShortCuts = () => {
               },
             ]}>
             <Pressable
-              onPress={() => handleCategoryPress('badBody')}
+              onPress={() => handleCategoryPress('actions')}
               style={({pressed}) => [
                 styles.topItem,
-                selectedCategory === 'badBody' && styles.topItemSelected,
+                selectedCategory === 'actions' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
               <View style={styles.topImageContainer}>
@@ -296,7 +357,7 @@ const ShortCuts = () => {
               {
                 transform: [
                   {
-                    translateY: animatedValues.badFeelings.interpolate({
+                    translateY: animatedValues.fun.interpolate({
                       inputRange: [0, 1],
                       outputRange: [0, -15],
                     }),
@@ -305,10 +366,10 @@ const ShortCuts = () => {
               },
             ]}>
             <Pressable
-              onPress={() => handleCategoryPress('badFeelings')}
+              onPress={() => handleCategoryPress('fun')}
               style={({pressed}) => [
                 styles.topItem,
-                selectedCategory === 'badFeelings' && styles.topItemSelected,
+                selectedCategory === 'fun' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
               <View style={styles.topImageContainer}>
@@ -324,34 +385,81 @@ const ShortCuts = () => {
               </View>
             </Pressable>
           </Animated.View>
+          <Animated.View
+            style={[
+              styles.topItemWrapper,
+              {
+                transform: [
+                  {
+                    translateY: animatedValues.positions.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -15],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <Pressable
+              onPress={() => handleCategoryPress('positions')}
+              style={({pressed}) => [
+                styles.topItem,
+                selectedCategory === 'positions' && styles.topItemSelected,
+                pressed && styles.buttonPressed,
+              ]}>
+              <View style={styles.topImageContainer}>
+                <FastImage
+                  source={topCategories[4].image}
+                  style={[
+                    styles.imageTop,
+                    {backgroundColor: topCategories[4].backgroundColor},
+                  ]}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+                <Text style={styles.labelTop}>{topCategories[4].label}</Text>
+              </View>
+            </Pressable>
+          </Animated.View>
         </View>
       </View>
 
       {/* Grid Items - Feelings */}
       <View style={styles.grid}>
-        {getFeelingsToDisplay().map((feeling, i) => (
-          <Pressable
-            key={i}
-            style={({pressed}) => [
-              styles.gridItem,
-              pressed && styles.buttonPressed,
-            ]}
-            onPress={() => handleFeelingPress(feeling.label)}>
-            <View
-              style={[
-                styles.gridImageContainer,
-                {backgroundColor: feeling.backgroundColor},
-              ]}>
-              <Image
-                source={feeling.image}
-                style={styles.imageGrid}
-                resizeMode="cover"
-              />
-            </View>
-            <View style={styles.gridLabelContainer}>
-              <Text style={styles.labelGrid}>{feeling.label}</Text>
-            </View>
-          </Pressable>
+        {rows.map((row, rowIndex) => (
+          <React.Fragment key={`row-${rowIndex}`}>
+            {row.map((feeling, colIndex) => (
+              <Pressable
+                key={`item-${rowIndex}-${colIndex}`}
+                style={({pressed}) => [
+                  styles.gridItem,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={() => handleFeelingPress(feeling.label)}>
+                <View
+                  style={[
+                    styles.gridImageContainer,
+                    {backgroundColor: feeling.backgroundColor},
+                  ]}>
+                  <Image
+                    source={feeling.image}
+                    style={styles.imageGrid}
+                    resizeMode="cover"
+                  />
+                </View>
+                <View style={styles.gridLabelContainer}>
+                  <Text style={styles.labelGrid}>{feeling.label}</Text>
+                </View>
+              </Pressable>
+            ))}
+
+            {/* Add empty placeholders to complete the last row */}
+            {rowIndex === rows.length - 1 &&
+              Array.from({length: emptyPlaceholders}).map((_, index) => (
+                <View
+                  key={`empty-${index}`}
+                  style={[styles.gridItem, styles.emptyItem]}
+                />
+              ))}
+          </React.Fragment>
         ))}
       </View>
     </View>
@@ -381,11 +489,11 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: width * 0.03,
     alignContent: 'center',
-    marginBottom: height * 0.05,
+    marginBottom: height * 0.01,
   },
   topItemWrapper: {
-    width: width * 0.16,
-    height: '100%',
+    width: width * 0.11,
+    height: '80%',
     overflow: 'visible',
   },
   topItem: {
@@ -460,8 +568,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 10,
-    width: '80%',
+    width: '80%', // Set to exactly 80% of screen width
+    rowGap: 20,
   },
   gridItem: {
     width: GRID_WIDTH,
@@ -492,6 +600,8 @@ const styles = StyleSheet.create({
   imageGrid: {
     width: '100%',
     height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   labelGrid: {
     fontWeight: 'bold',
@@ -549,6 +659,11 @@ const styles = StyleSheet.create({
   homeIconText: {
     fontSize: 40,
     color: '#FFFFFF',
+  },
+  emptyItem: {
+    backgroundColor: 'transparent', // Make empty items invisible
+    shadowOpacity: 0, // Remove shadow
+    elevation: 0, // Remove elevation
   },
 });
 
