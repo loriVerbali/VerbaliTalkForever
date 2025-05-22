@@ -25,7 +25,7 @@ import VoiceService from '../utils/VoiceService';
 import TTSService from '../utils/TTSService';
 import {useAuth0} from 'react-native-auth0';
 import {useAppSettings} from '../utils/persistance';
-
+import hand from '../assets/hand.png';
 type RootStackParamList = {
   LOGIN: undefined;
   HOME: {stateof?: string};
@@ -37,7 +37,7 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const {height} = Dimensions.get('window');
+const {height, width} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40; // fallback for iOS
 
 const OpenScreen: React.FC = () => {
@@ -45,13 +45,13 @@ const OpenScreen: React.FC = () => {
   const isListening = useRef(false);
   const [recognizedText, setRecognizedText] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const {geminiGenerateImage} = useAssistant();
   const {clearSession} = useAuth0();
   const {setItem, getItem} = useAppSettings();
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
+  const matalkImg = require('../assets/matalk.png');
 
   useEffect(() => {
     console.log('OpenScreen mounted');
@@ -218,7 +218,7 @@ const OpenScreen: React.FC = () => {
 
         // If failed, wait briefly before retrying
         if (!success && Platform.OS === 'ios') {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve as () => void, 500));
           // Re-initialize
           await VoiceService.initialize();
         }
@@ -270,18 +270,24 @@ const OpenScreen: React.FC = () => {
     <>
       <Animated.View style={[{flex: 1, opacity: fadeAnim}]}>
         <LinearGradient
-          colors={['#ffffff', '#f8f9fe']}
+          colors={['#FFF8E7', '#FFFFFF']}
           style={styles.container}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerText}>Hi Matan</Text>
+            <FastImage
+              source={require('../assets/hand.png')}
+              style={styles.matanImage}
+              resizeMode={FastImage.resizeMode.contain}
+            />
+          </View>
+
           <Pressable
             style={styles.microphoneButton}
             onPress={startListening}
             disabled={isListening.current}>
             <FastImage
-              source={require('../assets/microphone.png')}
-              style={[
-                styles.microphoneImage,
-                isListening.current && {opacity: 0.5},
-              ]}
+              source={require('../assets/michrophone.gif')}
+              style={[styles.iconSize, isListening.current && {opacity: 0.5}]}
               resizeMode={FastImage.resizeMode.contain}
             />
           </Pressable>
@@ -302,22 +308,81 @@ const OpenScreen: React.FC = () => {
             />
           </Pressable>
 
+          <View style={styles.matalkIcon}>
+            <FastImage source={matalkImg} style={styles.iconSize} />
+          </View>
+
           <View style={styles.contentContainer}>
-            <View
-              style={{
-                flexDirection: 'row',
-                height: height / 2 - statusBarHeight,
-              }}>
+            <View style={styles.wrapper}>
               <View style={styles.rowContent}>
                 <Pressable
                   style={styles.tileWrapper}
                   onPress={() => handleNavigation('Talk')}>
-                  <FastImage
-                    source={require('../assets/talk.png')}
-                    style={{width: '100%', height: '100%'}}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <Text style={styles.kidText}>Start Talking</Text>
+                  <View style={styles.imageWrapper}>
+                    <FastImage
+                      source={require('../assets/talk.png')}
+                      style={styles.image}
+                      resizeMode={FastImage.resizeMode.contain}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.labelContainer,
+                      {backgroundColor: 'rgba(20, 108, 240, 0.25)'},
+                    ]}>
+                    <Text style={styles.kidText}>Start Talking</Text>
+                  </View>
+                </Pressable>
+              </View>
+              <View style={styles.rowContent}>
+                <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
+                  <View style={styles.imageWrapper}>
+                    <View style={styles.imageWrapper}>
+                      <FastImage
+                        source={require('../assets/keyboard.png')}
+                        style={styles.image}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.labelContainer,
+                      {backgroundColor: 'rgba(47, 183, 111, 0.25)'},
+                    ]}>
+                    <Text style={styles.kidText}>Type Here</Text>
+                  </View>
+                </Pressable>
+              </View>
+            </View>
+
+            <View style={styles.wrapper}>
+              <View style={styles.rowContent}>
+                <Pressable
+                  style={styles.tileWrapper}
+                  onPress={() => {
+                    Animated.timing(fadeAnim, {
+                      toValue: 0,
+                      duration: 500,
+                      useNativeDriver: true,
+                    }).start(() => {
+                      navigation.navigate(views.FEELINGS as never);
+                    });
+                  }}>
+                  <View style={styles.imageWrapper}>
+                    <FastImage
+                      source={require('../assets/feelings.png')}
+                      style={styles.image}
+                      resizeMode={FastImage.resizeMode.contain}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.labelContainer,
+                      {backgroundColor: 'rgba(229, 72, 72, 0.25)'},
+                    ]}>
+                    <Text style={[styles.kidText]}>How I Feel</Text>
+                  </View>
                 </Pressable>
               </View>
               <View style={styles.rowContent}>
@@ -332,50 +397,20 @@ const OpenScreen: React.FC = () => {
                       navigation.navigate(views.SHORTCUTS as never);
                     });
                   }}>
-                  <FastImage
-                    source={require('../assets/shortCuts.png')}
-                    style={{width: '100%', height: '100%'}}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <Text style={styles.kidText}>ShortCuts!</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <View
-              style={{
-                flexDirection: 'row',
-                height: height / 2,
-              }}>
-              <View style={styles.rowContent}>
-                <Pressable
-                  style={styles.tileWrapper}
-                  onPress={() => {
-                    Animated.timing(fadeAnim, {
-                      toValue: 0,
-                      duration: 500,
-                      useNativeDriver: true,
-                    }).start(() => {
-                      navigation.navigate(views.FEELINGS as never);
-                    });
-                  }}>
-                  <FastImage
-                    source={require('../assets/feelings.png')}
-                    style={{width: '100%', height: '100%'}}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <Text style={styles.kidText}>How I Feel</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.rowContent}>
-                <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
-                  <FastImage
-                    source={require('../assets/keyboard.png')}
-                    style={{width: '100%', height: '100%'}}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <Text style={styles.kidText}>Type Here!</Text>
+                  <View style={styles.imageWrapper}>
+                    <FastImage
+                      source={require('../assets/shortCuts.png')}
+                      style={styles.image}
+                      resizeMode={FastImage.resizeMode.contain}
+                    />
+                  </View>
+                  <View
+                    style={[
+                      styles.labelContainer,
+                      {backgroundColor: 'rgba(124, 58, 237, 0.25)'},
+                    ]}>
+                    <Text style={styles.kidText}>ShortCuts</Text>
+                  </View>
                 </Pressable>
               </View>
             </View>
@@ -437,65 +472,109 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  contentContainer: {
-    flex: 1,
-    flexDirection: 'column',
+  headerContainer: {
     width: '100%',
-    alignItems: 'center',
-    alignSelf: 'center',
-    justifyContent: 'center',
-    marginTop: 40,
-  },
-  rowContent: {
-    width: '50%',
+    flexDirection: 'row',
+    paddingTop:
+      Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 24) + 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tileWrapper: {
-    width: '70%',
-    borderRadius: 20,
-    height: '90%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 7,
-    borderWidth: 0.3,
-    borderColor: 'purple',
-  },
-  microphoneButton: {
-    position: 'absolute',
-    top: height * 0.1,
-    left: SCREEN_WIDTH * 0.01,
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  settingsButton: {
-    position: 'absolute',
-    top: height * 0.2,
-    left: SCREEN_WIDTH * 0.01,
-    width: 60,
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#3498db',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    zIndex: 10,
-    elevation: 5,
-  },
-  microphoneImage: {
-    width: '100%',
-    height: '100%',
-  },
-  kidText: {
-    fontSize: 18,
+  headerText: {
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
-    marginTop: -10,
+  },
+  contentContainer: {
+    flex: 1,
+    backgroundColor: '#FFF8E7',
+    flexDirection: 'column',
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  wrapper: {
+    flexDirection: 'row',
+    height: height * 0.42,
+    justifyContent: 'flex-start',
+    marginTop: height * 0.01,
+  },
+  imageWrapper: {
+    width: '90%',
+    height: '90%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  image: {
+    width: '85%',
+    height: '85%',
+  },
+  rowContent: {
+    width: '45%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    height: '100%',
+  },
+  tileWrapper: {
+    width: '95%',
+    height: '92%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'visible',
+    borderRadius: 16,
+    shadowColor: 'rgba(0, 0, 0, 0.50)',
+    shadowOpacity: 8,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+    backgroundColor: 'white',
+  },
+  microphoneButton: {
+    top: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    left: width * 0.03,
+    position: 'absolute',
+    width: width * 0.05,
+    height: width * 0.05,
+    zIndex: 2,
+  },
+  matalkIcon: {
+    bottom: height * 0.02,
+    justifyContent: 'center',
+    alignItems: 'center',
+    left: width * 0.01,
+    position: 'absolute',
+    zIndex: 3,
+  },
+  settingsButton: {
+    top: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    right: width * 0.01,
+    elevation: 5,
+    position: 'absolute',
+    width: width * 0.05,
+    height: width * 0.05,
+    borderRadius: width * 0.04,
+    zIndex: 2,
+  },
+  iconSize: {
+    width: 45,
+    height: 45,
+    resizeMode: 'contain',
+  },
+  microphoneImage: {
+    width: 40,
+    height: 40,
+  },
+  kidText: {
+    fontSize: height * 0.032,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
   },
 
   logoutText: {
@@ -601,9 +680,19 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
   },
+  labelContainer: {
+    width: '100%',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  matanImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+    marginLeft: width * 0.015,
+  },
 });
 
 export default OpenScreen;
-function geminiGenerateImage(arg0: string) {
-  throw new Error('Function not implemented.');
-}

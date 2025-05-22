@@ -62,7 +62,22 @@ class TTSService {
 
       // If immediate is true, stop current speech and clear queue
       if (immediate) {
-        this.stop();
+        // Stop any current speech
+        await this.stop();
+
+        // On iOS, we want to make sure we don't have race conditions
+        // Wait a tiny bit after stopping before speaking again
+        if (Platform.OS === 'ios') {
+          this.queue = []; // Clear queue immediately
+
+          // Set a short timeout to ensure stop is complete
+          setTimeout(() => {
+            this.queue.push(text);
+            this.processQueue();
+          }, 50);
+          return;
+        }
+
         this.queue = [text];
       } else {
         this.queue.push(text);
@@ -96,18 +111,34 @@ class TTSService {
     }
   }
 
-  public stop(): void {
+  public async stop(): Promise<void> {
     try {
-      Tts.stop();
+      // Handle iOS differently
+      if (Platform.OS === 'ios') {
+        // On iOS, we need to be careful with how we call stop
+        // Instead of awaiting, wrap in try/catch and ignore specific errors
+        try {
+          Tts.stop();
+        } catch (iosError) {
+          // Ignore iOS-specific errors about Objective-C type conversion
+          console.log('Ignoring iOS TTS stop error');
+        }
+      } else {
+        // For Android and other platforms, await is fine
+        await Tts.stop();
+      }
+
+      // Reset state regardless of platform
       this.isPlaying = false;
+      this.queue = []; // Clear the queue when stopping
     } catch (error) {
       console.error('Error stopping TTS:', error);
     }
   }
 
-  public shutdown(): void {
+  public async shutdown(): Promise<void> {
     try {
-      Tts.stop();
+      await this.stop();
       Tts.removeAllListeners('tts-start');
       Tts.removeAllListeners('tts-finish');
       Tts.removeAllListeners('tts-cancel');
