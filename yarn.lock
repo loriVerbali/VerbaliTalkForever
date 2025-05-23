@@ -6773,6 +6773,11 @@ react-native-tts@^4.1.1:
   resolved "https://registry.yarnpkg.com/react-native-tts/-/react-native-tts-4.1.1.tgz#a6caa23f3e955e913195d6342608cb4489dd8ed1"
   integrity sha512-VL0TgCwkUWggbbFGIXAPKC3rM1baluAYtgOdgnaTm7UYsWf/y8n5VgmVB0J2Wa8qt1dldZ1cSsdQY9iz3evcAg==
 
+react-native-vosk@^0.3.3:
+  version "0.3.3"
+  resolved "https://registry.yarnpkg.com/react-native-vosk/-/react-native-vosk-0.3.3.tgz#cca0f10ca9e83ad50ee0e86f24a19e6ebc0085ec"
+  integrity sha512-v7k4pTmX7MXLv6LQk/o+pCCkA6ZoIi3wlTD3WH5VcLR7tGPsVoCrcBogEl25kzr9b+puMNSRR7AhehztJFaftA==
+
 react-native-webview@^13.13.5:
   version "13.13.5"
   resolved "https://registry.yarnpkg.com/react-native-webview/-/react-native-webview-13.13.5.tgz#4ef5f9310ddff5747f884a6655228ec9c7d52c73"

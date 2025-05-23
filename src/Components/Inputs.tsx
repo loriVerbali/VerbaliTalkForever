@@ -269,10 +269,6 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
       }
     };
 
-    const handleShowLog = async () => {
-      setShowLog(!showLog);
-    };
-
     const handleSendText = async () => {
       if (!inputText.trim()) return;
 
@@ -296,49 +292,21 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
 
     return (
       <View style={styles.container}>
-        {mode === 'Talk' || mode === 'Attention' ? (
-          <View style={styles.buttonContainer}>
-            {/* <TouchableOpacity
-            onPress={handleShowLog}
-            style={[styles.button, styles.playButton]}>
-            <Text style={styles.buttonText}>Show Log</Text>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Type your message here..."
+            placeholderTextColor="#999"
+          />
+          <TouchableOpacity
+            style={styles.sendButton}
+            onPress={handleSendText}
+            disabled={!inputText.trim()}>
+            <Text style={styles.sendButtonText}>Send</Text>
           </TouchableOpacity>
-          {showLog ? (
-            <>
-              <TouchableOpacity
-                onPress={handleRecord}
-                style={[styles.button, isTranscribing && {opacity: 0.5}]}
-                disabled={isTranscribing}>
-                <Text style={styles.buttonText}>
-                  {isRecording ? 'Stop' : 'Record'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handlePlay(audoioAfterRecording)}
-                style={[styles.button, styles.playButton]}
-                disabled={!audoioAfterRecording}>
-                <Text style={styles.buttonText}>Play</Text>
-              </TouchableOpacity>
-            </>
-          ) : null} */}
-          </View>
-        ) : (
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.textInput}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder="Type your message here..."
-              placeholderTextColor="#999"
-            />
-            <TouchableOpacity
-              style={styles.sendButton}
-              onPress={handleSendText}
-              disabled={!inputText.trim()}>
-              <Text style={styles.sendButtonText}>Send</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        </View>
 
         <ScrollView style={styles.transcriptionContainer}>
           {isRecording || isTranscribing ? (

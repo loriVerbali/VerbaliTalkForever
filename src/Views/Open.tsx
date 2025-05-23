@@ -6,26 +6,22 @@ import {
   Dimensions,
   StatusBar,
   Pressable,
-  ActivityIndicator,
   Animated,
   Modal,
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   Platform,
-  Alert,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
-import {SCREEN_WIDTH, views} from '../utils/constants';
+import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
-import {useAssistant} from '../contexts/AssistantContext';
-import VoiceService from '../utils/VoiceService';
-import TTSService from '../utils/TTSService';
-import {useAuth0} from 'react-native-auth0';
+//import VoiceService from '../utils/VoiceService';
 import {useAppSettings} from '../utils/persistance';
-import hand from '../assets/hand.png';
+import wakeWord from '../utils/wakewordService';
+
 type RootStackParamList = {
   LOGIN: undefined;
   HOME: {stateof?: string};
@@ -38,15 +34,13 @@ type RootStackParamList = {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const {height, width} = Dimensions.get('window');
-const statusBarHeight = StatusBar.currentHeight || 40; // fallback for iOS
 
 const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
   const [recognizedText, setRecognizedText] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const {clearSession} = useAuth0();
-  const {setItem, getItem} = useAppSettings();
+  const {getItem} = useAppSettings();
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -62,99 +56,116 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
 
-    // Initialize services
-    const initializeServices = async () => {
-      try {
-        console.log('initializing voice service');
-        console.log('isListening.current', isListening.current);
+    // // Initialize services
+    // const initializeServices = async () => {
+    //   try {
+    //     console.log('initializing voice service');
+    //     console.log('isListening.current', isListening.current);
 
-        // Initialize voice service
-        await VoiceService.initialize();
-        console.log('voice service initialized');
+    //     // Initialize voice service
+    //     await VoiceService.initialize();
+    //     console.log('voice service initialized');
 
-        // Set up callbacks
-        VoiceService.setCallbacks(
-          // Handle recognized text
-          text => {
-            console.log('setting recognized text', text);
-            setRecognizedText(text);
-            setShowRecognitionStatus(true);
-            console.log('text', text);
-            // Check for navigation keywords
-            if (
-              text.toLowerCase().includes('verbali') ||
-              text.toLowerCase().includes('verbbali') ||
-              text.toLowerCase().includes('verbally') ||
-              text.toLowerCase().includes('verbbali') ||
-              text.toLowerCase().includes('verb ali') ||
-              text.toLowerCase().includes('verbali')
-            ) {
-              VoiceService.stopListening();
-              isListening.current = false;
-              navigation.navigate(views.HOME as never, {
-                stateof: 'Attention',
-              });
-            }
-          },
-          // Handle status changes
-          (status, error) => {
-            if (status === 'error' && error) {
-              console.error('Voice recognition error:', error);
+    //     // Set up callbacks
+    //     VoiceService.setCallbacks(
+    //       // Handle recognized text
+    //       text => {
+    //         console.log('setting recognized text', text);
+    //         setRecognizedText(text);
+    //         setShowRecognitionStatus(true);
+    //         console.log('text', text);
+    //         // Check for navigation keywords
+    //         if (
+    //           text.toLowerCase().includes('verbali') ||
+    //           text.toLowerCase().includes('verbbali') ||
+    //           text.toLowerCase().includes('verbally') ||
+    //           text.toLowerCase().includes('verbbali') ||
+    //           text.toLowerCase().includes('verb ali') ||
+    //           text.toLowerCase().includes('verbali')
+    //         ) {
+    //           VoiceService.stopListening();
+    //           isListening.current = false;
+    //           navigation.navigate(views.HOME as never, {
+    //             stateof: 'Attention',
+    //           });
+    //         }
+    //       },
+    //       // Handle status changes
+    //       (status, error) => {
+    //         if (status === 'error' && error) {
+    //           console.error('Voice recognition error:', error);
 
-              // If we're getting AF Assistant errors (code 1101), this is likely
-              // a permissions or system issue on iOS
-              if (
-                error.includes('1101') ||
-                error.includes('kAFAssistantErrorDomain')
-              ) {
-                setRecognizedText(
-                  'Speech service error. Please check your permissions in Settings.',
-                );
+    //           // If we're getting AF Assistant errors (code 1101), this is likely
+    //           // a permissions or system issue on iOS
+    //           if (
+    //             error.includes('1101') ||
+    //             error.includes('kAFAssistantErrorDomain')
+    //           ) {
+    //             setRecognizedText(
+    //               'Speech service error. Please check your permissions in Settings.',
+    //             );
 
-                // On iOS, show alert to help user understand the issue
-                if (Platform.OS === 'ios') {
-                  Alert.alert(
-                    'Speech Recognition Error',
-                    'Please ensure that Speech Recognition is enabled for this app in your device settings. Go to Settings > Privacy > Speech Recognition.',
-                    [{text: 'OK'}],
-                  );
-                }
-              } else {
-                setRecognizedText(`Error: ${error}`);
-              }
+    //             // On iOS, show alert to help user understand the issue
+    //             if (Platform.OS === 'ios') {
+    //               Alert.alert(
+    //                 'Speech Recognition Error',
+    //                 'Please ensure that Speech Recognition is enabled for this app in your device settings. Go to Settings > Privacy > Speech Recognition.',
+    //                 [{text: 'OK'}],
+    //               );
+    //             }
+    //           } else {
+    //             setRecognizedText(`Error: ${error}`);
+    //           }
 
-              setShowRecognitionStatus(true);
-              isListening.current = false;
-            } else if (status === 'stopped') {
-              isListening.current = false;
-              // Hide the recognition status after a delay
-              setTimeout(() => {
-                setShowRecognitionStatus(false);
-              }, 2000);
-            } else if (status === 'started') {
-              setRecognizedText('Listening...');
-              setShowRecognitionStatus(true);
-            }
-          },
-        );
-      } catch (error) {
-        console.error('Error initializing services:', error);
-      }
-    };
+    //           setShowRecognitionStatus(true);
+    //           isListening.current = false;
+    //         } else if (status === 'stopped') {
+    //           isListening.current = false;
+    //           // Hide the recognition status after a delay
+    //           setTimeout(() => {
+    //             setShowRecognitionStatus(false);
+    //           }, 2000);
+    //         } else if (status === 'started') {
+    //           setRecognizedText('Listening...');
+    //           setShowRecognitionStatus(true);
+    //         }
+    //       },
+    //     );
+    //   } catch (error) {
+    //     console.error('Error initializing services:', error);
+    //   }
+    // };
 
-    initializeServices();
+    //initializeServices();
 
     // Clean up on unmount
-    return () => {
-      // Reset voice and text state
-      setRecognizedText('');
-      if (isListening.current) {
-        VoiceService.stopListening();
-      }
-      // Destroy the service to clean up resources
-      VoiceService.destroy();
-    };
+    //return () => {
+    // Reset voice and text state
+    setRecognizedText('');
+    // if (isListening.current) {
+    //   VoiceService.stopListening();
+    // }
+    // // Destroy the service to clean up resources
+    // VoiceService.destroy();
+    //};
   }, []);
+
+  useEffect(() => {
+    // Start listening; navigate when "Hey Matalk" is detected
+    wakeWord.startListening(() => {
+      console.log('Hey Matan detected');
+      wakeWord.stopListening();
+      console.log('Navigating to Home');
+      navigation.navigate(views.HOME as never, {
+        stateof: 'Attention',
+      });
+    });
+
+    // Optional clean‑up on unmount
+    return () => {
+      wakeWord.stopListening();
+    };
+  }, [navigation]);
 
   useEffect(() => {
     console.log('Modal visibility changed:', modalVisible);
@@ -183,62 +194,62 @@ const OpenScreen: React.FC = () => {
     // TTSService.speak('Keyboard selected');
   };
 
-  const startListening = async () => {
-    if (!isListening.current) {
-      console.log('Starting listening');
-      isListening.current = true;
-      setRecognizedText('Initializing...');
-      setShowRecognitionStatus(true);
+  // const startListening = async () => {
+  //   if (!isListening.current) {
+  //     console.log('Starting listening');
+  //     isListening.current = true;
+  //     setRecognizedText('Initializing...');
+  //     setShowRecognitionStatus(true);
 
-      // Use longer timeouts for iOS to prevent premature stopping
-      const silenceTimeout = Platform.OS === 'ios' ? 10000 : 2000;
-      const maxDuration = Platform.OS === 'ios' ? 15000 : 8000;
+  //     // Use longer timeouts for iOS to prevent premature stopping
+  //     const silenceTimeout = Platform.OS === 'ios' ? 10000 : 2000;
+  //     const maxDuration = Platform.OS === 'ios' ? 15000 : 8000;
 
-      let success = false;
-      let retries = 0;
+  //     let success = false;
+  //     let retries = 0;
 
-      // Try up to 2 times on iOS, which can have intermittent issues
-      while (!success && retries < (Platform.OS === 'ios' ? 2 : 1)) {
-        try {
-          success = await VoiceService.startListening(
-            silenceTimeout,
-            maxDuration,
-          );
+  //     // Try up to 2 times on iOS, which can have intermittent issues
+  //     while (!success && retries < (Platform.OS === 'ios' ? 2 : 1)) {
+  //       try {
+  //         success = await VoiceService.startListening(
+  //           silenceTimeout,
+  //           maxDuration,
+  //         );
 
-          if (success) {
-            setRecognizedText('Listening...');
-            break;
-          }
-        } catch (err) {
-          console.error(
-            `Voice recognition start attempt ${retries + 1} failed:`,
-            err,
-          );
-        }
+  //         if (success) {
+  //           setRecognizedText('Listening...');
+  //           break;
+  //         }
+  //       } catch (err) {
+  //         console.error(
+  //           `Voice recognition start attempt ${retries + 1} failed:`,
+  //           err,
+  //         );
+  //       }
 
-        // If failed, wait briefly before retrying
-        if (!success && Platform.OS === 'ios') {
-          await new Promise(resolve => setTimeout(resolve as () => void, 500));
-          // Re-initialize
-          await VoiceService.initialize();
-        }
+  //       // If failed, wait briefly before retrying
+  //       if (!success && Platform.OS === 'ios') {
+  //         await new Promise(resolve => setTimeout(resolve as () => void, 500));
+  //         // Re-initialize
+  //         await VoiceService.initialize();
+  //       }
 
-        retries++;
-      }
+  //       retries++;
+  //     }
 
-      if (!success) {
-        setRecognizedText(
-          'Speech recognition unavailable. Please check app permissions in Settings.',
-        );
-        isListening.current = false;
+  //     if (!success) {
+  //       setRecognizedText(
+  //         'Speech recognition unavailable. Please check app permissions in Settings.',
+  //       );
+  //       isListening.current = false;
 
-        // Show a brief alert after a delay
-        setTimeout(() => {
-          setShowRecognitionStatus(false);
-        }, 3000);
-      }
-    }
-  };
+  //       // Show a brief alert after a delay
+  //       setTimeout(() => {
+  //         setShowRecognitionStatus(false);
+  //       }, 3000);
+  //     }
+  //   }
+  // };
 
   const handleSettingsPress = () => {
     console.log('Settings button pressed, current modal state:', modalVisible);
@@ -281,16 +292,13 @@ const OpenScreen: React.FC = () => {
             />
           </View>
 
-          <Pressable
-            style={styles.microphoneButton}
-            onPress={startListening}
-            disabled={isListening.current}>
+          <View style={styles.microphoneButton}>
             <FastImage
               source={require('../assets/michrophone.gif')}
               style={[styles.iconSize, isListening.current && {opacity: 0.5}]}
               resizeMode={FastImage.resizeMode.contain}
             />
-          </Pressable>
+          </View>
 
           {showRecognitionStatus && (
             <View style={styles.recognitionStatusContainer}>

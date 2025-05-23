@@ -17,7 +17,8 @@ import VoiceService from './utils/VoiceService';
 import {SoundProvider} from './contexts/soundContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {useAuth0, Auth0Provider} from 'react-native-auth0';
-
+import Vosk from 'react-native-vosk';
+const vosk = new Vosk();
 const App = () => {
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
@@ -27,6 +28,10 @@ const App = () => {
 
       // Pre-initialize Voice service
       await VoiceService.initialize();
+
+      vosk
+        .loadModel('vosk-model-small-en-us-0.15')
+        .then(() => console.log('✅ iOS model loaded'));
     };
 
     initServices();

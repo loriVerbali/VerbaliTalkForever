@@ -5,19 +5,13 @@ import {
   StyleSheet,
   Dimensions,
   Pressable,
-  Platform,
   Modal,
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import {
-  useNavigation,
-  NavigationProp,
-  RouteProp,
-} from '@react-navigation/native';
+import {useNavigation, RouteProp} from '@react-navigation/native';
 import Sound from 'react-native-sound';
-import Tts from 'react-native-tts';
 import {views} from '../utils/constants';
 
 // Add imports for the components
@@ -26,9 +20,9 @@ import Transcription from '../Components/Transcription';
 import ImageGallery from '../Components/ImageGallery';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
-import {showFiles} from '../utils/helpers';
 import {useSound} from '../contexts/soundContext';
 import TTSService from '../utils/TTSService';
+import wakeWord from '../utils/wakewordService';
 
 const {width, height} = Dimensions.get('window');
 
@@ -57,7 +51,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   useEffect(() => {
     if (stateof === 'Attention') {
-      playSound();
+      //  playSound();
+      wakeWord.stopListening();
     }
   }, [stateof]);
 
@@ -103,14 +98,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   return (
     <View style={styles.container}>
-      {showLog && (
-        <TouchableOpacity
-          style={styles.transcriptionButton}
-          onPress={toggleTranscription}>
-          <Text style={styles.buttonText}>Show Transcript</Text>
-        </TouchableOpacity>
-      )}
-
       {/* Input and Navigation Section */}
       <View style={styles.inputNavigationContainer}>
         <Pressable style={styles.playButton} onPress={() => playSound()}>

@@ -34,6 +34,8 @@ import drinkImg from '../assets/shortCuts/wantNeed/drink.png';
 import bathroomImg from '../assets/shortCuts/wantNeed/bathroom.png';
 import sleepImg from '../assets/shortCuts/wantNeed/sleep.png';
 import helpImg from '../assets/shortCuts/wantNeed/help.png';
+import moreImg from '../assets/shortCuts/wantNeed/more.png';
+import allDoneImg from '../assets/shortCuts/wantNeed/alldone.png';
 
 // Fun category images
 import playImg from '../assets/shortCuts/fun/play.png';
@@ -96,8 +98,8 @@ const iWantNeed = [
   {label: 'Bathroom', image: bathroomImg, backgroundColor: '#FFE4E1'},
   {label: 'Sleep', image: sleepImg, backgroundColor: '#FFE4E1'},
   {label: 'Help', image: helpImg, backgroundColor: '#FFE4E1'},
-  {label: 'More', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'All done', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'More', image: moreImg, backgroundColor: '#FFE4E1'},
+  {label: 'All done', image: allDoneImg, backgroundColor: '#FFE4E1'},
 ];
 
 const actions = [
