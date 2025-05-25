@@ -13,6 +13,7 @@ import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
+import HomeButton from '../Components/HomeButton';
 
 // General assets
 import micImg from '../assets/microphone.png';
@@ -163,10 +164,6 @@ const ShortCuts = () => {
     };
   }, []);
 
-  const handleHomePress = () => {
-    navigation.navigate(views.OPEN as never);
-  };
-
   const handleCategoryPress = (categoryKey: CategoryKey) => {
     if (categoryKey !== selectedCategory) {
       // Create parallel animations
@@ -237,14 +234,7 @@ const ShortCuts = () => {
       </View>
 
       {/* Home Button */}
-      <Pressable
-        onPress={handleHomePress}
-        style={({pressed}) => [
-          styles.homeIcon,
-          pressed && styles.buttonPressed,
-        ]}>
-        <Text style={styles.homeIconText}>🏠</Text>
-      </Pressable>
+      <HomeButton zIndex={5} navigation={navigation} />
 
       <View style={styles.scrollContent}>
         <View style={styles.topRow}>
@@ -636,31 +626,9 @@ const styles = StyleSheet.create({
     elevation: 5,
     position: 'absolute',
   },
-  homeIcon: {
-    top: height * 0.04,
-    justifyContent: 'center',
-    alignItems: 'center',
-    right: width * 0.03,
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    position: 'absolute',
-    width: width * 0.05,
-    height: width * 0.05,
-    backgroundColor: '#FFF',
-    borderRadius: width * 0.04,
-  },
-  iconText: {
-    fontSize: 60,
-    color: '#FFFFFF',
-  },
   buttonPressed: {
     opacity: 0.8,
     transform: [{scale: 0.98}],
-  },
-  homeIconText: {
-    fontSize: 40,
-    color: '#FFFFFF',
   },
   emptyItem: {
     backgroundColor: 'transparent', // Make empty items invisible

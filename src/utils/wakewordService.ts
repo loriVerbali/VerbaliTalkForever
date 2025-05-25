@@ -162,7 +162,10 @@ class WakeWordService {
     try {
       // Stop and restart with the same grammar to clear internal state
       await this.vosk.stop();
-      await this.vosk.start({grammar: [this.wakeWord, '[unk]']});
+      //  await this.vosk.start({grammar: [this.wakeWord]});
+      await this.vosk.start({
+        grammar: ['hey ', 'hey', '[unk]'],
+      });
       console.log('🔄 Reset recognition engine');
 
       // Reset all tracking variables

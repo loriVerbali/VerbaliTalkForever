@@ -18,7 +18,6 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
-//import VoiceService from '../utils/VoiceService';
 import {useAppSettings} from '../utils/persistance';
 import wakeWord from '../utils/wakewordService';
 
@@ -151,7 +150,7 @@ const OpenScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Start listening; navigate when "Hey Matalk" is detected
+    //Start listening; navigate when "Hey Matalk" is detected
     wakeWord.startListening(() => {
       console.log('Hey Matan detected');
       wakeWord.stopListening();

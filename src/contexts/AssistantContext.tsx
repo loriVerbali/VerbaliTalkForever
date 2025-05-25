@@ -355,6 +355,8 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
             createThreadIfNeeded();
           }
         }
+      } else {
+        createThreadIfNeeded();
       }
     };
 
