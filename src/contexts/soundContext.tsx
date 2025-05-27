@@ -32,11 +32,35 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
     return new Promise(resolve => {
       if (soundRef.current) {
         soundRef.current.stop(() => {
-          soundRef.current?.play(success => {
-            resolve(success);
-          });
+          // Get the duration of the sound
+          const duration = soundRef.current?.getDuration() || 0;
+          console.log('Sound duration:', duration);
+
+          // Reset sound to beginning and set loops
+          if (soundRef.current) {
+            soundRef.current.setNumberOfLoops(0);
+            soundRef.current.setCurrentTime(0);
+
+            soundRef.current.play(success => {
+              if (!success) {
+                // If play failed, resolve immediately
+                console.log('Sound play failed');
+                resolve(false);
+                return;
+              }
+
+              // Wait for the full sound duration before resolving
+              setTimeout(() => {
+                console.log('Sound play complete');
+                resolve(true);
+              }, Math.max(100, duration * 100)); // At least 1 second, convert to milliseconds
+            });
+          } else {
+            resolve(false);
+          }
         });
       } else {
+        console.log('No sound available');
         resolve(false);
       }
     });

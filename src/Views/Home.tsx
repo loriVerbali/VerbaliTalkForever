@@ -7,6 +7,9 @@ import {
   Modal,
   TouchableOpacity,
   Platform,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import {useNavigation, RouteProp} from '@react-navigation/native';
 import RNFS from 'react-native-fs';
@@ -29,7 +32,6 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import LottieView from 'lottie-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -49,11 +51,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {sendMessage, runAssistant, resetHistory, threadId, imageUrls, status} =
     useAssistant();
   const stateof = route?.params?.stateof ?? '';
-  const [showTranscription, setShowTranscription] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const isRecordingRef = useRef(false);
+
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
   const {playAttention} = useSound();
@@ -61,22 +61,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [showSpinner, setShowSpinner] = useState(true);
   const [fetchingImages, setFetchingImages] = useState(false);
-  useEffect(() => {
-    if (stateof === 'Attention') {
-      playSound();
-      wakeWord.stopListening();
-    }
-  }, []);
+  const [showImages, setShowImages] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    if (!isRecording) {
-      setShowSpinner(true);
-    } else {
-      setShowSpinner(false);
+    if (stateof === 'Attention') {
+      wakeWord.stopListening();
+      playSound();
     }
-  }, [isRecording]);
+  }, []);
 
   const playWrittenSentence = async () => {
     debugger;
@@ -86,148 +80,115 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   };
 
   const playSound = async () => {
-    console.log('playSound - Starting playSound function');
+    //console.log('playSound - Starting playSound function');
 
+    // FORCE THE RECORDING INDICATOR ON
+    setIsRecording(true);
     const res = await playAttention();
-    console.log('playSound - playAttention result:', res);
+    //console.log('playSound - playAttention result:', res);
     if (stateof === 'Attention' && res) {
-      console.log(
-        'playSound - stateof is Attention, calling handleRecord',
-        res,
-      );
+      //console.log('playSound - stateof is Attention, calling handleRecord');
+      // Now handleRecord will start fresh with isRecording true
       handleRecord();
     }
   };
 
   const handleRecord = async () => {
-    console.log('handleRecord - Starting with isRecording:', isRecording);
-    if (!isRecording) {
-      const currentTime = Date.now();
-      console.log('handleRecord - Starting new recording at:', currentTime);
-      setFetchingImages(false);
-      setIsRecording(true);
-      isRecordingRef.current = true;
+    const currentTime = Date.now();
+    setFetchingImages(false);
 
-      lastSoundTimeRef.current = 0;
-      metering.current = -100;
+    lastSoundTimeRef.current = 0;
+    metering.current = -100;
 
+    // Add a minimum recording time variable
+    const minRecordingTime = 3000; // 3 seconds minimum recording time
+    const recordingStartTime = Date.now();
+
+    try {
+      const path = Platform.select({
+        ios: `sound.m4a`,
+        android: `${RNFS.CachesDirectoryPath}/sound.mp3`,
+      })!;
+
+      // Clear previous cached recording if it exists
       try {
-        const path = Platform.select({
-          ios: `sound.m4a`,
-          android: `${RNFS.CachesDirectoryPath}/sound.mp3`,
-        })!;
-        console.log('handleRecord - Selected audio path:', path);
+        const exists = await RNFS.exists(path);
+        if (exists) {
+          await RNFS.unlink(path);
+        }
+      } catch (e) {
+        console.warn('handleRecord - Error clearing previous recording:', e);
+      }
 
-        // Clear previous cached recording if it exists
-        try {
-          const exists = await RNFS.exists(path);
-          console.log('handleRecord - Previous recording exists:', exists);
-          if (exists) {
-            await RNFS.unlink(path);
-            console.log('handleRecord - Previous recording cleared');
-          }
-        } catch (e) {
-          console.warn('handleRecord - Error clearing previous recording:', e);
+      // Start recording with configured options for better quality
+      await audioRecorderPlayer.startRecorder(path, {
+        AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
+        AudioSourceAndroid: AudioSourceAndroidType.MIC,
+        AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
+        AVNumberOfChannelsKeyIOS: 1,
+        AVFormatIDKeyIOS: AVEncodingOption.aac,
+      });
+
+      // Now that recording has started, update the state and ref
+
+      setAudioPath(path);
+
+      // Add meter listener to detect silence
+      audioRecorderPlayer.addRecordBackListener(e => {
+        if (lastSoundTimeRef.current === 0) {
+          lastSoundTimeRef.current = currentTime;
         }
 
-        // Start recording with configured options for better quality
-        console.log('handleRecord - Starting recorder with path:', path);
-        await audioRecorderPlayer.startRecorder(path, {
-          AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
-          AudioSourceAndroid: AudioSourceAndroidType.MIC,
-          AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
-          AVNumberOfChannelsKeyIOS: 1,
-          AVFormatIDKeyIOS: AVEncodingOption.aac,
+        // Store current metering value
+        if (e.currentMetering !== undefined) {
+          metering.current = e.currentMetering;
+        }
+
+        // Check if there's actual sound (not silence)
+        if (e.currentMetering !== undefined && e.currentMetering > -35) {
+          if (Date.now() % 1000 < 100) {
+          }
+          lastSoundTimeRef.current = Date.now();
+        } else {
+          const silenceTime = Date.now() - lastSoundTimeRef.current;
+          if (silenceTime % 500 < 100) {
+          }
+
+          // Increase silence detection time to 3 seconds (was 2 seconds)
+          if (silenceTime > 3000 && lastSoundTimeRef.current > 0) {
+            stopRecording();
+            return;
+          }
+        }
+
+        return true;
+      });
+
+      recordingTimer.current = setTimeout(async () => {
+        requestAnimationFrame(() => {
+          setIsRecording(false);
+          //console.log('stopRecording - isRecording set to false');
         });
-
-        setAudioPath(path);
-        console.log('handleRecord - Audio path set:', path);
-
-        // Add meter listener to detect silence
-        audioRecorderPlayer.addRecordBackListener(e => {
-          if (lastSoundTimeRef.current === 0) {
-            console.log('handleRecord - First sound detected at:', currentTime);
-            lastSoundTimeRef.current = currentTime;
-          }
-
-          // Store current metering value
-          if (e.currentMetering !== undefined) {
-            metering.current = e.currentMetering;
-            console.log('handleRecord - Current metering:', e.currentMetering);
-          }
-
-          // Check if there's actual sound (not silence)
-          if (e.currentMetering !== undefined && e.currentMetering > -25) {
-            console.log(
-              'handleRecord - Sound detected, metering:',
-              metering.current,
-              'last sound time updated:',
-              Date.now(),
-            );
-            lastSoundTimeRef.current = Date.now();
-          } else {
-            const silenceTime = Date.now() - lastSoundTimeRef.current;
-            console.log(
-              'handleRecord - Potential silence detected, metering:',
-              metering.current,
-              'silence duration:',
-              silenceTime,
-              'ms',
-            );
-
-            if (silenceTime > 2000 && lastSoundTimeRef.current > 0) {
-              console.log(
-                'handleRecord - Silence detected for 2 seconds, stopping recording',
-              );
-              stopRecording();
-              return;
-            }
-          }
-
-          return true;
-        });
-
-        console.log('handleRecord - Setting recording timeout for 8 seconds');
-        recordingTimer.current = setTimeout(async () => {
-          if (isRecordingRef.current) {
-            console.log(
-              'handleRecord - Maximum recording time reached (8s), stopping',
-            );
-            await stopRecording();
-          }
-        }, 8000);
-      } catch (error) {
-        console.error('handleRecord - Recording failed to start:', error);
-        setIsRecording(false);
-      }
-    } else {
-      console.log('handleRecord - Stopping existing recording');
-      await stopRecording();
+        await stopRecording();
+      }, 6000);
+    } catch (error) {
+      console.error('handleRecord - Recording failed to start:', error);
+      setIsRecording(false);
     }
   };
 
   const stopRecording = async () => {
-    console.log('stopRecording - Starting stopRecording function');
+    //console.log('stopRecording - Starting stopRecording function');
+
     if (recordingTimer.current) {
-      console.log('stopRecording - Clearing recording timer');
+      //console.log('stopRecording - Clearing recording timer');
       clearTimeout(recordingTimer.current);
       recordingTimer.current = null;
     }
 
     try {
-      console.log('stopRecording - Setting isRecording to false');
-      setIsRecording(false);
-      isRecordingRef.current = false;
-
-      console.log('stopRecording - Stopping recorder');
       const filePath = await audioRecorderPlayer.stopRecorder();
-      console.log('stopRecording - Recording stopped, file path:', filePath);
       audioRecorderPlayer.removeRecordBackListener();
-      console.log('stopRecording - Record back listener removed');
-
-      // Process audio file
-      console.log('stopRecording - Final file path:', filePath);
-
       await transcribeAudio(filePath);
     } catch (error) {
       console.error('stopRecording - Failed to stop recording:', error);
@@ -235,19 +196,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   };
 
   const transcribeAudio = async (audioPath: string) => {
-    console.log('transcribeAudio - Starting with audio path:', audioPath);
     if (!audioPath) {
-      console.log('transcribeAudio - No audio path provided, returning');
       return;
     }
 
     setIsTranscribing(true);
-    console.log('transcribeAudio - Set isTranscribing to true');
 
     try {
       const formData = new FormData();
       const audioUri = audioPath.replace('file://', '');
-      console.log('transcribeAudio - Processed audio URI:', audioUri);
 
       formData.append('file', {
         uri: audioUri,
@@ -257,61 +214,84 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
 
-      console.log('transcribeAudio - FormData created:', formData);
-      console.log('transcribeAudio - Sending request to transcribe audio');
-
       const transcribeResponse = await fetchHelper(
         'transcribeAudio',
         {},
         formData,
       );
-      console.log('transcribeAudio - Response received:', transcribeResponse);
 
       if (transcribeResponse?.text) {
         const transcribedText = transcribeResponse.text.trim();
-        console.log('transcribeAudio - Transcribed text:', transcribedText);
+        setIsTranscribing(false);
 
-        if (threadId) {
+        if (
+          threadId &&
+          transcribedText.length > 0 &&
+          transcribedText !== 'null' &&
+          transcribedText !== 'Thank you for watching!'
+        ) {
           setFetchingImages(true);
-          console.log('transcribeAudio - Sending message to thread:', threadId);
           const messageId = await sendMessage(
             transcribedText,
             threadId,
             'generate_answers',
           );
-          console.log('transcribeAudio - Message sent, ID:', messageId);
 
           if (messageId) {
-            console.log(
-              'transcribeAudio - Running assistant with thread:',
-              threadId,
-            );
             await runAssistant(threadId);
           }
         }
       } else {
-        console.log('transcribeAudio - No speech detected');
         TTSService.speak('No speech detected. Please try again.', true);
       }
     } catch (error) {
       console.error('transcribeAudio - Processing failed:', error);
       TTSService.speak('Failed to process audio. Please try again.', true);
     } finally {
-      console.log('transcribeAudio - Setting isTranscribing to false');
       setIsTranscribing(false);
+      setFetchingImages(false);
     }
   };
 
-  const toggleTranscription = () => {
-    setShowTranscription(!showTranscription);
-  };
+  useEffect(() => {
+    // Add detailed logging to inspect the structure
+    if (imageUrls && imageUrls.length > 0) {
+      console.log('First image URL structure:', JSON.stringify(imageUrls[0]));
 
-  const handleTranscriptionUpdate = (text: string) => {
-    setTranscribedText(text);
-  };
+      // Log all image URLs for debugging
+      imageUrls.forEach((img, idx) => {
+        console.log(
+          `Image ${idx} URL:`,
+          typeof img.url === 'string' ? img.url : JSON.stringify(img.url),
+        );
+      });
+    }
+    if (status === 'completed' && imageUrls?.length > 0) {
+      console.log(
+        'Setting showImages to true. Status:',
+        status,
+        'Image count:',
+        imageUrls.length,
+      );
+      setShowImages(true);
+    } else {
+      console.log(
+        'Not showing images. Status:',
+        status,
+        'Image count:',
+        imageUrls?.length || 0,
+      );
+    }
+  }, [imageUrls, status]);
 
-  const toggleKeyboard = () => {
-    setIsKeyboardVisible(!isKeyboardVisible);
+  useEffect(() => {
+    console.log('showImages changed:', showImages);
+  }, [showImages]);
+
+  // Add a function to force refresh
+  const forceRefresh = () => {
+    console.log('Forcing refresh');
+    setRefreshKey(prevKey => prevKey + 1);
   };
 
   return (
@@ -333,57 +313,64 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           <Inputs mode={stateof} />
         </View>
 
-        <View style={styles.contentContainer}>
-          {showSpinner ? (
-            <View style={styles.recordingContainer}>
-              <LottieView
-                source={require('../assets/lottie/listening.json')}
-                autoPlay
-                loop
-                style={{width: '100%', height: '100%'}}
-              />
-            </View>
-          ) : (
-            <>
-              {fetchingImages || isTranscribing ? (
-                <View style={styles.recordingContainer}>
-                  <LottieView
-                    source={require('../assets/lottie/creating.json')}
-                    autoPlay
-                    loop
-                    style={{width: '100%', height: '100%'}}
-                  />
-                </View>
-              ) : (
-                <>
-                  <Modal
-                    visible={showTranscription}
-                    transparent={true}
-                    animationType="slide"
-                    onRequestClose={() => setShowTranscription(false)}>
-                    <View style={styles.modalOverlay}>
-                      <View style={styles.transcriptionPopup}>
-                        <View style={styles.popupHeader}>
-                          <Text style={styles.popupTitle}>Transcription</Text>
-                          <TouchableOpacity
-                            onPress={() => setShowTranscription(false)}>
-                            <Text style={styles.closeButton}>Close</Text>
-                          </TouchableOpacity>
-                        </View>
-                        <Transcription text={transcribedText} />
-                      </View>
-                    </View>
-                  </Modal>
+        <View style={{flex: 1, width: '100%'}}>
+          <View style={styles.contentContainer}>
+            {(isRecording || isTranscribing || fetchingImages) && (
+              <View style={styles.recordingContainer}>
+                <ActivityIndicator size="large" color="#ff0000" />
+                <Text
+                  style={{color: '#ff0000', fontWeight: 'bold', fontSize: 18}}>
+                  {isRecording && 'Recording…'}
+                  {isTranscribing && 'Processing…'}
+                  {fetchingImages && 'Getting images…'}
+                </Text>
+              </View>
+            )}
 
-                  <View style={styles.imageCardContainer}>
-                    {status === 'completed' && imageUrls?.length > 0 ? (
-                      <ImageGallery images={imageUrls} />
-                    ) : null}
-                  </View>
-                </>
-              )}
-            </>
-          )}
+            <View
+              style={[styles.imageCardContainer, {zIndex: 10}]}
+              key={`gallery-${refreshKey}`}>
+              {showImages
+                ? (() => {
+                    // If no images are available after filtering, show a message
+                    const validImages = imageUrls
+                      .filter(item => item && item.url)
+                      .map(item => {
+                        try {
+                          const urlObj =
+                            typeof item.url === 'object'
+                              ? item.url
+                              : {url: item.url};
+                          return {url: urlObj, prompt: item.prompt || ''};
+                        } catch (err) {
+                          console.error('Error processing image:', err, item);
+                          return null;
+                        }
+                      })
+                      .filter(
+                        (item): item is {url: {url: string}; prompt: string} =>
+                          item !== null,
+                      );
+
+                    if (validImages.length === 0) {
+                      return (
+                        <View style={styles.noImagesContainer}>
+                          <Text style={styles.noImagesText}>
+                            No valid images to display
+                          </Text>
+                        </View>
+                      );
+                    }
+
+                    return (
+                      <View style={{width: '100%', flex: 1}}>
+                        <ImageGallery images={validImages} />
+                      </View>
+                    );
+                  })()
+                : null}
+            </View>
+          </View>
         </View>
       </LinearGradient>
     </View>
@@ -403,10 +390,17 @@ const styles = StyleSheet.create({
     height: height * 0.11,
   },
   recordingContainer: {
-    width: '80%',
-    height: '80%',
+    width: height * 0.4,
+    height: height * 0.4,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+    borderRadius: height * 0.2,
+    backgroundColor: 'rgba(255,0,0,0.1)',
+    borderWidth: 2,
+    borderColor: '#ff0000',
+    marginTop: height * 0.2,
+    zIndex: 10,
   },
   playButton: {
     width: 80,
@@ -465,6 +459,8 @@ const styles = StyleSheet.create({
     width: '90%',
     alignItems: 'center',
     alignSelf: 'center',
+    marginTop: 10,
+    paddingBottom: 20,
   },
   transcriptionButton: {
     position: 'absolute',
@@ -479,48 +475,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
   },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  transcriptionPopup: {
-    width: '80%',
-    height: '70%',
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 10,
-  },
-  popupTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    fontSize: 16,
-    color: '#3498db',
-    fontWeight: '500',
-  },
   imageCardContainer: {
     width: '100%',
     flex: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 20,
+    minHeight: 300,
   },
   loadingContainer: {
     flex: 1,
@@ -547,6 +508,45 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     resizeMode: 'contain',
+  },
+  noImagesContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noImagesText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  waitingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waitingText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  galleryTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    alignSelf: 'center',
+  },
+  refreshButton: {
+    backgroundColor: '#ff5722',
+    padding: 10,
+    borderRadius: 5,
+    margin: 10,
+    alignItems: 'center',
+    alignSelf: 'center',
+  },
+  refreshButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
   },
 });
 

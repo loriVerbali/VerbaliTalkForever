@@ -13,6 +13,13 @@ import Config from '../utils/config';
 import Tts from 'react-native-tts';
 import {useAppSettings} from '../utils/persistance';
 
+// Add interface for error event
+interface ImageErrorEvent {
+  nativeEvent: {
+    error: string;
+  };
+}
+
 export interface ImageCardProps {
   images: Array<{url: {url: string}; prompt: string}>;
   width?: number;
@@ -63,38 +70,25 @@ const ImageCard: React.FC<ImageCardProps> = ({
               sayAnswer(image.prompt);
             }}>
             <View style={{flexDirection: 'column', alignItems: 'center'}}>
-              {Config.picGeneration === 'Gemini' ? (
-                <FastImage
-                  source={{uri: image.url.url}}
-                  style={[styles.image, {width, height}]}
-                  resizeMode={FastImage.resizeMode.cover}
-                  onLoadStart={() => (
-                    <ActivityIndicator size="small" color="#0000ff" />
-                  )}
-                />
-              ) : (
-                <FastImage
-                  source={{uri: image.url.url}}
-                  style={[styles.image, {width, height}]}
-                  resizeMode={FastImage.resizeMode.cover}
-                  onLoadStart={() => (
-                    <ActivityIndicator size="small" color="#0000ff" />
-                  )}
-                />
-              )}
+              <FastImage
+                source={{
+                  uri: typeof image.url.url === 'string' ? image.url.url : '',
+                }}
+                style={styles.image}
+                resizeMode={FastImage.resizeMode.cover}
+              />
               <Text style={styles.label}>{image.prompt}</Text>
             </View>
           </Pressable>
         );
       })}
-
       {shouldShowRefreshCard && (
         <Pressable style={styles.imageContainer} onPress={handleRefresh}>
           <View style={{flexDirection: 'column', alignItems: 'center'}}>
-            <Image
+            <FastImage
               source={require('../assets/refresh.png')}
-              style={[styles.image, {width: 200, height: 200}]}
-              resizeMode="contain"
+              style={styles.image}
+              resizeMode={FastImage.resizeMode.cover}
             />
             <Text style={styles.label}>More</Text>
           </View>
@@ -109,14 +103,27 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     alignItems: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   imageContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     margin: width * 0.03,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 5,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   image: {
     borderRadius: 8,
     backgroundColor: '#f0f0f0', // Light gray background while loading
+    width: 150,
+    height: 150,
   },
   label: {
     marginTop: 15,
