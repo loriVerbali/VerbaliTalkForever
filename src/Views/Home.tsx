@@ -57,13 +57,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
   const {playAttention} = useSound();
-  const [audioPath, setAudioPath] = useState<string | null>(null);
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [fetchingImages, setFetchingImages] = useState(false);
   const [showImages, setShowImages] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (stateof === 'Attention') {
@@ -87,15 +83,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     const res = await playAttention();
     //console.log('playSound - playAttention result:', res);
     if (stateof === 'Attention' && res) {
-      //console.log('playSound - stateof is Attention, calling handleRecord');
-      // Now handleRecord will start fresh with isRecording true
       handleRecord();
     }
   };
 
   const handleRecord = async () => {
     const currentTime = Date.now();
-    setFetchingImages(false);
 
     lastSoundTimeRef.current = 0;
     metering.current = -100;
@@ -128,10 +121,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         AVNumberOfChannelsKeyIOS: 1,
         AVFormatIDKeyIOS: AVEncodingOption.aac,
       });
-
-      // Now that recording has started, update the state and ref
-
-      setAudioPath(path);
 
       // Add meter listener to detect silence
       audioRecorderPlayer.addRecordBackListener(e => {
@@ -200,8 +189,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       return;
     }
 
-    setIsTranscribing(true);
-
     try {
       const formData = new FormData();
       const audioUri = audioPath.replace('file://', '');
@@ -222,7 +209,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
       if (transcribeResponse?.text) {
         const transcribedText = transcribeResponse.text.trim();
-        setIsTranscribing(false);
 
         if (
           threadId &&
@@ -230,7 +216,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           transcribedText !== 'null' &&
           transcribedText !== 'Thank you for watching!'
         ) {
-          setFetchingImages(true);
           const messageId = await sendMessage(
             transcribedText,
             threadId,
@@ -247,9 +232,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     } catch (error) {
       console.error('transcribeAudio - Processing failed:', error);
       TTSService.speak('Failed to process audio. Please try again.', true);
-    } finally {
-      setIsTranscribing(false);
-      setFetchingImages(false);
     }
   };
 
@@ -267,12 +249,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       });
     }
     if (status === 'completed' && imageUrls?.length > 0) {
-      console.log(
-        'Setting showImages to true. Status:',
-        status,
-        'Image count:',
-        imageUrls.length,
-      );
       setShowImages(true);
     } else {
       console.log(
@@ -288,11 +264,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     console.log('showImages changed:', showImages);
   }, [showImages]);
 
-  // Add a function to force refresh
-  const forceRefresh = () => {
-    console.log('Forcing refresh');
-    setRefreshKey(prevKey => prevKey + 1);
-  };
+  // Create placeholder images - make sure we have 5 animal placeholders
+  const placeholderImages = [
+    {url: {url: 'placeholder'}, prompt: 'Waiting'},
+    {url: {url: 'placeholder'}, prompt: 'Waiting'},
+    {url: {url: 'placeholder'}, prompt: 'Waiting'},
+    {url: {url: 'placeholder'}, prompt: 'Waiting'},
+    {url: {url: 'placeholder'}, prompt: 'Waiting'},
+  ];
 
   return (
     <View style={styles.container}>
@@ -315,60 +294,61 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
         <View style={{flex: 1, width: '100%'}}>
           <View style={styles.contentContainer}>
-            {(isRecording || isTranscribing || fetchingImages) && (
-              <View style={styles.recordingContainer}>
-                <ActivityIndicator size="large" color="#ff0000" />
-                <Text
-                  style={{color: '#ff0000', fontWeight: 'bold', fontSize: 18}}>
-                  {isRecording && 'Recording…'}
-                  {isTranscribing && 'Processing…'}
-                  {fetchingImages && 'Getting images…'}
-                </Text>
-              </View>
-            )}
-
             <View
               style={[styles.imageCardContainer, {zIndex: 10}]}
-              key={`gallery-${refreshKey}`}>
-              {showImages
-                ? (() => {
-                    // If no images are available after filtering, show a message
-                    const validImages = imageUrls
-                      .filter(item => item && item.url)
-                      .map(item => {
-                        try {
-                          const urlObj =
-                            typeof item.url === 'object'
-                              ? item.url
-                              : {url: item.url};
-                          return {url: urlObj, prompt: item.prompt || ''};
-                        } catch (err) {
-                          console.error('Error processing image:', err, item);
-                          return null;
-                        }
-                      })
-                      .filter(
-                        (item): item is {url: {url: string}; prompt: string} =>
-                          item !== null,
-                      );
+              key={`gallery`}>
+              {showImages ? (
+                (() => {
+                  // If no images are available after filtering, show a message
+                  const validImages = imageUrls
+                    .filter(item => item && item.url)
+                    .map(item => {
+                      try {
+                        const urlObj =
+                          typeof item.url === 'object'
+                            ? item.url
+                            : {url: item.url};
+                        return {url: urlObj, prompt: item.prompt || ''};
+                      } catch (err) {
+                        console.error('Error processing image:', err, item);
+                        return null;
+                      }
+                    })
+                    .filter(
+                      (item): item is {url: {url: string}; prompt: string} =>
+                        item !== null,
+                    );
 
-                    if (validImages.length === 0) {
-                      return (
-                        <View style={styles.noImagesContainer}>
-                          <Text style={styles.noImagesText}>
-                            No valid images to display
-                          </Text>
-                        </View>
-                      );
-                    }
-
+                  if (validImages.length === 0) {
                     return (
-                      <View style={{width: '100%', flex: 1}}>
-                        <ImageGallery images={validImages} />
+                      <View style={styles.noImagesContainer}>
+                        <Text style={styles.noImagesText}>
+                          No valid images to display
+                        </Text>
                       </View>
                     );
-                  })()
-                : null}
+                  }
+
+                  return (
+                    <View
+                      style={{
+                        width: '100%',
+                        flex: 1,
+                      }}>
+                      <ImageGallery images={validImages} />
+                    </View>
+                  );
+                })()
+              ) : (
+                // Show placeholder images while waiting for real images
+                <View
+                  style={{
+                    width: '100%',
+                    flex: 1,
+                  }}>
+                  <ImageGallery images={placeholderImages} />
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -478,10 +458,7 @@ const styles = StyleSheet.create({
   imageCardContainer: {
     width: '100%',
     flex: 1,
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 20,
-    minHeight: 300,
+    marginTop: height * 0.02,
   },
   loadingContainer: {
     flex: 1,
