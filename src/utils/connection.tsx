@@ -19,6 +19,11 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({
   const [isConnected, setIsConnected] = useState<boolean>(true);
 
   useEffect(() => {
+    // Get initial connection state
+    NetInfo.fetch().then(state => {
+      setIsConnected(state.isConnected ?? false);
+    });
+
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsConnected(state.isConnected ?? false);
     });

@@ -20,7 +20,8 @@ import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import wakeWord from '../utils/wakewordService';
-
+import {useConnection} from '../utils/connection';
+import NoInternetConnection from '../Components/NoInternetConnection';
 type RootStackParamList = {
   LOGIN: undefined;
   HOME: {stateof?: string};
@@ -45,6 +46,13 @@ const OpenScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
   const matalkImg = require('../assets/matalk.png');
+  const {isConnected} = useConnection();
+  const [connectionState, setConnectionState] = useState(isConnected);
+
+  // Track connection state changes
+  useEffect(() => {
+    setConnectionState(isConnected); // Force local state update
+  }, [isConnected]);
 
   useEffect(() => {
     console.log('OpenScreen mounted');
@@ -151,20 +159,21 @@ const OpenScreen: React.FC = () => {
 
   useEffect(() => {
     //Start listening; navigate when "Hey Matalk" is detected
-    wakeWord.startListening(() => {
-      console.log('Hey Matan detected');
-      wakeWord.stopListening();
-      console.log('Navigating to Home');
-      navigation.navigate(views.HOME as never, {
-        stateof: 'Attention',
+    if (connectionState) {
+      wakeWord.startListening(() => {
+        console.log('Hey Matan detected');
+        wakeWord.stopListening();
+        console.log('Navigating to Home');
+        navigation.navigate(views.HOME as never, {
+          stateof: 'Attention',
+        });
       });
-    });
-
+    }
     // Optional clean‑up on unmount
     return () => {
       wakeWord.stopListening();
     };
-  }, [navigation]);
+  }, [navigation, connectionState]);
 
   useEffect(() => {
     console.log('Modal visibility changed:', modalVisible);
@@ -293,7 +302,11 @@ const OpenScreen: React.FC = () => {
 
           <View style={styles.microphoneButton}>
             <FastImage
-              source={require('../assets/michrophone.gif')}
+              source={
+                connectionState
+                  ? require('../assets/michrophone.gif')
+                  : require('../assets/noMic.png')
+              }
               style={[styles.iconSize, isListening.current && {opacity: 0.5}]}
               resizeMode={FastImage.resizeMode.contain}
             />
@@ -324,13 +337,23 @@ const OpenScreen: React.FC = () => {
               <View style={styles.rowContent}>
                 <Pressable
                   style={styles.tileWrapper}
-                  onPress={() => handleNavigation('Talk')}>
+                  onPress={() =>
+                    connectionState ? handleNavigation('Talk') : null
+                  }>
                   <View style={styles.imageWrapper}>
-                    <FastImage
-                      source={require('../assets/talk.png')}
-                      style={styles.image}
-                      resizeMode={FastImage.resizeMode.contain}
-                    />
+                    {connectionState ? (
+                      <FastImage
+                        key="connected-image"
+                        source={require('../assets/talk.png')}
+                        style={styles.image}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
+                    ) : (
+                      <NoInternetConnection
+                        key="no-connection"
+                        height={'30%'}
+                      />
+                    )}
                   </View>
                   <View
                     style={[

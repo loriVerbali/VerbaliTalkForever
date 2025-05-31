@@ -19,8 +19,11 @@ import {views} from '../utils/constants';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {useAssistant} from '../contexts/AssistantContext';
-import SpeakerSection from './SpeakerSection';
 import fetchHelper from '../utils/fetcher';
+import wakeWord from '../utils/wakewordService';
+import matalkImg from '../assets/matalk.png';
+
+const {width, height} = Dimensions.get('window');
 
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
@@ -467,7 +470,7 @@ const Convo = () => {
   const handleSpeakerSelect = (speaker: Speaker, index: number) => {
     setSentence({...sentence, speaker});
     setSpeakerIndex(index);
-    if (speakerCarouselRef.current) {
+    if (speakerCarouselRef.current && speakerIndex !== index) {
       // @ts-ignore
       speakerCarouselRef.current.scrollTo({index, animated: true});
     }
@@ -476,7 +479,7 @@ const Convo = () => {
   const handleAudienceSelect = (audience: Audience, index: number) => {
     setSentence({...sentence, audience});
     setAudienceIndex(index);
-    if (audienceCarouselRef.current) {
+    if (audienceCarouselRef.current && audienceIndex !== index) {
       // @ts-ignore
       audienceCarouselRef.current.scrollTo({index, animated: true});
     }
@@ -538,21 +541,16 @@ const Convo = () => {
     setIsKeyboardVisible(!isKeyboardVisible);
   };
 
+  useEffect(() => {
+    wakeWord.stopListening();
+  }, []);
+
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <LinearGradient colors={['#FFF8E7', '#FFF8E7']} style={styles.container}>
       {/* Input and Navigation Section - Adjusted with safe area padding */}
       <View style={styles.safeAreaPadding} />
 
       <View style={styles.inputNavigationContainer}>
-        <Pressable
-          style={styles.playButton}
-          onPress={() => TTSService.speak(inputText, true)}>
-          <FastImage
-            source={require('../assets/play.png')}
-            style={styles.playIcon}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </Pressable>
         <TextInput
           style={styles.input}
           placeholder="Waiting for input..."
@@ -569,19 +567,13 @@ const Convo = () => {
         </View>
       </View>
 
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <Text style={styles.loadingText}>Generating options...</Text>
-        </View>
-      )}
-
       <View style={styles.columnsContainer}>
         {/* Column 1: Speaker & Audience */}
-        <View style={styles.column}>
+        <View style={styles.speakerAudienceColumn}>
           {/* Speaker Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The speaker:</Text>
-            <View style={styles.speakerContainer}>
+            <View style={styles.cardWrapper}>
               <ConvoCarousel<Speaker>
                 carouselRef={speakerCarouselRef}
                 currentIndex={speakerIndex}
@@ -599,7 +591,7 @@ const Convo = () => {
           {/* Audience Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The audience:</Text>
-            <View style={styles.optionsContainer}>
+            <View style={styles.cardWrapper}>
               <ConvoCarousel<Audience>
                 carouselRef={audienceCarouselRef}
                 currentIndex={audienceIndex}
@@ -617,7 +609,7 @@ const Convo = () => {
           {/* Sentence Type*/}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Sentence</Text>
-            <View style={styles.optionsContainer}>
+            <View style={styles.cardWrapper}>
               <ConvoCarousel<SentenceType>
                 carouselRef={sentenceTypeCarouselRef}
                 currentIndex={sentenceTypeIndex}
@@ -637,7 +629,7 @@ const Convo = () => {
         <View style={styles.column}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Choose the topic:</Text>
-            <View style={styles.optionsContainer}>
+            <View style={styles.cardWrapper}>
               <ConvoCarousel<Topic | ImageGenerated>
                 carouselRef={topicCarouselRef}
                 currentIndex={topicIndex}
@@ -659,7 +651,7 @@ const Convo = () => {
           {topic && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the action:</Text>
-              <View style={styles.optionsContainer}>
+              <View style={styles.cardWrapper}>
                 <ConvoCarousel<Action | ImageGenerated>
                   carouselRef={actionCarouselRef}
                   currentIndex={actionIndex}
@@ -684,7 +676,7 @@ const Convo = () => {
           {action && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Choose the object:</Text>
-              <View style={styles.optionsContainer}>
+              <View style={styles.cardWrapper}>
                 <ConvoCarousel<Object | ImageGenerated>
                   carouselRef={objectCarouselRef}
                   currentIndex={objectIndex}
@@ -705,18 +697,9 @@ const Convo = () => {
         </View>
       </View>
 
-      {isKeyboardVisible && (
-        <View style={styles.keyboardOverlay}>
-          <TextInput
-            style={styles.keyboardInput}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            autoFocus
-            onBlur={() => setIsKeyboardVisible(false)}
-          />
-        </View>
-      )}
+      <View style={styles.matalkIcon}>
+        <FastImage source={matalkImg} style={styles.iconSize} />
+      </View>
     </LinearGradient>
   );
 };
@@ -724,6 +707,7 @@ const Convo = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
   },
   safeAreaPadding: {
     height: Platform.OS === 'ios' ? SCREEN_HEIGHT * 0.05 : SCREEN_HEIGHT * 0.03,
@@ -736,19 +720,19 @@ const styles = StyleSheet.create({
     marginVertical: SCREEN_HEIGHT * 0.02,
     justifyContent: 'space-between',
   },
-  playButton: {
-    width: SCREEN_WIDTH * 0.12,
-    height: SCREEN_WIDTH * 0.12,
-    maxWidth: 60,
-    maxHeight: 60,
-    borderRadius: SCREEN_WIDTH * 0.06,
-    backgroundColor: '#fff',
+  matalkIcon: {
+    bottom: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
+    left: width * 0.03,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'absolute',
   },
-  playIcon: {
-    width: '80%',
-    height: '80%',
+  iconSize: {
+    width: 60,
+    height: 60,
     resizeMode: 'contain',
   },
   input: {
@@ -788,21 +772,28 @@ const styles = StyleSheet.create({
     fontSize: SCREEN_WIDTH * 0.02,
   },
   columnsContainer: {
-    flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 10,
+    width: '100%',
+    height: '100%',
   },
   column: {
-    flex: 1,
-    padding: 5,
-    borderRightWidth: 1,
-    borderColor: '#E0E0E0',
+    width: '26.3%',
+    height: '60%',
+    overflow: 'hidden',
+  },
+  speakerAudienceColumn: {
+    width: '15%',
+    marginRight: SCREEN_WIDTH * 0.03,
+    marginLeft: SCREEN_WIDTH * 0.03,
+    overflow: 'hidden',
   },
   content: {
     flex: 1,
   },
   section: {
-    marginBottom: 20,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,
@@ -810,56 +801,25 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 10,
   },
-  optionsContainer: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  option: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    padding: 10,
-    alignItems: 'center',
-    width: '90%',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  selectedOption: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#E8F5E9',
-  },
-  emoticon: {
-    fontSize: 24,
-    marginBottom: 5,
+  labelGrid: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#000',
   },
   optionText: {
-    marginTop: 5,
     fontSize: 14,
     color: '#333',
-  },
-  speakerContainer: {
-    height: 170,
-    width: COLUMN_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'visible',
-
-    paddingHorizontal: 0,
   },
   speakerOption: {
     borderRadius: 10,
     padding: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 130,
-    height: 170,
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  verticalOption: {
-    height: SCREEN_HEIGHT * 0.3,
-    marginBottom: 10,
-    width: '100%',
-  },
+
   keyboardOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -886,58 +846,98 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlignVertical: 'top',
   },
-  personContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#3498db',
+  itemContainer: {
+    borderRadius: 16,
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  personContainer: {
+    borderRadius: SCREEN_WIDTH * 0.05,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   personImage: {
-    width: 40,
-    height: 40,
+    width: SCREEN_WIDTH * 0.08,
+    height: SCREEN_WIDTH * 0.08,
     resizeMode: 'contain',
-  },
-  talkContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 5,
   },
   talkImage: {
-    width: 80,
-    height: 80,
+    width: '95%',
+    height: '95%',
     resizeMode: 'contain',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 80,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 10,
-    zIndex: 100,
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  itemContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
   },
   itemImage: {
     width: '80%',
     height: '80%',
+  },
+  imageGrid: {
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  cardWrapper: {
+    width: '90%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: 'gray',
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  talkContainer: {
+    width: width * 0.1,
+    height: width * 0.1,
+    borderRadius: width * 0.05,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 5,
+  },
+  gridLabelContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  gridItem: {
+    width: '85%',
+    borderRadius: 16,
+    overflow: 'visible',
+    shadowColor: 'gray',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 4,
+    backgroundColor: 'white',
+    marginBottom: 15,
+  },
+  gridImageContainer: {
+    width: '100%',
+    height: SCREEN_HEIGHT * 0.2,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
 });
 
@@ -1001,36 +1001,40 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
     // For vertical layout, render items in a ScrollView instead of Carousel
     return (
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          justifyContent: 'flex-start',
+          alignItems: 'center',
+          marginTop: height * 0.02,
+          paddingBottom: height * 0.02, // Add padding to prevent last item from being cut off
+        }}
         style={{
           width: '100%',
-          maxHeight: SCREEN_HEIGHT * 0.8,
-          minHeight: SCREEN_HEIGHT * 0.8,
+          maxHeight: SCREEN_HEIGHT * 0.65, // Adjusted to fit within 40% column height
+          minHeight: SCREEN_HEIGHT * 0.65, // Adjusted to fit within 40% column height
         }}>
         {data.map((item, index) => (
           <Pressable
             key={`${fieldName}-${getItemText(item)}-${index}`}
-            style={[
-              styles.speakerOption,
-              sentence[fieldName as keyof Sentence] === getItemText(item) &&
-                styles.selectedOption,
-              styles.verticalOption,
-            ]}
+            style={styles.gridItem}
             onPress={() => handleItemSelect(item, index)}>
-            <View style={styles.itemContainer}>
+            <View style={styles.gridImageContainer}>
               {getItemImageUrl(item) ? (
                 <FastImage
                   source={{uri: getItemImageUrl(item)}}
-                  style={styles.itemImage}
-                  resizeMode="contain"
+                  style={styles.imageGrid}
+                  resizeMode="cover"
                 />
               ) : (
                 <Image
                   source={require('../assets/welcome.png')}
-                  style={styles.itemImage}
-                  resizeMode="contain"
+                  style={styles.imageGrid}
+                  resizeMode="cover"
                 />
               )}
-              <Text style={styles.optionText}>{getItemText(item)}</Text>
+            </View>
+            <View style={styles.gridLabelContainer}>
+              <Text style={styles.labelGrid}>{getItemText(item)}</Text>
             </View>
           </Pressable>
         ))}
@@ -1048,7 +1052,8 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
       data={data}
       scrollAnimationDuration={1000}
       onSnapToItem={index => {
-        // Update only the specific field
+        setCurrentIndex(index);
+        // Update the sentence with the selected item
         const item = data[index];
         const value = getItemText(item);
         setSentence({...sentence, [fieldName]: value});
@@ -1069,15 +1074,19 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
       }}
       renderItem={({item: cardItem, index}) => (
         <Pressable
-          style={[
-            styles.speakerOption,
-            sentence[fieldName as keyof Sentence] === getItemText(cardItem) &&
-              styles.selectedOption,
-          ]}
+          style={[styles.speakerOption]}
           onPress={() => handleItemSelect(cardItem, index)}>
           {showPersonIcon ? (
             <>
-              <View style={styles.personContainer}>
+              <View
+                style={[
+                  styles.personContainer,
+                  sentence[fieldName as keyof Sentence] ===
+                    getItemText(cardItem) && {
+                    borderBottomWidth: 6,
+                    borderBottomColor: 'red',
+                  },
+                ]}>
                 <Image
                   source={require('../assets/person.png')}
                   style={styles.personImage}
@@ -1087,7 +1096,14 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
             </>
           ) : showTalkIcon ? (
             <>
-              <View style={styles.talkContainer}>
+              <View
+                style={[
+                  styles.talkContainer,
+                  sentence.sentenceType === getItemText(cardItem) && {
+                    borderBottomWidth: 3,
+                    borderBottomColor: 'red',
+                  },
+                ]}>
                 {getItemText(cardItem) === '?' ? (
                   <Image
                     source={require('../assets/boyAsk.png')}
@@ -1100,7 +1116,6 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
                   />
                 )}
               </View>
-              <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
             </>
           ) : (
             <>
