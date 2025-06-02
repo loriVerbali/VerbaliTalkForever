@@ -18,6 +18,7 @@ interface Preferences {
   adminCode: string;
   gender: string;
   auth0Id: string;
+  familyPicsData: string;
 }
 
 const initEnum = {
@@ -49,6 +50,7 @@ const initialPreferences: Preferences = {
   adminCode: '',
   gender: '',
   auth0Id: '',
+  familyPicsData: '',
 };
 
 interface AppSettingsContextProps {

@@ -14,6 +14,7 @@ import {
   PermissionsAndroid,
   Permission,
   Linking,
+  Alert,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useAppSettings} from '../utils/persistance';
@@ -22,6 +23,7 @@ import {OnboardingContext} from '../Navigation/RootControllerView';
 import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import matalkImg from '../assets/matalk.png';
 import LinearGradient from 'react-native-linear-gradient';
+import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 
 const {width, height} = Dimensions.get('window');
 
@@ -43,6 +45,12 @@ const onboardingSteps = [
     id: 'gender',
     question: 'Choose your gender',
     additionalComponents: 'gender-selection',
+    buttonText: 'Next',
+  },
+  {
+    id: 'Family Members',
+    question: 'Family Members',
+    additionalComponents: 'family-members',
     buttonText: 'Next',
   },
   {
@@ -258,21 +266,18 @@ const OnboardingScreen: React.FC = () => {
             </View>
           </View>
         );
-      case 'microphone':
+      case 'family-members':
         return (
-          <TouchableOpacity
-            style={[
-              styles.microphoneContainer,
-              isRecording && styles.microphoneContainerActive,
-            ]}
-            onPress={toggleRecording}
-            activeOpacity={0.7}>
-            <FastImage
-              source={require('../assets/microphone.png')}
-              style={styles.microphoneImage}
-              resizeMode={FastImage.resizeMode.contain}
-            />
-          </TouchableOpacity>
+          <View style={styles.familyMembersContainer}>
+            <Text style={styles.familylabel}>
+              Select pictures of family members that {heroName} will be able to
+              start a conversation with.
+            </Text>
+            <Text style={[styles.familylabel, {color: '#8E24AA'}]}>
+              You can skip this and do it later! Just tap next
+            </Text>
+            <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
+          </View>
         );
       case 'permissions':
         return (
@@ -405,6 +410,25 @@ const OnboardingScreen: React.FC = () => {
       default:
         return null;
     }
+  };
+
+  const handleFamilyMemberSelect = (member: FamilyMember) => {
+    let m = member;
+    Alert.alert(
+      'Family Member Selected',
+      `You selected: ${member.name}${
+        member.imageUri ? ' (with photo)' : ' (no photo)'
+      }`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Here you can use the selected family member in your conversation
+            console.log('Selected family member for conversation:', member);
+          },
+        },
+      ],
+    );
   };
 
   const currentStepData = onboardingSteps[currentStep];
@@ -574,6 +598,11 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  familyMembersContainer: {
+    height: height * 0.6,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -754,7 +783,8 @@ const styles = StyleSheet.create({
   },
   adminCodeContainer: {
     alignItems: 'center',
-    width: '80%',
+    width: '100%',
+    height: height * 0.5,
     flexDirection: 'row',
   },
   adminCodeImage: {
@@ -817,6 +847,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     color: '#000',
+  },
+  familylabel: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#000',
+    marginBottom: height * 0.01,
   },
 });
 

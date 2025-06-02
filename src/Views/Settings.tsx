@@ -23,6 +23,7 @@ import {useAppSettings} from '../utils/persistance';
 import {useAuth0} from 'react-native-auth0';
 import {views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
+import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -266,6 +267,11 @@ const SettingsScreen: React.FC = () => {
     await setItem('wasOnboarded', value ? '0' : '1');
   };
 
+  const handleFamilyMemberSelect = (member: FamilyMember) => {
+    console.log('Selected family member:', member);
+    // You can add additional logic here if needed
+  };
+
   const handleAdminCodeChange = async () => {
     if (newAdminCode.length !== 4) {
       setAdminCodeError('Admin code must be 4 digits');
@@ -506,6 +512,14 @@ const SettingsScreen: React.FC = () => {
                   </Text>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            <View style={styles.familyPicsSection}>
+              <Text style={styles.settingLabel}>Family Members</Text>
+              <Text style={styles.familyDescription}>
+                Manage family member photos for conversations
+              </Text>
+              <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
             </View>
 
             <View style={styles.adminSection}>
@@ -1021,6 +1035,19 @@ const styles = StyleSheet.create({
   selectedGenderText: {
     color: '#8E24AA',
     fontWeight: 'bold',
+  },
+  familyPicsSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
+  },
+  familyDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    lineHeight: 20,
   },
 });
 

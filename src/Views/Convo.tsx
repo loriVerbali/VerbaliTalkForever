@@ -23,6 +23,8 @@ import wakeWord from '../utils/wakewordService';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
 import Slider from '@react-native-community/slider';
+import {useAppSettings} from '../utils/persistance';
+import {FamilyMember} from '../Components/FamilyPics';
 
 const DEBUGCONVONOIMAGEGENERATION = true;
 
@@ -76,6 +78,10 @@ const Convo = () => {
   const {threadId, sendMessage, runAssistant, response, status} =
     useAssistant();
 
+  // Get app settings for family pics data
+  const {getItem} = useAppSettings();
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -117,6 +123,29 @@ const Convo = () => {
   // Slider state
   const [sliderPosition, setSliderPosition] = useState(0); // 0: topics, 1: actions, 2: objects
   const [isAutoSliding, setIsAutoSliding] = useState(false);
+
+  // Load family members data
+  useEffect(() => {
+    const loadFamilyData = async () => {
+      try {
+        const savedData = await getItem('familyPicsData');
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          setFamilyMembers(parsedData);
+        }
+      } catch (error) {
+        console.error('Error loading family data:', error);
+      }
+    };
+
+    loadFamilyData();
+  }, []);
+
+  // Helper function to get family member image
+  const getFamilyMemberImage = (memberName: string) => {
+    const member = familyMembers.find(m => m.name === memberName);
+    return member?.imageUri;
+  };
 
   // Update input text when sentence changes
   useEffect(() => {
@@ -740,6 +769,8 @@ const Convo = () => {
                 handleItemSelect={handleSpeakerSelect}
                 fieldName="speaker"
                 showPersonIcon={true}
+                familyMembers={familyMembers}
+                getFamilyMemberImage={getFamilyMemberImage}
               />
             </View>
           </View>
@@ -758,6 +789,8 @@ const Convo = () => {
                 handleItemSelect={handleAudienceSelect}
                 fieldName="audience"
                 showPersonIcon={true}
+                familyMembers={familyMembers}
+                getFamilyMemberImage={getFamilyMemberImage}
               />
             </View>
           </View>
@@ -1165,6 +1198,12 @@ const styles = StyleSheet.create({
     height: width * 0.05,
     resizeMode: 'contain',
   },
+  familyImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+    borderRadius: 50,
+  },
   talkImage: {
     width: '95%',
     height: '95%',
@@ -1273,6 +1312,16 @@ const styles = StyleSheet.create({
   disabledPlayButtonText: {
     color: '#999',
   },
+  personSelectionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18%',
+    height: 4,
+    backgroundColor: 'red',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginTop: 2,
+  },
 });
 
 export default Convo;
@@ -1291,6 +1340,8 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   selectedTopic,
   selectedAction,
   selectedObject,
+  familyMembers = [],
+  getFamilyMemberImage,
 }: {
   carouselRef: React.RefObject<ICarouselInstance | null>;
   currentIndex: number;
@@ -1313,6 +1364,8 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   selectedTopic?: Topic;
   selectedAction?: Action;
   selectedObject?: Object;
+  familyMembers?: FamilyMember[];
+  getFamilyMemberImage?: (memberName: string) => string | undefined;
 }) => {
   const isVerticalLayout =
     fieldName === 'list_possible_actions' ||
@@ -1434,21 +1487,34 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
           onPress={() => handleItemSelect(cardItem, index)}>
           {showPersonIcon ? (
             <>
-              <View
-                style={[
-                  styles.personContainer,
-                  sentence[fieldName as keyof Sentence] ===
-                    getItemText(cardItem) && {
-                    borderBottomWidth: 6,
-                    borderBottomColor: 'red',
-                  },
-                ]}>
-                <Image
-                  source={require('../assets/person.png')}
-                  style={styles.personImage}
-                />
+              <View style={styles.personContainer}>
+                {(() => {
+                  const memberName = getItemText(cardItem);
+                  const familyImageUri = getFamilyMemberImage?.(memberName);
+
+                  if (familyImageUri) {
+                    return (
+                      <FastImage
+                        source={{uri: familyImageUri}}
+                        style={styles.familyImage}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Image
+                        source={require('../assets/person.png')}
+                        style={styles.personImage}
+                      />
+                    );
+                  }
+                })()}
               </View>
               <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
+              {sentence[fieldName as keyof Sentence] ===
+                getItemText(cardItem) && (
+                <View style={styles.personSelectionContainer} />
+              )}
             </>
           ) : showTalkIcon ? (
             <>
