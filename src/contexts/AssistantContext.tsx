@@ -355,6 +355,8 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
             createThreadIfNeeded();
           }
         }
+      } else {
+        createThreadIfNeeded();
       }
     };
 
@@ -487,15 +489,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       // The response is the direct image URL
       const imageUrl = response;
 
-      setHistory(prev => [
-        ...prev,
-        {
-          type: 'image',
-          content: prompt,
-          timestamp: new Date(),
-          imageUrl: imageUrl,
-        },
-      ]);
       return {url: imageUrl};
     } catch (error) {
       console.error('Failed to generate image:', error);
@@ -543,18 +536,28 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   useEffect(() => {
     const generateImages = async () => {
       if (status === 'completed' && possibleAnswers) {
+        console.log(
+          'Starting to generate images for possible answers:',
+          possibleAnswers,
+        );
         const newImageUrls: Array<{url: string; prompt: string}> = [];
 
         if (Config.picGeneration === 'Gemini') {
           for (const answer of possibleAnswers) {
+            console.log('Generating Gemini image for answer:', answer);
             const imageURLResponse = await geminiGenerateImage(answer);
             if (imageURLResponse) {
+              console.log(
+                'Generated Gemini image URL:',
+                typeof imageURLResponse,
+              );
               newImageUrls.push({url: imageURLResponse, prompt: answer});
             }
           }
         } else {
           for (const answer of possibleAnswers) {
             try {
+              console.log('Generating OpenAI image for answer:', answer);
               const imageURLResponse = await generateImage(answer);
               if (imageURLResponse?.url) {
                 newImageUrls.push({url: imageURLResponse.url, prompt: answer});
@@ -567,8 +570,13 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
               );
             }
           }
-          setImageUrls(newImageUrls);
         }
+        console.log(
+          'Setting imageUrls with length:',
+          newImageUrls.length,
+          newImageUrls,
+        );
+        setImageUrls(newImageUrls);
       }
     };
 

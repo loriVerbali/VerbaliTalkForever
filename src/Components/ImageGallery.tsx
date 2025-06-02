@@ -1,6 +1,8 @@
 import React from 'react';
-import {View, StyleSheet, ScrollView} from 'react-native';
+import {View, StyleSheet, Text, Dimensions} from 'react-native';
 import ImageCard from './ImageCard';
+
+const {height, width} = Dimensions.get('window');
 
 interface ImageGalleryProps {
   images: Array<{url: {url: string}; prompt: string}>;
@@ -11,41 +13,77 @@ interface ImageGalleryProps {
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({
   images,
-  imageWidth = 200,
-  imageHeight = 200,
+  imageWidth = width * 0.1,
+  imageHeight = width * 0.1,
   onRefresh,
 }) => {
-  // Group images into chunks of 3 for display
-  const imageGroups = [];
-  for (let i = 0; i < images.length; i += 3) {
-    imageGroups.push(images.slice(i, i + 3));
+  // Check if images array is valid
+  if (!images || images.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No images to display</Text>
+      </View>
+    );
   }
+
+  // Create two rows: first row with 3 images, second row with 2 images + "More" button
+  const firstRow = images.slice(0, 3);
+  const secondRow = images.slice(3, 5);
+
+  // Add a "More" item to complete the 3x2 grid
+  const moreItem = {
+    url: {url: 'more'},
+    prompt: "Can't find it",
+    isMoreButton: true,
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      {imageGroups.map((group, index) => (
-        <View key={index} style={styles.row}>
-          <ImageCard
-            images={group}
-            width={imageWidth}
-            height={imageHeight}
-            onRefresh={onRefresh}
-          />
-        </View>
-      ))}
-    </ScrollView>
+    <View style={styles.container}>
+      {/* First row - 3 images */}
+      <View style={styles.row}>
+        <ImageCard
+          images={firstRow}
+          width={imageWidth}
+          height={imageHeight}
+          onRefresh={onRefresh}
+        />
+      </View>
+
+      {/* Second row - 2 images + "More" button */}
+      <View style={styles.row}>
+        <ImageCard
+          images={[...secondRow, moreItem]}
+          width={imageWidth}
+          height={imageHeight}
+          onRefresh={onRefresh}
+        />
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    borderRadius: 10,
+    minHeight: height * 0.4,
   },
   row: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    marginVertical: 10,
+    paddingHorizontal: 10,
+  },
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#666',
   },
 });
 

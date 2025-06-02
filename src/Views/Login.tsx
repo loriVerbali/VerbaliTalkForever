@@ -12,16 +12,18 @@ import {useAuth0} from 'react-native-auth0';
 import {useNavigation} from '@react-navigation/native';
 import {useAppSettings} from '../utils/persistance';
 import {views} from '../utils/constants';
+import {set} from 'lodash';
 
 const Login: React.FC = () => {
   const {authorize, clearSession, user, error, isLoading} = useAuth0();
   const navigation = useNavigation();
-  const {setItem, getItem, preferences} = useAppSettings();
+  const {setItem, getItem} = useAppSettings();
 
   // Check auth state on component mount
   useEffect(() => {
     const checkAuthState = async () => {
       if (user) {
+        setItem('auth0Id', user.sub?.replace('auth0|', '') || '');
         // Save user data to preferences
         try {
           await setItem('loggedIn', '1');

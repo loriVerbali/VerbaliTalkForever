@@ -11,13 +11,14 @@ import {
   StatusBar,
   SafeAreaView,
   ImageBackground,
+  PermissionsAndroid,
+  Permission,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useAppSettings} from '../utils/persistance';
-import LinearGradient from 'react-native-linear-gradient';
-import {views, stacks} from '../utils/constants';
 import FastImage from 'react-native-fast-image';
 import {OnboardingContext} from '../Navigation/RootControllerView';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
 const {width, height} = Dimensions.get('window');
 
@@ -51,6 +52,12 @@ const onboardingSteps = [
     id: 'wake-word',
     question: "Let's set your Wake word",
     additionalComponents: 'microphone',
+    buttonText: 'Done',
+  },
+  {
+    id: 'Permissions',
+    question: 'Lets get some permissions',
+    additionalComponents: 'permissions',
     buttonText: 'Done',
   },
 ];
@@ -209,12 +216,49 @@ const OnboardingScreen: React.FC = () => {
             />
           </TouchableOpacity>
         );
+      case 'permissions':
+        return (
+          <View style={styles.genderContainer}>
+            <TouchableOpacity style={styles.button} onPress={requestPermission}>
+              <Text>Grant Permissions</Text>
+            </TouchableOpacity>
+          </View>
+        );
       default:
         return null;
     }
   };
 
   const currentStepData = onboardingSteps[currentStep];
+
+  const requestPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+
+        return (
+          grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          grants['android.permission.RECORD_AUDIO'] ===
+            PermissionsAndroid.RESULTS.GRANTED
+        );
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+
+    if (Platform.OS === 'ios') {
+      const mic = await request(PERMISSIONS.IOS.MICROPHONE);
+      const speech = await request(PERMISSIONS.IOS.SPEECH_RECOGNITION);
+      return {mic, speech};
+    }
+
+    return true;
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>

@@ -6716,6 +6716,11 @@ react-native-linear-gradient@^2.8.3:
   resolved "https://registry.yarnpkg.com/react-native-linear-gradient/-/react-native-linear-gradient-2.8.3.tgz#9a116649f86d74747304ee13db325e20b21e564f"
   integrity sha512-KflAXZcEg54PXkLyflaSZQ3PJp4uC4whM7nT/Uot9m0e/qxFV3p6uor1983D1YOBJbJN7rrWdqIjq0T42jOJyA==
 
+react-native-permissions@^5.4.0:
+  version "5.4.0"
+  resolved "https://registry.yarnpkg.com/react-native-permissions/-/react-native-permissions-5.4.0.tgz#04427be8897625ba5af29c3f1dc81b7bec48fd12"
+  integrity sha512-D+YOIss+aKXi/VuZvm7hAq4WSugYyif58AIAWsT2/uLh9pz9ukOttGzPttjrv617J3bOEnt7C6cJBWoXmj/QRw==
+
 react-native-reanimated-carousel@^4.0.2:
   version "4.0.2"
   resolved "https://registry.yarnpkg.com/react-native-reanimated-carousel/-/react-native-reanimated-carousel-4.0.2.tgz#4d719afd18c2007e7809f2849ccbee17a2dbd811"
@@ -6772,6 +6777,11 @@ react-native-tts@^4.1.1:
   version "4.1.1"
   resolved "https://registry.yarnpkg.com/react-native-tts/-/react-native-tts-4.1.1.tgz#a6caa23f3e955e913195d6342608cb4489dd8ed1"
   integrity sha512-VL0TgCwkUWggbbFGIXAPKC3rM1baluAYtgOdgnaTm7UYsWf/y8n5VgmVB0J2Wa8qt1dldZ1cSsdQY9iz3evcAg==
+
+react-native-vosk@^0.3.3:
+  version "0.3.3"
+  resolved "https://registry.yarnpkg.com/react-native-vosk/-/react-native-vosk-0.3.3.tgz#cca0f10ca9e83ad50ee0e86f24a19e6ebc0085ec"
+  integrity sha512-v7k4pTmX7MXLv6LQk/o+pCCkA6ZoIi3wlTD3WH5VcLR7tGPsVoCrcBogEl25kzr9b+puMNSRR7AhehztJFaftA==
 
 react-native-webview@^13.13.5:
   version "13.13.5"

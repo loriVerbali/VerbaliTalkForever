@@ -13,6 +13,7 @@ import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
+import HomeButton from '../Components/HomeButton';
 
 // General assets
 import micImg from '../assets/microphone.png';
@@ -34,6 +35,8 @@ import drinkImg from '../assets/shortCuts/wantNeed/drink.png';
 import bathroomImg from '../assets/shortCuts/wantNeed/bathroom.png';
 import sleepImg from '../assets/shortCuts/wantNeed/sleep.png';
 import helpImg from '../assets/shortCuts/wantNeed/help.png';
+import moreImg from '../assets/shortCuts/wantNeed/more.png';
+import allDoneImg from '../assets/shortCuts/wantNeed/alldone.png';
 
 // Fun category images
 import playImg from '../assets/shortCuts/fun/play.png';
@@ -96,8 +99,8 @@ const iWantNeed = [
   {label: 'Bathroom', image: bathroomImg, backgroundColor: '#FFE4E1'},
   {label: 'Sleep', image: sleepImg, backgroundColor: '#FFE4E1'},
   {label: 'Help', image: helpImg, backgroundColor: '#FFE4E1'},
-  {label: 'More', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'All done', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'More', image: moreImg, backgroundColor: '#FFE4E1'},
+  {label: 'All done', image: allDoneImg, backgroundColor: '#FFE4E1'},
 ];
 
 const actions = [
@@ -160,10 +163,6 @@ const ShortCuts = () => {
       TTSService.stop();
     };
   }, []);
-
-  const handleHomePress = () => {
-    navigation.navigate(views.OPEN as never);
-  };
 
   const handleCategoryPress = (categoryKey: CategoryKey) => {
     if (categoryKey !== selectedCategory) {
@@ -235,14 +234,7 @@ const ShortCuts = () => {
       </View>
 
       {/* Home Button */}
-      <Pressable
-        onPress={handleHomePress}
-        style={({pressed}) => [
-          styles.homeIcon,
-          pressed && styles.buttonPressed,
-        ]}>
-        <Text style={styles.homeIconText}>🏠</Text>
-      </Pressable>
+      <HomeButton zIndex={5} navigation={navigation} />
 
       <View style={styles.scrollContent}>
         <View style={styles.topRow}>
@@ -634,31 +626,9 @@ const styles = StyleSheet.create({
     elevation: 5,
     position: 'absolute',
   },
-  homeIcon: {
-    top: height * 0.04,
-    justifyContent: 'center',
-    alignItems: 'center',
-    right: width * 0.03,
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    position: 'absolute',
-    width: width * 0.05,
-    height: width * 0.05,
-    backgroundColor: '#FFF',
-    borderRadius: width * 0.04,
-  },
-  iconText: {
-    fontSize: 60,
-    color: '#FFFFFF',
-  },
   buttonPressed: {
     opacity: 0.8,
     transform: [{scale: 0.98}],
-  },
-  homeIconText: {
-    fontSize: 40,
-    color: '#FFFFFF',
   },
   emptyItem: {
     backgroundColor: 'transparent', // Make empty items invisible

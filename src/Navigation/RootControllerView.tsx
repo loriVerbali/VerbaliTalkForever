@@ -6,8 +6,11 @@ import InitNavigation from '../Navigation/InitNavigation';
 import {useAppSettings} from '../utils/persistance';
 import {stacks} from '../utils/constants';
 import {useConnection} from '../utils/connection';
-import {View, Text} from 'react-native';
+import {View, Text, Dimensions, StatusBar} from 'react-native';
+import FastImage from 'react-native-fast-image';
+import NoInternetConnection from '../components/NoInternetConnection';
 
+const {width, height} = Dimensions.get('window');
 // Create a context to set onboarding state
 export const OnboardingContext = React.createContext<{
   completeOnboarding: () => void;
@@ -40,10 +43,6 @@ const RootStackScreen: React.FC = () => {
 
     initApp();
   }, [isLoading]);
-
-  if (!isConnected) {
-    return <NoInternetConnection />;
-  }
 
   if (isLoading) {
     return null;
@@ -89,11 +88,3 @@ const LoadingScreen = () => {
 };
 
 export default RootControllerView;
-
-const NoInternetConnection = () => {
-  return (
-    <View>
-      <Text>No Internet Connection</Text>
-    </View>
-  );
-};

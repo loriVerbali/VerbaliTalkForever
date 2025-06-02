@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
   ScrollView,
   Pressable,
@@ -19,31 +18,19 @@ import {views} from '../utils/constants';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {useAssistant} from '../contexts/AssistantContext';
-import SpeakerSection from './SpeakerSection';
 import fetchHelper from '../utils/fetcher';
+import wakeWord from '../utils/wakewordService';
+import matalkImg from '../assets/matalk.png';
+import welcomeImg from '../assets/welcome.png';
+import Slider from '@react-native-community/slider';
+
+const DEBUGCONVONOIMAGEGENERATION = true;
+
+const {width, height} = Dimensions.get('window');
 
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
-type Object =
-  | 'NA'
-  | 'hello'
-  | 'goodbye'
-  | 'please'
-  | 'question'
-  | 'help'
-  | 'permission'
-  | 'story'
-  | 'joke'
-  | 'secret'
-  | 'fast'
-  | 'slow'
-  | 'together'
-  | 'high'
-  | 'low'
-  | 'rope'
-  | 'music'
-  | 'party';
-
+type Object = 'NA' | 'ball';
 type Speaker = 'I' | 'Dad' | 'Mom';
 type Audience = 'I' | 'Dad' | 'Mom';
 type SentenceType = '?' | '!';
@@ -86,7 +73,8 @@ const Convo = () => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Get assistant context
-  const {threadId, sendMessage, runAssistant, response} = useAssistant();
+  const {threadId, sendMessage, runAssistant, response, status} =
+    useAssistant();
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -100,7 +88,6 @@ const Convo = () => {
   const speakers: Speaker[] = ['I', 'Dad', 'Mom'];
   const audience: Audience[] = ['I', 'Dad', 'Mom'];
   const sentenceTypes: SentenceType[] = ['?', '!'];
-  const extendedSpeakers = [...speakers, ...speakers, ...speakers];
   const [speakerIndex, setSpeakerIndex] = useState(0);
   const [audienceIndex, setAudienceIndex] = useState(0);
   const [sentenceTypeIndex, setSentenceTypeIndex] = useState(0);
@@ -126,6 +113,10 @@ const Convo = () => {
     ImageGenerated[]
   >([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Slider state
+  const [sliderPosition, setSliderPosition] = useState(0); // 0: topics, 1: actions, 2: objects
+  const [isAutoSliding, setIsAutoSliding] = useState(false);
 
   // Update input text when sentence changes
   useEffect(() => {
@@ -163,15 +154,9 @@ const Convo = () => {
     try {
       setIsLoading(true);
 
-      // Create a thread if needed
-      console.log('📋 Checking if a new thread is needed...');
-
-      console.log(`🧵 Using thread ID: ${threadId}`);
-
       // Prepare the message with the mode and content
       // Format the message to clearly indicate the mode for the assistant
       const message = `${prompt}`;
-      console.log(`💬 Sending message with mode ${mode}:`, message);
 
       // Send the message
       const messageId = await sendMessage(
@@ -187,11 +172,7 @@ const Convo = () => {
       console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
 
       // Run the assistant
-      console.log('🤖 Running assistant...');
       const runId = await runAssistant();
-      console.log(`🏃 Assistant run started with ID: ${runId}`);
-
-      console.log('⏳ Waiting for assistant response...');
       return true;
     } catch (error) {
       console.error(`❌ Error calling assistant in ${mode} mode:`, error);
@@ -206,32 +187,35 @@ const Convo = () => {
       // Process each prompt in the array
       for (const prompt of array) {
         const text = prompt.text;
-        const encodedPrompt = encodeURIComponent(prompt.image_prompt);
+        let imageUrl = DEBUGCONVONOIMAGEGENERATION ? welcomeImg : '';
+        if (!DEBUGCONVONOIMAGEGENERATION) {
+          const encodedPrompt = encodeURIComponent(prompt.image_prompt);
 
-        // Generate a random seed for variety
-        const seed = Math.floor(Math.random() * 1000);
+          // Generate a random seed for variety
+          const seed = Math.floor(Math.random() * 1000);
 
-        const response = await fetchHelper(
-          'generateImage',
-          {
-            prompt: encodedPrompt,
-            seed: seed.toString(),
-          },
-          {},
-        );
+          const response = await fetchHelper(
+            'generateImage',
+            {
+              prompt: encodedPrompt,
+              seed: seed.toString(),
+            },
+            {},
+          );
 
-        // Handle different possible response formats
-        let imageUrl = '';
-        if (typeof response === 'string') {
-          // Direct URL string response
-          imageUrl = response;
-        } else if (
-          response &&
-          typeof response === 'object' &&
-          'url' in response
-        ) {
-          // Object response with url property
-          imageUrl = response.url || '';
+          // Handle different possible response formats
+          let imageUrl = '';
+          if (typeof response === 'string') {
+            // Direct URL string response
+            imageUrl = response;
+          } else if (
+            response &&
+            typeof response === 'object' &&
+            'url' in response
+          ) {
+            // Object response with url property
+            imageUrl = response.url || '';
+          }
         }
 
         if (imageUrl) {
@@ -261,7 +245,6 @@ const Convo = () => {
   // Handle assistant responses
   useEffect(() => {
     if (response) {
-      console.log('📩 Received assistant response:', response);
       try {
         // Handle the response based on its modeType
         if (response.modeType === 'list_possible_topics') {
@@ -324,7 +307,6 @@ const Convo = () => {
             const sentenceData = response?.response;
 
             if (sentenceData) {
-              console.log('📝 Got generated sentence:', sentenceData);
               setGeneratedSentence(sentenceData);
               setInputText(sentenceData);
               console.log('✅ Generated sentence applied to input');
@@ -348,14 +330,15 @@ const Convo = () => {
   useEffect(() => {
     const generateTopics = async () => {
       const {speaker, audience, sentenceType} = sentence;
-      console.log('👁️ Checking if we should generate topics...');
-      console.log('  Speaker:', speaker);
-      console.log('  Audience:', audience);
-      console.log('  SentenceType:', sentenceType);
 
-      // Only proceed if all three are selected
-      if (speaker && audience && sentenceType) {
-        console.log('✅ All prerequisites met, generating topics');
+      // Only proceed if all three are selected, slider is at position 0, and we don't have a valid topic
+      if (
+        speaker &&
+        audience &&
+        sentenceType &&
+        sliderPosition === 0 &&
+        (!topic || topic === 'NA')
+      ) {
         const prompt = `Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'list_possible_topics'`;
@@ -369,21 +352,28 @@ const Convo = () => {
     };
 
     generateTopics();
-  }, [sentence.speaker, sentence.audience, sentence.sentenceType]);
+  }, [
+    sentence.speaker,
+    sentence.audience,
+    sentence.sentenceType,
+    sliderPosition,
+  ]);
 
   // Watch for topic selection to generate actions
   useEffect(() => {
     const generateActions = async () => {
       const {speaker, audience, sentenceType} = sentence;
-      console.log('👁️ Checking if we should generate actions...');
-      console.log('  Speaker:', speaker);
-      console.log('  Audience:', audience);
-      console.log('  SentenceType:', sentenceType);
-      console.log('  Topic:', topic);
 
-      // Only proceed if topic is selected
-      if (speaker && audience && sentenceType && topic) {
-        console.log('✅ Topic selected, generating actions');
+      // Only proceed if we have prerequisites and either no action selected or at position 1
+      if (
+        speaker &&
+        audience &&
+        sentenceType &&
+        topic &&
+        topic !== 'NA' &&
+        sliderPosition === 1 &&
+        (!action || action === 'NA')
+      ) {
         const prompt = `Please list possible action verbs related to the topic "${topic}" for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 3 simple, kid-friendly action verbs. The message.metadata.mode = 'actions'`;
@@ -391,60 +381,47 @@ const Convo = () => {
         console.log('🔄 Calling assistant for actions');
         await callAssistant('list_possible_actions', prompt);
       } else {
-        console.log('⏳ Waiting for topic selection before generating actions');
+        console.log('⏳ Waiting for prerequisites before generating actions');
       }
     };
 
-    if (topic) {
-      console.log('🔵 Topic changed to:', topic);
-      generateActions();
-    }
-  }, [topic]);
+    generateActions();
+  }, [topic, sliderPosition]);
 
   // Watch for action selection to generate objects
   useEffect(() => {
     const generateObjects = async () => {
       const {speaker, audience, sentenceType} = sentence;
-      console.log('👁️ Checking if we should generate objects...');
-      console.log('  Speaker:', speaker);
-      console.log('  Audience:', audience);
-      console.log('  SentenceType:', sentenceType);
-      console.log('  Topic:', topic);
-      console.log('  Action:', action);
 
-      // Only proceed if action is selected
-      if (speaker && audience && sentenceType && topic && action) {
-        console.log('✅ Action selected, generating objects');
+      // Only proceed if we have prerequisites and either no object selected or at position 2
+      if (
+        speaker &&
+        audience &&
+        sentenceType &&
+        topic &&
+        topic !== 'NA' &&
+        action &&
+        action !== 'NA' &&
+        sliderPosition === 2 &&
+        (!object || object === 'NA')
+      ) {
         const objectsPrompt = `Please list possible direct objects or noun phrases for the action "${action}" related to the topic "${topic}" in a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 3 simple, kid-friendly objects. The message.metadata.mode = 'objects'`;
 
         console.log('🔄 Calling assistant for objects');
-        const objectsResult = await callAssistant(
-          'list_possible_objects',
-          objectsPrompt,
-        );
-        console.log('Objects result:', objectsResult);
+        await callAssistant('list_possible_objects', objectsPrompt);
       } else {
-        console.log(
-          '⏳ Waiting for action selection before generating objects',
-        );
+        console.log('⏳ Waiting for prerequisites before generating objects');
       }
     };
 
-    if (action) {
-      console.log('🔵 Action changed to:', action);
-      generateObjects();
-    }
-  }, [action]);
+    generateObjects();
+  }, [action, sliderPosition]);
 
   useEffect(() => {
     const {speaker, audience, sentenceType} = sentence;
     const generateSentence = async () => {
-      console.log('🔵 Topic:', topic);
-      console.log('🔵 Action:', action);
-      console.log('🔵 Object:', object);
-
       const sentencePrompt = `Please create a complete, kid-friendly sentence where ${speaker} wants to ${action} with the topic "${topic}" to ${audience}. The sentence should be a ${
         sentenceType === '?' ? 'question' : 'statement'
       }. Return just the sentence.`;
@@ -467,7 +444,7 @@ const Convo = () => {
   const handleSpeakerSelect = (speaker: Speaker, index: number) => {
     setSentence({...sentence, speaker});
     setSpeakerIndex(index);
-    if (speakerCarouselRef.current) {
+    if (speakerCarouselRef.current && speakerIndex !== index) {
       // @ts-ignore
       speakerCarouselRef.current.scrollTo({index, animated: true});
     }
@@ -476,7 +453,7 @@ const Convo = () => {
   const handleAudienceSelect = (audience: Audience, index: number) => {
     setSentence({...sentence, audience});
     setAudienceIndex(index);
-    if (audienceCarouselRef.current) {
+    if (audienceCarouselRef.current && audienceIndex !== index) {
       // @ts-ignore
       audienceCarouselRef.current.scrollTo({index, animated: true});
     }
@@ -538,21 +515,198 @@ const Convo = () => {
     setIsKeyboardVisible(!isKeyboardVisible);
   };
 
+  // Handle manual slider changes
+  const handleSliderChange = (value: number) => {
+    if (isAutoSliding) return; // Ignore manual changes during auto-sliding
+
+    const newPosition = Math.round(value);
+    if (newPosition === sliderPosition) return;
+
+    // Check if slider should be disabled for general conditions
+    const isGenerallyDisabled =
+      isLoading || status === 'queued' || status === 'in_progress';
+
+    if (isGenerallyDisabled) return; // Don't allow changes when disabled
+
+    // Moving backwards - special handling
+    if (newPosition < sliderPosition) {
+      setSliderPosition(newPosition);
+
+      if (newPosition === 0) {
+        // Moving back to topics - only clear actions and objects, keep topic
+        setAction('NA');
+        setObject('NA');
+        setAvailableActions([]);
+        setAvailableObjects([]);
+        setGeneratedActionImages([]);
+        setGeneratedObjectImages([]);
+
+        // Auto-advance to actions after a short delay if topic is selected
+        if (topic && topic !== 'NA') {
+          setTimeout(() => {
+            setIsAutoSliding(true);
+            setSliderPosition(1);
+            setTimeout(() => setIsAutoSliding(false), 300);
+          }, 100);
+        }
+      } else if (newPosition === 1) {
+        // Moving back to actions - only clear objects
+        setObject('NA');
+        setAvailableObjects([]);
+        setGeneratedObjectImages([]);
+
+        // Auto-advance to objects after a short delay if action is selected
+        if (action && action !== 'NA') {
+          setTimeout(() => {
+            setIsAutoSliding(true);
+            setSliderPosition(2);
+            setTimeout(() => setIsAutoSliding(false), 300);
+          }, 100);
+        }
+      }
+      return;
+    }
+
+    // Moving forward - check prerequisites
+    if (newPosition > sliderPosition) {
+      // Cannot move forward from topics if no topic is selected
+      if (sliderPosition === 0 && (!topic || topic === 'NA')) {
+        return;
+      }
+
+      // Cannot move forward from actions if no action is selected
+      if (sliderPosition === 1 && (!action || action === 'NA')) {
+        return;
+      }
+
+      // Cannot move forward from objects if no object is selected
+      if (sliderPosition === 2 && (!object || object === 'NA')) {
+        return;
+      }
+    }
+
+    setSliderPosition(newPosition);
+  };
+
+  useEffect(() => {
+    // Stop listening when component mounts, but don't block loading
+    setTimeout(() => {
+      void wakeWord.stopListening();
+    }, 0);
+
+    // No need for cleanup since we're already stopped
+  }, []);
+
+  // Auto-advance slider when topic is selected
+  useEffect(() => {
+    if (topic && topic !== 'NA' && sliderPosition === 0) {
+      setIsAutoSliding(true);
+      setSliderPosition(1);
+      setTimeout(() => setIsAutoSliding(false), 300);
+    }
+  }, [topic]);
+
+  // Auto-advance slider when action is selected
+  useEffect(() => {
+    if (action && action !== 'NA' && sliderPosition === 1) {
+      setIsAutoSliding(true);
+      setSliderPosition(2);
+      setTimeout(() => setIsAutoSliding(false), 300);
+    }
+  }, [action]);
+
+  // useEffect(() => {
+  //   if (topic === 'NA' && (sliderPosition === 1 || sliderPosition === 2)) {
+  //     setSliderPosition(0);
+  //     setTimeout(() => setIsAutoSliding(false), 0);
+  //   }
+  //   if (action === 'NA' && sliderPosition === 2) {
+  //     setSliderPosition(1);
+  //     setTimeout(() => setIsAutoSliding(false), 0);
+  //   }
+  // }, [sliderPosition]);
+
+  // Function to handle TTS playback
+  const handlePlaySentence = async () => {
+    if (
+      inputText &&
+      inputText.trim() !== '' &&
+      inputText !== 'Waiting for input...'
+    ) {
+      try {
+        await TTSService.speak(inputText);
+
+        // Wait for 3 seconds before resetting
+        setTimeout(() => {
+          // Reset everything except sentence type first
+          setSentence(prev => ({
+            ...prev,
+            sentenceType: '',
+            list_possible_topics: '',
+            action: '',
+            object: '',
+          }));
+          setSentenceTypeIndex(0);
+          setInputText('');
+          setTopic('NA');
+          setAction('NA');
+          setObject('NA');
+          setAvailableTopics([]);
+          setAvailableActions([]);
+          setAvailableObjects([]);
+          setGeneratedTopicImages([]);
+          setGeneratedActionImages([]);
+          setGeneratedObjectImages([]);
+          setGeneratedSentence('');
+          setSpeakerIndex(0);
+          setAudienceIndex(0);
+          setSentenceTypeIndex(0);
+          setTopicIndex(0);
+          setActionIndex(0);
+          setObjectIndex(0);
+          setSliderPosition(0);
+
+          // Reset carousel positions
+          if (speakerCarouselRef.current) {
+            // @ts-ignore
+            speakerCarouselRef.current.scrollTo({index: 0, animated: true});
+          }
+          if (audienceCarouselRef.current) {
+            // @ts-ignore
+            audienceCarouselRef.current.scrollTo({index: 0, animated: true});
+          }
+          if (sentenceTypeCarouselRef.current) {
+            // @ts-ignore
+            sentenceTypeCarouselRef.current.scrollTo({
+              index: 0,
+              animated: true,
+            });
+          }
+          if (topicCarouselRef.current) {
+            // @ts-ignore
+            topicCarouselRef.current.scrollTo({index: 0, animated: true});
+          }
+          if (actionCarouselRef.current) {
+            // @ts-ignore
+            actionCarouselRef.current.scrollTo({index: 0, animated: true});
+          }
+          if (objectCarouselRef.current) {
+            // @ts-ignore
+            objectCarouselRef.current.scrollTo({index: 0, animated: true});
+          }
+        }, 3000); // 3000 milliseconds = 3 seconds
+      } catch (error) {
+        console.error('Error playing sentence:', error);
+      }
+    }
+  };
+
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <LinearGradient colors={['#FFF8E7', '#FFF8E7']} style={styles.container}>
       {/* Input and Navigation Section - Adjusted with safe area padding */}
       <View style={styles.safeAreaPadding} />
 
       <View style={styles.inputNavigationContainer}>
-        <Pressable
-          style={styles.playButton}
-          onPress={() => TTSService.speak(inputText, true)}>
-          <FastImage
-            source={require('../assets/play.png')}
-            style={styles.playIcon}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </Pressable>
         <TextInput
           style={styles.input}
           placeholder="Waiting for input..."
@@ -569,19 +723,13 @@ const Convo = () => {
         </View>
       </View>
 
-      {isLoading && (
-        <View style={styles.loadingOverlay}>
-          <Text style={styles.loadingText}>Generating options...</Text>
-        </View>
-      )}
-
       <View style={styles.columnsContainer}>
         {/* Column 1: Speaker & Audience */}
-        <View style={styles.column}>
+        <View style={styles.speakerAudienceColumn}>
           {/* Speaker Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The speaker:</Text>
-            <View style={styles.speakerContainer}>
+            <View style={styles.cardWrapper}>
               <ConvoCarousel<Speaker>
                 carouselRef={speakerCarouselRef}
                 currentIndex={speakerIndex}
@@ -599,7 +747,7 @@ const Convo = () => {
           {/* Audience Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The audience:</Text>
-            <View style={styles.optionsContainer}>
+            <View style={styles.cardWrapper}>
               <ConvoCarousel<Audience>
                 carouselRef={audienceCarouselRef}
                 currentIndex={audienceIndex}
@@ -617,7 +765,7 @@ const Convo = () => {
           {/* Sentence Type*/}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Sentence</Text>
-            <View style={styles.optionsContainer}>
+            <View style={styles.cardWrapper}>
               <ConvoCarousel<SentenceType>
                 carouselRef={sentenceTypeCarouselRef}
                 currentIndex={sentenceTypeIndex}
@@ -633,90 +781,208 @@ const Convo = () => {
           </View>
         </View>
 
-        {/* Column 2: Topic */}
-        <View style={styles.column}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Choose the topic:</Text>
-            <View style={styles.optionsContainer}>
-              <ConvoCarousel<Topic | ImageGenerated>
-                carouselRef={topicCarouselRef}
-                currentIndex={topicIndex}
-                setCurrentIndex={setTopicIndex}
-                sentence={sentence}
-                setSentence={setSentence}
-                data={
-                  generatedTopicImages.length > 0 ? generatedTopicImages : []
-                }
-                handleItemSelect={handleTopicSelect}
-                fieldName="list_possible_topics"
-              />
+        <View
+          style={{
+            width: '79%',
+            height: '100%',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}>
+          <View
+            style={{
+              width: '100%',
+              flexDirection: 'row',
+              height: '60%',
+            }}>
+            {/* Column 2: Topic */}
+            <View style={styles.column}>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Choose the topic:</Text>
+                <View style={styles.cardWrapper}>
+                  <ConvoCarousel<Topic | ImageGenerated>
+                    carouselRef={topicCarouselRef}
+                    currentIndex={topicIndex}
+                    setCurrentIndex={setTopicIndex}
+                    sentence={sentence}
+                    setSentence={setSentence}
+                    data={
+                      generatedTopicImages.length > 0
+                        ? generatedTopicImages
+                        : []
+                    }
+                    handleItemSelect={handleTopicSelect}
+                    fieldName="list_possible_topics"
+                    selectedTopic={topic}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Column 3: Action */}
+            <View style={styles.column}>
+              {topic && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Choose the action:</Text>
+                  <View style={styles.cardWrapper}>
+                    <ConvoCarousel<Action | ImageGenerated>
+                      carouselRef={actionCarouselRef}
+                      currentIndex={actionIndex}
+                      setCurrentIndex={setActionIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={
+                        generatedActionImages.length > 0
+                          ? generatedActionImages
+                          : []
+                      }
+                      handleItemSelect={handleActionSelect}
+                      fieldName="list_possible_actions"
+                      selectedAction={action}
+                    />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Column 4: Object */}
+            <View style={styles.column}>
+              {action && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Choose the object:</Text>
+                  <View style={styles.cardWrapper}>
+                    <ConvoCarousel<Object | ImageGenerated>
+                      carouselRef={objectCarouselRef}
+                      currentIndex={objectIndex}
+                      setCurrentIndex={setObjectIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={
+                        generatedObjectImages.length > 0
+                          ? generatedObjectImages
+                          : []
+                      }
+                      handleItemSelect={handleObjectSelect}
+                      fieldName="list_possible_objects"
+                      selectedObject={object}
+                    />
+                  </View>
+                </View>
+              )}
             </View>
           </View>
-        </View>
+          {/* Slider for navigation between topics, actions, objects */}
+          <View style={styles.sliderContainer}>
+            <Slider
+              style={[
+                styles.slider,
+                (availableTopics.length === 0 ||
+                  isLoading ||
+                  status === 'queued' ||
+                  status === 'in_progress') &&
+                  styles.disabledSlider,
+              ]}
+              minimumValue={0}
+              maximumValue={2}
+              step={1}
+              value={sliderPosition}
+              onValueChange={handleSliderChange}
+              minimumTrackTintColor={
+                availableTopics.length === 0 ||
+                isLoading ||
+                status === 'queued' ||
+                status === 'in_progress'
+                  ? '#cccccc'
+                  : 'white'
+              }
+              maximumTrackTintColor={
+                availableTopics.length === 0 ||
+                isLoading ||
+                status === 'queued' ||
+                status === 'in_progress'
+                  ? '#cccccc'
+                  : 'white'
+              }
+              // thumbImage={require('../assets/slider-thumb.png')}
+              thumbTintColor={'black'}
+              disabled={
+                (sliderPosition === 0 && (!topic || topic === 'NA')) ||
+                (sliderPosition === 1 &&
+                  topic !== 'NA' &&
+                  topic &&
+                  generatedActionImages.length === 0) ||
+                (sliderPosition === 2 &&
+                  action !== 'NA' &&
+                  action &&
+                  topic !== 'NA' &&
+                  topic &&
+                  generatedObjectImages.length === 0) ||
+                isLoading ||
+                status === 'queued' ||
+                status === 'in_progress'
+              }
+            />
+          </View>
 
-        {/* Column 3: Action */}
-        <View style={styles.column}>
-          {topic && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Choose the action:</Text>
-              <View style={styles.optionsContainer}>
-                <ConvoCarousel<Action | ImageGenerated>
-                  carouselRef={actionCarouselRef}
-                  currentIndex={actionIndex}
-                  setCurrentIndex={setActionIndex}
-                  sentence={sentence}
-                  setSentence={setSentence}
-                  data={
-                    generatedActionImages.length > 0
-                      ? generatedActionImages
-                      : []
-                  }
-                  handleItemSelect={handleActionSelect}
-                  fieldName="list_possible_actions"
-                />
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Column 4: Object */}
-        <View style={styles.column}>
-          {action && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Choose the object:</Text>
-              <View style={styles.optionsContainer}>
-                <ConvoCarousel<Object | ImageGenerated>
-                  carouselRef={objectCarouselRef}
-                  currentIndex={objectIndex}
-                  setCurrentIndex={setObjectIndex}
-                  sentence={sentence}
-                  setSentence={setSentence}
-                  data={
-                    generatedObjectImages.length > 0
-                      ? generatedObjectImages
-                      : []
-                  }
-                  handleItemSelect={handleObjectSelect}
-                  fieldName="list_possible_objects"
-                />
-              </View>
-            </View>
-          )}
+          {/* Play Button */}
+          <View style={styles.playButtonContainer}>
+            <Pressable
+              style={[
+                styles.playButton,
+                // Disable if sentence is not complete
+                (!topic ||
+                  topic === 'NA' ||
+                  !action ||
+                  action === 'NA' ||
+                  !object ||
+                  object === 'NA' ||
+                  !generatedSentence ||
+                  generatedSentence.trim() === '' ||
+                  isLoading ||
+                  status === 'queued' ||
+                  status === 'in_progress') &&
+                  styles.disabledPlayButton,
+              ]}
+              onPress={handlePlaySentence}
+              disabled={
+                !topic ||
+                topic === 'NA' ||
+                !action ||
+                action === 'NA' ||
+                !object ||
+                object === 'NA' ||
+                !generatedSentence ||
+                generatedSentence.trim() === '' ||
+                isLoading ||
+                status === 'queued' ||
+                status === 'in_progress'
+              }>
+              <Text
+                style={[
+                  styles.playButtonIcon,
+                  // Dim text when disabled
+                  (!topic ||
+                    topic === 'NA' ||
+                    !action ||
+                    action === 'NA' ||
+                    !object ||
+                    object === 'NA' ||
+                    !generatedSentence ||
+                    generatedSentence.trim() === '' ||
+                    isLoading ||
+                    status === 'queued' ||
+                    status === 'in_progress') &&
+                    styles.disabledPlayButtonText,
+                ]}>
+                PLAY ▶️
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
 
-      {isKeyboardVisible && (
-        <View style={styles.keyboardOverlay}>
-          <TextInput
-            style={styles.keyboardInput}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            autoFocus
-            onBlur={() => setIsKeyboardVisible(false)}
-          />
-        </View>
-      )}
+      <View style={styles.matalkIcon}>
+        <FastImage source={matalkImg} style={styles.iconSize} />
+      </View>
     </LinearGradient>
   );
 };
@@ -724,6 +990,7 @@ const Convo = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
   },
   safeAreaPadding: {
     height: Platform.OS === 'ios' ? SCREEN_HEIGHT * 0.05 : SCREEN_HEIGHT * 0.03,
@@ -736,19 +1003,19 @@ const styles = StyleSheet.create({
     marginVertical: SCREEN_HEIGHT * 0.02,
     justifyContent: 'space-between',
   },
-  playButton: {
-    width: SCREEN_WIDTH * 0.12,
-    height: SCREEN_WIDTH * 0.12,
-    maxWidth: 60,
-    maxHeight: 60,
-    borderRadius: SCREEN_WIDTH * 0.06,
-    backgroundColor: '#fff',
+  matalkIcon: {
+    bottom: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
+    left: width * 0.03,
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    position: 'absolute',
   },
-  playIcon: {
-    width: '80%',
-    height: '80%',
+  iconSize: {
+    width: 60,
+    height: 60,
     resizeMode: 'contain',
   },
   input: {
@@ -788,21 +1055,28 @@ const styles = StyleSheet.create({
     fontSize: SCREEN_WIDTH * 0.02,
   },
   columnsContainer: {
-    flex: 1,
     flexDirection: 'row',
-    paddingHorizontal: 10,
+    width: '100%',
+    height: '100%',
   },
   column: {
-    flex: 1,
-    padding: 5,
-    borderRightWidth: 1,
-    borderColor: '#E0E0E0',
+    width: '33%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  speakerAudienceColumn: {
+    width: '15%',
+    marginRight: SCREEN_WIDTH * 0.03,
+    marginLeft: SCREEN_WIDTH * 0.03,
+    overflow: 'hidden',
   },
   content: {
     flex: 1,
   },
   section: {
-    marginBottom: 20,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,
@@ -810,56 +1084,25 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 10,
   },
-  optionsContainer: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  option: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    padding: 10,
-    alignItems: 'center',
-    width: '90%',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  selectedOption: {
-    borderColor: '#4CAF50',
-    backgroundColor: '#E8F5E9',
-  },
-  emoticon: {
-    fontSize: 24,
-    marginBottom: 5,
+  labelGrid: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#000',
   },
   optionText: {
-    marginTop: 5,
     fontSize: 14,
     color: '#333',
-  },
-  speakerContainer: {
-    height: 170,
-    width: COLUMN_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'visible',
-
-    paddingHorizontal: 0,
   },
   speakerOption: {
     borderRadius: 10,
     padding: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    width: 130,
-    height: 170,
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  verticalOption: {
-    height: SCREEN_HEIGHT * 0.3,
-    marginBottom: 10,
-    width: '100%',
-  },
+
   keyboardOverlay: {
     position: 'absolute',
     bottom: 0,
@@ -886,58 +1129,149 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlignVertical: 'top',
   },
-  personContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#3498db',
+  itemContainer: {
+    borderRadius: 16,
+    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  personContainer: {
+    borderRadius: SCREEN_WIDTH * 0.05,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    width: width * 0.08,
+    height: width * 0.08,
+    marginBottom: height * 0.01,
   },
   personImage: {
-    width: 40,
-    height: 40,
+    width: width * 0.05,
+    height: width * 0.05,
     resizeMode: 'contain',
-  },
-  talkContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 5,
   },
   talkImage: {
-    width: 80,
-    height: 80,
+    width: '95%',
+    height: '95%',
     resizeMode: 'contain',
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 80,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    padding: 10,
-    zIndex: 100,
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  itemContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: '100%',
   },
   itemImage: {
     width: '80%',
     height: '80%',
+  },
+  imageGrid: {
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  cardWrapper: {
+    width: '90%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: 'gray',
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  talkContainer: {
+    width: width * 0.1,
+    height: width * 0.1,
+    borderRadius: width * 0.05,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 5,
+  },
+  gridLabelContainer: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 8,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  gridItem: {
+    width: '85%',
+    borderRadius: 16,
+    overflow: 'visible',
+    shadowColor: 'gray',
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 4,
+    backgroundColor: 'white',
+    marginBottom: 15,
+  },
+  gridImageContainer: {
+    width: '100%',
+    height: SCREEN_HEIGHT * 0.2,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  sliderContainer: {
+    backgroundColor: '#F3F3F3',
+    borderRadius: 16,
+    width: '90%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: height * 0.04,
+  },
+  slider: {
+    width: '100%',
+  },
+  disabledSlider: {
+    opacity: 0.5,
+  },
+  playButtonContainer: {
+    width: '90%',
+    height: height * 0.05,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    marginTop: height * 0.06,
+  },
+  playButton: {
+    width: width * 0.2,
+    height: width * 0.05,
+    borderRadius: 16,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  playButtonIcon: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  disabledPlayButton: {
+    backgroundColor: '#CCCCCC',
+  },
+  disabledPlayButtonText: {
+    color: '#999',
   },
 });
 
@@ -954,6 +1288,9 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   fieldName,
   showPersonIcon = false,
   showTalkIcon = false,
+  selectedTopic,
+  selectedAction,
+  selectedObject,
 }: {
   carouselRef: React.RefObject<ICarouselInstance | null>;
   currentIndex: number;
@@ -973,6 +1310,9 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
     | 'sentenceType';
   showPersonIcon?: boolean;
   showTalkIcon?: boolean;
+  selectedTopic?: Topic;
+  selectedAction?: Action;
+  selectedObject?: Object;
 }) => {
   const isVerticalLayout =
     fieldName === 'list_possible_actions' ||
@@ -1001,36 +1341,56 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
     // For vertical layout, render items in a ScrollView instead of Carousel
     return (
       <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          justifyContent: 'flex-start',
+          alignItems: 'center',
+          marginTop: height * 0.02,
+          paddingBottom: height * 0.2, // Add padding to prevent last item from being cut off
+        }}
         style={{
           width: '100%',
-          maxHeight: SCREEN_HEIGHT * 0.8,
-          minHeight: SCREEN_HEIGHT * 0.8,
+          maxHeight: SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
+          minHeight: SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
         }}>
         {data.map((item, index) => (
           <Pressable
             key={`${fieldName}-${getItemText(item)}-${index}`}
             style={[
-              styles.speakerOption,
-              sentence[fieldName as keyof Sentence] === getItemText(item) &&
-                styles.selectedOption,
-              styles.verticalOption,
+              styles.gridItem,
+              // Add red bottom border when item is selected
+              ((fieldName === 'list_possible_topics' &&
+                getItemText(item) === selectedTopic) ||
+                (fieldName === 'list_possible_actions' &&
+                  getItemText(item) === selectedAction) ||
+                (fieldName === 'list_possible_objects' &&
+                  getItemText(item) === selectedObject)) && {
+                borderBottomWidth: 6,
+                borderBottomColor: 'red',
+              },
             ]}
             onPress={() => handleItemSelect(item, index)}>
-            <View style={styles.itemContainer}>
+            <View style={styles.gridImageContainer}>
               {getItemImageUrl(item) ? (
                 <FastImage
-                  source={{uri: getItemImageUrl(item)}}
-                  style={styles.itemImage}
-                  resizeMode="contain"
+                  source={
+                    DEBUGCONVONOIMAGEGENERATION
+                      ? welcomeImg
+                      : {uri: getItemImageUrl(item)}
+                  }
+                  style={styles.imageGrid}
+                  resizeMode="cover"
                 />
               ) : (
                 <Image
-                  source={require('../assets/welcome.png')}
-                  style={styles.itemImage}
-                  resizeMode="contain"
+                  source={welcomeImg}
+                  style={styles.imageGrid}
+                  resizeMode="cover"
                 />
               )}
-              <Text style={styles.optionText}>{getItemText(item)}</Text>
+            </View>
+            <View style={styles.gridLabelContainer}>
+              <Text style={styles.labelGrid}>{getItemText(item)}</Text>
             </View>
           </Pressable>
         ))}
@@ -1048,7 +1408,8 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
       data={data}
       scrollAnimationDuration={1000}
       onSnapToItem={index => {
-        // Update only the specific field
+        setCurrentIndex(index);
+        // Update the sentence with the selected item
         const item = data[index];
         const value = getItemText(item);
         setSentence({...sentence, [fieldName]: value});
@@ -1069,15 +1430,19 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
       }}
       renderItem={({item: cardItem, index}) => (
         <Pressable
-          style={[
-            styles.speakerOption,
-            sentence[fieldName as keyof Sentence] === getItemText(cardItem) &&
-              styles.selectedOption,
-          ]}
+          style={[styles.speakerOption]}
           onPress={() => handleItemSelect(cardItem, index)}>
           {showPersonIcon ? (
             <>
-              <View style={styles.personContainer}>
+              <View
+                style={[
+                  styles.personContainer,
+                  sentence[fieldName as keyof Sentence] ===
+                    getItemText(cardItem) && {
+                    borderBottomWidth: 6,
+                    borderBottomColor: 'red',
+                  },
+                ]}>
                 <Image
                   source={require('../assets/person.png')}
                   style={styles.personImage}
@@ -1087,7 +1452,14 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
             </>
           ) : showTalkIcon ? (
             <>
-              <View style={styles.talkContainer}>
+              <View
+                style={[
+                  styles.talkContainer,
+                  sentence.sentenceType === getItemText(cardItem) && {
+                    borderBottomWidth: 3,
+                    borderBottomColor: 'red',
+                  },
+                ]}>
                 {getItemText(cardItem) === '?' ? (
                   <Image
                     source={require('../assets/boyAsk.png')}
@@ -1100,20 +1472,23 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
                   />
                 )}
               </View>
-              <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
             </>
           ) : (
             <>
               <View style={styles.itemContainer}>
                 {getItemImageUrl(cardItem) ? (
                   <FastImage
-                    source={{uri: getItemImageUrl(cardItem)}}
+                    source={
+                      DEBUGCONVONOIMAGEGENERATION
+                        ? welcomeImg
+                        : {uri: getItemImageUrl(cardItem)}
+                    }
                     style={styles.itemImage}
                     resizeMode="contain"
                   />
                 ) : (
                   <Image
-                    source={require('../assets/welcome.png')}
+                    source={welcomeImg}
                     style={styles.itemImage}
                     resizeMode="contain"
                   />

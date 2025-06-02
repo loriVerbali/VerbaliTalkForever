@@ -17,6 +17,7 @@ interface Preferences {
   heroName: string;
   adminCode: string;
   gender: string;
+  auth0Id: string;
 }
 
 const initEnum = {
@@ -47,6 +48,7 @@ const initialPreferences: Preferences = {
   heroName: '',
   adminCode: '',
   gender: '',
+  auth0Id: '',
 };
 
 interface AppSettingsContextProps {
@@ -77,7 +79,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
     value: string,
   ): Promise<void> => {
     try {
-      console.log('Setting item in DefaultPreference', key, value);
       await DefaultPreference.set(key, value);
       setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
     } catch (error) {
@@ -87,7 +88,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const getItem = async (key: keyof Preferences): Promise<string> => {
     try {
-      console.log('Getting item from DefaultPreference', key);
       const item = await DefaultPreference.get(key);
       return item ?? initialPreferences[key];
     } catch (error) {
@@ -98,7 +98,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const removeItem = async (key: keyof Preferences): Promise<void> => {
     try {
-      console.log('Removing item from DefaultPreference', key);
       await DefaultPreference.clear(key);
       setPreferences(prevPreferences => ({
         ...prevPreferences,

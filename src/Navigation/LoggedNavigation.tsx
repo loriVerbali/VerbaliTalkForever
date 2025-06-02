@@ -35,7 +35,6 @@ function LoggedNavigation() {
   useEffect(() => {
     // Check if user is already logged in
     const checkLoginStatus = async () => {
-      console.log('checkLoginStatus');
       try {
         // Only run on first render
         if (isFirstRender.current) {

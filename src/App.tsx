@@ -13,11 +13,11 @@ import {AppSettingsProvider} from './utils/persistance';
 import {ConnectionProvider} from './utils/connection';
 import {AdminProvider} from './contexts/adminContext';
 import TTSService from './utils/TTSService';
-import VoiceService from './utils/VoiceService';
 import {SoundProvider} from './contexts/soundContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {useAuth0, Auth0Provider} from 'react-native-auth0';
-
+import {Auth0Provider} from 'react-native-auth0';
+import Vosk from 'react-native-vosk';
+const vosk = new Vosk();
 const App = () => {
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
@@ -25,8 +25,9 @@ const App = () => {
       // Initialize TTS service when the app starts
       await TTSService.initialize();
 
-      // Pre-initialize Voice service
-      await VoiceService.initialize();
+      vosk
+        .loadModel('vosk-model-small-en-us-0.15')
+        .then(() => console.log('✅ iOS model loaded'));
     };
 
     initServices();
@@ -34,7 +35,6 @@ const App = () => {
     // Clean up resources when app is closed
     return () => {
       TTSService.shutdown();
-      VoiceService.destroy();
     };
   }, []);
 
