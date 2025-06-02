@@ -10,6 +10,7 @@ class WakeWordService {
   private loaded = false;
   private subscription?: {remove: () => void};
   private wakeWord = 'hey matan';
+  private currentCallback?: WakeWordCallback; // Store the current callback for reloading
 
   // Detection tracking
   private lastDetectionTime = 0;
@@ -38,6 +39,51 @@ class WakeWordService {
       WakeWordService.instance = new WakeWordService();
     }
     return WakeWordService.instance;
+  }
+
+  /** Offload the Vosk model to free memory when app goes to background */
+  async offloadModel(): Promise<void> {
+    try {
+      console.log('🗑️ Offloading Vosk model...');
+
+      // Stop listening first
+      if (this.subscription) {
+        this.subscription.remove();
+        this.subscription = undefined;
+      }
+
+      // Stop the Vosk engine
+      await this.vosk.stop();
+
+      // Mark as not loaded so it will reload when needed
+      this.loaded = false;
+
+      console.log('✅ Vosk model offloaded successfully');
+    } catch (error) {
+      console.error('❌ Error offloading Vosk model:', error);
+    }
+  }
+
+  /** Reload the Vosk model when app comes back to foreground */
+  async reloadModel(): Promise<void> {
+    try {
+      console.log('🔄 Reloading Vosk model...');
+
+      if (!this.loaded) {
+        // Reload the model
+        await this.vosk.loadModel('vosk-model-small-en-us-0.15');
+        this.loaded = true;
+        console.log('✅ Vosk model reloaded successfully');
+
+        // If we had a callback registered, restart listening
+        if (this.currentCallback) {
+          console.log('🎤 Restarting wake word listening...');
+          await this.startListening(this.currentCallback);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error reloading Vosk model:', error);
+    }
   }
 
   private checkShouldActivate(): boolean {
@@ -179,6 +225,9 @@ class WakeWordService {
 
   /** Call once (e.g. in App.tsx) */
   async startListening(onWake: WakeWordCallback) {
+    // Store the callback for potential reloading
+    this.currentCallback = onWake;
+
     if (!this.loaded) {
       // ✅ load the bundled model once
       await this.vosk.loadModel('vosk-model-small-en-us-0.15');
@@ -287,6 +336,8 @@ class WakeWordService {
   /** Call when you want to stop listening (e.g. on logout) */
   async stopListening() {
     this.subscription?.remove();
+    this.subscription = undefined;
+    this.currentCallback = undefined;
     await this.vosk.stop();
   }
 }

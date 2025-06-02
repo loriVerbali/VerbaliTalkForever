@@ -6,8 +6,8 @@
  * @flow strict-local
  */
 import 'react-native-gesture-handler';
-import React, {useEffect} from 'react';
-import {StyleSheet, Linking} from 'react-native';
+import React, {useEffect, useRef} from 'react';
+import {StyleSheet, Linking, AppState, AppStateStatus} from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
 import {ConnectionProvider} from './utils/connection';
@@ -17,8 +17,13 @@ import {SoundProvider} from './contexts/soundContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {Auth0Provider} from 'react-native-auth0';
 import Vosk from 'react-native-vosk';
+import WakeWordService from './utils/wakewordService';
+
 const vosk = new Vosk();
+
 const App = () => {
+  const appState = useRef(AppState.currentState);
+
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
     const initServices = async () => {
@@ -32,9 +37,39 @@ const App = () => {
 
     initServices();
 
+    // Handle app state changes for Vosk model management
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('🔄 App has come to the foreground - reloading Vosk model');
+        // App has come to the foreground, reload the model
+        WakeWordService.reloadModel();
+      } else if (
+        appState.current === 'active' &&
+        nextAppState.match(/inactive|background/)
+      ) {
+        console.log(
+          '💤 App has gone to the background - offloading Vosk model',
+        );
+        // App is going to the background, offload the model
+        WakeWordService.offloadModel();
+      }
+
+      appState.current = nextAppState;
+      console.log('AppState:', appState.current);
+    };
+
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+
     // Clean up resources when app is closed
     return () => {
       TTSService.shutdown();
+      subscription?.remove();
     };
   }, []);
 

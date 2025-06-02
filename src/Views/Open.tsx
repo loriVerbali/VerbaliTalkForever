@@ -22,6 +22,7 @@ import {useAppSettings} from '../utils/persistance';
 import wakeWord from '../utils/wakewordService';
 import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
+import matalkImg from '../assets/matalk.png';
 type RootStackParamList = {
   LOGIN: undefined;
   HOME: {stateof?: string};
@@ -45,9 +46,10 @@ const OpenScreen: React.FC = () => {
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
-  const matalkImg = require('../assets/matalk.png');
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
+  const {preferences} = useAppSettings();
+  const heroName = preferences?.heroName;
 
   // Track connection state changes
   useEffect(() => {
@@ -292,7 +294,7 @@ const OpenScreen: React.FC = () => {
           colors={['#FFF8E7', '#FFFFFF']}
           style={styles.container}>
           <View style={styles.headerContainer}>
-            <Text style={styles.headerText}>Hi Matan</Text>
+            <Text style={styles.headerText}>Hi {heroName ? heroName : ''}</Text>
             <FastImage
               source={require('../assets/hand.png')}
               style={styles.matanImage}
