@@ -33,8 +33,8 @@ const {width, height} = Dimensions.get('window');
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
 type Object = 'NA' | 'ball';
-type Speaker = 'I' | 'Dad' | 'Mom';
-type Audience = 'I' | 'Dad' | 'Mom';
+type Speaker = string;
+type Audience = string;
 type SentenceType = '?' | '!';
 
 interface Sentence {
@@ -91,8 +91,11 @@ const Convo = () => {
   const topicCarouselRef = useRef<ICarouselInstance>(null);
   const actionCarouselRef = useRef<ICarouselInstance>(null);
   const objectCarouselRef = useRef<ICarouselInstance>(null);
-  const speakers: Speaker[] = ['I', 'Dad', 'Mom'];
-  const audience: Audience[] = ['I', 'Dad', 'Mom'];
+
+  // Dynamic speakers and audience based on family members
+  const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [audience, setAudience] = useState<Audience[]>([]);
+
   const sentenceTypes: SentenceType[] = ['?', '!'];
   const [speakerIndex, setSpeakerIndex] = useState(0);
   const [audienceIndex, setAudienceIndex] = useState(0);
@@ -124,7 +127,7 @@ const Convo = () => {
   const [sliderPosition, setSliderPosition] = useState(0); // 0: topics, 1: actions, 2: objects
   const [isAutoSliding, setIsAutoSliding] = useState(false);
 
-  // Load family members data
+  // Load family members data and update speakers/audience
   useEffect(() => {
     const loadFamilyData = async () => {
       try {
@@ -132,9 +135,29 @@ const Convo = () => {
         if (savedData) {
           const parsedData = JSON.parse(savedData);
           setFamilyMembers(parsedData);
+
+          // Extract names for speakers and audience
+          const memberNames = parsedData.map(
+            (member: FamilyMember) => member.name,
+          );
+          setSpeakers(memberNames);
+          setAudience(memberNames);
+        } else {
+          // Fallback to default family members if no saved data
+          const defaultMembers = [
+            {id: 'me', name: 'I', isDefault: true},
+            {id: 'mom', name: 'Mom', isDefault: true},
+            {id: 'dad', name: 'Dad', isDefault: true},
+          ];
+          setFamilyMembers(defaultMembers);
+          setSpeakers(['I', 'Mom', 'Dad']);
+          setAudience(['I', 'Mom', 'Dad']);
         }
       } catch (error) {
         console.error('Error loading family data:', error);
+        // Fallback to default
+        setSpeakers(['I', 'Mom', 'Dad']);
+        setAudience(['I', 'Mom', 'Dad']);
       }
     };
 
@@ -759,19 +782,21 @@ const Convo = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The speaker:</Text>
             <View style={styles.cardWrapper}>
-              <ConvoCarousel<Speaker>
-                carouselRef={speakerCarouselRef}
-                currentIndex={speakerIndex}
-                setCurrentIndex={setSpeakerIndex}
-                sentence={sentence}
-                setSentence={setSentence}
-                data={speakers}
-                handleItemSelect={handleSpeakerSelect}
-                fieldName="speaker"
-                showPersonIcon={true}
-                familyMembers={familyMembers}
-                getFamilyMemberImage={getFamilyMemberImage}
-              />
+              {speakers.length > 0 && (
+                <ConvoCarousel<Speaker>
+                  carouselRef={speakerCarouselRef}
+                  currentIndex={speakerIndex}
+                  setCurrentIndex={setSpeakerIndex}
+                  sentence={sentence}
+                  setSentence={setSentence}
+                  data={speakers}
+                  handleItemSelect={handleSpeakerSelect}
+                  fieldName="speaker"
+                  showPersonIcon={true}
+                  familyMembers={familyMembers}
+                  getFamilyMemberImage={getFamilyMemberImage}
+                />
+              )}
             </View>
           </View>
 
@@ -779,19 +804,21 @@ const Convo = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The audience:</Text>
             <View style={styles.cardWrapper}>
-              <ConvoCarousel<Audience>
-                carouselRef={audienceCarouselRef}
-                currentIndex={audienceIndex}
-                setCurrentIndex={setAudienceIndex}
-                sentence={sentence}
-                setSentence={setSentence}
-                data={audience}
-                handleItemSelect={handleAudienceSelect}
-                fieldName="audience"
-                showPersonIcon={true}
-                familyMembers={familyMembers}
-                getFamilyMemberImage={getFamilyMemberImage}
-              />
+              {audience.length > 0 && (
+                <ConvoCarousel<Audience>
+                  carouselRef={audienceCarouselRef}
+                  currentIndex={audienceIndex}
+                  setCurrentIndex={setAudienceIndex}
+                  sentence={sentence}
+                  setSentence={setSentence}
+                  data={audience}
+                  handleItemSelect={handleAudienceSelect}
+                  fieldName="audience"
+                  showPersonIcon={true}
+                  familyMembers={familyMembers}
+                  getFamilyMemberImage={getFamilyMemberImage}
+                />
+              )}
             </View>
           </View>
 
@@ -1367,6 +1394,11 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   familyMembers?: FamilyMember[];
   getFamilyMemberImage?: (memberName: string) => string | undefined;
 }) => {
+  // Return null if data is empty to prevent rendering issues
+  if (!data || data.length === 0) {
+    return null;
+  }
+
   const isVerticalLayout =
     fieldName === 'list_possible_actions' ||
     fieldName === 'list_possible_objects' ||
