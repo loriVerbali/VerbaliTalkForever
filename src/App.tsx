@@ -15,7 +15,7 @@ import {AdminProvider} from './contexts/adminContext';
 import TTSService from './utils/TTSService';
 import {SoundProvider} from './contexts/soundContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {useAuth0, Auth0Provider} from 'react-native-auth0';
+import {Auth0Provider} from 'react-native-auth0';
 import Vosk from 'react-native-vosk';
 const vosk = new Vosk();
 const App = () => {

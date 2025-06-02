@@ -17,6 +17,7 @@ interface Preferences {
   heroName: string;
   adminCode: string;
   gender: string;
+  auth0Id: string;
 }
 
 const initEnum = {
@@ -47,6 +48,7 @@ const initialPreferences: Preferences = {
   heroName: '',
   adminCode: '',
   gender: '',
+  auth0Id: '',
 };
 
 interface AppSettingsContextProps {
