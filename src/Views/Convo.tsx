@@ -30,26 +30,7 @@ const {width, height} = Dimensions.get('window');
 
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
-type Object =
-  | 'NA'
-  | 'hello'
-  | 'goodbye'
-  | 'please'
-  | 'question'
-  | 'help'
-  | 'permission'
-  | 'story'
-  | 'joke'
-  | 'secret'
-  | 'fast'
-  | 'slow'
-  | 'together'
-  | 'high'
-  | 'low'
-  | 'rope'
-  | 'music'
-  | 'party';
-
+type Object = 'NA' | 'ball';
 type Speaker = 'I' | 'Dad' | 'Mom';
 type Audience = 'I' | 'Dad' | 'Mom';
 type SentenceType = '?' | '!';
@@ -173,15 +154,9 @@ const Convo = () => {
     try {
       setIsLoading(true);
 
-      // Create a thread if needed
-      console.log('📋 Checking if a new thread is needed...');
-
-      console.log(`🧵 Using thread ID: ${threadId}`);
-
       // Prepare the message with the mode and content
       // Format the message to clearly indicate the mode for the assistant
       const message = `${prompt}`;
-      console.log(`💬 Sending message with mode ${mode}:`, message);
 
       // Send the message
       const messageId = await sendMessage(
@@ -197,11 +172,7 @@ const Convo = () => {
       console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
 
       // Run the assistant
-      console.log('🤖 Running assistant...');
       const runId = await runAssistant();
-      console.log(`🏃 Assistant run started with ID: ${runId}`);
-
-      console.log('⏳ Waiting for assistant response...');
       return true;
     } catch (error) {
       console.error(`❌ Error calling assistant in ${mode} mode:`, error);
@@ -216,35 +187,36 @@ const Convo = () => {
       // Process each prompt in the array
       for (const prompt of array) {
         const text = prompt.text;
-        // const encodedPrompt = encodeURIComponent(prompt.image_prompt);
+        let imageUrl = DEBUGCONVONOIMAGEGENERATION ? welcomeImg : '';
+        if (!DEBUGCONVONOIMAGEGENERATION) {
+          const encodedPrompt = encodeURIComponent(prompt.image_prompt);
 
-        // // Generate a random seed for variety
-        // const seed = Math.floor(Math.random() * 1000);
+          // Generate a random seed for variety
+          const seed = Math.floor(Math.random() * 1000);
 
-        // const response = await fetchHelper(
-        //   'generateImage',
-        //   {
-        //     prompt: encodedPrompt,
-        //     seed: seed.toString(),
-        //   },
-        //   {},
-        // );
+          const response = await fetchHelper(
+            'generateImage',
+            {
+              prompt: encodedPrompt,
+              seed: seed.toString(),
+            },
+            {},
+          );
 
-        // // Handle different possible response formats
-        // let imageUrl = '';
-        // if (typeof response === 'string') {
-        //   // Direct URL string response
-        //   imageUrl = response;
-        // } else if (
-        //   response &&
-        //   typeof response === 'object' &&
-        //   'url' in response
-        // ) {
-        //   // Object response with url property
-        //   imageUrl = response.url || '';
-        // }
-
-        const imageUrl = welcomeImg;
+          // Handle different possible response formats
+          let imageUrl = '';
+          if (typeof response === 'string') {
+            // Direct URL string response
+            imageUrl = response;
+          } else if (
+            response &&
+            typeof response === 'object' &&
+            'url' in response
+          ) {
+            // Object response with url property
+            imageUrl = response.url || '';
+          }
+        }
 
         if (imageUrl) {
           // Add both the text prompt and image URL to the array
@@ -273,7 +245,6 @@ const Convo = () => {
   // Handle assistant responses
   useEffect(() => {
     if (response) {
-      console.log('📩 Received assistant response:', response);
       try {
         // Handle the response based on its modeType
         if (response.modeType === 'list_possible_topics') {
@@ -336,7 +307,6 @@ const Convo = () => {
             const sentenceData = response?.response;
 
             if (sentenceData) {
-              console.log('📝 Got generated sentence:', sentenceData);
               setGeneratedSentence(sentenceData);
               setInputText(sentenceData);
               console.log('✅ Generated sentence applied to input');
@@ -360,11 +330,6 @@ const Convo = () => {
   useEffect(() => {
     const generateTopics = async () => {
       const {speaker, audience, sentenceType} = sentence;
-      console.log('👁️ Checking if we should generate topics...');
-      console.log('  Speaker:', speaker);
-      console.log('  Audience:', audience);
-      console.log('  SentenceType:', sentenceType);
-      console.log('  SliderPosition:', sliderPosition);
 
       // Only proceed if all three are selected, slider is at position 0, and we don't have a valid topic
       if (
@@ -374,7 +339,6 @@ const Convo = () => {
         sliderPosition === 0 &&
         (!topic || topic === 'NA')
       ) {
-        console.log('✅ All prerequisites met, generating topics');
         const prompt = `Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'list_possible_topics'`;
@@ -399,13 +363,6 @@ const Convo = () => {
   useEffect(() => {
     const generateActions = async () => {
       const {speaker, audience, sentenceType} = sentence;
-      console.log('👁️ Checking if we should generate actions...');
-      console.log('  Speaker:', speaker);
-      console.log('  Audience:', audience);
-      console.log('  SentenceType:', sentenceType);
-      console.log('  Topic:', topic);
-      console.log('  Action:', action);
-      console.log('  SliderPosition:', sliderPosition);
 
       // Only proceed if we have prerequisites and either no action selected or at position 1
       if (
@@ -417,7 +374,6 @@ const Convo = () => {
         sliderPosition === 1 &&
         (!action || action === 'NA')
       ) {
-        console.log('✅ Topic selected, generating actions');
         const prompt = `Please list possible action verbs related to the topic "${topic}" for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 3 simple, kid-friendly action verbs. The message.metadata.mode = 'actions'`;
@@ -436,14 +392,6 @@ const Convo = () => {
   useEffect(() => {
     const generateObjects = async () => {
       const {speaker, audience, sentenceType} = sentence;
-      console.log('👁️ Checking if we should generate objects...');
-      console.log('  Speaker:', speaker);
-      console.log('  Audience:', audience);
-      console.log('  SentenceType:', sentenceType);
-      console.log('  Topic:', topic);
-      console.log('  Action:', action);
-      console.log('  Object:', object);
-      console.log('  SliderPosition:', sliderPosition);
 
       // Only proceed if we have prerequisites and either no object selected or at position 2
       if (
@@ -457,7 +405,6 @@ const Convo = () => {
         sliderPosition === 2 &&
         (!object || object === 'NA')
       ) {
-        console.log('✅ Action selected, generating objects');
         const objectsPrompt = `Please list possible direct objects or noun phrases for the action "${action}" related to the topic "${topic}" in a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 3 simple, kid-friendly objects. The message.metadata.mode = 'objects'`;
@@ -475,10 +422,6 @@ const Convo = () => {
   useEffect(() => {
     const {speaker, audience, sentenceType} = sentence;
     const generateSentence = async () => {
-      console.log('🔵 Topic:', topic);
-      console.log('🔵 Action:', action);
-      console.log('🔵 Object:', object);
-
       const sentencePrompt = `Please create a complete, kid-friendly sentence where ${speaker} wants to ${action} with the topic "${topic}" to ${audience}. The sentence should be a ${
         sentenceType === '?' ? 'question' : 'statement'
       }. Return just the sentence.`;
@@ -672,16 +615,16 @@ const Convo = () => {
     }
   }, [action]);
 
-  useEffect(() => {
-    if (topic === 'NA' && (sliderPosition === 1 || sliderPosition === 2)) {
-      setSliderPosition(0);
-      setTimeout(() => setIsAutoSliding(false), 0);
-    }
-    if (action === 'NA' && sliderPosition === 2) {
-      setSliderPosition(1);
-      setTimeout(() => setIsAutoSliding(false), 0);
-    }
-  }, [sliderPosition]);
+  // useEffect(() => {
+  //   if (topic === 'NA' && (sliderPosition === 1 || sliderPosition === 2)) {
+  //     setSliderPosition(0);
+  //     setTimeout(() => setIsAutoSliding(false), 0);
+  //   }
+  //   if (action === 'NA' && sliderPosition === 2) {
+  //     setSliderPosition(1);
+  //     setTimeout(() => setIsAutoSliding(false), 0);
+  //   }
+  // }, [sliderPosition]);
 
   // Function to handle TTS playback
   const handlePlaySentence = async () => {
@@ -695,15 +638,15 @@ const Convo = () => {
 
         // Wait for 3 seconds before resetting
         setTimeout(() => {
-          // Reset all state after playing
-          setSentence({
-            speaker: '',
-            audience: '',
+          // Reset everything except sentence type first
+          setSentence(prev => ({
+            ...prev,
             sentenceType: '',
             list_possible_topics: '',
             action: '',
             object: '',
-          });
+          }));
+          setSentenceTypeIndex(0);
           setInputText('');
           setTopic('NA');
           setAction('NA');
