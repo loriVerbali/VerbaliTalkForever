@@ -65,6 +65,12 @@ const onboardingSteps = [
     additionalComponents: 'permissions',
     buttonText: 'Done',
   },
+  {
+    id: 'Optional Permissions',
+    question: 'Optional Permissions',
+    additionalComponents: 'optional-permissions',
+    buttonText: 'Done',
+  },
 ];
 
 const OnboardingScreen: React.FC = () => {
@@ -80,7 +86,9 @@ const OnboardingScreen: React.FC = () => {
   const [permissionsDenied, setPermissionsDenied] = useState(false);
   const [permissionsPermanentlyDenied, setPermissionsPermanentlyDenied] =
     useState(false);
-
+  const [locationGranted, setLocationGranted] = useState(false);
+  const [locationPermissionAttempted, setLocationPermissionAttempted] =
+    useState(false);
   const handleNext = async () => {
     if (currentStep < onboardingSteps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -407,6 +415,24 @@ const OnboardingScreen: React.FC = () => {
             )}
           </View>
         );
+      case 'optional-permissions':
+        return (
+          <View style={styles.permissionsContainer}>
+            <FastImage
+              source={require('../assets/boyAsk.png')}
+              style={styles.permissionsImage}
+              resizeMode={FastImage.resizeMode.contain}
+            />
+            <Text style={styles.permissionsExplanation}>
+              Location to help Matalk know where you are.
+            </Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={requestLocationPermission}>
+              <Text style={styles.buttonText}>Enable Location</Text>
+            </TouchableOpacity>
+          </View>
+        );
       default:
         return null;
     }
@@ -511,6 +537,30 @@ const OnboardingScreen: React.FC = () => {
     return true;
   };
 
+  const requestLocationPermission = async () => {
+    setLocationPermissionAttempted(true);
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
+        setLocationGranted(granted === PermissionsAndroid.RESULTS.GRANTED);
+      } catch (err) {
+        console.warn('Location permission error:', err);
+        setLocationGranted(false);
+      }
+    }
+    if (Platform.OS === 'ios') {
+      try {
+        const granted = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        setLocationGranted(granted === RESULTS.GRANTED);
+      } catch (err) {
+        console.warn('Location permission error:', err);
+        setLocationGranted(false);
+      }
+    }
+  };
+
   const openSettings = () => {
     if (Platform.OS === 'ios') {
       Linking.openURL('app-settings:');
@@ -559,8 +609,10 @@ const OnboardingScreen: React.FC = () => {
               style={[
                 styles.button,
                 // Hide the done button if on permissions step and permissions not granted
-                currentStepData.id === 'Permissions' &&
-                  !permissionsGranted &&
+                ((currentStepData.id === 'Permissions' &&
+                  !permissionsGranted) ||
+                  (currentStepData.id === 'Optional Permissions' &&
+                    !locationPermissionAttempted)) &&
                   styles.hiddenButton,
               ]}
               onPress={handleNext}
@@ -569,7 +621,9 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'admin-code' &&
                   adminCode.length !== 4) ||
                 (currentStepData.id === 'gender' && !selectedGender) ||
-                (currentStepData.id === 'Permissions' && !permissionsGranted)
+                (currentStepData.id === 'Permissions' && !permissionsGranted) ||
+                (currentStepData.id === 'Optional Permissions' &&
+                  !locationPermissionAttempted)
               }>
               <Text style={styles.buttonText}>
                 {currentStepData.buttonText}

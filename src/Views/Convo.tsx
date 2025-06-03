@@ -25,6 +25,7 @@ import welcomeImg from '../assets/welcome.png';
 import Slider from '@react-native-community/slider';
 import {useAppSettings} from '../utils/persistance';
 import {FamilyMember} from '../Components/FamilyPics';
+import ContextInfo from '../Components/ContextInfo';
 
 const DEBUGCONVONOIMAGEGENERATION = true;
 
@@ -73,6 +74,7 @@ const Convo = () => {
   });
   const [inputText, setInputText] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [contextInfoVisible, setContextInfoVisible] = useState(false);
 
   // Get assistant context
   const {threadId, sendMessage, runAssistant, response, status} =
@@ -567,6 +569,10 @@ const Convo = () => {
     setIsKeyboardVisible(!isKeyboardVisible);
   };
 
+  const toggleContextInfo = () => {
+    setContextInfoVisible(!contextInfoVisible);
+  };
+
   // Handle manual slider changes
   const handleSliderChange = (value: number) => {
     if (isAutoSliding) return; // Ignore manual changes during auto-sliding
@@ -766,8 +772,8 @@ const Convo = () => {
           onChangeText={setInputText}
         />
         <View style={styles.inlineNavigationButtons}>
-          <Pressable style={styles.smallNavButton} onPress={toggleKeyboard}>
-            <Text style={styles.smallNavIcon}>⌨️</Text>
+          <Pressable style={styles.smallNavButton} onPress={toggleContextInfo}>
+            <Text style={styles.smallNavIcon}>ℹ️</Text>
           </Pressable>
           <Pressable style={styles.smallNavButton} onPress={handleHome}>
             <Text style={styles.smallNavIcon}>🏠</Text>
@@ -1043,6 +1049,11 @@ const Convo = () => {
       <View style={styles.matalkIcon}>
         <FastImage source={matalkImg} style={styles.iconSize} />
       </View>
+
+      <ContextInfo
+        visible={contextInfoVisible}
+        onClose={() => setContextInfoVisible(false)}
+      />
     </LinearGradient>
   );
 };

@@ -12,6 +12,7 @@ import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
 import {ConnectionProvider} from './utils/connection';
 import {AdminProvider} from './contexts/adminContext';
+import {ChatContextProvider} from './contexts/ChatContextProvider';
 import TTSService from './utils/TTSService';
 import {SoundProvider} from './contexts/soundContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
@@ -81,9 +82,11 @@ const App = () => {
         <ConnectionProvider>
           <AppSettingsProvider>
             <AdminProvider>
-              <SoundProvider>
-                <RootControllerView />
-              </SoundProvider>
+              <ChatContextProvider>
+                <SoundProvider>
+                  <RootControllerView />
+                </SoundProvider>
+              </ChatContextProvider>
             </AdminProvider>
           </AppSettingsProvider>
         </ConnectionProvider>
