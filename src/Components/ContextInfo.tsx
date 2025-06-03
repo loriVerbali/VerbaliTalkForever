@@ -96,6 +96,32 @@ const ContextInfo: React.FC<ContextInfoProps> = ({visible, onClose}) => {
                         {location.name}, {location.region}, {location.country}
                       </Text>
                     )}
+                    {/* {location.address && (
+                      <View style={styles.addressDetails}>
+                        {location.address.road && (
+                          <Text style={styles.addressText} numberOfLines={1}>
+                            📍 {location.address.road}
+                            {location.address.house_number &&
+                              ` ${location.address.house_number}`}
+                          </Text>
+                        )}
+                        {location.address.neighbourhood && (
+                          <Text style={styles.addressText} numberOfLines={1}>
+                            🏘️ {location.address.neighbourhood}
+                          </Text>
+                        )}
+                        {location.address.city && location.address.state && (
+                          <Text style={styles.addressText} numberOfLines={1}>
+                            🏙️ {location.address.city}, {location.address.state}
+                          </Text>
+                        )}
+                        {location.address.postcode && (
+                          <Text style={styles.addressText} numberOfLines={1}>
+                            📮 {location.address.postcode}
+                          </Text>
+                        )}
+                      </View>
+                    )} */}
                   </View>
                 ) : (
                   <Text style={styles.infoText}>Location access required</Text>
