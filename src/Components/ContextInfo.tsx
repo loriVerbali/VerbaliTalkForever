@@ -87,7 +87,25 @@ const ContextInfo: React.FC<ContextInfoProps> = ({visible, onClose}) => {
                 <Text style={styles.sectionTitle}>📍 Location</Text>
                 {location ? (
                   <View>
-                    {location.display_name ? (
+                    {location.specialPlace ? (
+                      <View style={styles.specialPlaceContainer}>
+                        <Text style={styles.specialPlaceIcon}>
+                          {location.specialPlace.type === 'home'
+                            ? '🏠'
+                            : location.specialPlace.type === 'school'
+                            ? '🏫'
+                            : '🏥'}
+                        </Text>
+                        <Text style={styles.specialPlaceText} numberOfLines={2}>
+                          {location.specialPlace.name}
+                        </Text>
+                        <Text
+                          style={styles.specialPlaceSubtext}
+                          numberOfLines={1}>
+                          Special Place
+                        </Text>
+                      </View>
+                    ) : location.display_name ? (
                       <Text style={styles.infoText} numberOfLines={3}>
                         {location.display_name}
                       </Text>
@@ -141,11 +159,14 @@ const ContextInfo: React.FC<ContextInfoProps> = ({visible, onClose}) => {
                     <Text style={styles.errorText} numberOfLines={2}>
                       {error}
                     </Text>
-                    <Pressable
-                      style={styles.retryButton}
-                      onPress={refreshWeatherData}>
-                      <Text style={styles.retryButtonText}>Retry</Text>
-                    </Pressable>
+                    {!location && null}
+                    {location && (
+                      <Pressable
+                        style={styles.retryButton}
+                        onPress={refreshWeatherData}>
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                      </Pressable>
+                    )}
                   </View>
                 ) : weather ? (
                   <View style={styles.weatherContainer}>
@@ -329,6 +350,26 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#666',
     marginBottom: 2,
+    textAlign: 'center',
+  },
+  specialPlaceContainer: {
+    alignItems: 'center',
+  },
+  specialPlaceIcon: {
+    fontSize: 20,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  specialPlaceText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  specialPlaceSubtext: {
+    fontSize: 10,
+    color: '#666',
     textAlign: 'center',
   },
 });

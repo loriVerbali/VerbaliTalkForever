@@ -24,6 +24,7 @@ import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import matalkImg from '../assets/matalk.png';
 import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
+import SpecialPlaces from '../Components/SpecialPlaces';
 
 const {width, height} = Dimensions.get('window');
 
@@ -63,12 +64,18 @@ const onboardingSteps = [
     id: 'Permissions',
     question: 'Permissions',
     additionalComponents: 'permissions',
-    buttonText: 'Done',
+    buttonText: 'Next',
   },
   {
     id: 'Optional Permissions',
     question: 'Optional Permissions',
     additionalComponents: 'optional-permissions',
+    buttonText: 'Next',
+  },
+  {
+    id: 'Special Places',
+    question: 'Special Places',
+    additionalComponents: 'special-places',
     buttonText: 'Done',
   },
 ];
@@ -89,6 +96,9 @@ const OnboardingScreen: React.FC = () => {
   const [locationGranted, setLocationGranted] = useState(false);
   const [locationPermissionAttempted, setLocationPermissionAttempted] =
     useState(false);
+  const [locationPermissionSuccess, setLocationPermissionSuccess] =
+    useState(false);
+  const [specialPlacesCompleted, setSpecialPlacesCompleted] = useState(false);
   const handleNext = async () => {
     if (currentStep < onboardingSteps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -423,14 +433,28 @@ const OnboardingScreen: React.FC = () => {
               style={styles.permissionsImage}
               resizeMode={FastImage.resizeMode.contain}
             />
-            <Text style={styles.permissionsExplanation}>
-              Location to help Matalk know where you are.
-            </Text>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={requestLocationPermission}>
-              <Text style={styles.buttonText}>Enable Location</Text>
-            </TouchableOpacity>
+            {locationPermissionSuccess ? (
+              <Text style={styles.permissionsSuccess}>
+                ✅ Location permission granted successfully!
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.permissionsExplanation}>
+                  Location to help Matalk know where you are.
+                </Text>
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={requestLocationPermission}>
+                  <Text style={styles.buttonText}>Enable Location</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        );
+      case 'special-places':
+        return (
+          <View style={styles.specialPlacesContainer}>
+            <SpecialPlaces onComplete={() => setSpecialPlacesCompleted(true)} />
           </View>
         );
       default:
@@ -544,19 +568,31 @@ const OnboardingScreen: React.FC = () => {
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         );
-        setLocationGranted(granted === PermissionsAndroid.RESULTS.GRANTED);
+        const isGranted = granted === PermissionsAndroid.RESULTS.GRANTED;
+        setLocationGranted(isGranted);
+        setLocationPermissionSuccess(isGranted);
+        if (isGranted) {
+          setItem('wasLocationOnboarded', '1');
+        }
       } catch (err) {
         console.warn('Location permission error:', err);
         setLocationGranted(false);
+        setLocationPermissionSuccess(false);
       }
     }
     if (Platform.OS === 'ios') {
       try {
         const granted = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
-        setLocationGranted(granted === RESULTS.GRANTED);
+        const isGranted = granted === RESULTS.GRANTED;
+        setLocationGranted(isGranted);
+        setLocationPermissionSuccess(isGranted);
+        if (isGranted) {
+          setItem('wasLocationOnboarded', '1');
+        }
       } catch (err) {
         console.warn('Location permission error:', err);
         setLocationGranted(false);
+        setLocationPermissionSuccess(false);
       }
     }
   };
@@ -612,7 +648,8 @@ const OnboardingScreen: React.FC = () => {
                 ((currentStepData.id === 'Permissions' &&
                   !permissionsGranted) ||
                   (currentStepData.id === 'Optional Permissions' &&
-                    !locationPermissionAttempted)) &&
+                    !locationPermissionAttempted &&
+                    !locationPermissionSuccess)) &&
                   styles.hiddenButton,
               ]}
               onPress={handleNext}
@@ -623,7 +660,10 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'gender' && !selectedGender) ||
                 (currentStepData.id === 'Permissions' && !permissionsGranted) ||
                 (currentStepData.id === 'Optional Permissions' &&
-                  !locationPermissionAttempted)
+                  !locationPermissionAttempted &&
+                  !locationPermissionSuccess) ||
+                (currentStepData.id === 'Special Places' &&
+                  !specialPlacesCompleted)
               }>
               <Text style={styles.buttonText}>
                 {currentStepData.buttonText}
@@ -908,6 +948,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#000',
     marginBottom: height * 0.01,
+  },
+  specialPlacesContainer: {
+    width: '100%',
+    height: height * 0.6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

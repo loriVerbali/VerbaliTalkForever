@@ -6,6 +6,7 @@ import React, {
   ReactNode,
 } from 'react';
 import Geolocation from '@react-native-community/geolocation';
+import {useAppSettings} from '../utils/persistance';
 
 // WeatherAPI.com API key
 const WEATHER_API_KEY = 'f9cce715fe3d4b7da27170914250306';
@@ -21,6 +22,12 @@ interface WeatherData {
   feelsLike: number;
   uvIndex: number;
   visibility: number;
+}
+
+interface SpecialPlace {
+  type: 'home' | 'school' | 'therapy';
+  address: string;
+  isCurrentLocation: boolean;
 }
 
 interface LocationData {
@@ -41,6 +48,10 @@ interface LocationData {
     country?: string;
   };
   display_name?: string;
+  specialPlace?: {
+    type: 'home' | 'school' | 'therapy';
+    name: string;
+  } | null;
 }
 
 interface ChatContextType {
@@ -67,12 +78,243 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const {preferences, getItem} = useAppSettings();
 
   // Check if data is stale (older than 3 hours)
   const isDataStale = (): boolean => {
     if (!lastUpdated) return true;
     const now = new Date();
     return now.getTime() - lastUpdated.getTime() > CACHE_DURATION;
+  };
+
+  // Function to check if current location matches any special places
+  const checkSpecialPlaces = async (
+    currentAddress: string,
+    currentLat?: number,
+    currentLon?: number,
+  ): Promise<{
+    type: 'home' | 'school' | 'therapy';
+    name: string;
+  } | null> => {
+    try {
+      // Get saved special places
+      const specialPlacesData = await getItem('specialPlaces');
+      if (!specialPlacesData) {
+        console.log('No special places data found');
+        return null;
+      }
+
+      const specialPlaces: SpecialPlace[] = JSON.parse(specialPlacesData);
+      console.log('Found special places:', specialPlaces.length);
+
+      // Check each special place
+      for (const place of specialPlaces) {
+        console.log(`Checking place: ${place.type} - ${place.address}`);
+        if (place.address && place.address.trim()) {
+          let isMatch = false;
+
+          // If this place was set using current location, try to get its coordinates for comparison
+          if (place.isCurrentLocation && currentLat && currentLon) {
+            console.log('Trying coordinate-based matching for', place.type);
+            // For places set as "current location", we can try geocoding the saved address
+            // to get coordinates and compare distance
+            try {
+              const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+                place.address,
+              )}&limit=1`;
+              const geocodeResponse = await fetch(geocodeUrl);
+              const geocodeData = await geocodeResponse.json();
+
+              if (geocodeData && geocodeData.length > 0) {
+                const savedLat = parseFloat(geocodeData[0].lat);
+                const savedLon = parseFloat(geocodeData[0].lon);
+
+                // Calculate distance using Haversine formula (simplified)
+                const distance = calculateDistance(
+                  currentLat,
+                  currentLon,
+                  savedLat,
+                  savedLon,
+                );
+                console.log(
+                  `Distance to ${place.type}: ${distance.toFixed(3)} km`,
+                );
+
+                // If within 100 meters, consider it a match
+                if (distance < 0.1) {
+                  isMatch = true;
+                  console.log(`Coordinate match found for ${place.type}`);
+                }
+              }
+            } catch (error) {
+              console.warn('Error geocoding saved place:', error);
+            }
+          }
+
+          // If coordinate matching didn't work or wasn't applicable, fall back to address matching
+          if (!isMatch) {
+            console.log('Trying address-based matching for', place.type);
+            // Enhanced address matching
+            const placeAddressLower = place.address.toLowerCase();
+            const currentAddressLower = currentAddress.toLowerCase();
+
+            // Remove common words that don't help with matching
+            const commonWords = [
+              'the',
+              'and',
+              'or',
+              'at',
+              'in',
+              'on',
+              'of',
+              'to',
+              'for',
+              'with',
+              'by',
+            ];
+
+            const cleanAddress = (addr: string) => {
+              return addr
+                .split(/[,\s]+/)
+                .filter(comp => comp.length > 2 && !commonWords.includes(comp))
+                .map(comp => comp.replace(/[^\w]/g, '')); // Remove punctuation
+            };
+
+            const placeComponents = cleanAddress(placeAddressLower);
+            const currentComponents = cleanAddress(currentAddressLower);
+
+            console.log(`Place components for ${place.type}:`, placeComponents);
+            console.log('Current components:', currentComponents);
+
+            // Count matching components with fuzzy matching
+            let matchCount = 0;
+            for (const placeComp of placeComponents) {
+              for (const currentComp of currentComponents) {
+                // Exact match or one contains the other
+                if (
+                  placeComp === currentComp ||
+                  placeComp.includes(currentComp) ||
+                  currentComp.includes(placeComp)
+                ) {
+                  matchCount++;
+                  console.log(
+                    `Exact match found: ${placeComp} <-> ${currentComp}`,
+                  );
+                  break; // Don't count the same component multiple times
+                }
+
+                // Fuzzy matching for similar words (simple Levenshtein-like)
+                if (placeComp.length > 3 && currentComp.length > 3) {
+                  const similarity = calculateStringSimilarity(
+                    placeComp,
+                    currentComp,
+                  );
+                  if (similarity > 0.8) {
+                    matchCount += 0.5; // Partial match
+                    console.log(
+                      `Fuzzy match found: ${placeComp} <-> ${currentComp} (${similarity.toFixed(
+                        2,
+                      )})`,
+                    );
+                    break;
+                  }
+                }
+              }
+            }
+
+            // Determine if it's a match based on the ratio of matching components
+            const matchRatio = matchCount / Math.max(placeComponents.length, 1);
+            const minMatchRatio = placeComponents.length <= 2 ? 0.8 : 0.6; // Higher threshold for shorter addresses
+
+            console.log(
+              `Match ratio for ${place.type}: ${matchRatio.toFixed(
+                2,
+              )} (threshold: ${minMatchRatio})`,
+            );
+
+            if (matchRatio >= minMatchRatio && matchCount >= 1) {
+              isMatch = true;
+              console.log(`Address match found for ${place.type}`);
+            }
+          }
+
+          if (isMatch) {
+            const placeName =
+              place.type.charAt(0).toUpperCase() + place.type.slice(1);
+            console.log(`Detected special place: ${placeName} (${place.type})`);
+            return {
+              type: place.type,
+              name: placeName,
+            };
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error checking special places:', error);
+      return null;
+    }
+  };
+
+  // Helper function to calculate distance between two coordinates (in km)
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Helper function to calculate string similarity (simple version)
+  const calculateStringSimilarity = (str1: string, str2: string): number => {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+
+    if (longer.length === 0) return 1.0;
+
+    const editDistance = levenshteinDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  };
+
+  // Helper function to calculate Levenshtein distance
+  const levenshteinDistance = (str1: string, str2: string): number => {
+    const matrix = [];
+
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1,
+          );
+        }
+      }
+    }
+
+    return matrix[str2.length][str1.length];
   };
 
   // Get current location
@@ -146,6 +388,19 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
           visibility: Math.round(weatherData.current.vis_miles),
         };
 
+        // Check if current location matches any special places
+        const currentAddress =
+          geocodeData?.display_name ||
+          `${weatherData.location.name}, ${weatherData.location.region}`;
+        console.log('Checking special places for address:', currentAddress);
+        const specialPlace = await checkSpecialPlaces(currentAddress, lat, lon);
+
+        if (specialPlace) {
+          console.log('Found special place match:', specialPlace);
+        } else {
+          console.log('No special place matches found');
+        }
+
         const locationData: LocationData = {
           name: weatherData.location.name,
           region: weatherData.location.region,
@@ -153,6 +408,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
           localTime: weatherData.location.localtime,
           latitude: lat,
           longitude: lon,
+          specialPlace,
           // Add reverse geocoding data if available
           ...(geocodeData && {
             display_name: geocodeData.display_name,
@@ -175,6 +431,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
 
   // Main function to refresh weather data
   const refreshWeatherData = async () => {
+    console.log('refreshWeatherData');
     if (loading) return; // Prevent multiple simultaneous requests
 
     setLoading(true);
@@ -196,15 +453,16 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
 
   // Auto-refresh on mount if data is stale
   useEffect(() => {
-    if (isDataStale()) {
+    if (isDataStale() && preferences.wasLocationOnboarded === '1') {
       refreshWeatherData();
     }
-  }, []);
+  }, [preferences?.wasLocationOnboarded]);
 
   // Auto-refresh every 3 hours
   useEffect(() => {
+    console.log('wasLocationOnboarded', preferences.wasLocationOnboarded);
     const interval = setInterval(() => {
-      if (isDataStale()) {
+      if (isDataStale() && preferences.wasLocationOnboarded === '1') {
         refreshWeatherData();
       }
     }, CACHE_DURATION);
@@ -260,7 +518,26 @@ export const getContextualInfo = (
   let contextInfo = `Current context: It's ${dayOfWeek} ${timePeriod} at ${timeOfDay}`;
 
   if (location) {
-    contextInfo += `. Location: ${location.name}, ${location.region}, ${location.country}`;
+    // Check if user is at a special place
+    if (location.specialPlace) {
+      contextInfo += `. Location: Currently at ${location.specialPlace.name}`;
+
+      // Add context-specific information based on the special place
+      switch (location.specialPlace.type) {
+        case 'home':
+          contextInfo += ' (home environment - comfortable, familiar setting)';
+          break;
+        case 'school':
+          contextInfo += ' (school environment - learning, social interaction)';
+          break;
+        case 'therapy':
+          contextInfo +=
+            ' (therapy environment - supportive, therapeutic setting)';
+          break;
+      }
+    } else {
+      contextInfo += `. Location: ${location.name}, ${location.region}, ${location.country}`;
+    }
   }
 
   if (weather) {

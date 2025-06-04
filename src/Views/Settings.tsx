@@ -24,6 +24,7 @@ import {useAuth0} from 'react-native-auth0';
 import {views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
+import SpecialPlaces from '../Components/SpecialPlaces';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -520,6 +521,15 @@ const SettingsScreen: React.FC = () => {
                 Manage family member photos for conversations
               </Text>
               <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
+            </View>
+
+            <View style={styles.specialPlacesSection}>
+              <Text style={styles.settingLabel}>Special Places</Text>
+              <Text style={styles.specialPlacesDescription}>
+                Set up your special places (Home, School, Therapy) to help
+                Matalk provide better contextual responses
+              </Text>
+              <SpecialPlaces isSettingsMode={true} />
             </View>
 
             <View style={styles.adminSection}>
@@ -1047,6 +1057,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 5,
+    lineHeight: 20,
+  },
+  specialPlacesSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
+  },
+  specialPlacesDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    marginBottom: 15,
     lineHeight: 20,
   },
 });
