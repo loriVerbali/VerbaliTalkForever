@@ -235,3 +235,64 @@ export const useChatContext = (): ChatContextType => {
   }
   return context;
 };
+
+// Helper function to get contextual information for AI prompts
+export const getContextualInfo = (
+  weather: WeatherData | null,
+  location: LocationData | null,
+): string => {
+  const now = new Date();
+  const dayOfWeek = now.toLocaleDateString('en-US', {weekday: 'long'});
+  const timeOfDay = now.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  // Determine time period
+  const hour = now.getHours();
+  let timePeriod = '';
+  if (hour >= 5 && hour < 12) timePeriod = 'morning';
+  else if (hour >= 12 && hour < 17) timePeriod = 'afternoon';
+  else if (hour >= 17 && hour < 21) timePeriod = 'evening';
+  else timePeriod = 'night';
+
+  let contextInfo = `Current context: It's ${dayOfWeek} ${timePeriod} at ${timeOfDay}`;
+
+  if (location) {
+    contextInfo += `. Location: ${location.name}, ${location.region}, ${location.country}`;
+  }
+
+  if (weather) {
+    contextInfo += `. Weather: ${weather.temperature}°F, ${weather.description}`;
+
+    // Add weather-specific context
+    if (weather.temperature < 40) {
+      contextInfo += ' (very cold)';
+    } else if (weather.temperature < 60) {
+      contextInfo += ' (cool)';
+    } else if (weather.temperature > 80) {
+      contextInfo += ' (hot)';
+    } else {
+      contextInfo += ' (pleasant)';
+    }
+
+    if (
+      weather.description.includes('rain') ||
+      weather.description.includes('storm')
+    ) {
+      contextInfo += ', rainy weather';
+    } else if (weather.description.includes('snow')) {
+      contextInfo += ', snowy weather';
+    } else if (
+      weather.description.includes('sun') ||
+      weather.description.includes('clear')
+    ) {
+      contextInfo += ', sunny weather';
+    } else if (weather.description.includes('cloud')) {
+      contextInfo += ', cloudy weather';
+    }
+  }
+
+  return contextInfo;
+};

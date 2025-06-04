@@ -26,6 +26,10 @@ import Slider from '@react-native-community/slider';
 import {useAppSettings} from '../utils/persistance';
 import {FamilyMember} from '../Components/FamilyPics';
 import ContextInfo from '../Components/ContextInfo';
+import {
+  useChatContext,
+  getContextualInfo,
+} from '../contexts/ChatContextProvider';
 
 const DEBUGCONVONOIMAGEGENERATION = true;
 
@@ -79,6 +83,9 @@ const Convo = () => {
   // Get assistant context
   const {threadId, sendMessage, runAssistant, response, status} =
     useAssistant();
+
+  // Get chat context for weather and location
+  const {weather, location} = useChatContext();
 
   // Get app settings for family pics data
   const {getItem} = useAppSettings();
@@ -393,10 +400,15 @@ const Convo = () => {
         sliderPosition === 0 &&
         (!topic || topic === 'NA')
       ) {
-        const prompt = `Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
+        // Get contextual information
+        const contextInfo = getContextualInfo(weather, location);
+
+        const prompt = `${contextInfo}. Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
-        }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'list_possible_topics'`;
-        console.log('🔄 Calling assistant for list_possible_topics');
+        }. Consider the current time, weather, location, and day when suggesting topics. I need up to 4 simple, kid-friendly topics that are appropriate for the current context. The message.metadata.mode = 'list_possible_topics'`;
+        console.log(
+          '🔄 Calling assistant for list_possible_topics with context',
+        );
         await callAssistant('list_possible_topics', prompt);
       } else {
         console.log(
@@ -411,6 +423,8 @@ const Convo = () => {
     sentence.audience,
     sentence.sentenceType,
     sliderPosition,
+    weather,
+    location,
   ]);
 
   // Watch for topic selection to generate actions
@@ -428,11 +442,14 @@ const Convo = () => {
         sliderPosition === 1 &&
         (!action || action === 'NA')
       ) {
-        const prompt = `Please list possible action verbs related to the topic "${topic}" for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
-          sentenceType === '?' ? 'question' : 'statement'
-        }. I need up to 3 simple, kid-friendly action verbs. The message.metadata.mode = 'actions'`;
+        // Get contextual information
+        const contextInfo = getContextualInfo(weather, location);
 
-        console.log('🔄 Calling assistant for actions');
+        const prompt = `${contextInfo}. Please list possible action verbs related to the topic "${topic}" for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
+          sentenceType === '?' ? 'question' : 'statement'
+        }. Consider the current weather, time of day, location, and day when suggesting actions. I need up to 3 simple, kid-friendly action verbs that are appropriate for the current context and conditions. The message.metadata.mode = 'actions'`;
+
+        console.log('🔄 Calling assistant for actions with context');
         await callAssistant('list_possible_actions', prompt);
       } else {
         console.log('⏳ Waiting for prerequisites before generating actions');
@@ -440,7 +457,7 @@ const Convo = () => {
     };
 
     generateActions();
-  }, [topic, sliderPosition]);
+  }, [topic, sliderPosition, weather, location]);
 
   // Watch for action selection to generate objects
   useEffect(() => {
