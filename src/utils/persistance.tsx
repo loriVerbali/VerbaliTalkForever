@@ -18,6 +18,15 @@ interface Preferences {
   adminCode: string;
   gender: string;
   auth0Id: string;
+  familyPicsData: string;
+  specialPlaces: string;
+  homeAddress: string;
+  homeIsCurrentLocation: string;
+  schoolAddress: string;
+  schoolIsCurrentLocation: string;
+  therapyAddress: string;
+  therapyIsCurrentLocation: string;
+  wasLocationOnboarded: string;
 }
 
 const initEnum = {
@@ -45,10 +54,19 @@ const initialPreferences: Preferences = {
   actionsCount: '4',
   objectsCount: '4',
   wasOnboarded: initEnum.false,
+  wasLocationOnboarded: initEnum.false,
   heroName: '',
   adminCode: '',
   gender: '',
   auth0Id: '',
+  familyPicsData: '',
+  specialPlaces: '',
+  homeAddress: '',
+  homeIsCurrentLocation: '',
+  schoolAddress: '',
+  schoolIsCurrentLocation: '',
+  therapyAddress: '',
+  therapyIsCurrentLocation: '',
 };
 
 interface AppSettingsContextProps {

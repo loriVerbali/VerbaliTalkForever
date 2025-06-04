@@ -23,6 +23,13 @@ import wakeWord from '../utils/wakewordService';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
 import Slider from '@react-native-community/slider';
+import {useAppSettings} from '../utils/persistance';
+import {FamilyMember} from '../Components/FamilyPics';
+import ContextInfo from '../Components/ContextInfo';
+import {
+  useChatContext,
+  getContextualInfo,
+} from '../contexts/ChatContextProvider';
 
 const DEBUGCONVONOIMAGEGENERATION = true;
 
@@ -31,8 +38,8 @@ const {width, height} = Dimensions.get('window');
 type Topic = 'NA' | 'Talk' | 'Play';
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
 type Object = 'NA' | 'ball';
-type Speaker = 'I' | 'Dad' | 'Mom';
-type Audience = 'I' | 'Dad' | 'Mom';
+type Speaker = string;
+type Audience = string;
 type SentenceType = '?' | '!';
 
 interface Sentence {
@@ -71,10 +78,18 @@ const Convo = () => {
   });
   const [inputText, setInputText] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [contextInfoVisible, setContextInfoVisible] = useState(false);
 
   // Get assistant context
   const {threadId, sendMessage, runAssistant, response, status} =
     useAssistant();
+
+  // Get chat context for weather and location
+  const {weather, location} = useChatContext();
+
+  // Get app settings for family pics data
+  const {getItem} = useAppSettings();
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -85,8 +100,11 @@ const Convo = () => {
   const topicCarouselRef = useRef<ICarouselInstance>(null);
   const actionCarouselRef = useRef<ICarouselInstance>(null);
   const objectCarouselRef = useRef<ICarouselInstance>(null);
-  const speakers: Speaker[] = ['I', 'Dad', 'Mom'];
-  const audience: Audience[] = ['I', 'Dad', 'Mom'];
+
+  // Dynamic speakers and audience based on family members
+  const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [audience, setAudience] = useState<Audience[]>([]);
+
   const sentenceTypes: SentenceType[] = ['?', '!'];
   const [speakerIndex, setSpeakerIndex] = useState(0);
   const [audienceIndex, setAudienceIndex] = useState(0);
@@ -117,6 +135,49 @@ const Convo = () => {
   // Slider state
   const [sliderPosition, setSliderPosition] = useState(0); // 0: topics, 1: actions, 2: objects
   const [isAutoSliding, setIsAutoSliding] = useState(false);
+
+  // Load family members data and update speakers/audience
+  useEffect(() => {
+    const loadFamilyData = async () => {
+      try {
+        const savedData = await getItem('familyPicsData');
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          setFamilyMembers(parsedData);
+
+          // Extract names for speakers and audience
+          const memberNames = parsedData.map(
+            (member: FamilyMember) => member.name,
+          );
+          setSpeakers(memberNames);
+          setAudience(memberNames);
+        } else {
+          // Fallback to default family members if no saved data
+          const defaultMembers = [
+            {id: 'me', name: 'I', isDefault: true},
+            {id: 'mom', name: 'Mom', isDefault: true},
+            {id: 'dad', name: 'Dad', isDefault: true},
+          ];
+          setFamilyMembers(defaultMembers);
+          setSpeakers(['I', 'Mom', 'Dad']);
+          setAudience(['I', 'Mom', 'Dad']);
+        }
+      } catch (error) {
+        console.error('Error loading family data:', error);
+        // Fallback to default
+        setSpeakers(['I', 'Mom', 'Dad']);
+        setAudience(['I', 'Mom', 'Dad']);
+      }
+    };
+
+    loadFamilyData();
+  }, []);
+
+  // Helper function to get family member image
+  const getFamilyMemberImage = (memberName: string) => {
+    const member = familyMembers.find(m => m.name === memberName);
+    return member?.imageUri;
+  };
 
   // Update input text when sentence changes
   useEffect(() => {
@@ -339,10 +400,15 @@ const Convo = () => {
         sliderPosition === 0 &&
         (!topic || topic === 'NA')
       ) {
-        const prompt = `Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
+        // Get contextual information
+        const contextInfo = getContextualInfo(weather, location);
+
+        const prompt = `${contextInfo}. Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
-        }. I need up to 4 simple, kid-friendly topics. The message.metadata.mode = 'list_possible_topics'`;
-        console.log('🔄 Calling assistant for list_possible_topics');
+        }. Consider the current time, weather, location, and day when suggesting topics. I need up to 4 simple, kid-friendly topics that are appropriate for the current context. The message.metadata.mode = 'list_possible_topics'`;
+        console.log(
+          '🔄 Calling assistant for list_possible_topics with context',
+        );
         await callAssistant('list_possible_topics', prompt);
       } else {
         console.log(
@@ -357,6 +423,8 @@ const Convo = () => {
     sentence.audience,
     sentence.sentenceType,
     sliderPosition,
+    weather,
+    location,
   ]);
 
   // Watch for topic selection to generate actions
@@ -374,11 +442,14 @@ const Convo = () => {
         sliderPosition === 1 &&
         (!action || action === 'NA')
       ) {
-        const prompt = `Please list possible action verbs related to the topic "${topic}" for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
-          sentenceType === '?' ? 'question' : 'statement'
-        }. I need up to 3 simple, kid-friendly action verbs. The message.metadata.mode = 'actions'`;
+        // Get contextual information
+        const contextInfo = getContextualInfo(weather, location);
 
-        console.log('🔄 Calling assistant for actions');
+        const prompt = `${contextInfo}. Please list possible action verbs related to the topic "${topic}" for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
+          sentenceType === '?' ? 'question' : 'statement'
+        }. Consider the current weather, time of day, location, and day when suggesting actions. I need up to 3 simple, kid-friendly action verbs that are appropriate for the current context and conditions. The message.metadata.mode = 'actions'`;
+
+        console.log('🔄 Calling assistant for actions with context');
         await callAssistant('list_possible_actions', prompt);
       } else {
         console.log('⏳ Waiting for prerequisites before generating actions');
@@ -386,7 +457,7 @@ const Convo = () => {
     };
 
     generateActions();
-  }, [topic, sliderPosition]);
+  }, [topic, sliderPosition, weather, location]);
 
   // Watch for action selection to generate objects
   useEffect(() => {
@@ -513,6 +584,10 @@ const Convo = () => {
 
   const toggleKeyboard = () => {
     setIsKeyboardVisible(!isKeyboardVisible);
+  };
+
+  const toggleContextInfo = () => {
+    setContextInfoVisible(!contextInfoVisible);
   };
 
   // Handle manual slider changes
@@ -714,8 +789,8 @@ const Convo = () => {
           onChangeText={setInputText}
         />
         <View style={styles.inlineNavigationButtons}>
-          <Pressable style={styles.smallNavButton} onPress={toggleKeyboard}>
-            <Text style={styles.smallNavIcon}>⌨️</Text>
+          <Pressable style={styles.smallNavButton} onPress={toggleContextInfo}>
+            <Text style={styles.smallNavIcon}>ℹ️</Text>
           </Pressable>
           <Pressable style={styles.smallNavButton} onPress={handleHome}>
             <Text style={styles.smallNavIcon}>🏠</Text>
@@ -730,17 +805,21 @@ const Convo = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The speaker:</Text>
             <View style={styles.cardWrapper}>
-              <ConvoCarousel<Speaker>
-                carouselRef={speakerCarouselRef}
-                currentIndex={speakerIndex}
-                setCurrentIndex={setSpeakerIndex}
-                sentence={sentence}
-                setSentence={setSentence}
-                data={speakers}
-                handleItemSelect={handleSpeakerSelect}
-                fieldName="speaker"
-                showPersonIcon={true}
-              />
+              {speakers.length > 0 && (
+                <ConvoCarousel<Speaker>
+                  carouselRef={speakerCarouselRef}
+                  currentIndex={speakerIndex}
+                  setCurrentIndex={setSpeakerIndex}
+                  sentence={sentence}
+                  setSentence={setSentence}
+                  data={speakers}
+                  handleItemSelect={handleSpeakerSelect}
+                  fieldName="speaker"
+                  showPersonIcon={true}
+                  familyMembers={familyMembers}
+                  getFamilyMemberImage={getFamilyMemberImage}
+                />
+              )}
             </View>
           </View>
 
@@ -748,17 +827,21 @@ const Convo = () => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>The audience:</Text>
             <View style={styles.cardWrapper}>
-              <ConvoCarousel<Audience>
-                carouselRef={audienceCarouselRef}
-                currentIndex={audienceIndex}
-                setCurrentIndex={setAudienceIndex}
-                sentence={sentence}
-                setSentence={setSentence}
-                data={audience}
-                handleItemSelect={handleAudienceSelect}
-                fieldName="audience"
-                showPersonIcon={true}
-              />
+              {audience.length > 0 && (
+                <ConvoCarousel<Audience>
+                  carouselRef={audienceCarouselRef}
+                  currentIndex={audienceIndex}
+                  setCurrentIndex={setAudienceIndex}
+                  sentence={sentence}
+                  setSentence={setSentence}
+                  data={audience}
+                  handleItemSelect={handleAudienceSelect}
+                  fieldName="audience"
+                  showPersonIcon={true}
+                  familyMembers={familyMembers}
+                  getFamilyMemberImage={getFamilyMemberImage}
+                />
+              )}
             </View>
           </View>
 
@@ -983,6 +1066,11 @@ const Convo = () => {
       <View style={styles.matalkIcon}>
         <FastImage source={matalkImg} style={styles.iconSize} />
       </View>
+
+      <ContextInfo
+        visible={contextInfoVisible}
+        onClose={() => setContextInfoVisible(false)}
+      />
     </LinearGradient>
   );
 };
@@ -1165,6 +1253,12 @@ const styles = StyleSheet.create({
     height: width * 0.05,
     resizeMode: 'contain',
   },
+  familyImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+    borderRadius: 50,
+  },
   talkImage: {
     width: '95%',
     height: '95%',
@@ -1273,6 +1367,16 @@ const styles = StyleSheet.create({
   disabledPlayButtonText: {
     color: '#999',
   },
+  personSelectionContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '18%',
+    height: 4,
+    backgroundColor: 'red',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginTop: 2,
+  },
 });
 
 export default Convo;
@@ -1291,6 +1395,8 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   selectedTopic,
   selectedAction,
   selectedObject,
+  familyMembers = [],
+  getFamilyMemberImage,
 }: {
   carouselRef: React.RefObject<ICarouselInstance | null>;
   currentIndex: number;
@@ -1313,7 +1419,14 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   selectedTopic?: Topic;
   selectedAction?: Action;
   selectedObject?: Object;
+  familyMembers?: FamilyMember[];
+  getFamilyMemberImage?: (memberName: string) => string | undefined;
 }) => {
+  // Return null if data is empty to prevent rendering issues
+  if (!data || data.length === 0) {
+    return null;
+  }
+
   const isVerticalLayout =
     fieldName === 'list_possible_actions' ||
     fieldName === 'list_possible_objects' ||
@@ -1434,21 +1547,34 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
           onPress={() => handleItemSelect(cardItem, index)}>
           {showPersonIcon ? (
             <>
-              <View
-                style={[
-                  styles.personContainer,
-                  sentence[fieldName as keyof Sentence] ===
-                    getItemText(cardItem) && {
-                    borderBottomWidth: 6,
-                    borderBottomColor: 'red',
-                  },
-                ]}>
-                <Image
-                  source={require('../assets/person.png')}
-                  style={styles.personImage}
-                />
+              <View style={styles.personContainer}>
+                {(() => {
+                  const memberName = getItemText(cardItem);
+                  const familyImageUri = getFamilyMemberImage?.(memberName);
+
+                  if (familyImageUri) {
+                    return (
+                      <FastImage
+                        source={{uri: familyImageUri}}
+                        style={styles.familyImage}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Image
+                        source={require('../assets/person.png')}
+                        style={styles.personImage}
+                      />
+                    );
+                  }
+                })()}
               </View>
               <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
+              {sentence[fieldName as keyof Sentence] ===
+                getItemText(cardItem) && (
+                <View style={styles.personSelectionContainer} />
+              )}
             </>
           ) : showTalkIcon ? (
             <>

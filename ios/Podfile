@@ -14,7 +14,8 @@ require_relative '../node_modules/react-native-permissions/scripts/setup'
 def permission_setup
   setup_permissions([
     'Microphone',
-    'SpeechRecognition'
+    'SpeechRecognition',
+    'LocationWhenInUse'
   ])
 end
 
