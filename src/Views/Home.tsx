@@ -66,6 +66,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [showImages, setShowImages] = useState(false);
   const [finishedTranscribing, setFinishedTranscribing] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
+
   useEffect(() => {
     if (stateof === 'Attention') {
       // wakeWord.stopListening();
@@ -259,6 +263,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     if (status === 'completed' && imageUrls?.length > 0) {
       debugger;
       setShowImages(true);
+      setIsRetrying(false); // Reset retry state when new images are ready
     } else {
       console.log(
         'Not showing images. Status:',
@@ -283,6 +288,57 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setFinishedTranscribing(false);
     setTranscribedText('');
     setShowImages(false);
+    setIsRetrying(false);
+    setRetryCount(0);
+  };
+
+  // Function to handle "Can't find it" button press
+  const handleCantFindIt = async () => {
+    if (
+      !transcribedText ||
+      !threadId ||
+      isRetrying ||
+      retryCount >= MAX_RETRIES
+    ) {
+      if (retryCount >= MAX_RETRIES) {
+        TTSService.speak(
+          'You have reached the maximum number of retry attempts. Please try a new question.',
+          true,
+        );
+      }
+      return;
+    }
+
+    try {
+      setIsRetrying(true);
+      setShowImages(false); // Hide current images while getting new ones
+      setRetryCount(prev => prev + 1);
+
+      // Get contextual information (time, weather, location, special places)
+      const contextInfo = getContextualInfo(weather, location);
+
+      // Create a retry message asking for more alternatives
+      const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
+
+      console.log('🔄 Retrying with message:', retryMessage);
+      console.log('🔄 Retry count:', retryCount + 1);
+
+      const messageId = await sendMessage(
+        retryMessage,
+        threadId,
+        'generate_answers',
+      );
+
+      if (messageId) {
+        await runAssistant(threadId);
+      }
+    } catch (error) {
+      console.error('handleCantFindIt - Failed to retry:', error);
+      TTSService.speak('Failed to get more answers. Please try again.', true);
+      setRetryCount(prev => prev - 1); // Revert retry count on error
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   return (
@@ -347,7 +403,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         width: '100%',
                         flex: 1,
                       }}>
-                      <ImageGallery images={validImages} />
+                      <ImageGallery
+                        images={validImages}
+                        onRefresh={handleCantFindIt}
+                        retryCount={retryCount}
+                        maxRetries={MAX_RETRIES}
+                      />
                     </View>
                   );
                 })()
@@ -377,9 +438,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         <Text style={{fontSize: 20, fontWeight: 'bold'}}>
                           {`${transcribedText}`}
                         </Text>
-                        {transcribedText.length === 0 ? (
+                        {transcribedText.length === 0 || isRetrying ? (
                           <ActivityIndicator size="large" color="#0000ff" />
                         ) : null}
+                        {isRetrying && (
+                          <Text style={styles.retryText}>
+                            Getting more answers... (Attempt {retryCount}/
+                            {MAX_RETRIES})
+                          </Text>
+                        )}
                       </View>
                     )}
                   </View>
@@ -565,6 +632,12 @@ const styles = StyleSheet.create({
   refreshButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  retryText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+    marginTop: 10,
   },
 });
 

@@ -12,6 +12,8 @@ import FastImage from 'react-native-fast-image';
 import Config from '../utils/config';
 import Tts from 'react-native-tts';
 import {useAppSettings} from '../utils/persistance';
+import {useNavigation} from '@react-navigation/native';
+import {views} from '../utils/constants';
 
 // Add interface for error event
 interface ImageErrorEvent {
@@ -25,6 +27,8 @@ export interface ImageCardProps {
   width?: number;
   height?: number;
   onRefresh?: () => void;
+  retryCount?: number;
+  maxRetries?: number;
 }
 const {width} = Dimensions.get('window');
 
@@ -33,8 +37,12 @@ const ImageCard: React.FC<ImageCardProps> = ({
   width = 200,
   height = 200,
   onRefresh,
+  retryCount = 0,
+  maxRetries = 3,
 }) => {
   const {preferences} = useAppSettings();
+  const navigation = useNavigation();
+
   const sayAnswer = (prompt: string) => {
     Tts.speak(prompt, {
       iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
@@ -48,7 +56,29 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   const handleRefresh = () => {
-    if (onRefresh) {
+    if (retryCount >= maxRetries) {
+      // Navigate to shortcuts view when max retries reached
+      Tts.speak('Let me show you some shortcuts instead', {
+        iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
+        rate: 0.46,
+        androidParams: {
+          KEY_PARAM_PAN: 0,
+          KEY_PARAM_VOLUME: 1,
+          KEY_PARAM_STREAM: 'STREAM_MUSIC',
+        },
+      });
+      navigation.navigate(views.SHORTCUTS as never);
+    } else if (onRefresh) {
+      // Provide audio feedback to the user
+      Tts.speak('Getting more answers for you', {
+        iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
+        rate: 0.46,
+        androidParams: {
+          KEY_PARAM_PAN: 0,
+          KEY_PARAM_VOLUME: 1,
+          KEY_PARAM_STREAM: 'STREAM_MUSIC',
+        },
+      });
       onRefresh();
     } else {
       console.log('Refreshing content...');
@@ -60,6 +90,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
       {images.map((image, index) => {
         // Handle the "More" button specially
         if (image.isMoreButton) {
+          const isMaxRetries = retryCount >= maxRetries;
           return (
             <Pressable
               key={index}
@@ -68,7 +99,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
               disabled={image.url.url === 'placeholder'}>
               <View style={{flexDirection: 'column', alignItems: 'center'}}>
                 <FastImage
-                  source={require('../assets/cantfindIt.png')}
+                  source={
+                    isMaxRetries
+                      ? require('../assets/shortCuts.png')
+                      : require('../assets/cantfindIt.png')
+                  }
                   style={[
                     styles.image,
                     {borderTopLeftRadius: 16, borderTopRightRadius: 16},
@@ -77,7 +112,9 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 />
               </View>
               <View style={styles.labelContainer}>
-                <Text style={styles.label}>Cant find it</Text>
+                <Text style={styles.label}>
+                  {isMaxRetries ? 'Try shortcuts' : 'Get more answers'}
+                </Text>
               </View>
             </Pressable>
           );
@@ -206,6 +243,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     width: '100%',
+  },
+  disabledContainer: {
+    backgroundColor: '#f0f0f0',
+  },
+  disabledImage: {
+    opacity: 0.5,
+  },
+  disabledLabelContainer: {
+    backgroundColor: '#f0f0f0',
+  },
+  disabledLabel: {
+    color: '#999',
   },
 });
 
