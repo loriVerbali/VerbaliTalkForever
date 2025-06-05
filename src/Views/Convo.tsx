@@ -81,8 +81,14 @@ const Convo = () => {
   const [contextInfoVisible, setContextInfoVisible] = useState(false);
 
   // Get assistant context
-  const {threadId, sendMessage, runAssistant, response, status} =
-    useAssistant();
+  const {
+    threadId,
+    sendMessage,
+    runAssistant,
+    response,
+    status,
+    resetAssistant,
+  } = useAssistant();
 
   // Get chat context for weather and location
   const {weather, location} = useChatContext();
@@ -579,6 +585,8 @@ const Convo = () => {
   };
 
   const handleHome = () => {
+    // Reset the assistant state (everything except threadId)
+    resetAssistant();
     navigation.navigate(views.OPEN as never);
   };
 

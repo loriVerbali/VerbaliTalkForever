@@ -159,23 +159,28 @@ const OpenScreen: React.FC = () => {
     //};
   }, []);
 
-  useEffect(() => {
-    //Start listening; navigate when "Hey Matalk" is detected
-    if (connectionState) {
-      wakeWord.startListening(() => {
-        console.log('Hey Matan detected');
-        wakeWord.stopListening();
-        console.log('Navigating to Home');
-        navigation.navigate(views.HOME as never, {
-          stateof: 'Attention',
-        });
-      });
-    }
-    // Optional clean‑up on unmount
-    return () => {
-      wakeWord.stopListening();
-    };
-  }, [navigation, connectionState]);
+  const startListening = () => {
+    console.log('Starting listening');
+    navigation.navigate(views.HOME as never, {
+      stateof: 'Attention',
+    });
+  };
+
+  // useEffect(() => {
+  //   //Start listening; navigate when "Hey Matalk" is detected
+  //  // if (connectionState) {
+  //     // wakeWord.startListening(() => {
+  //     //   console.log('Hey Matan detected');
+  //     //   wakeWord.stopListening();
+  //     //   console.log('Navigating to Home');
+  //     //   navigation.navigate(views.HOME as never, {
+  //     //     stateof: 'Attention',
+  //     //   });
+  //     // });
+  // //  }
+  //   // Optional clean‑up on unmount
+  // //
+  // }, [navigation, connectionState]);
 
   useEffect(() => {
     console.log('Modal visibility changed:', modalVisible);
@@ -302,7 +307,7 @@ const OpenScreen: React.FC = () => {
             />
           </View>
 
-          <View style={styles.microphoneButton}>
+          <Pressable style={styles.microphoneButton} onPress={startListening}>
             <FastImage
               source={
                 connectionState
@@ -312,7 +317,7 @@ const OpenScreen: React.FC = () => {
               style={[styles.iconSize, isListening.current && {opacity: 0.5}]}
               resizeMode={FastImage.resizeMode.contain}
             />
-          </View>
+          </Pressable>
 
           {showRecognitionStatus && (
             <View style={styles.recognitionStatusContainer}>

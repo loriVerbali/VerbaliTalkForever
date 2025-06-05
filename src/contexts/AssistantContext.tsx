@@ -15,6 +15,10 @@ const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
 const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
 // Thread expiration time in milliseconds (4 hours)
 const THREAD_EXPIRATION_MS = 4 * 60 * 60 * 1000;
+
+// Debug flag to disable image generation
+const DEBUGWITHOUTIMAGEGENERATION = true;
+
 // Add history type
 interface HistoryItem {
   type: 'text' | 'status' | 'error' | 'image';
@@ -55,6 +59,7 @@ interface AssistantContextType {
   setThreadId: (id: string) => void;
   setRunId: (id: string) => void;
   resetHistory: () => void;
+  resetAssistant: () => void;
   generateImage: (prompt: string) => Promise<{url: string}>;
   geminiGenerateImage: (prompt: string) => Promise<string>;
   imageUrls: Array<{url: string; prompt: string}>;
@@ -452,6 +457,11 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   };
 
   const generateImage = async (prompt: string) => {
+    // Debug mode: return hardcoded welcome.png reference
+    if (DEBUGWITHOUTIMAGEGENERATION) {
+      return {url: 'welcome.png'};
+    }
+
     try {
       // Encode the prompt for URL
       const encodedPrompt = encodeURIComponent(
@@ -497,6 +507,11 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   };
 
   const geminiGenerateImage = async (prompt: string) => {
+    // Debug mode: return hardcoded welcome.png reference
+    if (DEBUGWITHOUTIMAGEGENERATION) {
+      return 'welcome.png';
+    }
+
     const ai = new GoogleGenAI({apiKey: Config.geminiAPIKey});
 
     const imagePrompt =
@@ -657,6 +672,17 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     }
   };
 
+  const resetAssistant = () => {
+    // Reset all state except threadId
+    setHistory([]);
+    setRunId('');
+    setLocalStatus(null);
+    setLocalResponse('');
+    setLocalError(null);
+    setImageUrls([]);
+    setIsThreadFresh(false);
+  };
+
   return (
     <AssistantContext.Provider
       value={{
@@ -672,6 +698,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         setThreadId,
         setRunId,
         resetHistory,
+        resetAssistant,
         generateImage,
         geminiGenerateImage,
         imageUrls,
