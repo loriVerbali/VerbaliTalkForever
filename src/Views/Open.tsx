@@ -22,6 +22,7 @@ import {useAppSettings} from '../utils/persistance';
 import wakeWord from '../utils/wakewordService';
 import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
+import MatalkIcon from '../Components/MatalkIcon';
 import matalkImg from '../assets/matalk.png';
 type RootStackParamList = {
   LOGIN: undefined;
@@ -336,7 +337,7 @@ const OpenScreen: React.FC = () => {
           </Pressable>
 
           <View style={styles.matalkIcon}>
-            <FastImage source={matalkImg} style={styles.iconSize} />
+            <MatalkIcon />
           </View>
 
           <View style={styles.contentContainer}>

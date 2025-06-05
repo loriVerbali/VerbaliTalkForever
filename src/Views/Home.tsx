@@ -24,6 +24,7 @@ import AudioRecorderPlayer, {
 import Inputs from '../Components/Inputs';
 import Transcription from '../Components/Transcription';
 import ImageGallery from '../Components/ImageGallery';
+import MatalkIcon from '../Components/MatalkIcon';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useSound} from '../contexts/soundContext';
 import {
@@ -355,6 +356,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         {/* Home Button */}
         <HomeButton navigation={navigation} onReset={resetLocalStates} />
 
+        {/* Matalk Icon */}
+        <View style={styles.matalkIcon}>
+          <MatalkIcon />
+        </View>
+
         {/* Input and Navigation Section */}
         <View style={styles.inputNavigationContainer}>
           <Inputs mode={stateof} />
@@ -638,6 +644,11 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '600',
     marginTop: 10,
+  },
+  matalkIcon: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
   },
 });
 
