@@ -30,13 +30,6 @@ import okImg from '../assets/feelings/goodBody/ok.png';
 import warmImg from '../assets/feelings/goodBody/warm.png';
 import strongImg from '../assets/feelings/goodBody/strong.png';
 import energeticImg from '../assets/feelings/goodBody/energetic.png';
-//Bad Feelings
-import sadImg from '../assets/feelings/badFeelings/sad.png';
-import boredImg from '../assets/feelings/badFeelings/bored.png';
-import scaredImg from '../assets/feelings/badFeelings/scared.png';
-import worriedImg from '../assets/feelings/badFeelings/worried.png';
-import embarrassedImg from '../assets/feelings/badFeelings/embarrassed.png';
-import angryImg from '../assets/feelings/badFeelings/angry.png';
 
 // For simplicity, we'll use the same dog image for all feeling cards
 // In a real app, you would have different images for each feeling
