@@ -49,7 +49,7 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
@@ -205,11 +205,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       formData.append('language', 'en');
       //const res = await playThisSound(audioPath);
 
-      const transcribeResponse = await fetchHelper(
-        'transcribeAudio',
-        {},
-        formData,
-      );
+      let transcribeResponse: any;
+      if (!DEBUGWITHOUTTRANSCRIPTION) {
+        transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
+      } else {
+        transcribeResponse = {text: 'How was school?'};
+      }
 
       if (transcribeResponse?.text) {
         const transcribedText = transcribeResponse.text.trim();
