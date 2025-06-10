@@ -11,8 +11,6 @@ export const logConversation = async (
   data: LogConversationData,
 ): Promise<void> => {
   try {
-    console.log('📊 Logging conversation:', data);
-
     const response = await fetchHelper(
       'logconversation',
       {},
@@ -23,10 +21,8 @@ export const logConversation = async (
         threadId: data.threadId,
       },
     );
-
-    console.log('✅ Conversation logged successfully');
   } catch (error) {
-    console.error('❌ Failed to log conversation:', error);
+    console.error('Failed to log conversation:', error);
     // Don't throw error to avoid disrupting user experience
   }
 };

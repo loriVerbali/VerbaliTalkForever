@@ -352,7 +352,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   // Function to handle answer selection and logging
   const handleAnswerSelected = async (selectedAnswer: string) => {
     if (!transcribedText || !threadId || !imageUrls || imageUrls.length === 0) {
-      console.warn('Missing data for conversation logging');
       return;
     }
 
