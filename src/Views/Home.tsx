@@ -38,6 +38,7 @@ import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
 import {Mixpanel} from 'mixpanel-react-native';
+import {logConversation} from '../utils/conversationLogger';
 
 const {width, height} = Dimensions.get('window');
 
@@ -348,6 +349,32 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
+  // Function to handle answer selection and logging
+  const handleAnswerSelected = async (selectedAnswer: string) => {
+    if (!transcribedText || !threadId || !imageUrls || imageUrls.length === 0) {
+      console.warn('Missing data for conversation logging');
+      return;
+    }
+
+    try {
+      // Extract all possible answers from imageUrls
+      const possibleAnswers = imageUrls
+        .filter(item => item && item.prompt)
+        .map(item => item.prompt);
+
+      // Log the conversation
+      await logConversation({
+        question: transcribedText,
+        possibleAnswers: possibleAnswers,
+        answerPicked: selectedAnswer,
+        threadId: threadId,
+      });
+    } catch (error) {
+      console.error('Failed to log conversation:', error);
+      // Don't show error to user as this is background logging
+    }
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
@@ -420,6 +447,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         onRefresh={handleCantFindIt}
                         retryCount={retryCount}
                         maxRetries={MAX_RETRIES}
+                        onAnswerSelected={handleAnswerSelected}
                       />
                     </View>
                   );

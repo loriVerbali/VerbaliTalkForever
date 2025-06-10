@@ -11,6 +11,7 @@ interface ImageGalleryProps {
   onRefresh?: () => void;
   retryCount?: number;
   maxRetries?: number;
+  onAnswerSelected?: (answer: string) => void;
 }
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({
@@ -20,6 +21,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   onRefresh,
   retryCount = 0,
   maxRetries = 3,
+  onAnswerSelected,
 }) => {
   // Check if images array is valid
   if (!images || images.length === 0) {
@@ -52,6 +54,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           onRefresh={onRefresh}
           retryCount={retryCount}
           maxRetries={maxRetries}
+          onAnswerSelected={onAnswerSelected}
         />
       </View>
 
@@ -64,6 +67,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           onRefresh={onRefresh}
           retryCount={retryCount}
           maxRetries={maxRetries}
+          onAnswerSelected={onAnswerSelected}
         />
       </View>
     </View>
