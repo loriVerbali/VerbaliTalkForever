@@ -24,8 +24,13 @@ import AudioRecorderPlayer, {
 import Inputs from '../Components/Inputs';
 import Transcription from '../Components/Transcription';
 import ImageGallery from '../Components/ImageGallery';
+import MatalkIcon from '../Components/MatalkIcon';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useSound} from '../contexts/soundContext';
+import {
+  useChatContext,
+  getContextualInfo,
+} from '../contexts/ChatContextProvider';
 import TTSService from '../utils/TTSService';
 import wakeWord from '../utils/wakewordService';
 import LinearGradient from 'react-native-linear-gradient';
@@ -44,36 +49,34 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {sendMessage, runAssistant, resetHistory, threadId, imageUrls, status} =
+  const {sendMessage, runAssistant, threadId, imageUrls, status} =
     useAssistant();
+  const {weather, location} = useChatContext();
   const stateof = route?.params?.stateof ?? '';
-  const [transcribedText, setTranscribedText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
 
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const {playAttention} = useSound();
+  const {playAttention, playThisSound} = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showImages, setShowImages] = useState(false);
+  const [finishedTranscribing, setFinishedTranscribing] = useState(false);
+  const [transcribedText, setTranscribedText] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   useEffect(() => {
     if (stateof === 'Attention') {
-      wakeWord.stopListening();
+      // wakeWord.stopListening();
       playSound();
     }
   }, []);
-
-  const playWrittenSentence = async () => {
-    debugger;
-    if (transcribedText.trim()) {
-      TTSService.speak(transcribedText, true);
-    }
-  };
 
   const playSound = async () => {
     //console.log('playSound - Starting playSound function');
@@ -167,7 +170,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   };
 
   const stopRecording = async () => {
-    //console.log('stopRecording - Starting stopRecording function');
+    console.log('stopRecording - Starting stopRecording function');
 
     if (recordingTimer.current) {
       //console.log('stopRecording - Clearing recording timer');
@@ -200,12 +203,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       });
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
+      //const res = await playThisSound(audioPath);
 
-      const transcribeResponse = await fetchHelper(
-        'transcribeAudio',
-        {},
-        formData,
-      );
+      let transcribeResponse: any;
+      if (!DEBUGWITHOUTTRANSCRIPTION) {
+        transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
+      } else {
+        transcribeResponse = {text: 'How was school?'};
+      }
 
       if (transcribeResponse?.text) {
         const transcribedText = transcribeResponse.text.trim();
@@ -216,12 +221,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           transcribedText !== 'null' &&
           transcribedText !== 'Thank you for watching!'
         ) {
+          // Get contextual information (time, weather, location, special places)
+          const contextInfo = getContextualInfo(weather, location);
+
+          // Combine the transcribed text with context information
+          const messageWithContext = `${contextInfo}. User said: "${transcribedText}"`;
+
+          console.log('📍 Sending message with context:', messageWithContext);
+
           const messageId = await sendMessage(
-            transcribedText,
+            messageWithContext,
             threadId,
             'generate_answers',
           );
-
+          setFinishedTranscribing(true);
+          setTranscribedText(transcribedText);
           if (messageId) {
             await runAssistant(threadId);
           }
@@ -249,7 +263,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       });
     }
     if (status === 'completed' && imageUrls?.length > 0) {
+      debugger;
       setShowImages(true);
+      setIsRetrying(false); // Reset retry state when new images are ready
     } else {
       console.log(
         'Not showing images. Status:',
@@ -260,10 +276,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   }, [imageUrls, status]);
 
-  useEffect(() => {
-    console.log('showImages changed:', showImages);
-  }, [showImages]);
-
   // Create placeholder images - make sure we have 5 animal placeholders
   const placeholderImages = [
     {url: {url: 'placeholder'}, prompt: 'Waiting'},
@@ -272,6 +284,64 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     {url: {url: 'placeholder'}, prompt: 'Waiting'},
     {url: {url: 'placeholder'}, prompt: 'Waiting'},
   ];
+
+  // Reset function for local states
+  const resetLocalStates = () => {
+    setFinishedTranscribing(false);
+    setTranscribedText('');
+    setShowImages(false);
+    setIsRetrying(false);
+    setRetryCount(0);
+  };
+
+  // Function to handle "Can't find it" button press
+  const handleCantFindIt = async () => {
+    if (
+      !transcribedText ||
+      !threadId ||
+      isRetrying ||
+      retryCount >= MAX_RETRIES
+    ) {
+      if (retryCount >= MAX_RETRIES) {
+        TTSService.speak(
+          'You have reached the maximum number of retry attempts. Please try a new question.',
+          true,
+        );
+      }
+      return;
+    }
+
+    try {
+      setIsRetrying(true);
+      setShowImages(false); // Hide current images while getting new ones
+      setRetryCount(prev => prev + 1);
+
+      // Get contextual information (time, weather, location, special places)
+      const contextInfo = getContextualInfo(weather, location);
+
+      // Create a retry message asking for more alternatives
+      const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
+
+      console.log('🔄 Retrying with message:', retryMessage);
+      console.log('🔄 Retry count:', retryCount + 1);
+
+      const messageId = await sendMessage(
+        retryMessage,
+        threadId,
+        'generate_answers',
+      );
+
+      if (messageId) {
+        await runAssistant(threadId);
+      }
+    } catch (error) {
+      console.error('handleCantFindIt - Failed to retry:', error);
+      TTSService.speak('Failed to get more answers. Please try again.', true);
+      setRetryCount(prev => prev - 1); // Revert retry count on error
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -285,7 +355,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         </View>
 
         {/* Home Button */}
-        <HomeButton navigation={navigation} />
+        <HomeButton navigation={navigation} onReset={resetLocalStates} />
+
+        {/* Matalk Icon */}
+        <View style={styles.matalkIcon}>
+          <MatalkIcon />
+        </View>
 
         {/* Input and Navigation Section */}
         <View style={styles.inputNavigationContainer}>
@@ -335,19 +410,54 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         width: '100%',
                         flex: 1,
                       }}>
-                      <ImageGallery images={validImages} />
+                      <ImageGallery
+                        images={validImages}
+                        onRefresh={handleCantFindIt}
+                        retryCount={retryCount}
+                        maxRetries={MAX_RETRIES}
+                      />
                     </View>
                   );
                 })()
               ) : (
-                // Show placeholder images while waiting for real images
-                <View
-                  style={{
-                    width: '100%',
-                    flex: 1,
-                  }}>
-                  <ImageGallery images={placeholderImages} />
-                </View>
+                <>
+                  <View
+                    style={{
+                      width: '100%',
+                      flex: 1,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                    {isRecording ? (
+                      <FastImage
+                        source={require('../assets/recording.gif')}
+                        style={styles.recordingIcon}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          width: '100%',
+                          flex: 1,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                        <Text style={{fontSize: 20, fontWeight: 'bold'}}>
+                          {`${transcribedText}`}
+                        </Text>
+                        {transcribedText.length === 0 || isRetrying ? (
+                          <ActivityIndicator size="large" color="#0000ff" />
+                        ) : null}
+                        {isRetrying && (
+                          <Text style={styles.retryText}>
+                            Getting more answers... (Attempt {retryCount}/
+                            {MAX_RETRIES})
+                          </Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </>
               )}
             </View>
           </View>
@@ -486,6 +596,11 @@ const styles = StyleSheet.create({
     height: 45,
     resizeMode: 'contain',
   },
+  recordingIcon: {
+    width: width * 0.4,
+    height: width * 0.4,
+    resizeMode: 'contain',
+  },
   noImagesContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -524,6 +639,17 @@ const styles = StyleSheet.create({
   refreshButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
+  },
+  retryText: {
+    fontSize: 16,
+    color: '#007AFF',
+    fontWeight: '600',
+    marginTop: 10,
+  },
+  matalkIcon: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
   },
 });
 

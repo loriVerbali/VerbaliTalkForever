@@ -2,23 +2,33 @@ import React from 'react';
 import {Pressable, Text, StyleSheet, Dimensions} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
+import {useAssistant} from '../contexts/AssistantContext';
 
 const {width, height} = Dimensions.get('window');
 
 interface HomeButtonProps {
   zIndex?: number;
   navigation?: any; // Navigation prop can be passed, otherwise will use useNavigation hook
+  onReset?: () => void; // Optional callback for additional reset logic
 }
 
 const HomeButton: React.FC<HomeButtonProps> = ({
   zIndex = 1,
   navigation: navigationProp,
+  onReset,
 }) => {
   // Use passed navigation if provided, otherwise use the hook
   const navigationHook = useNavigation();
   const navigation = navigationProp || navigationHook;
+  const {resetAssistant} = useAssistant();
 
   const handleHomePress = () => {
+    // Call additional reset logic if provided
+    if (onReset) {
+      onReset();
+    }
+    // Reset the assistant state (everything except threadId)
+    resetAssistant();
     navigation.navigate(views.OPEN as never);
   };
 

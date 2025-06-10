@@ -9,6 +9,8 @@ interface ImageGalleryProps {
   imageWidth?: number;
   imageHeight?: number;
   onRefresh?: () => void;
+  retryCount?: number;
+  maxRetries?: number;
 }
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({
@@ -16,6 +18,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   imageWidth = width * 0.1,
   imageHeight = width * 0.1,
   onRefresh,
+  retryCount = 0,
+  maxRetries = 3,
 }) => {
   // Check if images array is valid
   if (!images || images.length === 0) {
@@ -33,7 +37,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // Add a "More" item to complete the 3x2 grid
   const moreItem = {
     url: {url: 'more'},
-    prompt: "Can't find it",
+    prompt: 'Get more answers',
     isMoreButton: true,
   };
 
@@ -46,6 +50,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           width={imageWidth}
           height={imageHeight}
           onRefresh={onRefresh}
+          retryCount={retryCount}
+          maxRetries={maxRetries}
         />
       </View>
 
@@ -56,6 +62,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           width={imageWidth}
           height={imageHeight}
           onRefresh={onRefresh}
+          retryCount={retryCount}
+          maxRetries={maxRetries}
         />
       </View>
     </View>

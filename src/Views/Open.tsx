@@ -22,6 +22,8 @@ import {useAppSettings} from '../utils/persistance';
 import wakeWord from '../utils/wakewordService';
 import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
+import MatalkIcon from '../Components/MatalkIcon';
+import ContextInfo from '../Components/ContextInfo';
 import matalkImg from '../assets/matalk.png';
 type RootStackParamList = {
   LOGIN: undefined;
@@ -46,6 +48,7 @@ const OpenScreen: React.FC = () => {
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
+  const [contextInfoVisible, setContextInfoVisible] = useState(false);
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
   const {preferences} = useAppSettings();
@@ -159,23 +162,27 @@ const OpenScreen: React.FC = () => {
     //};
   }, []);
 
-  useEffect(() => {
-    //Start listening; navigate when "Hey Matalk" is detected
-    if (connectionState) {
-      wakeWord.startListening(() => {
-        console.log('Hey Matan detected');
-        wakeWord.stopListening();
-        console.log('Navigating to Home');
-        navigation.navigate(views.HOME as never, {
-          stateof: 'Attention',
-        });
-      });
-    }
-    // Optional clean‑up on unmount
-    return () => {
-      wakeWord.stopListening();
-    };
-  }, [navigation, connectionState]);
+  const startListening = () => {
+    console.log('Starting listening');
+    navigation.navigate(views.HOME as never, {
+      stateof: 'Attention',
+    });
+  };
+
+  // useEffect(() => {
+  //   //Start listening; navigate when "Hey Matalk" is detected
+  //  // if (connectionState) {
+  //     // wakeWord.startListening(() => {
+  //     //   console.log('Hey Matan detected');
+  //     //   wakeWord.stopListening();
+  //     //   console.log('Navigating to Home');
+  //     //   navigation.navigate(views.HOME as never, {
+  //     //     stateof: 'Attention',
+  //     //   });
+  // //  }
+  //   // Optional clean‑up on unmount
+  // //
+  // }, [navigation, connectionState]);
 
   useEffect(() => {
     console.log('Modal visibility changed:', modalVisible);
@@ -287,6 +294,10 @@ const OpenScreen: React.FC = () => {
     }
   };
 
+  const toggleContextInfo = () => {
+    setContextInfoVisible(!contextInfoVisible);
+  };
+
   return (
     <>
       <Animated.View style={[{flex: 1, opacity: fadeAnim}]}>
@@ -302,7 +313,7 @@ const OpenScreen: React.FC = () => {
             />
           </View>
 
-          <View style={styles.microphoneButton}>
+          <Pressable style={styles.microphoneButton} onPress={startListening}>
             <FastImage
               source={
                 connectionState
@@ -312,7 +323,7 @@ const OpenScreen: React.FC = () => {
               style={[styles.iconSize, isListening.current && {opacity: 0.5}]}
               resizeMode={FastImage.resizeMode.contain}
             />
-          </View>
+          </Pressable>
 
           {showRecognitionStatus && (
             <View style={styles.recognitionStatusContainer}>
@@ -330,8 +341,12 @@ const OpenScreen: React.FC = () => {
             />
           </Pressable>
 
+          <Pressable style={styles.infoButton} onPress={toggleContextInfo}>
+            <Text style={styles.infoIcon}>ℹ️</Text>
+          </Pressable>
+
           <View style={styles.matalkIcon}>
-            <FastImage source={matalkImg} style={styles.iconSize} />
+            <MatalkIcon />
           </View>
 
           <View style={styles.contentContainer}>
@@ -496,6 +511,11 @@ const OpenScreen: React.FC = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <ContextInfo
+        visible={contextInfoVisible}
+        onClose={() => setContextInfoVisible(false)}
+      />
     </>
   );
 };
@@ -592,6 +612,19 @@ const styles = StyleSheet.create({
     height: width * 0.05,
     borderRadius: width * 0.04,
     zIndex: 2,
+  },
+  infoButton: {
+    bottom: height * 0.02,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    zIndex: 3,
+    right: width * 0.01,
+    elevation: 5,
+    width: width * 0.04,
+    height: width * 0.04,
+    borderRadius: width * 0.04,
+    backgroundColor: 'white',
   },
   iconSize: {
     width: 45,
@@ -724,6 +757,11 @@ const styles = StyleSheet.create({
     height: 30,
     resizeMode: 'contain',
     marginLeft: width * 0.015,
+  },
+  infoIcon: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
   },
 });
 

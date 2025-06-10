@@ -46,6 +46,22 @@ import goImg from '../assets/shortCuts/fun/go.png';
 import gameImg from '../assets/shortCuts/fun/game.png';
 import bookImg from '../assets/shortCuts/fun/book.png';
 
+// Positions category images
+import upImg from '../assets/shortCuts/positions/up.png';
+import downImg from '../assets/shortCuts/positions/down.png';
+import inImg from '../assets/shortCuts/positions/in.png';
+import outImg from '../assets/shortCuts/positions/out.png';
+import onImg from '../assets/shortCuts/positions/on.png';
+import underImg from '../assets/shortCuts/positions/under.png';
+
+// Actions category images
+import openImg from '../assets/shortCuts/actions/open.png';
+import closeImg from '../assets/shortCuts/actions/close.png';
+import turnOnImg from '../assets/shortCuts/actions/turnOn.png';
+import turnOffImg from '../assets/shortCuts/actions/turnOff.png';
+import giveImg from '../assets/shortCuts/actions/give.png';
+import takeImg from '../assets/shortCuts/actions/take.png';
+
 const {width, height} = Dimensions.get('window');
 
 // Top category data with emoji representations (since we don't have the actual images)
@@ -63,13 +79,13 @@ const topCategories = [
     description: 'Feeling happy and loved',
   },
   {
-    label: 'Fun',
+    label: 'Actions',
     image: boyImg,
-    backgroundColor: '#FF9800',
-    description: 'Feeling sad or upset',
+    backgroundColor: '#F44336',
+    description: 'Feeling pain or discomfort',
   },
   {
-    label: 'Actions',
+    label: 'Fun',
     image: boyImg,
     backgroundColor: '#F44336',
     description: 'Feeling pain or discomfort',
@@ -103,7 +119,7 @@ const iWantNeed = [
   {label: 'All done', image: allDoneImg, backgroundColor: '#FFE4E1'},
 ];
 
-const actions = [
+const fun = [
   {label: 'Play', image: playImg, backgroundColor: '#FFE4E1'},
   {label: 'Outside', image: outsideImg, backgroundColor: '#FFE4E1'},
   {label: 'Mine', image: mineImg, backgroundColor: '#FFE4E1'},
@@ -112,22 +128,22 @@ const actions = [
   {label: 'Book', image: bookImg, backgroundColor: '#FFE4E1'},
 ];
 
-const fun = [
-  {label: 'Open', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Close', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Turn On', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Turn Off', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Give', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Take', image: dogImg, backgroundColor: '#FFE4E1'},
+const actions = [
+  {label: 'Open', image: openImg, backgroundColor: '#FFE4E1'},
+  {label: 'Close', image: closeImg, backgroundColor: '#FFE4E1'},
+  {label: 'Turn On', image: turnOnImg, backgroundColor: '#FFE4E1'},
+  {label: 'Turn Off', image: turnOffImg, backgroundColor: '#FFE4E1'},
+  {label: 'Give', image: giveImg, backgroundColor: '#FFE4E1'},
+  {label: 'Take', image: takeImg, backgroundColor: '#FFE4E1'},
 ];
 
 const positions = [
-  {label: 'Up', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Down', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'In', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Out', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'On', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Under', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Up', image: upImg, backgroundColor: '#FFE4E1'},
+  {label: 'Down', image: downImg, backgroundColor: '#FFE4E1'},
+  {label: 'In', image: inImg, backgroundColor: '#FFE4E1'},
+  {label: 'Out', image: outImg, backgroundColor: '#FFE4E1'},
+  {label: 'On', image: onImg, backgroundColor: '#FFE4E1'},
+  {label: 'Under', image: underImg, backgroundColor: '#FFE4E1'},
 ];
 
 // Update the GRID_WIDTH constant to accommodate exactly 4 items per row

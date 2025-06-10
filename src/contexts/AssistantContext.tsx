@@ -15,6 +15,10 @@ const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
 const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
 // Thread expiration time in milliseconds (4 hours)
 const THREAD_EXPIRATION_MS = 4 * 60 * 60 * 1000;
+
+// Debug flag to disable image generation
+const DEBUGWITHOUTIMAGEGENERATION = false;
+
 // Add history type
 interface HistoryItem {
   type: 'text' | 'status' | 'error' | 'image';
@@ -55,6 +59,7 @@ interface AssistantContextType {
   setThreadId: (id: string) => void;
   setRunId: (id: string) => void;
   resetHistory: () => void;
+  resetAssistant: () => void;
   generateImage: (prompt: string) => Promise<{url: string}>;
   geminiGenerateImage: (prompt: string) => Promise<string>;
   imageUrls: Array<{url: string; prompt: string}>;
@@ -421,15 +426,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
     try {
       // Add user message to history
-      setHistory(prev => [
-        ...prev,
-        {
-          type: 'text',
-          content,
-          timestamp: new Date(),
-          isUserInput: true,
-        },
-      ]);
 
       console.log('📤 Sending message to thread:', idToUse);
       const response = await fetchHelper(
@@ -452,28 +448,49 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   };
 
   const generateImage = async (prompt: string) => {
+    // Debug mode: return hardcoded welcome.png reference
+    if (DEBUGWITHOUTIMAGEGENERATION) {
+      return {url: 'welcome.png'};
+    }
+
     try {
-      // Encode the prompt for URL
-      const encodedPrompt = encodeURIComponent(
-        'Create a realistic image as an answer to this question or statement ' +
-          identifiedQuestion +
-          ' tailored to a boy, the topic is ' +
-          questionTopic +
-          ', the context is ' +
-          questionContext +
-          'and the possible answer is ' +
-          prompt,
+      // First, call OpenAI to generate an enhanced image prompt
+      console.log('🎨 Generating enhanced image prompt with OpenAI...');
+      const promptEnhancementRequest = {
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an expert at creating detailed, vivid image prompts for AI image generation. Create a detailed, descriptive prompt that will generate a high-quality, realistic image suitable for children.',
+          },
+          {
+            role: 'user',
+            content: `Create a detailed image prompt for: "${prompt}". The context is: question "${identifiedQuestion}", topic "${questionTopic}", context "${questionContext}". Make it realistic, child-friendly, and visually appealing. Focus on creating a clear, detailed scene that would help a child understand the concept. Return only the enhanced prompt, nothing else.`,
+          },
+        ],
+        max_tokens: 150,
+        temperature: 0.7,
+      };
+
+      const enhancedPromptResponse = await fetchHelper(
+        'chatCompletion',
+        {},
+        promptEnhancementRequest,
       );
-      console.log(
-        'Create a realistic image as an answer to this question or statement ' +
-          identifiedQuestion +
-          ' tailored to a boy, the topic is ' +
-          questionTopic +
-          ', the context is ' +
-          questionContext +
-          ' and the possible answer is ' +
-          prompt,
-      );
+
+      let enhancedPrompt = prompt; // fallback to original prompt
+      if (enhancedPromptResponse?.choices?.[0]?.message?.content) {
+        enhancedPrompt =
+          enhancedPromptResponse.choices[0].message.content.trim();
+        console.log('✅ Enhanced prompt generated:', enhancedPrompt);
+      } else {
+        console.log('⚠️ Failed to generate enhanced prompt, using original');
+      }
+
+      // Now use the enhanced prompt for image generation
+      const encodedPrompt = encodeURIComponent(enhancedPrompt);
+
       // Generate a random seed for variety
       const seed = Math.floor(Math.random() * 1000);
 
@@ -497,6 +514,11 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   };
 
   const geminiGenerateImage = async (prompt: string) => {
+    // Debug mode: return hardcoded welcome.png reference
+    if (DEBUGWITHOUTIMAGEGENERATION) {
+      return 'welcome.png';
+    }
+
     const ai = new GoogleGenAI({apiKey: Config.geminiAPIKey});
 
     const imagePrompt =
@@ -657,6 +679,17 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     }
   };
 
+  const resetAssistant = () => {
+    // Reset all state except threadId
+    setHistory([]);
+    setRunId('');
+    setLocalStatus(null);
+    setLocalResponse('');
+    setLocalError(null);
+    setImageUrls([]);
+    setIsThreadFresh(false);
+  };
+
   return (
     <AssistantContext.Provider
       value={{
@@ -672,6 +705,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         setThreadId,
         setRunId,
         resetHistory,
+        resetAssistant,
         generateImage,
         geminiGenerateImage,
         imageUrls,

@@ -16,6 +16,20 @@ import TTSService from '../utils/TTSService';
 import HomeButton from '../Components/HomeButton';
 
 const {width, height} = Dimensions.get('window');
+//Good Feelings
+import happyImg from '../assets/feelings/goodFeelings/happy.png';
+import excitedImg from '../assets/feelings/goodFeelings/excited.png';
+import lovedImg from '../assets/feelings/goodFeelings/loved.png';
+import calmImg from '../assets/feelings/goodFeelings/calm.png';
+import proudImg from '../assets/feelings/goodFeelings/proud.png';
+import sillyImg from '../assets/feelings/goodFeelings/silly.png';
+//Good Body
+import comfortableImg from '../assets/feelings/goodBody/comfortable.png';
+import relaxedImg from '../assets/feelings/goodBody/relaxed.png';
+import okImg from '../assets/feelings/goodBody/ok.png';
+import warmImg from '../assets/feelings/goodBody/warm.png';
+import strongImg from '../assets/feelings/goodBody/strong.png';
+import energeticImg from '../assets/feelings/goodBody/energetic.png';
 
 // For simplicity, we'll use the same dog image for all feeling cards
 // In a real app, you would have different images for each feeling
@@ -54,21 +68,21 @@ const topCategories = [
 
 // Feeling grid data - using the same image for all cards as placeholder
 const goodBody = [
-  {label: 'Comfortable', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Relaxed', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: "I'm OK", image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Warm', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Strong', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Energetic', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Comfortable', image: comfortableImg, backgroundColor: '#FFE4E1'},
+  {label: 'Relaxed', image: relaxedImg, backgroundColor: '#FFE4E1'},
+  {label: "I'm OK", image: okImg, backgroundColor: '#FFE4E1'},
+  {label: 'Warm', image: warmImg, backgroundColor: '#FFE4E1'},
+  {label: 'Strong', image: strongImg, backgroundColor: '#FFE4E1'},
+  {label: 'Energetic', image: energeticImg, backgroundColor: '#FFE4E1'},
 ];
 
 const goodFeelings = [
-  {label: 'Happy', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Excited', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Loved', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Calm', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Proud', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Silly', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Happy', image: happyImg, backgroundColor: '#FFE4E1'},
+  {label: 'Excited', image: excitedImg, backgroundColor: '#FFE4E1'},
+  {label: 'Loved', image: lovedImg, backgroundColor: '#FFE4E1'},
+  {label: 'Calm', image: calmImg, backgroundColor: '#FFE4E1'},
+  {label: 'Proud', image: proudImg, backgroundColor: '#FFE4E1'},
+  {label: 'Silly', image: sillyImg, backgroundColor: '#FFE4E1'},
 ];
 
 const badFeelings = [
