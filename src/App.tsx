@@ -17,23 +17,25 @@ import TTSService from './utils/TTSService';
 import {SoundProvider} from './contexts/soundContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {Auth0Provider} from 'react-native-auth0';
-import Vosk from 'react-native-vosk';
 import WakeWordService from './utils/wakewordService';
-
-const vosk = new Vosk();
+import {Mixpanel} from 'mixpanel-react-native';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
+
+  const trackAutomaticEvents = true;
+  const mixpanel = new Mixpanel(
+    'b5c43b5eeefef8db948f6bf391e5ce39',
+    trackAutomaticEvents,
+  );
+
+  mixpanel.init();
 
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
     const initServices = async () => {
       // Initialize TTS service when the app starts
       await TTSService.initialize();
-
-      vosk
-        .loadModel('vosk-model-small-en-us-0.15')
-        .then(() => console.log('✅ iOS model loaded'));
     };
 
     initServices();

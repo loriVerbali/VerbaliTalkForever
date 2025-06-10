@@ -25,6 +25,7 @@ import {views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -193,8 +194,12 @@ const SettingsScreen: React.FC = () => {
   const [adminCodeError, setAdminCodeError] = useState('');
   const [isAdminCodeVisible, setIsAdminCodeVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   useEffect(() => {
+    mixpanel.track('Settings', {
+      Opened: 'Settings',
+    });
     const loadSettings = async () => {
       try {
         const savedReturnedMessages = await getItem('returnedMessages');

@@ -61,6 +61,7 @@ import turnOnImg from '../assets/shortCuts/actions/turnOn.png';
 import turnOffImg from '../assets/shortCuts/actions/turnOff.png';
 import giveImg from '../assets/shortCuts/actions/give.png';
 import takeImg from '../assets/shortCuts/actions/take.png';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -152,6 +153,7 @@ const GRID_IMAGE_HEIGHT = height * 0.2;
 
 const ShortCuts = () => {
   const navigation = useNavigation();
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
     | 'attention'
     | 'iWantNeed'
@@ -172,6 +174,9 @@ const ShortCuts = () => {
 
   useEffect(() => {
     // Initialize TTS when component mounts
+    mixpanel.track('Shortcuts', {
+      Opened: 'Shortcuts',
+    });
     TTSService.initialize();
 
     // Clean up TTS when component unmounts

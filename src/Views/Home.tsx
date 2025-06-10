@@ -37,6 +37,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -70,8 +71,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
-
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   useEffect(() => {
+    mixpanel.track('Conversation', {
+      Opened: 'Conversation',
+    });
+
     if (stateof === 'Attention') {
       // wakeWord.stopListening();
       playSound();
