@@ -30,6 +30,7 @@ import {
   useChatContext,
   getContextualInfo,
 } from '../contexts/ChatContextProvider';
+import {logInitConversation} from '../utils/initConversationLogger';
 
 const DEBUGCONVONOIMAGEGENERATION = true;
 
@@ -245,6 +246,34 @@ const Convo = () => {
       console.error(`❌ Error calling assistant in ${mode} mode:`, error);
       setIsLoading(false);
       return false;
+    }
+  };
+
+  // Function to log conversation process
+  const logConversationProcess = async () => {
+    if (!threadId || !generatedSentence) {
+      console.log('⏳ Missing threadId or generated sentence for logging');
+      return;
+    }
+
+    try {
+      console.log('📝 Logging conversation process...');
+
+      await logInitConversation({
+        question: generatedSentence,
+        possibleTopics: availableTopics,
+        possibleActions: availableActions,
+        possibleObjects: availableObjects,
+        sentence: generatedSentence,
+        topic: topic,
+        action: action,
+        objectPicked: object,
+        threadId: threadId,
+      });
+
+      console.log('✅ Conversation process logged successfully');
+    } catch (error) {
+      console.error('❌ Error logging conversation process:', error);
     }
   };
 
@@ -717,6 +746,9 @@ const Convo = () => {
       inputText !== 'Waiting for input...'
     ) {
       try {
+        // Log the conversation process before playing
+        await logConversationProcess();
+
         await TTSService.speak(inputText);
 
         // Wait for 3 seconds before resetting

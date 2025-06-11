@@ -201,6 +201,20 @@ const Config: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    loginitconversation: {
+      description: 'loginitconversation',
+      isAuthenticated: false,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/loginitconversation',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
     // Add other methods as needed
   },
 };
