@@ -21,54 +21,70 @@ const audioRecorderPlayer = new AudioRecorderPlayer();
 
 interface InputsProps {
   mode: string;
+  onInputChange?: (text: string) => void;
+}
+
+export interface InputsRef {
+  clearInput: () => void;
 }
 
 const {width, height} = Dimensions.get('window');
 
-const Inputs: React.FC<InputsProps> = ({mode}) => {
-  const [inputText, setInputText] = useState<string>('');
+const Inputs = forwardRef<InputsRef, InputsProps>(
+  ({mode, onInputChange}, ref) => {
+    const [inputText, setInputText] = useState<string>('');
 
-  return (
-    <View style={styles.container}>
-      {mode === 'Attention' ? (
-        <View style={styles.inputContainer}>
-          <View style={styles.KBinputContainer} pointerEvents="none">
-            <TextInput
-              style={styles.textInput}
-              value={inputText}
-              editable={false}
-              onChangeText={setInputText}
-              placeholder="Waiting for a sentence..."
-              placeholderTextColor="#999"
-              selectTextOnFocus={false}
-            />
-          </View>
-        </View>
-      ) : (
-        <View style={styles.inputContainer}>
-          <View style={styles.KBinputContainer}>
-            <View style={styles.imageWrapper}>
-              <FastImage
-                style={styles.playIcon}
-                source={require('../assets/play.png')}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-            </View>
-            <View style={styles.inputWrapper}>
+    const handleTextChange = (text: string) => {
+      setInputText(text);
+      if (onInputChange) {
+        onInputChange(text);
+      }
+    };
+
+    useImperativeHandle(ref, () => ({
+      clearInput: () => {
+        setInputText('');
+        if (onInputChange) {
+          onInputChange('');
+        }
+      },
+    }));
+
+    return (
+      <View style={styles.container}>
+        {mode === 'Attention' ? (
+          <View style={styles.inputContainer}>
+            <View style={styles.KBinputContainer} pointerEvents="none">
               <TextInput
-                style={styles.textKBInput}
+                style={styles.textInput}
                 value={inputText}
-                onChangeText={setInputText}
-                placeholder="Type your message here..."
+                editable={false}
+                onChangeText={handleTextChange}
+                placeholder="Waiting for a sentence..."
                 placeholderTextColor="#999"
+                selectTextOnFocus={false}
               />
             </View>
           </View>
-        </View>
-      )}
-    </View>
-  );
-};
+        ) : (
+          <View style={styles.inputContainer}>
+            <View style={styles.KBinputContainer}>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={styles.textKBInput}
+                  value={inputText}
+                  onChangeText={handleTextChange}
+                  placeholder="Type your message here..."
+                  placeholderTextColor="#999"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {
