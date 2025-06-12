@@ -1,345 +1,240 @@
 // wakeWord.ts  – Type‑safe, singleton Wake‑Word listener for "Hey Matalk"
 
-import Vosk from 'react-native-vosk';
+import {
+  KeyWordRNBridgeInstance,
+  createKeyWordRNBridgeInstance,
+} from 'react-native-wakeword';
 
-export type WakeWordCallback = () => void;
+interface InstanceConfig {
+  id: string;
+  modelName: string;
+  threshold: number;
+  bufferCnt: number;
+  sticky: boolean;
+}
+
+const instanceConfigs: InstanceConfig[] = [
+  {
+    id: 'hey_lookdeep',
+    modelName: 'hey_lookdeep.onnx',
+    threshold: 0.9999,
+    bufferCnt: 3,
+    sticky: false,
+  },
+];
+
+export type WakeWordCallback = (phrase: string) => void;
 
 class WakeWordService {
   private static instance: WakeWordService;
-  private vosk = new Vosk();
-  private loaded = false;
-  private subscription?: {remove: () => void};
-  private wakeWord = 'hey matan';
-  private currentCallback?: WakeWordCallback; // Store the current callback for reloading
+  private wakeWordCallback: WakeWordCallback | null = null;
+  private keywordInstance: KeyWordRNBridgeInstance | null = null;
+  private eventListener: any = null;
+  private isInitialized: boolean = false;
+  private isListening: boolean = false;
+  private license: string =
+    'MTc0OTkzNDgwMDAwMA==-QOkSZvHDA+qRiN/vX2Kp2xt30+hro4jze3dzJJAeEMc=';
 
-  // Detection tracking
-  private lastDetectionTime = 0;
-  private lastActivationTime = 0;
-  private cooldownPeriod = 3000; // 3 second cooldown after activation
-  private lastRecognizedTexts: string[] = []; // Store recent recognitions for debugging
-  private detectionStartTime = 0; // When we started seeing a potential detection sequence
+  private constructor() {
+    // Private constructor for singleton
+  }
 
-  // Known bad patterns that should never trigger activation
-  private blacklistedPatterns = [
-    '[unk]', // Unknown tokens
-    'hey [unk]', // "hey" followed by unknown token
-  ];
-
-  // Mouse click / noise filter
-  private minDetectionDuration = 1200; // Min 1.2 seconds between first "hey" and activation
-  private consecutiveRequirement = 3; // Need 3 consecutive "hey" to consider it valid
-  private consecutiveCount = 0;
-  private lastHeyTime = 0;
-
-  private constructor() {}
-
-  /** Singleton accessor */
-  static get(): WakeWordService {
+  public static getInstance(): WakeWordService {
     if (!WakeWordService.instance) {
       WakeWordService.instance = new WakeWordService();
     }
     return WakeWordService.instance;
   }
 
-  /** Offload the Vosk model to free memory when app goes to background */
-  async offloadModel(): Promise<void> {
-    try {
-      console.log('🗑️ Offloading Vosk model...');
+  // Helper function to format the ONNX file name
+  private formatWakeWord(fileName: string): string {
+    return fileName
+      .replace(/_/g, ' ') // Use global flag to replace all underscores
+      .replace('.onnx', '')
+      .replace(/\b\w/g, char => char.toUpperCase()); // Capitalize each word
+  }
 
-      // Stop listening first
-      if (this.subscription) {
-        this.subscription.remove();
-        this.subscription = undefined;
+  // Initialize the wake word service
+  private async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+
+    try {
+      console.log('Initializing Wake Word Service...');
+
+      // Create instance
+      const config = instanceConfigs[0];
+      this.keywordInstance = await createKeyWordRNBridgeInstance(
+        config.id,
+        false,
+      );
+
+      if (!this.keywordInstance) {
+        throw new Error(`Failed to create instance ${config.id}`);
       }
 
-      // Stop the Vosk engine
-      await this.vosk.stop();
+      console.log(`Instance ${config.id} created`);
 
-      // Mark as not loaded so it will reload when needed
-      this.loaded = false;
+      // Create the instance with model configuration
+      await this.keywordInstance.createInstance(
+        config.modelName,
+        config.threshold,
+        config.bufferCnt,
+      );
 
-      console.log('✅ Vosk model offloaded successfully');
+      console.log(`Instance ${config.id} createInstance() called`);
+
+      // Set license
+      const isLicensed = await this.keywordInstance.setKeywordDetectionLicense(
+        this.license,
+      );
+      if (!isLicensed) {
+        console.error('License validation failed');
+      }
+
+      this.isInitialized = true;
+      console.log('Wake Word Service initialized successfully');
     } catch (error) {
-      console.error('❌ Error offloading Vosk model:', error);
+      console.error('Error initializing Wake Word Service:', error);
+      throw error;
     }
   }
 
-  /** Reload the Vosk model when app comes back to foreground */
-  async reloadModel(): Promise<void> {
-    try {
-      console.log('🔄 Reloading Vosk model...');
+  // Set up the detection callback
+  private async setupCallback(): Promise<void> {
+    if (!this.keywordInstance) {
+      throw new Error('Wake word instance not initialized');
+    }
 
-      if (!this.loaded) {
-        // Reload the model
-        await this.vosk.loadModel('vosk-model-small-en-us-0.15');
-        this.loaded = true;
-        console.log('✅ Vosk model reloaded successfully');
+    const keywordCallback = async (phrase: string) => {
+      try {
+        // Stop detection when keyword is detected
+        await this.stopListening();
 
-        // If we had a callback registered, restart listening
-        if (this.currentCallback) {
-          console.log('🎤 Restarting wake word listening...');
-          await this.startListening(this.currentCallback);
+        // Format the phrase
+        const formattedPhrase = this.formatWakeWord(instanceConfigs[0].id);
+
+        console.log(`Wake word detected: ${formattedPhrase}`);
+
+        // Call user callback if set
+        if (this.wakeWordCallback) {
+          this.wakeWordCallback(formattedPhrase);
         }
+      } catch (error) {
+        console.error('Error in keyword callback:', error);
       }
-    } catch (error) {
-      console.error('❌ Error reloading Vosk model:', error);
+    };
+
+    // Set up event listener
+    this.eventListener =
+      this.keywordInstance.onKeywordDetectionEvent(keywordCallback);
+    console.log('Event listener set up successfully');
+  }
+
+  // Remove event listener
+  private removeEventListener(): void {
+    if (this.eventListener && typeof this.eventListener.remove === 'function') {
+      this.eventListener.remove();
+      this.eventListener = null;
+      console.log('Event listener removed');
     }
   }
 
-  private checkShouldActivate(): boolean {
-    const now = Date.now();
-
-    // Record this detection
-    this.lastDetectionTime = now;
-
-    // If we're in the cooldown period after a recent activation, ignore this detection
-    if (now - this.lastActivationTime < this.cooldownPeriod) {
-      console.log('⏲️ In cooldown period, ignoring detection');
-      return false;
-    }
-
-    // Allow activation and update activation time
-    this.lastActivationTime = now;
-    this.consecutiveCount = 0; // Reset consecutive counter
-    return true;
+  // Set callback for wake word detection
+  public setCallback(callback: WakeWordCallback): void {
+    this.wakeWordCallback = callback;
   }
 
-  /** Check if the recognition is valid and not a false positive */
-  private isValidWakeWordMatch(text: string): boolean {
-    const now = Date.now();
-
-    // Must be exactly the wake word
-    if (text !== this.wakeWord) {
-      return false;
-    }
-
-    // Check against blacklisted patterns
-    for (const pattern of this.blacklistedPatterns) {
-      if (text.includes(pattern)) {
-        console.log(`❌ Rejected due to blacklisted pattern: "${pattern}"`);
-        return false;
-      }
-    }
-
-    // Ensure minimum detection duration between first "hey" and activation
-    if (
-      this.detectionStartTime > 0 &&
-      now - this.detectionStartTime < this.minDetectionDuration
-    ) {
-      console.log(
-        `❌ Rejected: Detection too quick (${now - this.detectionStartTime}ms)`,
-      );
-      return false;
-    }
-
-    // Check if there's exactly one occurrence of "hey" and one of "matan"
-    const heyCount = (text.match(/hey/g) || []).length;
-    const matanCount = (text.match(/matan/g) || []).length;
-
-    if (heyCount !== 1 || matanCount !== 1) {
-      console.log(
-        `❌ Rejected due to wrong word count: hey=${heyCount}, matan=${matanCount}`,
-      );
-      return false;
-    }
-
-    // Check the pattern of the last recognitions
-    // If we see isolated "matan" in the history without the user saying a complete phrase,
-    // it's likely a false positive
-    const recentTexts = this.lastRecognizedTexts.slice(-5);
-    const containsIsolatedMatan = recentTexts.some(
-      t => t.includes('PARTIAL: matan') || t.includes('FULL: matan'),
-    );
-    const containsCompletePhrase = recentTexts.some(
-      t => t.includes('PARTIAL: hey matan') || t.includes('FULL: hey matan'),
-    );
-
-    if (containsIsolatedMatan && !containsCompletePhrase) {
-      console.log(
-        '❌ Rejected due to isolated "matan" in history without complete phrase',
-      );
-      return false;
-    }
-
-    return true;
-  }
-
-  /** Track "hey" detections to build confidence over time */
-  private trackPartialHey(text: string): void {
-    const now = Date.now();
-
-    if (text === 'hey') {
-      // If this is first "hey" detection, set detection start time
-      if (this.detectionStartTime === 0) {
-        this.detectionStartTime = now;
-        this.consecutiveCount = 1;
-        console.log('👂 First "hey" detected, starting detection sequence');
-      }
-      // Check if this is a consecutive "hey" within reasonable time (within 800ms of last one)
-      else if (now - this.lastHeyTime < 800) {
-        this.consecutiveCount++;
-        console.log(`👂 Consecutive "hey" #${this.consecutiveCount} detected`);
-      }
-      // If too much time passed, reset and start over
-      else if (now - this.lastHeyTime > 2000) {
-        console.log('⏱️ Too much time between "hey" detections, resetting');
-        this.detectionStartTime = now;
-        this.consecutiveCount = 1;
-      }
-
-      this.lastHeyTime = now;
-    }
-    // If we detect something other than "hey", reduce confidence
-    else if (
-      text &&
-      text !== '' &&
-      text !== 'matan' &&
-      this.consecutiveCount > 0
-    ) {
-      this.consecutiveCount = Math.max(0, this.consecutiveCount - 1);
-      console.log(
-        `⬇️ Non-"hey" detected, reducing consecutive count to ${this.consecutiveCount}`,
-      );
-    }
-  }
-
-  /** Reset the speech recognition to clear any potential state */
-  private async resetRecognition() {
+  // Start listening for wake words
+  public async startListening(): Promise<void> {
     try {
-      // Stop and restart with the same grammar to clear internal state
-      await this.vosk.stop();
-      //  await this.vosk.start({grammar: [this.wakeWord]});
-      await this.vosk.start({
-        grammar: ['hey ', 'hey', '[unk]'],
-      });
-      console.log('🔄 Reset recognition engine');
+      // Initialize if not already done
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
 
-      // Reset all tracking variables
-      this.lastRecognizedTexts = [];
-      this.detectionStartTime = 0;
-      this.consecutiveCount = 0;
+      if (this.isListening) {
+        console.log('Already listening for wake words');
+        return;
+      }
+
+      if (!this.keywordInstance) {
+        throw new Error('Wake word instance not available');
+      }
+
+      // Set up callback if not already done
+      if (!this.eventListener) {
+        await this.setupCallback();
+      }
+
+      // Start detection
+      await this.keywordInstance.startKeywordDetection(
+        instanceConfigs[0].threshold,
+      );
+      this.isListening = true;
+
+      console.log('Started listening for wake words');
     } catch (error) {
-      console.error('Error resetting recognition:', error);
+      console.error('Error starting wake word detection:', error);
+      throw error;
     }
   }
 
-  /** Call once (e.g. in App.tsx) */
-  async startListening(onWake: WakeWordCallback) {
-    // Store the callback for potential reloading
-    this.currentCallback = onWake;
+  // Stop listening for wake words
+  public async stopListening(): Promise<void> {
+    try {
+      if (!this.isListening || !this.keywordInstance) {
+        console.log('Not currently listening');
+        return;
+      }
 
-    if (!this.loaded) {
-      // ✅ load the bundled model once
-      await this.vosk.loadModel('vosk-model-small-en-us-0.15');
-      this.loaded = true;
+      // Stop detection
+      await this.keywordInstance.stopKeywordDetection();
+      this.isListening = false;
+
+      console.log('Stopped listening for wake words');
+    } catch (error) {
+      console.error('Error stopping wake word detection:', error);
+      throw error;
     }
-
-    console.log('🎤 Listening for wake word:', this.wakeWord);
-    this.lastRecognizedTexts = []; // Clear history
-    this.detectionStartTime = 0;
-    this.consecutiveCount = 0;
-
-    // Grammar = wake word + "[unk]" token to ignore everything else
-    await this.vosk.start({grammar: [this.wakeWord]});
-
-    // Clean up any prior subscription
-    this.subscription?.remove();
-
-    // Subscribe to recognition results
-    this.subscription = this.vosk.onResult(text => {
-      const cleanText = text.toLowerCase().trim();
-      console.log('📝 Full result:', cleanText);
-
-      // Add to history for debugging
-      this.lastRecognizedTexts.push(`FULL: ${cleanText}`);
-      if (this.lastRecognizedTexts.length > 10) {
-        this.lastRecognizedTexts.shift();
-      }
-
-      // Print recent history for debugging
-      console.log('Recent recognitions:', this.lastRecognizedTexts);
-
-      // Only activate if it passes our strict validation
-      if (cleanText === 'hey matan' && this.isValidWakeWordMatch(cleanText)) {
-        console.log('🔔 Wake word detected and validated!');
-        console.log('Recent history:', this.lastRecognizedTexts);
-
-        if (this.checkShouldActivate()) {
-          console.log('✅ Activating!');
-          onWake();
-          // Reset recognition after activation
-          this.resetRecognition();
-        }
-      }
-    });
-
-    // this.subscription = this.vosk.onPartialResult(text => {
-    //   const cleanText = text.toLowerCase().trim();
-
-    //   // Ignore empty results
-    //   if (!cleanText) return;
-
-    //   // Add to history for debugging
-    //   this.lastRecognizedTexts.push(`PARTIAL: ${cleanText}`);
-    //   if (this.lastRecognizedTexts.length > 10) {
-    //     this.lastRecognizedTexts.shift();
-    //   }
-
-    //   console.log('🔍 PARTIAL result:', cleanText);
-
-    //   // Track "hey" detections to build confidence
-    //   this.trackPartialHey(cleanText);
-
-    //   // No activation on partial results - too prone to false positives
-    //   // Just log for debugging
-    //   if (cleanText === 'hey') {
-    //     console.log('👂 "Hey" component detected');
-    //   } else if (cleanText === 'matan') {
-    //     console.log('👂 "Matan" component detected');
-    //   } else if (cleanText === 'hey matan') {
-    //     console.log(
-    //       '👂 Complete phrase in partial result (waiting for full result)',
-    //     );
-    //   }
-
-    //   // Reset if we see isolated "matan" when it's likely a false positive
-    //   if (cleanText === 'matan' && this.lastRecognizedTexts.length > 2) {
-    //     const previousResults = this.lastRecognizedTexts.slice(-3, -1);
-    //     const hasHey = previousResults.some(
-    //       r => r.includes('PARTIAL: hey') || r.includes('FULL: hey'),
-    //     );
-
-    //     if (!hasHey) {
-    //       console.log(
-    //         '⚠️ Isolated "matan" detected without "hey" - resetting recognition',
-    //       );
-    //       this.resetRecognition();
-    //     }
-    //   }
-
-    //   // Reset if we're getting too many consecutive empty or garbage recognitions
-    //   // This helps clear the state when there's just ambient noise
-    //   const recentTexts = this.lastRecognizedTexts.slice(-5);
-    //   const emptyOrGarbageCount = recentTexts.filter(
-    //     t => t.endsWith(': ') || t.includes('[unk]'),
-    //   ).length;
-
-    //   if (emptyOrGarbageCount >= 4) {
-    //     console.log(
-    //       '⚠️ Too many empty/garbage recognitions - resetting engine',
-    //     );
-    //     this.resetRecognition();
-    //   }
-    // });
   }
 
-  /** Call when you want to stop listening (e.g. on logout) */
-  async stopListening() {
-    this.subscription?.remove();
-    this.subscription = undefined;
-    this.currentCallback = undefined;
-    await this.vosk.stop();
+  // Check if currently listening
+  public isCurrentlyListening(): boolean {
+    return this.isListening;
+  }
+
+  // Clean up resources
+  public async cleanup(): Promise<void> {
+    try {
+      await this.stopListening();
+      this.removeEventListener();
+      this.keywordInstance = null;
+      this.isInitialized = false;
+      this.wakeWordCallback = null;
+
+      console.log('Wake Word Service cleaned up');
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+    }
+  }
+
+  // Restart listening (useful after detection)
+  public async restartListening(delayMs: number = 0): Promise<void> {
+    if (delayMs > 0) {
+      setTimeout(async () => {
+        await this.startListening();
+      }, delayMs);
+    } else {
+      await this.startListening();
+    }
+  }
+
+  // Set custom license
+  public setLicense(license: string): void {
+    this.license = license;
   }
 }
 
-export default WakeWordService.get();
+export default WakeWordService;

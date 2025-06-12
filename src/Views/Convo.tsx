@@ -19,7 +19,6 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {useAssistant} from '../contexts/AssistantContext';
 import fetchHelper from '../utils/fetcher';
-import wakeWord from '../utils/wakewordService';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
 import Slider from '@react-native-community/slider';
@@ -702,9 +701,7 @@ const Convo = () => {
 
   useEffect(() => {
     // Stop listening when component mounts, but don't block loading
-    setTimeout(() => {
-      void wakeWord.stopListening();
-    }, 0);
+    setTimeout(() => {}, 0);
 
     // No need for cleanup since we're already stopped
   }, []);
