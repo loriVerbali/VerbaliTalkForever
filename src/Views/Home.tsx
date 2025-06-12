@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import {useNavigation, RouteProp} from '@react-navigation/native';
 import RNFS from 'react-native-fs';
@@ -21,7 +22,7 @@ import AudioRecorderPlayer, {
 } from 'react-native-audio-recorder-player';
 
 // Add imports for the components
-import Inputs from '../Components/Inputs';
+import Inputs, {InputsRef} from '../Components/Inputs';
 import Transcription from '../Components/Transcription';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
@@ -37,6 +38,8 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
+import {Mixpanel} from 'mixpanel-react-native';
+import {logConversation} from '../utils/conversationLogger';
 
 const {width, height} = Dimensions.get('window');
 
@@ -59,6 +62,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
 
+  // Add keyboard input state
+  const [keyboardInput, setKeyboardInput] = useState('');
+  const [debouncedKeyboardInput, setDebouncedKeyboardInput] = useState('');
+  const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputsRef = useRef<InputsRef>(null);
+
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
   const {playAttention, playThisSound} = useSound();
@@ -70,11 +80,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
-
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   useEffect(() => {
+    mixpanel.track('Conversation', {
+      Opened: 'Conversation',
+    });
+
     if (stateof === 'Attention') {
       // wakeWord.stopListening();
       playSound();
+    }
+    if (stateof === 'Keyboard') {
     }
   }, []);
 
@@ -292,6 +308,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setShowImages(false);
     setIsRetrying(false);
     setRetryCount(0);
+    setKeyboardInput(''); // Reset keyboard input
+    setDebouncedKeyboardInput('');
+    setIsSubmittingKeyboard(false);
+
+    // Clear the input in the Inputs component
+    if (inputsRef.current) {
+      inputsRef.current.clearInput();
+    }
+
+    // Clear debounce timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
   };
 
   // Function to handle "Can't find it" button press
@@ -343,6 +373,133 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
+  // Function to handle answer selection and logging
+  const handleAnswerSelected = async (selectedAnswer: string) => {
+    if (!transcribedText || !threadId || !imageUrls || imageUrls.length === 0) {
+      return;
+    }
+
+    try {
+      // Extract all possible answers from imageUrls
+      const possibleAnswers = imageUrls
+        .filter(item => item && item.prompt)
+        .map(item => item.prompt);
+
+      // Log the conversation
+      await logConversation({
+        question: transcribedText,
+        possibleAnswers: possibleAnswers,
+        answerPicked: selectedAnswer,
+        threadId: threadId,
+      });
+    } catch (error) {
+      console.error('Failed to log conversation:', error);
+      // Don't show error to user as this is background logging
+    }
+  };
+
+  // Function to handle keyboard input submission
+  const handleKeyboardSubmit = async () => {
+    const inputText = keyboardInput.trim();
+
+    if (!inputText || isSubmittingKeyboard) {
+      return;
+    }
+
+    try {
+      setIsSubmittingKeyboard(true);
+
+      // Simply display what was written without making API calls
+      TTSService.speak(inputText, true);
+
+      console.log('📝 Displaying keyboard input:', inputText);
+    } catch (error) {
+      console.error('handleKeyboardSubmit - Processing failed:', error);
+    } finally {
+      setIsSubmittingKeyboard(false);
+    }
+  };
+
+  // Debounced input handler
+  const handleKeyboardInputChange = useCallback((text: string) => {
+    setKeyboardInput(text);
+
+    // Clear existing timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    // Set new timer for debounced update
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedKeyboardInput(text);
+    }, 300); // 300ms debounce
+  }, []);
+
+  // Function to handle keyboard input cancellation
+  const handleKeyboardCancel = () => {
+    setKeyboardInput('');
+    setDebouncedKeyboardInput('');
+    setIsSubmittingKeyboard(false);
+
+    // Clear the input in the Inputs component
+    if (inputsRef.current) {
+      inputsRef.current.clearInput();
+    }
+
+    // Clear debounce timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
+  };
+
+  // Child component for keyboard input
+  const KeyboardInputComponent = () => {
+    const hasText = debouncedKeyboardInput.trim().length > 0;
+
+    return (
+      <View style={styles.keyboardInputContainer}>
+        {/* Show waiting message or what's being typed */}
+        {keyboardInput.length === 0 ? (
+          <FastImage
+            source={require('../assets/waitforKB.png')}
+            style={styles.keyboardIcon}
+            resizeMode={FastImage.resizeMode.contain}
+          />
+        ) : (
+          <View style={styles.typingDisplay}>
+            <Text style={styles.typingDisplayText}>{keyboardInput}</Text>
+          </View>
+        )}
+
+        {/* Show buttons only when there's debounced text */}
+        {hasText && (
+          <View style={styles.keyboardButtonsContainer}>
+            <TouchableOpacity
+              style={[styles.keyboardButton, styles.cancelButton]}
+              onPress={handleKeyboardCancel}
+              disabled={isSubmittingKeyboard}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.keyboardButton, styles.submitButton]}
+              onPress={handleKeyboardSubmit}
+              disabled={
+                isSubmittingKeyboard ||
+                debouncedKeyboardInput.trim().length === 0
+              }>
+              {isSubmittingKeyboard ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Submit</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
@@ -364,7 +521,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
         {/* Input and Navigation Section */}
         <View style={styles.inputNavigationContainer}>
-          <Inputs mode={stateof} />
+          <Inputs
+            ref={inputsRef}
+            mode={stateof}
+            onInputChange={handleKeyboardInputChange}
+          />
         </View>
 
         <View style={{flex: 1, width: '100%'}}>
@@ -415,6 +576,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         onRefresh={handleCantFindIt}
                         retryCount={retryCount}
                         maxRetries={MAX_RETRIES}
+                        onAnswerSelected={handleAnswerSelected}
                       />
                     </View>
                   );
@@ -428,7 +590,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       justifyContent: 'center',
                       alignItems: 'center',
                     }}>
-                    {isRecording ? (
+                    {stateof === 'Keyboard' ? (
+                      <KeyboardInputComponent />
+                    ) : isRecording ? (
                       <FastImage
                         source={require('../assets/recording.gif')}
                         style={styles.recordingIcon}
@@ -596,6 +760,11 @@ const styles = StyleSheet.create({
     height: 45,
     resizeMode: 'contain',
   },
+  keyboardIcon: {
+    width: width * 0.3,
+    height: width * 0.3,
+    resizeMode: 'contain',
+  },
   recordingIcon: {
     width: width * 0.4,
     height: width * 0.4,
@@ -650,6 +819,96 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 10,
     left: 10,
+  },
+  keyboardInputContainer: {
+    width: '100%',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  waitingLabel: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  keyboardTextInput: {
+    width: '100%',
+    minHeight: 100,
+    maxHeight: 200,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+    borderRadius: 10,
+    padding: 15,
+    fontSize: 16,
+    backgroundColor: '#FFF',
+    textAlignVertical: 'top',
+    marginBottom: 20,
+  },
+  keyboardButtonsContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-around',
+  },
+  keyboardButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    minWidth: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#ff5722',
+    borderWidth: 2,
+    borderColor: '#ff5722',
+  },
+  submitButton: {
+    backgroundColor: '#007AFF',
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  cancelButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  submitButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  typingPreview: {
+    width: '100%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
+  },
+  typingPreviewText: {
+    fontSize: 16,
+    color: '#333',
+    fontStyle: 'italic',
+  },
+  typingDisplay: {
+    width: '100%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 20,
+    marginVertical: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#007AFF',
+    minHeight: 60,
+    justifyContent: 'center',
+  },
+  typingDisplayText: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

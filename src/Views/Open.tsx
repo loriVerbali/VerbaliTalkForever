@@ -24,7 +24,8 @@ import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
 import MatalkIcon from '../Components/MatalkIcon';
 import ContextInfo from '../Components/ContextInfo';
-import matalkImg from '../assets/matalk.png';
+import {Mixpanel} from 'mixpanel-react-native';
+
 type RootStackParamList = {
   LOGIN: undefined;
   HOME: {stateof?: string};
@@ -53,7 +54,7 @@ const OpenScreen: React.FC = () => {
   const [connectionState, setConnectionState] = useState(isConnected);
   const {preferences} = useAppSettings();
   const heroName = preferences?.heroName;
-
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   // Track connection state changes
   useEffect(() => {
     setConnectionState(isConnected); // Force local state update
@@ -61,6 +62,9 @@ const OpenScreen: React.FC = () => {
 
   useEffect(() => {
     console.log('OpenScreen mounted');
+    mixpanel.track('MainScreen', {
+      Opened: 'MainScreen',
+    });
     // Fade in when the screen mounts
     Animated.timing(fadeAnim, {
       toValue: 1,

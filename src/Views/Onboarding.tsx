@@ -1,4 +1,4 @@
-import React, {useState, useContext} from 'react';
+import React, {useState, useContext, useEffect} from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import matalkImg from '../assets/matalk.png';
 import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -82,6 +83,7 @@ const onboardingSteps = [
 
 const OnboardingScreen: React.FC = () => {
   const navigation = useNavigation();
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const {setItem} = useAppSettings();
   const {completeOnboarding} = useContext(OnboardingContext);
   const [currentStep, setCurrentStep] = useState(0);
@@ -604,6 +606,13 @@ const OnboardingScreen: React.FC = () => {
       Linking.openSettings();
     }
   };
+
+  useEffect(() => {
+    mixpanel.track('Onboarding', {
+      Opened: 'Onboarding',
+      Step: currentStep,
+    });
+  }, [currentStep]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

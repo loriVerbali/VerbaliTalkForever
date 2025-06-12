@@ -30,6 +30,7 @@ import okImg from '../assets/feelings/goodBody/ok.png';
 import warmImg from '../assets/feelings/goodBody/warm.png';
 import strongImg from '../assets/feelings/goodBody/strong.png';
 import energeticImg from '../assets/feelings/goodBody/energetic.png';
+import {Mixpanel} from 'mixpanel-react-native';
 
 // For simplicity, we'll use the same dog image for all feeling cards
 // In a real app, you would have different images for each feeling
@@ -108,6 +109,7 @@ const GRID_IMAGE_HEIGHT = height * 0.25;
 
 const Feelings = () => {
   const navigation = useNavigation();
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryKey>('goodBody');
@@ -122,6 +124,9 @@ const Feelings = () => {
 
   useEffect(() => {
     // Initialize TTS when component mounts
+    mixpanel.track('Feelings', {
+      Opened: 'Feelings',
+    });
     TTSService.initialize();
 
     // Clean up TTS when component unmounts

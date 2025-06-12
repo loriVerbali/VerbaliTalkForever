@@ -29,6 +29,7 @@ export interface ImageCardProps {
   onRefresh?: () => void;
   retryCount?: number;
   maxRetries?: number;
+  onAnswerSelected?: (answer: string) => void;
 }
 const {width} = Dimensions.get('window');
 
@@ -39,6 +40,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
   onRefresh,
   retryCount = 0,
   maxRetries = 3,
+  onAnswerSelected,
 }) => {
   const {preferences} = useAppSettings();
   const navigation = useNavigation();
@@ -95,7 +97,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
             <Pressable
               key={index}
               style={styles.imageContainer}
-              onPress={handleRefresh}
+              onPress={() => {
+                handleRefresh();
+                // Log the "More Answers" selection
+                onAnswerSelected?.('MoreAnswers');
+              }}
               disabled={image.url.url === 'placeholder'}>
               <View style={{flexDirection: 'column', alignItems: 'center'}}>
                 <FastImage
@@ -126,6 +132,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
             style={styles.imageContainer}
             onPress={() => {
               sayAnswer(image.prompt);
+              // Call the callback to log the conversation
+              onAnswerSelected?.(image.prompt);
             }}>
             <View style={{flexDirection: 'column', alignItems: 'center'}}>
               {/* Check if the URL is a placeholder */}
