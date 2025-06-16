@@ -277,6 +277,55 @@ const Convo = () => {
   };
 
   const generateImage = async (array: ImagePrompt[], mode: string) => {
+    const images: ImageGenerated[] = [];
+
+    try {
+      // Get the enhanced context with weather and location
+      //const {weather, location} = useChatContext();
+      //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
+
+      // Prepare all items in one array
+      const items = array.map(answer => ({
+        speaker: sentence.speaker,
+        audience: sentence.audience,
+        sentenceType: sentence.sentenceType,
+        topic: topic,
+        object: object,
+        action: action,
+        text: answer.text,
+      }));
+
+      // Call the process_images API with all items
+      const responseImages = await fetchHelper(
+        'processImagesConvo',
+        {},
+        {
+          items: items,
+        },
+      );
+
+      // Process the response and update image URLs
+      if (responseImages && Array.isArray(responseImages.results)) {
+        const images = responseImages.results.map((imageData: any) => ({
+          url: imageData.imageUrl,
+          prompt: imageData.word,
+        }));
+
+        if (mode === 'topic') {
+          setGeneratedTopicImages(images);
+        } else if (mode === 'list_possible_actions') {
+          setGeneratedActionImages(images);
+        } else if (mode === 'list_possible_objects') {
+          setGeneratedObjectImages(images);
+        }
+        return images;
+      }
+    } catch (err) {
+      console.error('Failed to process images:', err);
+    }
+  };
+
+  const generateImageOLD = async (array: ImagePrompt[], mode: string) => {
     try {
       const images: ImageGenerated[] = [];
       // Process each prompt in the array

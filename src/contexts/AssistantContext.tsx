@@ -506,43 +506,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   useEffect(() => {
     const generateImages = async () => {
       if (status === 'completed' && possibleAnswers) {
-        debugger;
-        const newImageUrls: Array<{url: string; prompt: string}> = [];
-
-        if (Config.picGeneration === 'Gemini') {
-          for (const answer of possibleAnswers) {
-            const imageURLResponse = await geminiGenerateImage(answer);
-            if (imageURLResponse) {
-              newImageUrls.push({url: imageURLResponse, prompt: answer});
-            }
-          }
-        } else {
-          for (const answer of possibleAnswers) {
-            try {
-              const imageURLResponse = await generateImage(answer);
-              if (imageURLResponse?.url) {
-                newImageUrls.push({url: imageURLResponse.url, prompt: answer});
-              }
-            } catch (err) {
-              console.error(
-                'Failed to generate image for answer:',
-                answer,
-                err,
-              );
-            }
-          }
-        }
-
-        setImageUrls(newImageUrls);
-      }
-    };
-
-    const generateImages2 = async () => {
-      if (status === 'completed' && possibleAnswers) {
-        console.log('🔍 Possible answers:', possibleAnswers);
-        console.log('🔍 Question context:', questionContext);
-        console.log('🔍 Question topic:', questionTopic);
-        console.log('🔍 Identified question:', identifiedQuestion);
         try {
           // Get the enhanced context with weather and location
           // const {weather, location} = useChatContext();
@@ -564,7 +527,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
               items: items,
             },
           );
-          debugger;
 
           // Process the response and update image URLs
           if (responseImages && Array.isArray(responseImages.results)) {
@@ -574,7 +536,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
                 prompt: imageData.word,
               }),
             );
-            console.log('🔍 New image URLs:', newImageUrls);
             setImageUrls(newImageUrls);
           }
         } catch (err) {
@@ -582,8 +543,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         }
       }
     };
-    console.log('🔍 Possible answers:', possibleAnswers);
-    generateImages2();
+    generateImages();
   }, [status, possibleAnswers]);
 
   // Update history when error occurs

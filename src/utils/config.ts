@@ -230,6 +230,20 @@ const Config: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    processImagesConvo: {
+      description: 'processImagesConvo',
+      isAuthenticated: false,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/process-images-convo',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
     // Add other methods as needed
   },
 };

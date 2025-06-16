@@ -33,7 +33,7 @@ class WakeWordService {
   private isInitialized: boolean = false;
   private isListening: boolean = false;
   private license: string =
-    'MTc0OTkzNDgwMDAwMA==-QOkSZvHDA+qRiN/vX2Kp2xt30+hro4jze3dzJJAeEMc=';
+    'MTc1MjUyNjgwMDAwMA==-RbOr3R66OPByzZxLe7vgM6JDlrrejrgRzbo41+g8qrM=';
 
   private constructor() {
     // Private constructor for singleton
