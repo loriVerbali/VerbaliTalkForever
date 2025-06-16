@@ -93,27 +93,23 @@ const useAssistantResponse = (threadId: string, runId: string) => {
   const getTopicFromResponse = (response: string) => {
     setConvoTopic(response);
     setModeType('list_possible_topics');
-    console.log('🔍 Convo topic:', response);
     setResponse({response: response, modeType: 'list_possible_topics'});
   };
 
   const getObjectFromResponse = (response: string) => {
     setConvoObject(response);
     setModeType('list_possible_objects');
-    console.log('🔍 Convo object:', response);
     setResponse({response: response, modeType: 'list_possible_objects'});
   };
 
   const getActionFromResponse = (response: string) => {
     setConvoAction(response);
     setModeType('list_possible_actions');
-    console.log('🔍 Convo action:', response);
     setResponse({response: response, modeType: 'list_possible_actions'});
   };
 
   const getSentenceFromResponse = (response: string) => {
     setConvoSentence(response);
-    console.log('🔍 Convo sentence:', response);
     setResponse({response: response, modeType: 'sentence'});
   };
 
@@ -124,14 +120,11 @@ const useAssistantResponse = (threadId: string, runId: string) => {
 
     const pollStatus = async () => {
       try {
-        console.log('🔄 Starting polling for run status...');
-        console.log(`🧵 Thread ID: ${threadId}, Run ID: ${runId}`);
         let pollCount = 0;
         const maxPolls = 30; // Set a reasonable limit for polling attempts
 
         while (isSubscribed && pollCount < maxPolls) {
           pollCount++;
-          console.log(`📊 Polling attempt #${pollCount} for run status...`);
 
           const statusResponse = await fetchHelper(
             'checkRunStatus',
@@ -142,15 +135,11 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             {},
           );
 
-          console.log('🔍 Run status response:', statusResponse);
-
           const data = await statusResponse;
 
           if (data?.status === 'completed') {
-            console.log('✅ Run completed successfully!');
             setStatus(data.status);
 
-            console.log('📨 Fetching messages...');
             const messagesResponse = await fetchHelper(
               'getMessages',
               {
@@ -159,9 +148,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               {},
             );
 
-            console.log('📩 Messages response:', messagesResponse);
             const messageType = messagesResponse.data[1].metadata.mode;
-            console.log('🔍 Message type:', messageType);
 
             if (messageType === 'list_possible_topics') {
               if (
@@ -213,7 +200,6 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               ) {
                 const responseText =
                   messagesResponse.data[0].content[0].text.value;
-                console.log('📝 Response text:', responseText);
                 setResponse({
                   response: responseText,
                   modeType: 'generate_answers',
@@ -221,15 +207,11 @@ const useAssistantResponse = (threadId: string, runId: string) => {
 
                 try {
                   // Parse the JSON response
-                  console.log('🔄 Attempting to parse JSON response...');
                   const responseData = JSON.parse(responseText);
-                  console.log('✅ Successfully parsed JSON:', responseData);
-
                   // Extract possible answers from the JSON
                   const answers = responseData['Possible answers'];
 
                   if (answers) {
-                    console.log('📋 Extracted answers:', answers);
                     setQuestionContext(responseData['context'] || '');
                     setQuestionTopic(
                       responseData['list_possible_topics'] || '',
@@ -261,23 +243,12 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             break;
           }
 
-          if (data?.status === 'in_progress') {
-            console.log('⏳ Run is in progress...');
-          } else if (data?.status === 'queued') {
-            console.log('⌛ Run is queued...');
-          } else {
-            // console.log(`🔄 Run is in status: ${data.status}`);
-          }
-
-          console.log(
-            `💤 Waiting 1 second before next poll (attempt ${pollCount}/${maxPolls})...`,
-          );
           await new Promise<void>(resolve => setTimeout(resolve, 500));
         }
 
         if (pollCount >= maxPolls) {
           console.error(
-            '⛔ Maximum polling attempts reached. The operation may have timed out.',
+            'Maximum polling attempts reached. The operation may have timed out.',
           );
           setError('Polling timed out after maximum attempts');
         }
@@ -340,13 +311,11 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   // Initialize thread on app load
   useEffect(() => {
     const initThread = async () => {
-      console.log('🔄 Initializing thread...');
       const savedThreadId = await getItem('threadId');
       const savedThreadCreatedAt = await getItem('threadCreatedAt');
 
       if (savedThreadId) {
         setThreadId(savedThreadId);
-        console.log('🧵 Thread ID:', savedThreadId);
 
         // Check if thread is still fresh (less than expiration time)
         if (savedThreadCreatedAt) {
@@ -378,20 +347,10 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   const createThreadIfNeeded = async () => {
     try {
-      // If we have a fresh thread, just return it
-      // if (threadId && isThreadFresh) {
-      //   console.log('🧵 Using existing fresh thread:', threadId);
-      //   setThreadId(threadId);
-      //   return threadId;
-      // }
-
       console.log('🔄 Creating new thread...');
       // Otherwise create a new thread
       const response = await fetchHelper('createThread', {}, {});
       const data = await response;
-
-      // Save new thread ID and timestamp
-      console.log('✅ New thread created with ID:', data.id);
 
       // Update state immediately
       setThreadId(data.id);
@@ -401,10 +360,9 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       await setItem('threadCreatedAt', now);
       setIsThreadFresh(true);
 
-      console.log('🔄 Thread state updated, returning new thread ID:', data.id);
       return data.id;
     } catch (error) {
-      console.error('❌ Failed to create thread:', error);
+      console.error('Failed to create thread:', error);
       throw error;
     }
   };
@@ -419,15 +377,11 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       | 'generate_answers'
       | 'sentence',
   ) => {
-    // Ensure we have a thread ID first by checking if we need a new one
-    console.log('🔍 Sending message:', content);
-    console.log('threadOverride:', threadIdOverride);
     let idToUse = threadIdOverride || threadId;
 
     try {
       // Add user message to history
 
-      console.log('📤 Sending message to thread:', idToUse);
       const response = await fetchHelper(
         'sendMessage',
         {thread_id: idToUse},
@@ -438,11 +392,9 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         },
       );
       const data = await response;
-      console.log('📩 Message sent successfully, data:', data);
-      console.log('📩 Message sent successfully, ID:', data.id);
       return data.id;
     } catch (error) {
-      console.error('❌ Failed to send message:', error);
+      console.error('Failed to send message:', error);
       throw error;
     }
   };
@@ -455,7 +407,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
     try {
       // First, call OpenAI to generate an enhanced image prompt
-      console.log('🎨 Generating enhanced image prompt with OpenAI...');
       const promptEnhancementRequest = {
         model: 'gpt-4o-mini',
         messages: [
@@ -483,9 +434,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       if (enhancedPromptResponse?.choices?.[0]?.message?.content) {
         enhancedPrompt =
           enhancedPromptResponse.choices[0].message.content.trim();
-        console.log('✅ Enhanced prompt generated:', enhancedPrompt);
-      } else {
-        console.log('⚠️ Failed to generate enhanced prompt, using original');
       }
 
       // Now use the enhanced prompt for image generation
@@ -558,82 +506,45 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   useEffect(() => {
     const generateImages = async () => {
       if (status === 'completed' && possibleAnswers) {
-        console.log(
-          'Starting to generate images for possible answers:',
-          possibleAnswers,
-        );
-        const newImageUrls: Array<{url: string; prompt: string}> = [];
+        try {
+          // Get the enhanced context with weather and location
+          // const {weather, location} = useChatContext();
+          //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
 
-        if (Config.picGeneration === 'Gemini') {
-          for (const answer of possibleAnswers) {
-            console.log('Generating Gemini image for answer:', answer);
-            const imageURLResponse = await geminiGenerateImage(answer);
-            if (imageURLResponse) {
-              console.log(
-                'Generated Gemini image URL:',
-                typeof imageURLResponse,
-              );
-              newImageUrls.push({url: imageURLResponse, prompt: answer});
-            }
+          // Prepare all items in one array
+          const items = possibleAnswers.map(answer => ({
+            possibleanswer: answer,
+            questionContext: questionContext,
+            identifiedQuestion: identifiedQuestion,
+            questionTopic: questionTopic,
+          }));
+
+          // Call the process_images API with all items
+          const responseImages = await fetchHelper(
+            'processImages',
+            {},
+            {
+              items: items,
+            },
+          );
+
+          // Process the response and update image URLs
+          if (responseImages && Array.isArray(responseImages.results)) {
+            const newImageUrls = responseImages.results.map(
+              (imageData: any) => ({
+                url: imageData.imageUrl,
+                prompt: imageData.word,
+              }),
+            );
+            setImageUrls(newImageUrls);
           }
-        } else {
-          for (const answer of possibleAnswers) {
-            try {
-              console.log('Generating OpenAI image for answer:', answer);
-              const imageURLResponse = await generateImage(answer);
-              if (imageURLResponse?.url) {
-                newImageUrls.push({url: imageURLResponse.url, prompt: answer});
-              }
-            } catch (err) {
-              console.error(
-                'Failed to generate image for answer:',
-                answer,
-                err,
-              );
-            }
-          }
+        } catch (err) {
+          console.error('Failed to process images:', err);
         }
-        console.log(
-          'Setting imageUrls with length:',
-          newImageUrls.length,
-          newImageUrls,
-        );
-        setImageUrls(newImageUrls);
       }
     };
-
     generateImages();
   }, [status, possibleAnswers]);
-
-  // Update history when status changes
-  useEffect(() => {
-    if (status) {
-      setHistory(prev => [
-        ...prev,
-        {
-          type: 'status',
-          content: `Status: ${status}`,
-          timestamp: new Date(),
-        },
-      ]);
-    }
-  }, [status]);
-
-  // Update history when response is received
-  useEffect(() => {
-    if (response) {
-      setHistory(prev => [
-        ...prev,
-        {
-          type: 'text',
-          content: response.response,
-          modeType: response.modeType,
-          timestamp: new Date(),
-          isUserInput: false,
-        },
-      ]);
-    }
-  }, [response]);
 
   // Update history when error occurs
   useEffect(() => {
@@ -653,16 +564,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     // Ensure we have a thread ID first by checking if we need a new one
     let idToUse = threadIdOverride || threadId;
 
-    if (!idToUse) {
-      console.log(
-        '⚠️ No thread ID available for run, creating a new thread...',
-      );
-      console.log('✅ New thread created for assistant run:', idToUse);
-    } else {
-      console.log('🧵 Using existing thread for assistant run:', idToUse);
-    }
-
-    console.log('🤖 Running assistant on thread:', idToUse);
     try {
       const response = await fetchHelper(
         'runAssistant',
@@ -670,11 +571,10 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         {assistant_id: ASSISTANT_ID_LORI},
       );
       const data = await response;
-      console.log('🏃‍♂️ Assistant run started with ID:', data.id);
       setRunId(data.id);
       return data.id;
     } catch (error) {
-      console.error('❌ Failed to run assistant:', error);
+      console.error('Failed to run assistant:', error);
       throw error;
     }
   };

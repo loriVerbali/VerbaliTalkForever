@@ -19,7 +19,6 @@ import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {useAssistant} from '../contexts/AssistantContext';
 import fetchHelper from '../utils/fetcher';
-import wakeWord from '../utils/wakewordService';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
 import Slider from '@react-native-community/slider';
@@ -278,6 +277,55 @@ const Convo = () => {
   };
 
   const generateImage = async (array: ImagePrompt[], mode: string) => {
+    const images: ImageGenerated[] = [];
+
+    try {
+      // Get the enhanced context with weather and location
+      //const {weather, location} = useChatContext();
+      //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
+
+      // Prepare all items in one array
+      const items = array.map(answer => ({
+        speaker: sentence.speaker,
+        audience: sentence.audience,
+        sentenceType: sentence.sentenceType,
+        topic: topic,
+        object: object,
+        action: action,
+        text: answer.text,
+      }));
+
+      // Call the process_images API with all items
+      const responseImages = await fetchHelper(
+        'processImagesConvo',
+        {},
+        {
+          items: items,
+        },
+      );
+
+      // Process the response and update image URLs
+      if (responseImages && Array.isArray(responseImages.results)) {
+        const images = responseImages.results.map((imageData: any) => ({
+          url: imageData.imageUrl,
+          prompt: imageData.word,
+        }));
+
+        if (mode === 'topic') {
+          setGeneratedTopicImages(images);
+        } else if (mode === 'list_possible_actions') {
+          setGeneratedActionImages(images);
+        } else if (mode === 'list_possible_objects') {
+          setGeneratedObjectImages(images);
+        }
+        return images;
+      }
+    } catch (err) {
+      console.error('Failed to process images:', err);
+    }
+  };
+
+  const generateImageOLD = async (array: ImagePrompt[], mode: string) => {
     try {
       const images: ImageGenerated[] = [];
       // Process each prompt in the array
@@ -702,9 +750,7 @@ const Convo = () => {
 
   useEffect(() => {
     // Stop listening when component mounts, but don't block loading
-    setTimeout(() => {
-      void wakeWord.stopListening();
-    }, 0);
+    setTimeout(() => {}, 0);
 
     // No need for cleanup since we're already stopped
   }, []);

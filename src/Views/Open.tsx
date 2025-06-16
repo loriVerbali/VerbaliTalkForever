@@ -19,12 +19,12 @@ import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
-import wakeWord from '../utils/wakewordService';
 import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
 import MatalkIcon from '../Components/MatalkIcon';
 import ContextInfo from '../Components/ContextInfo';
 import {Mixpanel} from 'mixpanel-react-native';
+import WakeWordService from '../utils/wakewordService';
 
 type RootStackParamList = {
   LOGIN: undefined;
@@ -55,6 +55,8 @@ const OpenScreen: React.FC = () => {
   const {preferences} = useAppSettings();
   const heroName = preferences?.heroName;
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const wakeWordService = WakeWordService.getInstance();
+
   // Track connection state changes
   useEffect(() => {
     setConnectionState(isConnected); // Force local state update
@@ -72,98 +74,22 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
 
-    // // Initialize services
-    // const initializeServices = async () => {
-    //   try {
-    //     console.log('initializing voice service');
-    //     console.log('isListening.current', isListening.current);
+    // Set up callback for when wake word is detected
+    wakeWordService.setCallback((phrase: string) => {
+      console.log('Wake word detected:', phrase);
+      // Handle wake word detection
+      navigation.navigate(views.HOME as never, {
+        stateof: 'Attention',
+      });
+    });
 
-    //     // Initialize voice service
-    //     await VoiceService.initialize();
-    //     console.log('voice service initialized');
-
-    //     // Set up callbacks
-    //     VoiceService.setCallbacks(
-    //       // Handle recognized text
-    //       text => {
-    //         console.log('setting recognized text', text);
-    //         setRecognizedText(text);
-    //         setShowRecognitionStatus(true);
-    //         console.log('text', text);
-    //         // Check for navigation keywords
-    //         if (
-    //           text.toLowerCase().includes('verbali') ||
-    //           text.toLowerCase().includes('verbbali') ||
-    //           text.toLowerCase().includes('verbally') ||
-    //           text.toLowerCase().includes('verbbali') ||
-    //           text.toLowerCase().includes('verb ali') ||
-    //           text.toLowerCase().includes('verbali')
-    //         ) {
-    //           VoiceService.stopListening();
-    //           isListening.current = false;
-    //           navigation.navigate(views.HOME as never, {
-    //             stateof: 'Attention',
-    //           });
-    //         }
-    //       },
-    //       // Handle status changes
-    //       (status, error) => {
-    //         if (status === 'error' && error) {
-    //           console.error('Voice recognition error:', error);
-
-    //           // If we're getting AF Assistant errors (code 1101), this is likely
-    //           // a permissions or system issue on iOS
-    //           if (
-    //             error.includes('1101') ||
-    //             error.includes('kAFAssistantErrorDomain')
-    //           ) {
-    //             setRecognizedText(
-    //               'Speech service error. Please check your permissions in Settings.',
-    //             );
-
-    //             // On iOS, show alert to help user understand the issue
-    //             if (Platform.OS === 'ios') {
-    //               Alert.alert(
-    //                 'Speech Recognition Error',
-    //                 'Please ensure that Speech Recognition is enabled for this app in your device settings. Go to Settings > Privacy > Speech Recognition.',
-    //                 [{text: 'OK'}],
-    //               );
-    //             }
-    //           } else {
-    //             setRecognizedText(`Error: ${error}`);
-    //           }
-
-    //           setShowRecognitionStatus(true);
-    //           isListening.current = false;
-    //         } else if (status === 'stopped') {
-    //           isListening.current = false;
-    //           // Hide the recognition status after a delay
-    //           setTimeout(() => {
-    //             setShowRecognitionStatus(false);
-    //           }, 2000);
-    //         } else if (status === 'started') {
-    //           setRecognizedText('Listening...');
-    //           setShowRecognitionStatus(true);
-    //         }
-    //       },
-    //     );
-    //   } catch (error) {
-    //     console.error('Error initializing services:', error);
-    //   }
-    // };
-
-    //initializeServices();
+    // Start listening
+    wakeWordService.startListening();
 
     // Clean up on unmount
-    //return () => {
-    // Reset voice and text state
-    setRecognizedText('');
-    // if (isListening.current) {
-    //   VoiceService.stopListening();
-    // }
-    // // Destroy the service to clean up resources
-    // VoiceService.destroy();
-    //};
+    return () => {
+      setRecognizedText('');
+    };
   }, []);
 
   const startListening = () => {
@@ -172,21 +98,6 @@ const OpenScreen: React.FC = () => {
       stateof: 'Attention',
     });
   };
-
-  // useEffect(() => {
-  //   //Start listening; navigate when "Hey Matalk" is detected
-  //  // if (connectionState) {
-  //     // wakeWord.startListening(() => {
-  //     //   console.log('Hey Matan detected');
-  //     //   wakeWord.stopListening();
-  //     //   console.log('Navigating to Home');
-  //     //   navigation.navigate(views.HOME as never, {
-  //     //     stateof: 'Attention',
-  //     //   });
-  // //  }
-  //   // Optional clean‑up on unmount
-  // //
-  // }, [navigation, connectionState]);
 
   useEffect(() => {
     console.log('Modal visibility changed:', modalVisible);
@@ -214,63 +125,6 @@ const OpenScreen: React.FC = () => {
     });
     // TTSService.speak('Keyboard selected');
   };
-
-  // const startListening = async () => {
-  //   if (!isListening.current) {
-  //     console.log('Starting listening');
-  //     isListening.current = true;
-  //     setRecognizedText('Initializing...');
-  //     setShowRecognitionStatus(true);
-
-  //     // Use longer timeouts for iOS to prevent premature stopping
-  //     const silenceTimeout = Platform.OS === 'ios' ? 10000 : 2000;
-  //     const maxDuration = Platform.OS === 'ios' ? 15000 : 8000;
-
-  //     let success = false;
-  //     let retries = 0;
-
-  //     // Try up to 2 times on iOS, which can have intermittent issues
-  //     while (!success && retries < (Platform.OS === 'ios' ? 2 : 1)) {
-  //       try {
-  //         success = await VoiceService.startListening(
-  //           silenceTimeout,
-  //           maxDuration,
-  //         );
-
-  //         if (success) {
-  //           setRecognizedText('Listening...');
-  //           break;
-  //         }
-  //       } catch (err) {
-  //         console.error(
-  //           `Voice recognition start attempt ${retries + 1} failed:`,
-  //           err,
-  //         );
-  //       }
-
-  //       // If failed, wait briefly before retrying
-  //       if (!success && Platform.OS === 'ios') {
-  //         await new Promise(resolve => setTimeout(resolve as () => void, 500));
-  //         // Re-initialize
-  //         await VoiceService.initialize();
-  //       }
-
-  //       retries++;
-  //     }
-
-  //     if (!success) {
-  //       setRecognizedText(
-  //         'Speech recognition unavailable. Please check app permissions in Settings.',
-  //       );
-  //       isListening.current = false;
-
-  //       // Show a brief alert after a delay
-  //       setTimeout(() => {
-  //         setShowRecognitionStatus(false);
-  //       }, 3000);
-  //     }
-  //   }
-  // };
 
   const handleSettingsPress = () => {
     console.log('Settings button pressed, current modal state:', modalVisible);
