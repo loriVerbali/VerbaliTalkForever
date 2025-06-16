@@ -25,6 +25,7 @@ export interface ConfigType {
 
 const Config: ConfigType = {
   baseUrl: 'https://matalkapi-production.up.railway.app',
+  //baseUrl: 'http://localhost:3000',
   openAiUrl: 'https://api.openai.com/v1',
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: 'AIzaSyB_8RqAlGXY7UPgN0j8bXsIll59U-P_BaA',
@@ -208,6 +209,20 @@ const Config: ConfigType = {
       sendDeviceKey: false,
       jsonMethod: true,
       suffixUrl: '/loginitconversation',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    processImages: {
+      description: 'processImages',
+      isAuthenticated: false,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/process-images',
       mustStringify: true,
       isFlatResponse: false,
       openAi: false,

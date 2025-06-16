@@ -48,7 +48,6 @@ const App = () => {
       ) {
         console.log('🔄 App has come to the foreground - reloading Vosk model');
         // App has come to the foreground, reload the model
-        WakeWordService.reloadModel();
       } else if (
         appState.current === 'active' &&
         nextAppState.match(/inactive|background/)
@@ -57,7 +56,6 @@ const App = () => {
           '💤 App has gone to the background - offloading Vosk model',
         );
         // App is going to the background, offload the model
-        WakeWordService.offloadModel();
       }
 
       appState.current = nextAppState;
