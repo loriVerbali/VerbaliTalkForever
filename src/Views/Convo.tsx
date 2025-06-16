@@ -31,7 +31,7 @@ import {
 } from '../contexts/ChatContextProvider';
 import {logInitConversation} from '../utils/initConversationLogger';
 
-const DEBUGCONVONOIMAGEGENERATION = true;
+const DEBUGCONVONOIMAGEGENERATION = false;
 
 const {width, height} = Dimensions.get('window');
 
@@ -278,7 +278,6 @@ const Convo = () => {
 
   const generateImage = async (array: ImagePrompt[], mode: string) => {
     const images: ImageGenerated[] = [];
-
     try {
       // Get the enhanced context with weather and location
       //const {weather, location} = useChatContext();
@@ -307,8 +306,8 @@ const Convo = () => {
       // Process the response and update image URLs
       if (responseImages && Array.isArray(responseImages.results)) {
         const images = responseImages.results.map((imageData: any) => ({
-          url: imageData.imageUrl,
-          prompt: imageData.word,
+          url: imageData.url,
+          text: imageData.text,
         }));
 
         if (mode === 'topic') {
@@ -322,67 +321,6 @@ const Convo = () => {
       }
     } catch (err) {
       console.error('Failed to process images:', err);
-    }
-  };
-
-  const generateImageOLD = async (array: ImagePrompt[], mode: string) => {
-    try {
-      const images: ImageGenerated[] = [];
-      // Process each prompt in the array
-      for (const prompt of array) {
-        const text = prompt.text;
-        let imageUrl = DEBUGCONVONOIMAGEGENERATION ? welcomeImg : '';
-        if (!DEBUGCONVONOIMAGEGENERATION) {
-          const encodedPrompt = encodeURIComponent(prompt.image_prompt);
-
-          // Generate a random seed for variety
-          const seed = Math.floor(Math.random() * 1000);
-
-          const response = await fetchHelper(
-            'generateImage',
-            {
-              prompt: encodedPrompt,
-              seed: seed.toString(),
-            },
-            {},
-          );
-
-          // Handle different possible response formats
-          let imageUrl = '';
-          if (typeof response === 'string') {
-            // Direct URL string response
-            imageUrl = response;
-          } else if (
-            response &&
-            typeof response === 'object' &&
-            'url' in response
-          ) {
-            // Object response with url property
-            imageUrl = response.url || '';
-          }
-        }
-
-        if (imageUrl) {
-          // Add both the text prompt and image URL to the array
-          images.push({
-            text: text,
-            url: imageUrl,
-          });
-        }
-      }
-
-      // Update state with generated images
-      if (mode === 'topic') {
-        setGeneratedTopicImages(images);
-      } else if (mode === 'list_possible_actions') {
-        setGeneratedActionImages(images);
-      } else if (mode === 'list_possible_objects') {
-        setGeneratedObjectImages(images);
-      }
-      return images;
-    } catch (error) {
-      console.error('Failed to generate image:', error);
-      throw error;
     }
   };
 

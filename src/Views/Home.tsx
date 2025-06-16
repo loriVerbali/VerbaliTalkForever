@@ -556,10 +556,41 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
                   if (validImages.length === 0) {
                     return (
-                      <View style={styles.noImagesContainer}>
-                        <Text style={styles.noImagesText}>
-                          No valid images to display
+                      <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>
+                          We have an issue. Please be patient.
                         </Text>
+                        <View style={styles.navigationCardsContainer}>
+                          <TouchableOpacity
+                            style={styles.navigationCard}
+                            onPress={() =>
+                              navigation.navigate('ShortCuts' as never)
+                            }>
+                            <View style={styles.cardImageContainer}>
+                              <FastImage
+                                source={require('../assets/shortCuts.png')}
+                                style={styles.cardImage}
+                                resizeMode={FastImage.resizeMode.contain}
+                              />
+                            </View>
+                            <Text style={styles.cardText}>ShortCuts</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.navigationCard}
+                            onPress={() =>
+                              navigation.navigate('Feelings' as never)
+                            }>
+                            <View style={styles.cardImageContainer}>
+                              <FastImage
+                                source={require('../assets/feelings.png')}
+                                style={styles.cardImage}
+                                resizeMode={FastImage.resizeMode.contain}
+                              />
+                            </View>
+                            <Text style={styles.cardText}>Feelings</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     );
                   }
@@ -907,6 +938,60 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#333',
     fontWeight: '500',
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 18,
+    color: '#ff5722',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  navigationCardsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 20,
+  },
+  navigationCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    alignItems: 'center',
+    width: '40%',
+    minHeight: 120,
+  },
+  cardImageContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  cardImage: {
+    width: 40,
+    height: 40,
+  },
+  cardText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
     textAlign: 'center',
   },
 });
