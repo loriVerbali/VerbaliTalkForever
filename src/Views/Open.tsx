@@ -165,9 +165,7 @@ const OpenScreen: React.FC = () => {
           colors={['#FFF8E7', '#FFFFFF']}
           style={styles.container}>
           <View style={styles.headerContainer}>
-            <Text style={styles.headerText}>
-              Hi {heroName ? isTablet.toString() : ''}
-            </Text>
+            <Text style={styles.headerText}>Hi {heroName ? heroName : ''}</Text>
             <FastImage
               source={require('../assets/hand.png')}
               style={styles.matanImage}
