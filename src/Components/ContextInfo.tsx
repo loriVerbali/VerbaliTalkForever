@@ -64,11 +64,12 @@ const ContextInfo: React.FC<ContextInfoProps> = ({visible, onClose}) => {
       visible={visible}
       transparent={true}
       animationType="slide"
+      supportedOrientations={['landscape-left', 'landscape-right']}
       onRequestClose={onClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
           <View style={styles.header}>
-            <Text style={styles.title}>Context Information</Text>
+            <Text style={styles.title}>Information</Text>
             <Pressable style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeButtonText}>✕</Text>
             </Pressable>

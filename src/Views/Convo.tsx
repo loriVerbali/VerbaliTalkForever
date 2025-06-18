@@ -21,6 +21,7 @@ import {useAssistant} from '../contexts/AssistantContext';
 import fetchHelper from '../utils/fetcher';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
+import Talk from '../assets/talk.png';
 import Slider from '@react-native-community/slider';
 import {useAppSettings} from '../utils/persistance';
 import {FamilyMember} from '../Components/FamilyPics';
@@ -199,25 +200,19 @@ const Convo = () => {
 
   // Helper to parse JSON responses from the assistant
   const parseAssistantResponse = (jsonString: any) => {
-    console.log('🔍 Attempting to parse assistant response:', jsonString);
     try {
       if (jsonString?.response) {
-        console.log('✅ Successfully parsed response:', jsonString.response);
         return jsonString.response;
       } else {
-        console.log('❌ No response found in JSON string');
         return null;
       }
     } catch (error) {
-      console.error('❌ Error parsing assistant response:', error);
       return null;
     }
   };
 
   // Helper function to use the Assistant API
   const callAssistant = async (mode: string, prompt: string) => {
-    console.log(`🔄 Starting assistant call - Mode: ${mode}`);
-    console.log(`📤 Prompt: ${prompt}`);
     try {
       setIsLoading(true);
 
@@ -236,7 +231,6 @@ const Convo = () => {
           | 'generate_answers'
           | 'sentence',
       );
-      console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
 
       // Run the assistant
       const runId = await runAssistant();
@@ -330,25 +324,43 @@ const Convo = () => {
       try {
         // Handle the response based on its modeType
         if (response.modeType === 'list_possible_topics') {
+          // Guard clause: Don't process topics if basic requirements aren't met
+          if (
+            !sentence.speaker ||
+            !sentence.audience ||
+            !sentence.sentenceType
+          ) {
+            return;
+          }
+
           try {
             const topicsArray = JSON.parse(response.response);
             if (
               Array.isArray(topicsArray.topics) &&
               topicsArray.topics.length > 0
             ) {
-              console.log('📋 Got topics array:', topicsArray.topics);
               setAvailableTopics(
                 topicsArray.topics
                   .slice(0, 4)
                   .map((item: {text: any}) => item.text) as Topic[],
               );
               generateImage(topicsArray.topics, 'topic');
-              console.log('✅ Topics updated');
             }
           } catch (error) {
             console.error('Error parsing topics:', error);
           }
         } else if (response.modeType === 'list_possible_actions') {
+          // Guard clause: Don't process actions if basic requirements aren't met
+          if (
+            !sentence.speaker ||
+            !sentence.audience ||
+            !sentence.sentenceType ||
+            !topic ||
+            topic === 'NA'
+          ) {
+            return;
+          }
+
           try {
             const actionsData = JSON.parse(response.response);
             if (
@@ -356,18 +368,28 @@ const Convo = () => {
               Array.isArray(actionsData.verbs) &&
               actionsData.verbs.length > 0
             ) {
-              console.log('🎯 Got actions:', actionsData.verbs);
               setAvailableActions(actionsData.verbs.slice(0, 4) as Action[]);
               //setSentence({...sentence, action: '', object: ''});
-              console.log(
-                '✅ Actions updated, cleared action and object selections',
-              );
+
               generateImage(actionsData.verbs, 'list_possible_actions');
             }
           } catch (error) {
             console.error('Error parsing actions:', error);
           }
         } else if (response.modeType === 'list_possible_objects') {
+          // Guard clause: Don't process objects if basic requirements aren't met
+          if (
+            !sentence.speaker ||
+            !sentence.audience ||
+            !sentence.sentenceType ||
+            !topic ||
+            topic === 'NA' ||
+            !action ||
+            action === 'NA'
+          ) {
+            return;
+          }
+
           try {
             const objectsData = JSON.parse(response.response);
             if (
@@ -375,10 +397,8 @@ const Convo = () => {
               Array.isArray(objectsData.objects) &&
               objectsData.objects.length > 0
             ) {
-              console.log('📦 Got objects:', objectsData.objects);
               setAvailableObjects(objectsData.objects.slice(0, 4) as Object[]);
               // setSentence({...sentence, object: ''});
-              console.log('✅ Objects updated, cleared object selection');
               generateImage(objectsData.objects, 'list_possible_objects');
             }
           } catch (error) {
@@ -391,7 +411,6 @@ const Convo = () => {
             if (sentenceData) {
               setGeneratedSentence(sentenceData);
               setInputText(sentenceData);
-              console.log('✅ Generated sentence applied to input');
             }
           } catch (error) {
             console.error('Error parsing sentence:', error);
@@ -404,7 +423,6 @@ const Convo = () => {
       }
 
       setIsLoading(false);
-      console.log('🏁 Assistant processing complete, loading state cleared');
     }
   }, [response]);
 
@@ -431,10 +449,6 @@ const Convo = () => {
           '🔄 Calling assistant for list_possible_topics with context',
         );
         await callAssistant('list_possible_topics', prompt);
-      } else {
-        console.log(
-          '⏳ Waiting for all prerequisites before generating topics',
-        );
       }
     };
 
@@ -470,10 +484,8 @@ const Convo = () => {
           sentenceType === '?' ? 'question' : 'statement'
         }. Consider the current weather, time of day, location, and day when suggesting actions. I need up to 3 simple, kid-friendly action verbs that are appropriate for the current context and conditions. The message.metadata.mode = 'actions'`;
 
-        console.log('🔄 Calling assistant for actions with context');
         await callAssistant('list_possible_actions', prompt);
       } else {
-        console.log('⏳ Waiting for prerequisites before generating actions');
       }
     };
 
@@ -602,7 +614,72 @@ const Convo = () => {
   const handleHome = () => {
     // Reset the assistant state (everything except threadId)
     resetAssistant();
-    navigation.navigate(views.OPEN as never);
+
+    // Reset all sentence fields completely
+    setSentence({
+      speaker: '',
+      audience: '',
+      sentenceType: '',
+      list_possible_topics: '',
+      action: '',
+      object: '',
+    });
+    setAvailableTopics([]);
+    setAvailableActions([]);
+    setAvailableObjects([]);
+    setGeneratedTopicImages([]);
+    setGeneratedActionImages([]);
+    setGeneratedObjectImages([]);
+    setSentenceTypeIndex(0);
+    setInputText('');
+    setTopic('NA');
+    setAction('NA');
+    setObject('NA');
+    setGeneratedSentence('');
+    setSpeakerIndex(0);
+    setAudienceIndex(0);
+    setSentenceTypeIndex(0);
+    setTopicIndex(0);
+    setActionIndex(0);
+    setObjectIndex(0);
+    setSliderPosition(0);
+
+    // Reset carousel positions
+    if (speakerCarouselRef.current) {
+      // @ts-ignore
+      speakerCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (audienceCarouselRef.current) {
+      // @ts-ignore
+      audienceCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (sentenceTypeCarouselRef.current) {
+      // @ts-ignore
+      sentenceTypeCarouselRef.current.scrollTo({
+        index: 0,
+        animated: true,
+      });
+    }
+    if (topicCarouselRef.current) {
+      // @ts-ignore
+      topicCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (actionCarouselRef.current) {
+      // @ts-ignore
+      actionCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (objectCarouselRef.current) {
+      // @ts-ignore
+      objectCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+
+    console.log('🏠 Cleanup complete - State reset');
+
+    // Allow time for state to update and screen to re-render before navigating
+    setTimeout(() => {
+      console.log('🏠 Navigating to home screen');
+      navigation.navigate(views.OPEN as never);
+    }, 100);
   };
 
   const toggleKeyboard = () => {
@@ -710,17 +787,6 @@ const Convo = () => {
       setTimeout(() => setIsAutoSliding(false), 300);
     }
   }, [action]);
-
-  // useEffect(() => {
-  //   if (topic === 'NA' && (sliderPosition === 1 || sliderPosition === 2)) {
-  //     setSliderPosition(0);
-  //     setTimeout(() => setIsAutoSliding(false), 0);
-  //   }
-  //   if (action === 'NA' && sliderPosition === 2) {
-  //     setSliderPosition(1);
-  //     setTimeout(() => setIsAutoSliding(false), 0);
-  //   }
-  // }, [sliderPosition]);
 
   // Function to handle TTS playback
   const handlePlaySentence = async () => {
@@ -895,88 +961,119 @@ const Convo = () => {
             flexDirection: 'column',
             alignItems: 'center',
           }}>
-          <View
-            style={{
-              width: '100%',
-              flexDirection: 'row',
-              height: '60%',
-            }}>
-            {/* Column 2: Topic */}
-            <View style={styles.column}>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Choose the topic:</Text>
-                <View style={styles.cardWrapper}>
-                  <ConvoCarousel<Topic | ImageGenerated>
-                    carouselRef={topicCarouselRef}
-                    currentIndex={topicIndex}
-                    setCurrentIndex={setTopicIndex}
-                    sentence={sentence}
-                    setSentence={setSentence}
-                    data={
-                      generatedTopicImages.length > 0
-                        ? generatedTopicImages
-                        : []
-                    }
-                    handleItemSelect={handleTopicSelect}
-                    fieldName="list_possible_topics"
-                    selectedTopic={topic}
-                  />
+          {availableTopics.length == 0 &&
+          availableActions.length == 0 &&
+          availableObjects.length === 0 ? (
+            <>
+              <View
+                style={{
+                  width: '80%',
+                  height: '60%',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Image
+                  source={require('../assets/talk.png')}
+                  style={{width: '50%', height: '50%', zIndex: 39}}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+                <Text style={{color: 'black', fontWeight: 600}}>
+                  {sentence.speaker === '' ? 'Choose a speaker' : null}
+                  {sentence.speaker !== '' && sentence.sentenceType === ''
+                    ? 'Questio or Statement'
+                    : null}
+                  {sentence.speaker !== '' &&
+                  sentence.sentenceType !== '' &&
+                  sentence.audience !== ''
+                    ? 'Making magic'
+                    : null}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View
+              style={{
+                width: '100%',
+                flexDirection: 'row',
+                height: '60%',
+              }}>
+              {/* Column 2: Topic */}
+              <View style={styles.column}>
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Choose the topic:</Text>
+                  <View style={styles.cardWrapper}>
+                    <ConvoCarousel<Topic | ImageGenerated>
+                      carouselRef={topicCarouselRef}
+                      currentIndex={topicIndex}
+                      setCurrentIndex={setTopicIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={
+                        generatedTopicImages.length > 0
+                          ? generatedTopicImages
+                          : []
+                      }
+                      handleItemSelect={handleTopicSelect}
+                      fieldName="list_possible_topics"
+                      selectedTopic={topic}
+                    />
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* Column 3: Action */}
-            <View style={styles.column}>
-              {topic && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Choose the action:</Text>
-                  <View style={styles.cardWrapper}>
-                    <ConvoCarousel<Action | ImageGenerated>
-                      carouselRef={actionCarouselRef}
-                      currentIndex={actionIndex}
-                      setCurrentIndex={setActionIndex}
-                      sentence={sentence}
-                      setSentence={setSentence}
-                      data={
-                        generatedActionImages.length > 0
-                          ? generatedActionImages
-                          : []
-                      }
-                      handleItemSelect={handleActionSelect}
-                      fieldName="list_possible_actions"
-                      selectedAction={action}
-                    />
+              {/* Column 3: Action */}
+              <View style={styles.column}>
+                {topic && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Choose the action:</Text>
+                    <View style={styles.cardWrapper}>
+                      <ConvoCarousel<Action | ImageGenerated>
+                        carouselRef={actionCarouselRef}
+                        currentIndex={actionIndex}
+                        setCurrentIndex={setActionIndex}
+                        sentence={sentence}
+                        setSentence={setSentence}
+                        data={
+                          generatedActionImages.length > 0
+                            ? generatedActionImages
+                            : []
+                        }
+                        handleItemSelect={handleActionSelect}
+                        fieldName="list_possible_actions"
+                        selectedAction={action}
+                      />
+                    </View>
                   </View>
-                </View>
-              )}
-            </View>
+                )}
+              </View>
 
-            {/* Column 4: Object */}
-            <View style={styles.column}>
-              {action && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Choose the object:</Text>
-                  <View style={styles.cardWrapper}>
-                    <ConvoCarousel<Object | ImageGenerated>
-                      carouselRef={objectCarouselRef}
-                      currentIndex={objectIndex}
-                      setCurrentIndex={setObjectIndex}
-                      sentence={sentence}
-                      setSentence={setSentence}
-                      data={
-                        generatedObjectImages.length > 0
-                          ? generatedObjectImages
-                          : []
-                      }
-                      handleItemSelect={handleObjectSelect}
-                      fieldName="list_possible_objects"
-                      selectedObject={object}
-                    />
+              {/* Column 4: Object */}
+              <View style={styles.column}>
+                {action && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Choose the object:</Text>
+                    <View style={styles.cardWrapper}>
+                      <ConvoCarousel<Object | ImageGenerated>
+                        carouselRef={objectCarouselRef}
+                        currentIndex={objectIndex}
+                        setCurrentIndex={setObjectIndex}
+                        sentence={sentence}
+                        setSentence={setSentence}
+                        data={
+                          generatedObjectImages.length > 0
+                            ? generatedObjectImages
+                            : []
+                        }
+                        handleItemSelect={handleObjectSelect}
+                        fieldName="list_possible_objects"
+                        selectedObject={object}
+                      />
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
+              </View>
             </View>
-          </View>
+          )}
           {/* Slider for navigation between topics, actions, objects */}
           <View style={styles.sliderContainer}>
             <Slider
