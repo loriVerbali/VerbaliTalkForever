@@ -10,7 +10,7 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
-  ImageBackground,
+  ScrollView,
   PermissionsAndroid,
   Permission,
   Linking,
@@ -26,6 +26,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import {Mixpanel} from 'mixpanel-react-native';
+import {useAdmin} from '../contexts/adminContext';
 
 const {width, height} = Dimensions.get('window');
 
@@ -85,6 +86,7 @@ const OnboardingScreen: React.FC = () => {
   const navigation = useNavigation();
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const {setItem} = useAppSettings();
+  const {isTablet} = useAdmin();
   const {completeOnboarding} = useContext(OnboardingContext);
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
@@ -184,7 +186,7 @@ const OnboardingScreen: React.FC = () => {
             />
             <View style={styles.inputContainer}>
               <TextInput
-                style={styles.input}
+                style={isTablet ? styles.input : styles.inputPhone}
                 placeholder="First name"
                 placeholderTextColor="#888"
                 value={heroName}
@@ -268,10 +270,11 @@ const OnboardingScreen: React.FC = () => {
           <View style={styles.adminCodeContainer}>
             <View style={styles.inputContainer}>
               <TextInput
-                style={styles.input}
+                style={isTablet ? styles.input : styles.inputPhone}
                 placeholder="Set a 4 digit code"
                 placeholderTextColor="#888"
                 value={adminCode}
+                inputMode="numeric"
                 onChangeText={text => {
                   // Only allow numbers and limit to 4 digits
                   const numericText = text.replace(/[^0-9]/g, '');
@@ -287,7 +290,7 @@ const OnboardingScreen: React.FC = () => {
           </View>
         );
       case 'family-members':
-        return (
+        return isTablet ? (
           <View style={styles.familyMembersContainer}>
             <Text style={styles.familylabel}>
               Select pictures of family members that {heroName} will be able to
@@ -296,12 +299,34 @@ const OnboardingScreen: React.FC = () => {
             <Text style={[styles.familylabel, {color: '#8E24AA'}]}>
               You can skip this and do it later! Just tap next
             </Text>
-            <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
+            <View style={styles.familyPicsWrapper}>
+              <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
+            </View>
           </View>
+        ) : (
+          <ScrollView
+            style={styles.familyMembersContainerPhone}
+            contentContainerStyle={{
+              justifyContent: 'flex-start',
+              alignItems: 'center',
+            }}>
+            <Text style={styles.familylabel}>
+              Select pictures of family members that {heroName} will be able to
+              start a conversation with.
+            </Text>
+            <Text style={[styles.familylabel, {color: '#8E24AA'}]}>
+              You can skip this and do it later! Just tap next
+            </Text>
+            <View style={styles.familyPicsWrapper}>
+              <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
+            </View>
+          </ScrollView>
         );
       case 'permissions':
         return (
-          <View style={styles.permissionsContainer}>
+          <ScrollView
+            style={styles.permissionsContainer}
+            contentContainerStyle={styles.permissionsScrollView}>
             <FastImage
               source={require('../assets/boyAsk.png')}
               style={styles.permissionsImage}
@@ -336,7 +361,7 @@ const OnboardingScreen: React.FC = () => {
                           marginBottom: 20,
                         },
                       ]}>
-                      Hey {heroName}
+                      Hey Verbi
                     </Text>
                     <Text style={styles.permissionsExplanation}>
                       Storage to save your app configurations.
@@ -425,7 +450,7 @@ const OnboardingScreen: React.FC = () => {
                 )}
               </>
             )}
-          </View>
+          </ScrollView>
         );
       case 'optional-permissions':
         return (
@@ -455,9 +480,11 @@ const OnboardingScreen: React.FC = () => {
         );
       case 'special-places':
         return (
-          <View style={styles.specialPlacesContainer}>
+          <ScrollView
+            style={styles.specialPlacesContainer}
+            contentContainerStyle={styles.specialPlacesScrollView}>
             <SpecialPlaces onComplete={() => setSpecialPlacesCompleted(true)} />
-          </View>
+          </ScrollView>
         );
       default:
         return null;
@@ -631,24 +658,38 @@ const OnboardingScreen: React.FC = () => {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}>
+          <View style={styles.stepIndicator}>
+            {onboardingSteps.map((_, index) => (
+              <View
+                key={index}
+                style={[styles.dot, currentStep === index && styles.activeDot]}
+              />
+            ))}
+          </View>
+
           <View style={styles.content}>
-            <View style={styles.stepIndicator}>
-              {onboardingSteps.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.dot,
-                    currentStep === index && styles.activeDot,
-                  ]}
-                />
-              ))}
-            </View>
+            <View style={styles.contentSection}>
+              <View style={styles.questionContainer}>
+                {currentStepData.id === 'Special Places' ? (
+                  <View style={styles.specialPlacesHeader}>
+                    <Text style={styles.question}>
+                      {currentStepData.question}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.skipButton}
+                      onPress={handleNext}>
+                      <Text style={styles.skipButtonText}>Skip for now</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={styles.question}>
+                    {currentStepData.question}
+                  </Text>
+                )}
+              </View>
 
-            <View style={styles.questionContainer}>
-              <Text style={styles.question}>{currentStepData.question}</Text>
+              {renderAdditionalComponents()}
             </View>
-
-            {renderAdditionalComponents()}
 
             <TouchableOpacity
               style={[
@@ -703,26 +744,50 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   familyMembersContainer: {
-    height: height * 0.6,
+    maxHeight: height * 0.4,
+    minHeight: height * 0.25,
     justifyContent: 'flex-start',
     alignItems: 'center',
+    flex: 1,
+  },
+  familyMembersContainerPhone: {
+    maxHeight: height * 0.4,
+    minHeight: height * 0.25,
+    flex: 1,
+  },
+  familyPicsWrapper: {
+    flex: 1,
+    width: '100%',
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingBottom: 20,
+    paddingHorizontal: 10,
+  },
+  contentSection: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    width: '100%',
+    paddingTop: height * 0.12,
+    minHeight: height * 0.7,
   },
   stepIndicator: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
     position: 'absolute',
     top: height * 0.05,
+    zIndex: 2,
   },
   matalkIcon: {
     bottom: height * 0.02,
     justifyContent: 'center',
     alignItems: 'center',
-    left: width * 0.01,
+    left: width * 0.03,
     position: 'absolute',
     zIndex: 3,
   },
@@ -747,15 +812,17 @@ const styles = StyleSheet.create({
   questionContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    height: height * 0.2,
-    width: '80%',
+    minHeight: height * 0.12,
+    maxHeight: height * 0.18,
+    width: '90%',
+    marginBottom: 20,
   },
   question: {
-    fontSize: 32,
+    fontSize: Math.min(32, width * 0.08),
     fontWeight: 'bold',
     textAlign: 'center',
     color: '#333',
-    lineHeight: 80,
+    lineHeight: Math.min(40, width * 0.1),
   },
   inputContainer: {
     flex: 1,
@@ -764,8 +831,18 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 12,
-    padding: 20,
-    fontSize: 80,
+    padding: Math.min(20, width * 0.05),
+    fontSize: Math.min(80, width * 0.2),
+    textAlign: 'center',
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  inputPhone: {
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 12,
+    padding: Math.min(20, width * 0.02),
+    fontSize: Math.min(80, width * 0.04),
     textAlign: 'center',
     color: '#333',
     borderWidth: 1,
@@ -794,9 +871,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 30,
-    marginTop: 40,
+    marginTop: 20,
+    marginBottom: 10,
     width: width * 0.8,
     alignItems: 'center',
+    alignSelf: 'center',
   },
   buttonText: {
     color: 'white',
@@ -808,23 +887,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     width: '100%',
     marginVertical: 20,
+    flexWrap: 'wrap',
   },
   genderOption: {
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.85)',
     borderRadius: 15,
-    padding: 20,
+    padding: 15,
     width: width * 0.25,
+    minWidth: 100,
     borderWidth: 2,
     borderColor: 'transparent',
+    marginBottom: 10,
   },
   selectedGender: {
     borderColor: 'rgba(47, 183, 111, 0.25)',
     backgroundColor: 'rgba(47, 183, 111, 0.25)',
   },
   genderImage: {
-    width: 60,
-    height: 60,
+    width: Math.min(60, width * 0.15),
+    height: Math.min(60, width * 0.15),
     marginBottom: 10,
   },
   genderText: {
@@ -837,17 +919,21 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   permissionsContainer: {
+    width: '90%',
+    marginVertical: 10,
+    flex: 1,
+  },
+  permissionsScrollView: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    width: '90%',
-    marginVertical: 20,
   },
   permissionsExplanation: {
-    fontSize: 18,
+    fontSize: Math.min(18, width * 0.045),
     color: '#333',
     textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 24,
+    marginBottom: 15,
+    lineHeight: Math.min(24, width * 0.06),
     fontWeight: '500',
   },
   permissionsSuccess: {
@@ -866,12 +952,13 @@ const styles = StyleSheet.create({
   welcomeContainer: {
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '80%',
+    width: '90%',
     flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   welcomeImage: {
-    width: width * 0.2,
-    height: width * 0.2,
+    width: width * 0.15,
+    height: width * 0.15,
   },
   nameContainer: {
     flexDirection: 'row',
@@ -881,22 +968,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   sideImage: {
-    width: width * 0.25,
-    height: width * 0.25,
+    width: Math.min(width * 0.22, 100),
+    height: Math.min(width * 0.22, 100),
   },
   adminCodeContainer: {
     alignItems: 'center',
     width: '100%',
-    height: height * 0.5,
+    maxHeight: height * 0.4,
     flexDirection: 'row',
+    flex: 1,
   },
   adminCodeImage: {
     width: width * 0.05,
     height: width * 0.05,
   },
   permissionsImage: {
-    width: width * 0.2,
-    height: width * 0.2,
+    width: Math.min(width * 0.2, 80),
+    height: Math.min(width * 0.2, 80),
     marginBottom: 20,
   },
   backButton: {
@@ -930,7 +1018,7 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0, height: 8},
     elevation: 8,
     backgroundColor: 'white',
-    marginBottom: 15,
+    marginBottom: height * 0.02,
   },
   gridImageContainer: {
     width: '100%',
@@ -953,16 +1041,41 @@ const styles = StyleSheet.create({
   },
   familylabel: {
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: Math.min(16, width * 0.04),
     textAlign: 'center',
     color: '#000',
-    marginBottom: height * 0.01,
+    marginBottom: 10,
   },
   specialPlacesContainer: {
     width: '100%',
-    height: height * 0.6,
+    flexGrow: 1,
+  },
+  specialPlacesScrollView: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  specialPlacesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  skipButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 108, 240, 0.75)',
+    marginLeft: 10,
+  },
+  skipButtonText: {
+    color: 'rgba(20, 108, 240, 0.75)',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

@@ -10,7 +10,7 @@ interface MatalkIconProps {
 }
 
 const MatalkIcon: React.FC<MatalkIconProps> = ({
-  size = 45,
+  size = 40,
   containerStyle,
   imageStyle,
 }) => {

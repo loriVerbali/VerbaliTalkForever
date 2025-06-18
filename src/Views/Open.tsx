@@ -25,6 +25,7 @@ import MatalkIcon from '../Components/MatalkIcon';
 import ContextInfo from '../Components/ContextInfo';
 import {Mixpanel} from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';
+import {useAdmin} from '../contexts/adminContext';
 
 type RootStackParamList = {
   LOGIN: undefined;
@@ -42,6 +43,7 @@ const {height, width} = Dimensions.get('window');
 const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
+  const {isTablet} = useAdmin();
   const [recognizedText, setRecognizedText] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const {getItem} = useAppSettings();
@@ -163,7 +165,9 @@ const OpenScreen: React.FC = () => {
           colors={['#FFF8E7', '#FFFFFF']}
           style={styles.container}>
           <View style={styles.headerContainer}>
-            <Text style={styles.headerText}>Hi {heroName ? heroName : ''}</Text>
+            <Text style={styles.headerText}>
+              Hi {heroName ? isTablet.toString() : ''}
+            </Text>
             <FastImage
               source={require('../assets/hand.png')}
               style={styles.matanImage}
@@ -190,21 +194,27 @@ const OpenScreen: React.FC = () => {
           )}
 
           <Pressable
-            style={styles.settingsButton}
+            style={
+              isTablet ? styles.settingsButton : styles.settingsButtonPhone
+            }
             onPress={handleSettingsPress}>
             <FastImage
               source={require('../assets/settings.png')}
-              style={[styles.microphoneImage]}
+              style={
+                isTablet ? styles.microphoneImage : styles.microphoneImagePhone
+              }
               resizeMode={FastImage.resizeMode.contain}
             />
           </Pressable>
 
-          <Pressable style={styles.infoButton} onPress={toggleContextInfo}>
+          <Pressable
+            style={isTablet ? styles.infoButton : styles.infoButtonPhone}
+            onPress={toggleContextInfo}>
             <Text style={styles.infoIcon}>ℹ️</Text>
           </Pressable>
 
-          <View style={styles.matalkIcon}>
-            <MatalkIcon />
+          <View style={isTablet ? styles.matalkIcon : styles.matalkIconPhone}>
+            <MatalkIcon size={isTablet ? width * 0.05 : width * 0.04} />
           </View>
 
           <View style={styles.contentContainer}>
@@ -326,6 +336,7 @@ const OpenScreen: React.FC = () => {
       <Modal
         visible={modalVisible}
         transparent={true}
+        supportedOrientations={['landscape-left', 'landscape-right']}
         animationType="fade"
         onRequestClose={closeModal}>
         <TouchableWithoutFeedback onPress={closeModal}>
@@ -386,12 +397,14 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     paddingTop:
-      Platform.OS === 'ios' ? 50 : (StatusBar.currentHeight || 24) + 10,
+      Platform.OS === 'android'
+        ? height * 0.03
+        : StatusBar.currentHeight || height * 0.03,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerText: {
-    fontSize: 32,
+    fontSize: height * 0.08,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
@@ -422,7 +435,7 @@ const styles = StyleSheet.create({
     height: '85%',
   },
   rowContent: {
-    width: '45%',
+    width: '44%',
     alignItems: 'center',
     justifyContent: 'flex-start',
     height: '100%',
@@ -445,31 +458,51 @@ const styles = StyleSheet.create({
     top: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
-    left: width * 0.03,
+    left: width * 0.015,
     position: 'absolute',
     width: width * 0.05,
     height: width * 0.05,
+    zIndex: 2,
+  },
+  settingsButton: {
+    top: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    right: width * 0.02,
+    elevation: 5,
+    position: 'absolute',
+    width: width * 0.04,
+    height: width * 0.04,
+    borderRadius: width * 0.04,
+    zIndex: 2,
+  },
+  settingsButtonPhone: {
+    top: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    right: width * 0.02,
+    elevation: 5,
+    position: 'absolute',
+    width: width * 0.035,
+    height: width * 0.035,
+    borderRadius: width * 0.035,
     zIndex: 2,
   },
   matalkIcon: {
     bottom: height * 0.02,
     justifyContent: 'center',
     alignItems: 'center',
-    left: width * 0.01,
+    left: width * 0.015,
     position: 'absolute',
     zIndex: 3,
   },
-  settingsButton: {
-    top: height * 0.04,
+  matalkIconPhone: {
+    bottom: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
-    right: width * 0.01,
-    elevation: 5,
+    left: width * 0.015,
     position: 'absolute',
-    width: width * 0.05,
-    height: width * 0.05,
-    borderRadius: width * 0.04,
-    zIndex: 2,
+    zIndex: 3,
   },
   infoButton: {
     bottom: height * 0.02,
@@ -477,21 +510,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'absolute',
     zIndex: 3,
-    right: width * 0.01,
+    right: width * 0.015,
     elevation: 5,
-    width: width * 0.04,
-    height: width * 0.04,
-    borderRadius: width * 0.04,
+    width: width * 0.035,
+    height: width * 0.035,
+    borderRadius: width * 0.035,
+    backgroundColor: 'white',
+  },
+  infoButtonPhone: {
+    bottom: height * 0.04,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    zIndex: 3,
+    right: width * 0.02,
+    elevation: 5,
+    width: width * 0.035,
+    height: width * 0.035,
+    borderRadius: width * 0.035,
     backgroundColor: 'white',
   },
   iconSize: {
-    width: 45,
-    height: 45,
+    width: width * 0.04,
+    height: width * 0.04,
     resizeMode: 'contain',
   },
   microphoneImage: {
-    width: 40,
-    height: 40,
+    width: width * 0.04,
+    height: width * 0.04,
+  },
+  microphoneImagePhone: {
+    width: width * 0.035,
+    height: width * 0.035,
   },
   kidText: {
     fontSize: height * 0.032,
@@ -515,7 +565,7 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 20,
+    padding: width * 0.05,
     width: '80%',
     alignItems: 'center',
     shadowColor: '#000',
@@ -528,20 +578,20 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: height * 0.03,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: height * 0.02,
     color: '#333',
   },
   codeInput: {
     width: '100%',
-    height: 60,
+    height: height * 0.08,
     backgroundColor: '#f5f5f5',
     borderRadius: 10,
-    paddingHorizontal: 20,
-    fontSize: 24,
+    paddingHorizontal: width * 0.05,
+    fontSize: height * 0.03,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: height * 0.02,
     borderWidth: 1,
     borderColor: '#ddd',
   },
@@ -556,9 +606,9 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: height * 0.02,
     borderRadius: 10,
-    marginHorizontal: 5,
+    marginHorizontal: width * 0.01,
   },
   cancelButton: {
     backgroundColor: '#ff3b30',
@@ -569,7 +619,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     textAlign: 'center',
-    fontSize: 16,
+    fontSize: height * 0.02,
     fontWeight: 'bold',
   },
   disabledButton: {
@@ -582,7 +632,7 @@ const styles = StyleSheet.create({
     right: 0,
     alignSelf: 'center',
     width: '80%',
-    padding: 8,
+    padding: height * 0.01,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -598,7 +648,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   recognitionStatusText: {
-    fontSize: 16,
+    fontSize: height * 0.02,
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
@@ -611,13 +661,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   matanImage: {
-    width: 30,
-    height: 30,
+    width: width * 0.03,
+    height: width * 0.03,
     resizeMode: 'contain',
     marginLeft: width * 0.015,
   },
   infoIcon: {
-    fontSize: 24,
+    fontSize: height * 0.03,
     fontWeight: 'bold',
     color: '#333',
   },
