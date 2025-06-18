@@ -180,9 +180,9 @@ const ShortCuts = () => {
     topItemWidth: isTablet ? width * 0.11 : width * 0.15,
     topItemHeight: isTablet ? height * 0.22 * 0.8 : height * 0.22 * 0.8,
     topRowGap: isTablet ? width * 0.03 : width * 0.02,
-    scrollContentWidth: isTablet ? width * 0.8 : width * 0.9,
-    gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.9) / 4 - 12,
-    gridImageHeight: isTablet ? height * 0.2 : height * 0.08,
+    scrollContentWidth: isTablet ? width * 0.8 : width * 0.85,
+    gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
+    gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
     labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
     labelGridFontSize: isTablet ? 16 : 14,
     marginTop: isTablet ? height * 0.02 : height * 0.01,
@@ -193,7 +193,7 @@ const ShortCuts = () => {
     shadowRadius: isTablet ? 5 : 3,
     shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
     elevation: isTablet ? 8 : 5,
-    rowGap: isTablet ? 20 : 15,
+    rowGap: isTablet ? 20 : 10,
   };
 
   useEffect(() => {
@@ -598,7 +598,7 @@ const ShortCuts = () => {
       <View
         style={[
           styles.grid,
-          {width: isTablet ? '80%' : '90%', rowGap: responsiveValues.rowGap},
+          {width: isTablet ? '80%' : '85%', rowGap: responsiveValues.rowGap},
         ]}>
         {rows.map((row, rowIndex) => (
           <React.Fragment key={`row-${rowIndex}`}>
