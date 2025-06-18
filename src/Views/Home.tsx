@@ -39,6 +39,7 @@ import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
 import {Mixpanel} from 'mixpanel-react-native';
 import {logConversation} from '../utils/conversationLogger';
+import {useAdmin} from '../contexts/adminContext';
 
 const {width, height} = Dimensions.get('window');
 
@@ -58,8 +59,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {sendMessage, runAssistant, threadId, imageUrls, status} =
     useAssistant();
   const {weather, location} = useChatContext();
+  const {isTablet} = useAdmin();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
+
+  // Responsive values for icons
+  const responsiveIconValues = {
+    microphoneSize: isTablet
+      ? {width: 45, height: 45}
+      : {width: 35, height: 35},
+    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
+  };
 
   // Add keyboard input state
   const [keyboardInput, setKeyboardInput] = useState('');
@@ -505,7 +515,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <View style={styles.microphoneButton}>
           <FastImage
             source={require('../assets/michrophone.gif')}
-            style={styles.iconSize}
+            style={[styles.iconSize, responsiveIconValues.microphoneSize]}
             resizeMode={FastImage.resizeMode.contain}
           />
         </View>
@@ -514,7 +524,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <HomeButton navigation={navigation} onReset={resetLocalStates} />
 
         {/* Matalk Icon */}
-        <View style={styles.matalkIcon}>
+        <View style={[styles.matalkIcon, responsiveIconValues.matalkIconSize]}>
           <MatalkIcon />
         </View>
 
@@ -786,9 +796,7 @@ const styles = StyleSheet.create({
     height: width * 0.05,
   },
   iconSize: {
-    width: 45,
-    height: 45,
-    resizeMode: 'contain',
+    // width and height are now handled dynamically, resizeMode is applied directly to FastImage
   },
   keyboardIcon: {
     width: width * 0.3,
