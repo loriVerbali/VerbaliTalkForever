@@ -13,6 +13,7 @@ import AudioRecorderPlayer, {
   AVEncodingOption,
 } from 'react-native-audio-recorder-player';
 import {useAssistant} from '../contexts/AssistantContext';
+import {useAdmin} from '../contexts/adminContext';
 
 import FastImage from 'react-native-fast-image';
 
@@ -33,6 +34,11 @@ const {width, height} = Dimensions.get('window');
 const Inputs = forwardRef<InputsRef, InputsProps>(
   ({mode, onInputChange}, ref) => {
     const [inputText, setInputText] = useState<string>('');
+    const {isTablet} = useAdmin();
+
+    // Responsive font sizes and container height
+    const responsiveFontSize = isTablet ? 16 : 14;
+    const responsiveContainerHeight = isTablet ? undefined : 50;
 
     const handleTextChange = (text: string) => {
       setInputText(text);
@@ -54,9 +60,14 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
       <View style={styles.container}>
         {mode === 'Attention' ? (
           <View style={styles.inputContainer}>
-            <View style={styles.KBinputContainer} pointerEvents="none">
+            <View
+              style={[
+                styles.KBinputContainer,
+                {height: responsiveContainerHeight},
+              ]}
+              pointerEvents="none">
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, {fontSize: responsiveFontSize}]}
                 value={inputText}
                 editable={false}
                 onChangeText={handleTextChange}
@@ -68,10 +79,14 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
           </View>
         ) : (
           <View style={styles.inputContainer}>
-            <View style={styles.KBinputContainer}>
+            <View
+              style={[
+                styles.KBinputContainer,
+                {height: responsiveContainerHeight},
+              ]}>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.textKBInput}
+                  style={[styles.textKBInput, {fontSize: responsiveFontSize}]}
                   value={inputText}
                   onChangeText={handleTextChange}
                   placeholder="Type your message here..."
@@ -104,6 +119,7 @@ const styles = StyleSheet.create({
   KBinputContainer: {
     flexDirection: 'row',
     width: '80%',
+    // height is now handled dynamically (only applied on phones)
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -123,9 +139,9 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.05,
     shadowRadius: 3.84,
-    padding: 10,
+    padding: 20,
     color: '#000',
-    fontSize: 16,
+    // fontSize is now handled dynamically
   },
   textKBInput: {
     width: '100%',
@@ -141,7 +157,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     color: '#000',
-    fontSize: 16,
+    // fontSize is now handled dynamically
   },
   iconSize: {
     width: 45,
