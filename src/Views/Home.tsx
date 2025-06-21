@@ -63,12 +63,71 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
 
-  // Responsive values for icons
-  const responsiveIconValues = {
+  // Responsive values based on device type
+  const responsiveValues = {
+    // Icon sizes
     microphoneSize: isTablet
       ? {width: 45, height: 45}
       : {width: 35, height: 35},
     matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
+
+    // Layout dimensions
+    inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
+    contentMarginTop: isTablet ? 10 : 8,
+    contentPadding: isTablet ? 20 : 15,
+
+    // Microphone button positioning
+    microphoneButtonTop: isTablet ? height * 0.04 : height * 0.035,
+    microphoneButtonLeft: isTablet ? width * 0.03 : width * 0.025,
+    microphoneButtonSize: isTablet ? width * 0.05 : width * 0.04,
+
+    // Keyboard input dimensions
+    keyboardIconSize: isTablet
+      ? {width: width * 0.3, height: width * 0.3}
+      : {width: width * 0.25, height: width * 0.25},
+    recordingIconSize: isTablet
+      ? {width: width * 0.4, height: width * 0.3}
+      : {width: width * 0.35, height: width * 0.2},
+
+    // Typography
+    transcriptionFontSize: isTablet ? 22 : 18,
+    retryFontSize: isTablet ? 18 : 16,
+    keyboardTypingFontSize: isTablet ? 20 : 18,
+    buttonFontSize: isTablet ? 18 : 16,
+    errorFontSize: isTablet ? 20 : 18,
+    cardTextFontSize: isTablet ? 18 : 16,
+
+    // Button dimensions
+    keyboardButtonPadding: isTablet
+      ? {vertical: 14, horizontal: 35}
+      : {vertical: 12, horizontal: 30},
+    keyboardButtonMinWidth: isTablet ? 120 : 100,
+    keyboardButtonBorderRadius: isTablet ? 28 : 25,
+
+    // Spacing
+    contentWidth: isTablet ? width * 0.9 : width * 0.95,
+    contentPaddingBottom: isTablet ? 20 : 15,
+    keyboardInputPadding: isTablet ? 25 : 20,
+    typingDisplayPadding: isTablet ? 25 : 20,
+    typingDisplayMinHeight: isTablet ? 70 : 60,
+
+    // Navigation cards
+    navigationCardWidth: isTablet ? width * 0.4 : width * 0.42,
+    navigationCardMinHeight: isTablet ? 140 : 120,
+    navigationCardBorderRadius: isTablet ? 15 : 12,
+    navigationCardPadding: isTablet ? 18 : 15,
+    navigationCardImageSize: isTablet
+      ? {width: 70, height: 70}
+      : {width: 60, height: 60},
+    navigationCardImageBorderRadius: isTablet ? 35 : 30,
+    navigationCardImageIconSize: isTablet
+      ? {width: 50, height: 50}
+      : {width: 40, height: 40},
+
+    // Shadow and elevation
+    shadowRadius: isTablet ? 5 : 3,
+    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
+    elevation: isTablet ? 6 : 4,
   };
 
   // Add keyboard input state
@@ -467,17 +526,34 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     const hasText = debouncedKeyboardInput.trim().length > 0;
 
     return (
-      <View style={styles.keyboardInputContainer}>
+      <View
+        style={[
+          styles.keyboardInputContainer,
+          {padding: responsiveValues.keyboardInputPadding},
+        ]}>
         {/* Show waiting message or what's being typed */}
         {keyboardInput.length === 0 ? (
           <FastImage
             source={require('../assets/waitforKB.png')}
-            style={styles.keyboardIcon}
+            style={responsiveValues.keyboardIconSize}
             resizeMode={FastImage.resizeMode.contain}
           />
         ) : (
-          <View style={styles.typingDisplay}>
-            <Text style={styles.typingDisplayText}>{keyboardInput}</Text>
+          <View
+            style={[
+              styles.typingDisplay,
+              {
+                padding: responsiveValues.typingDisplayPadding,
+                minHeight: responsiveValues.typingDisplayMinHeight,
+              },
+            ]}>
+            <Text
+              style={[
+                styles.typingDisplayText,
+                {fontSize: responsiveValues.keyboardTypingFontSize},
+              ]}>
+              {keyboardInput}
+            </Text>
           </View>
         )}
 
@@ -485,13 +561,41 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         {hasText && (
           <View style={styles.keyboardButtonsContainer}>
             <TouchableOpacity
-              style={[styles.keyboardButton, styles.cancelButton]}
+              style={[
+                styles.keyboardButton,
+                styles.cancelButton,
+                {
+                  paddingVertical:
+                    responsiveValues.keyboardButtonPadding.vertical,
+                  paddingHorizontal:
+                    responsiveValues.keyboardButtonPadding.horizontal,
+                  minWidth: responsiveValues.keyboardButtonMinWidth,
+                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
+                },
+              ]}
               onPress={handleKeyboardCancel}
               disabled={isSubmittingKeyboard}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text
+                style={[
+                  styles.cancelButtonText,
+                  {fontSize: responsiveValues.buttonFontSize},
+                ]}>
+                Cancel
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.keyboardButton, styles.submitButton]}
+              style={[
+                styles.keyboardButton,
+                styles.submitButton,
+                {
+                  paddingVertical:
+                    responsiveValues.keyboardButtonPadding.vertical,
+                  paddingHorizontal:
+                    responsiveValues.keyboardButtonPadding.horizontal,
+                  minWidth: responsiveValues.keyboardButtonMinWidth,
+                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
+                },
+              ]}
               onPress={handleKeyboardSubmit}
               disabled={
                 isSubmittingKeyboard ||
@@ -500,7 +604,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               {isSubmittingKeyboard ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
-                <Text style={styles.submitButtonText}>Submit</Text>
+                <Text
+                  style={[
+                    styles.submitButtonText,
+                    {fontSize: responsiveValues.buttonFontSize},
+                  ]}>
+                  Submit
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -512,10 +622,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
-        <View style={styles.microphoneButton}>
+        <View
+          style={[
+            styles.microphoneButton,
+            {
+              top: responsiveValues.microphoneButtonTop,
+              left: responsiveValues.microphoneButtonLeft,
+              width: responsiveValues.microphoneButtonSize,
+              height: responsiveValues.microphoneButtonSize,
+            },
+          ]}>
           <FastImage
             source={require('../assets/michrophone.gif')}
-            style={[styles.iconSize, responsiveIconValues.microphoneSize]}
+            style={[styles.iconSize, responsiveValues.microphoneSize]}
             resizeMode={FastImage.resizeMode.contain}
           />
         </View>
@@ -524,12 +643,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <HomeButton navigation={navigation} onReset={resetLocalStates} />
 
         {/* Matalk Icon */}
-        <View style={[styles.matalkIcon, responsiveIconValues.matalkIconSize]}>
+        <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
           <MatalkIcon />
         </View>
 
         {/* Input and Navigation Section */}
-        <View style={styles.inputNavigationContainer}>
+        <View
+          style={[
+            styles.inputNavigationContainer,
+            {height: responsiveValues.inputNavigationHeight},
+          ]}>
           <Inputs
             ref={inputsRef}
             mode={stateof}
@@ -538,7 +661,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         </View>
 
         <View style={{flex: 1, width: '100%'}}>
-          <View style={styles.contentContainer}>
+          <View
+            style={[
+              styles.contentContainer,
+              {
+                width: responsiveValues.contentWidth,
+                marginTop: responsiveValues.contentMarginTop,
+                paddingBottom: responsiveValues.contentPaddingBottom,
+              },
+            ]}>
             <View
               style={[styles.imageCardContainer, {zIndex: 10}]}
               key={`gallery`}>
@@ -567,38 +698,110 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                   if (validImages.length === 0) {
                     return (
                       <View style={styles.errorContainer}>
-                        <Text style={styles.errorText}>
+                        <Text
+                          style={[
+                            styles.errorText,
+                            {fontSize: responsiveValues.errorFontSize},
+                          ]}>
                           We have an issue. Please be patient.
                         </Text>
                         <View style={styles.navigationCardsContainer}>
                           <TouchableOpacity
-                            style={styles.navigationCard}
+                            style={[
+                              styles.navigationCard,
+                              {
+                                width: responsiveValues.navigationCardWidth,
+                                minHeight:
+                                  responsiveValues.navigationCardMinHeight,
+                                borderRadius:
+                                  responsiveValues.navigationCardBorderRadius,
+                                padding: responsiveValues.navigationCardPadding,
+                                shadowRadius: responsiveValues.shadowRadius,
+                                shadowOffset: responsiveValues.shadowOffset,
+                                elevation: responsiveValues.elevation,
+                              },
+                            ]}
                             onPress={() =>
                               navigation.navigate('ShortCuts' as never)
                             }>
-                            <View style={styles.cardImageContainer}>
+                            <View
+                              style={[
+                                styles.cardImageContainer,
+                                {
+                                  width:
+                                    responsiveValues.navigationCardImageSize
+                                      .width,
+                                  height:
+                                    responsiveValues.navigationCardImageSize
+                                      .height,
+                                  borderRadius:
+                                    responsiveValues.navigationCardImageBorderRadius,
+                                },
+                              ]}>
                               <FastImage
                                 source={require('../assets/shortCuts.png')}
-                                style={styles.cardImage}
+                                style={
+                                  responsiveValues.navigationCardImageIconSize
+                                }
                                 resizeMode={FastImage.resizeMode.contain}
                               />
                             </View>
-                            <Text style={styles.cardText}>ShortCuts</Text>
+                            <Text
+                              style={[
+                                styles.cardText,
+                                {fontSize: responsiveValues.cardTextFontSize},
+                              ]}>
+                              ShortCuts
+                            </Text>
                           </TouchableOpacity>
 
                           <TouchableOpacity
-                            style={styles.navigationCard}
+                            style={[
+                              styles.navigationCard,
+                              {
+                                width: responsiveValues.navigationCardWidth,
+                                minHeight:
+                                  responsiveValues.navigationCardMinHeight,
+                                borderRadius:
+                                  responsiveValues.navigationCardBorderRadius,
+                                padding: responsiveValues.navigationCardPadding,
+                                shadowRadius: responsiveValues.shadowRadius,
+                                shadowOffset: responsiveValues.shadowOffset,
+                                elevation: responsiveValues.elevation,
+                              },
+                            ]}
                             onPress={() =>
                               navigation.navigate('Feelings' as never)
                             }>
-                            <View style={styles.cardImageContainer}>
+                            <View
+                              style={[
+                                styles.cardImageContainer,
+                                {
+                                  width:
+                                    responsiveValues.navigationCardImageSize
+                                      .width,
+                                  height:
+                                    responsiveValues.navigationCardImageSize
+                                      .height,
+                                  borderRadius:
+                                    responsiveValues.navigationCardImageBorderRadius,
+                                },
+                              ]}>
                               <FastImage
                                 source={require('../assets/feelings.png')}
-                                style={styles.cardImage}
+                                style={
+                                  responsiveValues.navigationCardImageIconSize
+                                }
                                 resizeMode={FastImage.resizeMode.contain}
                               />
                             </View>
-                            <Text style={styles.cardText}>Feelings</Text>
+                            <Text
+                              style={[
+                                styles.cardText,
+                                {fontSize: responsiveValues.cardTextFontSize},
+                              ]}>
+                              Feelings
+                            </Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -635,8 +838,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                     ) : isRecording ? (
                       <FastImage
                         source={require('../assets/recording.gif')}
-                        style={styles.recordingIcon}
-                        resizeMode={FastImage.resizeMode.cover}
+                        style={responsiveValues.recordingIconSize}
+                        resizeMode={
+                          isTablet
+                            ? FastImage.resizeMode.cover
+                            : FastImage.resizeMode.contain
+                        }
                       />
                     ) : (
                       <View
@@ -646,14 +853,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <Text style={{fontSize: 20, fontWeight: 'bold'}}>
+                        <Text
+                          style={{
+                            fontSize: responsiveValues.transcriptionFontSize,
+                            fontWeight: 'bold',
+                          }}>
                           {`${transcribedText}`}
                         </Text>
                         {transcribedText.length === 0 || isRetrying ? (
                           <ActivityIndicator size="large" color="#0000ff" />
                         ) : null}
                         {isRetrying && (
-                          <Text style={styles.retryText}>
+                          <Text
+                            style={[
+                              styles.retryText,
+                              {fontSize: responsiveValues.retryFontSize},
+                            ]}>
                             Getting more answers... (Attempt {retryCount}/
                             {MAX_RETRIES})
                           </Text>
@@ -681,7 +896,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    height: height * 0.11,
   },
   recordingContainer: {
     width: height * 0.4,
@@ -750,11 +964,8 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    width: '90%',
     alignItems: 'center',
     alignSelf: 'center',
-    marginTop: 10,
-    paddingBottom: 20,
   },
   transcriptionButton: {
     position: 'absolute',
@@ -787,27 +998,14 @@ const styles = StyleSheet.create({
   },
 
   microphoneButton: {
-    top: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
-    left: width * 0.03,
     position: 'absolute',
-    width: width * 0.05,
-    height: width * 0.05,
   },
   iconSize: {
     // width and height are now handled dynamically, resizeMode is applied directly to FastImage
   },
-  keyboardIcon: {
-    width: width * 0.3,
-    height: width * 0.3,
-    resizeMode: 'contain',
-  },
-  recordingIcon: {
-    width: width * 0.4,
-    height: width * 0.4,
-    resizeMode: 'contain',
-  },
+
   noImagesContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -863,7 +1061,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   waitingLabel: {
     fontSize: 20,
@@ -890,10 +1087,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
   },
   keyboardButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    minWidth: 100,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -910,12 +1103,10 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
-    fontSize: 16,
   },
   submitButtonText: {
     color: '#FFF',
     fontWeight: 'bold',
-    fontSize: 16,
   },
   typingPreview: {
     width: '100%',
@@ -935,15 +1126,12 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
-    padding: 20,
     marginVertical: 10,
     borderLeftWidth: 3,
     borderLeftColor: '#007AFF',
-    minHeight: 60,
     justifyContent: 'center',
   },
   typingDisplayText: {
-    fontSize: 18,
     color: '#333',
     fontWeight: '500',
     textAlign: 'center',
@@ -955,7 +1143,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    fontSize: 18,
     color: '#ff5722',
     fontWeight: '600',
     textAlign: 'center',
@@ -969,35 +1156,17 @@ const styles = StyleSheet.create({
   },
   navigationCard: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 15,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
     alignItems: 'center',
-    width: '40%',
-    minHeight: 120,
   },
   cardImageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
-  cardImage: {
-    width: 40,
-    height: 40,
-  },
   cardText: {
-    fontSize: 16,
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',

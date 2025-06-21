@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {useChatContext} from '../contexts/ChatContextProvider';
+import {useAdmin} from '../contexts/adminContext';
 
 const {width, height} = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ const ContextInfo: React.FC<ContextInfoProps> = ({visible, onClose}) => {
     isDataStale,
   } = useChatContext();
 
+  const {isTablet} = useAdmin();
   // Update time every second
   useEffect(() => {
     const updateTime = () => {
@@ -67,9 +69,9 @@ const ContextInfo: React.FC<ContextInfoProps> = ({visible, onClose}) => {
       supportedOrientations={['landscape-left', 'landscape-right']}
       onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <View style={isTablet ? styles.container : styles.containerMobile}>
           <View style={styles.header}>
-            <Text style={styles.title}>Information</Text>
+            <Text style={styles.title}> Information</Text>
             <Pressable style={styles.closeButton} onPress={onClose}>
               <Text style={styles.closeButtonText}>✕</Text>
             </Pressable>
@@ -225,6 +227,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: height * 0.4,
     minHeight: height * 0.3,
+  },
+  containerMobile: {
+    backgroundColor: '#FFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: height * 0.7,
+    minHeight: height * 0.5,
   },
   header: {
     flexDirection: 'row',
