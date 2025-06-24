@@ -21,7 +21,6 @@ import {useAssistant} from '../contexts/AssistantContext';
 import fetchHelper from '../utils/fetcher';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
-import Talk from '../assets/talk.png';
 import Slider from '@react-native-community/slider';
 import {useAppSettings} from '../utils/persistance';
 import {FamilyMember} from '../Components/FamilyPics';
@@ -462,7 +461,11 @@ const Convo = () => {
             console.error('Error parsing sentence:', error);
           }
         } else {
-          console.log('⚠️ Unrecognized mode type:', response.modeType);
+          console.log(
+            '⚠️ Unrecognized mode type:',
+            response.modeType,
+            response,
+          );
         }
       } catch (error) {
         console.error('❌ Error processing assistant response:', error);
@@ -572,10 +575,11 @@ const Convo = () => {
   useEffect(() => {
     const {speaker, audience, sentenceType} = sentence;
     const generateSentence = async () => {
-      const sentencePrompt = `Please create a complete, kid-friendly sentence where ${speaker} wants to ${action} with the topic "${topic}" to ${audience}. The sentence should be a ${
+      const sentencePrompt = `Write one complete, kid-friendly sentence using the word "${action}" as the verb and "${object}" as the object. The sentence must clearly relate to the topic "${topic}", either by naming it or describing something from it. The speaker is "${speaker}", and the sentence should be addressed to "${audience}". The sentence must be a ${
         sentenceType === '?' ? 'question' : 'statement'
-      }. Return just the sentence.`;
-      console.log('🔵 All selected, generating sentence');
+      }. Make it easy for a young child to understand and speak. Return only the sentence, nothing else.`;
+
+      console.log('🔵 All selected, generating sentence', sentencePrompt);
       await callAssistant('sentence', sentencePrompt);
     };
 

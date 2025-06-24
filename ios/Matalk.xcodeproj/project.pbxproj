@@ -302,6 +302,7 @@
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Matalk/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -339,6 +340,7 @@
 				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				INFOPLIST_FILE = Matalk/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (

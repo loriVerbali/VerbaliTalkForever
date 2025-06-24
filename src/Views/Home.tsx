@@ -52,7 +52,7 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = false;
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
