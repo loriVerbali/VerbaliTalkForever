@@ -194,6 +194,9 @@ const SettingsScreen: React.FC = () => {
   const [adminCodeError, setAdminCodeError] = useState('');
   const [isAdminCodeVisible, setIsAdminCodeVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [conversationMode, setConversationMode] = useState('easy');
+  const [showConversationModeInfo, setShowConversationModeInfo] =
+    useState(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   useEffect(() => {
@@ -208,6 +211,7 @@ const SettingsScreen: React.FC = () => {
         const savedObjectsCount = await getItem('objectsCount');
         const wasOnboarded = await getItem('wasOnboarded');
         const savedAdminCode = await getItem('adminCode');
+        const savedConversationMode = await getItem('conversationMode');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
@@ -215,6 +219,7 @@ const SettingsScreen: React.FC = () => {
         setObjectsCount(parseInt(savedObjectsCount) || 4);
         setShowOnboardingEnabled(wasOnboarded !== '1');
         setAdminCode(savedAdminCode || '');
+        setConversationMode(savedConversationMode || 'easy');
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -271,6 +276,12 @@ const SettingsScreen: React.FC = () => {
   const handleOnboardingToggle = async (value: boolean) => {
     setShowOnboardingEnabled(value);
     await setItem('wasOnboarded', value ? '0' : '1');
+  };
+
+  const handleConversationModeToggle = async (value: boolean) => {
+    const mode = value ? 'advanced' : 'easy';
+    setConversationMode(mode);
+    await setItem('conversationMode', mode);
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
@@ -522,10 +533,55 @@ const SettingsScreen: React.FC = () => {
 
             <View style={styles.familyPicsSection}>
               <Text style={styles.settingLabel}>Family Members</Text>
-              <Text style={styles.familyDescription}>
-                Manage family member photos for conversations
-              </Text>
-              <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
+
+              {/* Conversation Mode Setting */}
+              <View style={styles.conversationModeRow}>
+                <View style={styles.switchLabel}>
+                  <Text style={styles.conversationModeLabel}>
+                    Conversation Mode
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowConversationModeInfo(true)}
+                    style={styles.infoButton}>
+                    <Text style={styles.infoIcon}>?</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.conversationModeContainer}>
+                  <Text
+                    style={[
+                      styles.conversationModeText,
+                      conversationMode === 'easy' && styles.activeMode,
+                    ]}>
+                    Easy
+                  </Text>
+                  <Switch
+                    trackColor={{false: '#767577', true: '#8E24AA'}}
+                    thumbColor={
+                      conversationMode === 'advanced' ? '#fff' : '#f4f3f4'
+                    }
+                    ios_backgroundColor="#3e3e3e"
+                    onValueChange={handleConversationModeToggle}
+                    value={conversationMode === 'advanced'}
+                  />
+                  <Text
+                    style={[
+                      styles.conversationModeText,
+                      conversationMode === 'advanced' && styles.activeMode,
+                    ]}>
+                    Advanced
+                  </Text>
+                </View>
+              </View>
+
+              {/* Only show family member management in Advanced mode */}
+              {conversationMode === 'advanced' && (
+                <>
+                  <Text style={styles.familyDescription}>
+                    Manage family member photos for conversations
+                  </Text>
+                  <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
+                </>
+              )}
             </View>
 
             <View style={styles.specialPlacesSection}>
@@ -690,6 +746,13 @@ const SettingsScreen: React.FC = () => {
           onClose={() => setShowOnboardingInfo(false)}
           title="Show Onboarding"
           description="Enable this option to see the onboarding screens again on your next app launch. This can be helpful if you want to review the app's features and functionality."
+        />
+
+        <InfoModal
+          visible={showConversationModeInfo}
+          onClose={() => setShowConversationModeInfo(false)}
+          title="Conversation Mode"
+          description="Easy mode provides a simplified interface with just Question or Statement buttons, automatically setting the speaker as 'I' and audience as 'anyone'. Advanced mode shows the full interface with speaker, audience, and sentence type selection for more detailed conversations."
         />
       </ScrollView>
     </LinearGradient>
@@ -1076,6 +1139,32 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 15,
     lineHeight: 20,
+  },
+  conversationModeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  conversationModeText: {
+    fontSize: 14,
+    color: '#333',
+    marginHorizontal: 8,
+  },
+  activeMode: {
+    fontWeight: 'bold',
+    color: '#8E24AA',
+  },
+  conversationModeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    marginTop: 8,
+  },
+  conversationModeLabel: {
+    fontSize: 14,
+    color: '#333',
   },
 });
 

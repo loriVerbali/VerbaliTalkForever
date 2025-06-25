@@ -27,6 +27,7 @@ interface Preferences {
   therapyAddress: string;
   therapyIsCurrentLocation: string;
   wasLocationOnboarded: string;
+  conversationMode: string;
 }
 
 const initEnum = {
@@ -67,6 +68,7 @@ const initialPreferences: Preferences = {
   schoolIsCurrentLocation: '',
   therapyAddress: '',
   therapyIsCurrentLocation: '',
+  conversationMode: 'easy',
 };
 
 interface AppSettingsContextProps {

@@ -97,6 +97,9 @@ const Convo = () => {
   // Get app settings for family pics data
   const {getItem} = useAppSettings();
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
+    'easy',
+  );
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -192,6 +195,12 @@ const Convo = () => {
   useEffect(() => {
     const loadFamilyData = async () => {
       try {
+        // Load conversation mode
+        const savedConversationMode = await getItem('conversationMode');
+        setConversationMode(
+          (savedConversationMode as 'easy' | 'advanced') || 'easy',
+        );
+
         const savedData = await getItem('familyPicsData');
         if (savedData) {
           const parsedData = JSON.parse(savedData);
@@ -214,11 +223,32 @@ const Convo = () => {
           setSpeakers(['I', 'Mom', 'Dad']);
           setAudience(['I', 'Mom', 'Dad']);
         }
+
+        // Set default speaker and audience for easy mode
+        const mode = (savedConversationMode as 'easy' | 'advanced') || 'easy';
+        if (mode === 'easy') {
+          setSentence(prev => ({
+            ...prev,
+            speaker: 'I',
+            audience: 'anyone',
+          }));
+        }
       } catch (error) {
         console.error('Error loading family data:', error);
         // Fallback to default
         setSpeakers(['I', 'Mom', 'Dad']);
         setAudience(['I', 'Mom', 'Dad']);
+
+        // Set default for easy mode even on error
+        const mode = 'easy';
+        setConversationMode(mode);
+        if (mode === 'easy') {
+          setSentence(prev => ({
+            ...prev,
+            speaker: 'I',
+            audience: 'anyone',
+          }));
+        }
       }
     };
 
@@ -480,14 +510,18 @@ const Convo = () => {
     const generateTopics = async () => {
       const {speaker, audience, sentenceType} = sentence;
 
-      // Only proceed if all three are selected, slider is at position 0, and we don't have a valid topic
-      if (
-        speaker &&
-        audience &&
-        sentenceType &&
-        sliderPosition === 0 &&
-        (!topic || topic === 'NA')
-      ) {
+      // For easy mode: generate topics when sentence type is selected
+      // For advanced mode: only proceed if all three are selected, slider is at position 0, and we don't have a valid topic
+      const shouldGenerate =
+        conversationMode === 'easy'
+          ? speaker && audience && sentenceType && (!topic || topic === 'NA')
+          : speaker &&
+            audience &&
+            sentenceType &&
+            sliderPosition === 0 &&
+            (!topic || topic === 'NA');
+
+      if (shouldGenerate) {
         // Get contextual information
         const contextInfo = getContextualInfo(weather, location);
 
@@ -507,6 +541,7 @@ const Convo = () => {
     sentence.audience,
     sentence.sentenceType,
     sliderPosition,
+    conversationMode,
     weather,
     location,
   ]);
@@ -516,16 +551,25 @@ const Convo = () => {
     const generateActions = async () => {
       const {speaker, audience, sentenceType} = sentence;
 
-      // Only proceed if we have prerequisites and either no action selected or at position 1
-      if (
-        speaker &&
-        audience &&
-        sentenceType &&
-        topic &&
-        topic !== 'NA' &&
-        sliderPosition === 1 &&
-        (!action || action === 'NA')
-      ) {
+      // For easy mode: generate actions when topic is selected
+      // For advanced mode: only proceed if we have prerequisites and either no action selected or at position 1
+      const shouldGenerate =
+        conversationMode === 'easy'
+          ? speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            (!action || action === 'NA')
+          : speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            sliderPosition === 1 &&
+            (!action || action === 'NA');
+
+      if (shouldGenerate) {
         // Get contextual information
         const contextInfo = getContextualInfo(weather, location);
 
@@ -534,30 +578,40 @@ const Convo = () => {
         }. Consider the current weather, time of day, location, and day when suggesting actions. I need up to 3 simple, kid-friendly action verbs that are appropriate for the current context and conditions. The message.metadata.mode = 'actions'`;
 
         await callAssistant('list_possible_actions', prompt);
-      } else {
       }
     };
 
     generateActions();
-  }, [topic, sliderPosition, weather, location]);
+  }, [topic, sliderPosition, conversationMode, weather, location]);
 
   // Watch for action selection to generate objects
   useEffect(() => {
     const generateObjects = async () => {
       const {speaker, audience, sentenceType} = sentence;
 
-      // Only proceed if we have prerequisites and either no object selected or at position 2
-      if (
-        speaker &&
-        audience &&
-        sentenceType &&
-        topic &&
-        topic !== 'NA' &&
-        action &&
-        action !== 'NA' &&
-        sliderPosition === 2 &&
-        (!object || object === 'NA')
-      ) {
+      // For easy mode: generate objects when action is selected
+      // For advanced mode: only proceed if we have prerequisites and either no object selected or at position 2
+      const shouldGenerate =
+        conversationMode === 'easy'
+          ? speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            action &&
+            action !== 'NA' &&
+            (!object || object === 'NA')
+          : speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            action &&
+            action !== 'NA' &&
+            sliderPosition === 2 &&
+            (!object || object === 'NA');
+
+      if (shouldGenerate) {
         const objectsPrompt = `Please list possible direct objects or noun phrases for the action "${action}" related to the topic "${topic}" in a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 3 simple, kid-friendly objects. The message.metadata.mode = 'objects'`;
@@ -570,7 +624,7 @@ const Convo = () => {
     };
 
     generateObjects();
-  }, [action, sliderPosition]);
+  }, [action, sliderPosition, conversationMode]);
 
   useEffect(() => {
     const {speaker, audience, sentenceType} = sentence;
@@ -666,14 +720,25 @@ const Convo = () => {
     resetAssistant();
 
     // Reset all sentence fields completely
-    setSentence({
-      speaker: '',
-      audience: '',
-      sentenceType: '',
-      list_possible_topics: '',
-      action: '',
-      object: '',
-    });
+    if (conversationMode === 'easy') {
+      setSentence({
+        speaker: 'I',
+        audience: 'anyone',
+        sentenceType: '',
+        list_possible_topics: '',
+        action: '',
+        object: '',
+      });
+    } else {
+      setSentence({
+        speaker: '',
+        audience: '',
+        sentenceType: '',
+        list_possible_topics: '',
+        action: '',
+        object: '',
+      });
+    }
     setAvailableTopics([]);
     setAvailableActions([]);
     setAvailableObjects([]);
@@ -854,13 +919,25 @@ const Convo = () => {
         // Wait for 3 seconds before resetting
         setTimeout(() => {
           // Reset everything except sentence type first
-          setSentence(prev => ({
-            ...prev,
-            sentenceType: '',
-            list_possible_topics: '',
-            action: '',
-            object: '',
-          }));
+          if (conversationMode === 'easy') {
+            setSentence(prev => ({
+              ...prev,
+              speaker: 'I',
+              audience: 'anyone',
+              sentenceType: '',
+              list_possible_topics: '',
+              action: '',
+              object: '',
+            }));
+          } else {
+            setSentence(prev => ({
+              ...prev,
+              sentenceType: '',
+              list_possible_topics: '',
+              action: '',
+              object: '',
+            }));
+          }
           setSentenceTypeIndex(0);
           setInputText('');
           setTopic('NA');
@@ -987,106 +1064,207 @@ const Convo = () => {
       </View>
 
       <View style={styles.columnsContainer}>
-        {/* Column 1: Speaker & Audience */}
-        <View
-          style={[
-            styles.speakerAudienceColumn,
-            {
-              width: responsiveValues.speakerAudienceWidth,
-              marginRight: responsiveValues.speakerAudienceMargin,
-              marginLeft: responsiveValues.speakerAudienceMargin,
-            },
-          ]}>
-          {/* Speaker Section */}
-          <View style={styles.section}>
+        {conversationMode === 'easy' ? (
+          // Easy Mode: Only show sentence type selection with vertical buttons
+          <View style={styles.easyModeContainer}>
             <Text
               style={[
-                styles.sectionTitle,
-                {fontSize: responsiveValues.sectionTitleFontSize},
+                styles.easyModeTitle,
+                {fontSize: responsiveValues.sectionTitleFontSize * 1.2},
               ]}>
-              The speaker:
+              Start Talking
             </Text>
-            <View
-              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
-              {speakers.length > 0 && (
-                <ConvoCarousel<Speaker>
-                  carouselRef={speakerCarouselRef}
-                  currentIndex={speakerIndex}
-                  setCurrentIndex={setSpeakerIndex}
-                  sentence={sentence}
-                  setSentence={setSentence}
-                  data={speakers}
-                  handleItemSelect={handleSpeakerSelect}
-                  fieldName="speaker"
-                  showPersonIcon={true}
-                  familyMembers={familyMembers}
-                  getFamilyMemberImage={getFamilyMemberImage}
-                  responsiveValues={responsiveValues}
-                />
-              )}
+
+            <View style={styles.easyModeButtonsContainer}>
+              <Pressable
+                style={[
+                  styles.easyModeButton,
+                  sentence.sentenceType === '?' &&
+                    styles.easyModeButtonSelected,
+                  {
+                    height: SCREEN_HEIGHT * 0.25,
+                    borderRadius: responsiveValues.borderRadius,
+                  },
+                ]}
+                onPress={() => handleSentenceTypeSelect('?', 0)}>
+                <View
+                  style={[
+                    styles.easyModeImageContainer,
+                    {
+                      width: responsiveValues.talkContainerSize,
+                      height: responsiveValues.talkContainerSize,
+                      borderRadius: responsiveValues.talkContainerSize / 2,
+                    },
+                  ]}>
+                  <Image
+                    source={require('../assets/boyAsk.png')}
+                    style={styles.talkImage}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.easyModeButtonText,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                    sentence.sentenceType === '?' &&
+                      styles.easyModeButtonTextSelected,
+                  ]}>
+                  Ask a Question
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.easyModeButton,
+                  sentence.sentenceType === '!' &&
+                    styles.easyModeButtonSelected,
+                  {
+                    height: SCREEN_HEIGHT * 0.25,
+                    borderRadius: responsiveValues.borderRadius,
+                    marginTop: responsiveValues.inputMarginVertical,
+                  },
+                ]}
+                onPress={() => handleSentenceTypeSelect('!', 1)}>
+                <View
+                  style={[
+                    styles.easyModeImageContainer,
+                    {
+                      width: responsiveValues.talkContainerSize,
+                      height: responsiveValues.talkContainerSize,
+                      borderRadius: responsiveValues.talkContainerSize / 2,
+                    },
+                  ]}>
+                  <Image
+                    source={require('../assets/boyTalk.png')}
+                    style={styles.talkImage}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.easyModeButtonText,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                    sentence.sentenceType === '!' &&
+                      styles.easyModeButtonTextSelected,
+                  ]}>
+                  Make a Statement
+                </Text>
+              </Pressable>
             </View>
           </View>
-
-          {/* Audience Section */}
-          <View style={styles.section}>
-            <Text
+        ) : (
+          // Advanced Mode: Original full interface
+          <>
+            {/* Column 1: Speaker & Audience */}
+            <View
               style={[
-                styles.sectionTitle,
-                {fontSize: responsiveValues.sectionTitleFontSize},
+                styles.speakerAudienceColumn,
+                {
+                  width: responsiveValues.speakerAudienceWidth,
+                  marginRight: responsiveValues.speakerAudienceMargin,
+                  marginLeft: responsiveValues.speakerAudienceMargin,
+                },
               ]}>
-              The audience:
-            </Text>
-            <View
-              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
-              {audience.length > 0 && (
-                <ConvoCarousel<Audience>
-                  carouselRef={audienceCarouselRef}
-                  currentIndex={audienceIndex}
-                  setCurrentIndex={setAudienceIndex}
-                  sentence={sentence}
-                  setSentence={setSentence}
-                  data={audience}
-                  handleItemSelect={handleAudienceSelect}
-                  fieldName="audience"
-                  showPersonIcon={true}
-                  familyMembers={familyMembers}
-                  getFamilyMemberImage={getFamilyMemberImage}
-                  responsiveValues={responsiveValues}
-                />
-              )}
-            </View>
-          </View>
+              {/* Speaker Section */}
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                  ]}>
+                  The speaker:
+                </Text>
+                <View
+                  style={
+                    isTablet ? styles.cardWrapper : styles.cardWrapperPhone
+                  }>
+                  {speakers.length > 0 && (
+                    <ConvoCarousel<Speaker>
+                      carouselRef={speakerCarouselRef}
+                      currentIndex={speakerIndex}
+                      setCurrentIndex={setSpeakerIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={speakers}
+                      handleItemSelect={handleSpeakerSelect}
+                      fieldName="speaker"
+                      showPersonIcon={true}
+                      familyMembers={familyMembers}
+                      getFamilyMemberImage={getFamilyMemberImage}
+                      responsiveValues={responsiveValues}
+                    />
+                  )}
+                </View>
+              </View>
 
-          {/* Sentence Type*/}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {fontSize: responsiveValues.sectionTitleFontSize},
-              ]}>
-              Sentence
-            </Text>
-            <View
-              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
-              <ConvoCarousel<SentenceType>
-                carouselRef={sentenceTypeCarouselRef}
-                currentIndex={sentenceTypeIndex}
-                setCurrentIndex={setSentenceTypeIndex}
-                sentence={sentence}
-                setSentence={setSentence}
-                data={sentenceTypes}
-                handleItemSelect={handleSentenceTypeSelect}
-                fieldName="sentenceType"
-                showTalkIcon={true}
-                responsiveValues={responsiveValues}
-              />
-            </View>
-          </View>
-        </View>
+              {/* Audience Section */}
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                  ]}>
+                  The audience:
+                </Text>
+                <View
+                  style={
+                    isTablet ? styles.cardWrapper : styles.cardWrapperPhone
+                  }>
+                  {audience.length > 0 && (
+                    <ConvoCarousel<Audience>
+                      carouselRef={audienceCarouselRef}
+                      currentIndex={audienceIndex}
+                      setCurrentIndex={setAudienceIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={audience}
+                      handleItemSelect={handleAudienceSelect}
+                      fieldName="audience"
+                      showPersonIcon={true}
+                      familyMembers={familyMembers}
+                      getFamilyMemberImage={getFamilyMemberImage}
+                      responsiveValues={responsiveValues}
+                    />
+                  )}
+                </View>
+              </View>
 
+              {/* Sentence Type*/}
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                  ]}>
+                  Sentence
+                </Text>
+                <View
+                  style={
+                    isTablet ? styles.cardWrapper : styles.cardWrapperPhone
+                  }>
+                  <ConvoCarousel<SentenceType>
+                    carouselRef={sentenceTypeCarouselRef}
+                    currentIndex={sentenceTypeIndex}
+                    setCurrentIndex={setSentenceTypeIndex}
+                    sentence={sentence}
+                    setSentence={setSentence}
+                    data={sentenceTypes}
+                    handleItemSelect={handleSentenceTypeSelect}
+                    fieldName="sentenceType"
+                    showTalkIcon={true}
+                    responsiveValues={responsiveValues}
+                  />
+                </View>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Right side content - same for both modes but with adjusted width */}
         <View
           style={{
-            width: responsiveValues.rightContentWidth,
+            width:
+              conversationMode === 'easy'
+                ? '60%'
+                : responsiveValues.rightContentWidth,
             height: '100%',
             flexDirection: 'column',
             alignItems: 'center',
@@ -1677,6 +1855,54 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     marginTop: 2,
+  },
+  easyModeContainer: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: height * 0.05,
+  },
+  easyModeTitle: {
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: height * 0.02,
+  },
+  easyModeButtonsContainer: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    width: '80%',
+  },
+  easyModeButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#333',
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  easyModeButtonSelected: {
+    backgroundColor: '#333',
+  },
+  easyModeImageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  easyModeButtonText: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  easyModeButtonTextSelected: {
+    color: '#FFF',
   },
 });
 
