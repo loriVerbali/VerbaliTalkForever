@@ -144,9 +144,6 @@ const OnboardingScreen: React.FC = () => {
                   resizeMode={FastImage.resizeMode.contain}
                 />
               </View>
-              <View style={styles.gridLabelContainer}>
-                <Text style={styles.labelGrid}>Game</Text>
-              </View>
             </View>
 
             <View style={styles.gridItem}>
@@ -157,9 +154,6 @@ const OnboardingScreen: React.FC = () => {
                   resizeMode={FastImage.resizeMode.contain}
                 />
               </View>
-              <View style={styles.gridLabelContainer}>
-                <Text style={styles.labelGrid}>Eat</Text>
-              </View>
             </View>
 
             <View style={styles.gridItem}>
@@ -169,9 +163,6 @@ const OnboardingScreen: React.FC = () => {
                   style={styles.welcomeImage}
                   resizeMode={FastImage.resizeMode.contain}
                 />
-              </View>
-              <View style={styles.gridLabelContainer}>
-                <Text style={styles.labelGrid}>Go Outside</Text>
               </View>
             </View>
           </View>
@@ -682,7 +673,8 @@ const OnboardingScreen: React.FC = () => {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <Text style={styles.question}>
+                  <Text
+                    style={isTablet ? styles.questionTablet : styles.question}>
                     {currentStepData.question}
                   </Text>
                 )}
@@ -818,6 +810,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   question: {
+    fontSize: Math.min(22, width * 0.05),
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
+    lineHeight: Math.min(40, width * 0.1),
+  },
+  questionTablet: {
     fontSize: Math.min(32, width * 0.08),
     fontWeight: 'bold',
     textAlign: 'center',
@@ -959,6 +958,7 @@ const styles = StyleSheet.create({
   welcomeImage: {
     width: width * 0.15,
     height: width * 0.15,
+    borderRadius: 16,
   },
   nameContainer: {
     flexDirection: 'row',

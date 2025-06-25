@@ -7,16 +7,27 @@ import {
   StyleSheet,
   Dimensions,
   Alert,
+  Modal,
+  ScrollView,
+  FlatList,
 } from 'react-native';
 import {useAppSettings} from '../utils/persistance';
 import {useChatContext} from '../contexts/ChatContextProvider';
-import FastImage from 'react-native-fast-image';
 
 const {width, height} = Dimensions.get('window');
 
+interface AddressDetails {
+  address: string;
+  address2: string;
+  city: string;
+  state: string;
+  zipcode: string;
+  country: 'USA' | 'Canada' | 'Other';
+}
+
 interface SpecialPlace {
   type: 'home' | 'school' | 'therapy';
-  address: string;
+  addressDetails: AddressDetails;
   isCurrentLocation: boolean;
 }
 
@@ -24,6 +35,77 @@ interface SpecialPlacesProps {
   onComplete?: () => void;
   isSettingsMode?: boolean;
 }
+
+// US States
+const US_STATES = [
+  'Alabama',
+  'Alaska',
+  'Arizona',
+  'Arkansas',
+  'California',
+  'Colorado',
+  'Connecticut',
+  'Delaware',
+  'Florida',
+  'Georgia',
+  'Hawaii',
+  'Idaho',
+  'Illinois',
+  'Indiana',
+  'Iowa',
+  'Kansas',
+  'Kentucky',
+  'Louisiana',
+  'Maine',
+  'Maryland',
+  'Massachusetts',
+  'Michigan',
+  'Minnesota',
+  'Mississippi',
+  'Missouri',
+  'Montana',
+  'Nebraska',
+  'Nevada',
+  'New Hampshire',
+  'New Jersey',
+  'New Mexico',
+  'New York',
+  'North Carolina',
+  'North Dakota',
+  'Ohio',
+  'Oklahoma',
+  'Oregon',
+  'Pennsylvania',
+  'Rhode Island',
+  'South Carolina',
+  'South Dakota',
+  'Tennessee',
+  'Texas',
+  'Utah',
+  'Vermont',
+  'Virginia',
+  'Washington',
+  'West Virginia',
+  'Wisconsin',
+  'Wyoming',
+];
+
+// Canadian Provinces
+const CANADIAN_PROVINCES = [
+  'Alberta',
+  'British Columbia',
+  'Manitoba',
+  'New Brunswick',
+  'Newfoundland and Labrador',
+  'Northwest Territories',
+  'Nova Scotia',
+  'Nunavut',
+  'Ontario',
+  'Prince Edward Island',
+  'Quebec',
+  'Saskatchewan',
+  'Yukon',
+];
 
 const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
   onComplete,
@@ -33,10 +115,53 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
   const {location} = useChatContext();
 
   const [places, setPlaces] = useState<SpecialPlace[]>([
-    {type: 'home', address: '', isCurrentLocation: false},
-    {type: 'school', address: '', isCurrentLocation: false},
-    {type: 'therapy', address: '', isCurrentLocation: false},
+    {
+      type: 'home',
+      addressDetails: {
+        address: '',
+        address2: '',
+        city: '',
+        state: '',
+        zipcode: '',
+        country: 'USA',
+      },
+      isCurrentLocation: false,
+    },
+    {
+      type: 'school',
+      addressDetails: {
+        address: '',
+        address2: '',
+        city: '',
+        state: '',
+        zipcode: '',
+        country: 'USA',
+      },
+      isCurrentLocation: false,
+    },
+    {
+      type: 'therapy',
+      addressDetails: {
+        address: '',
+        address2: '',
+        city: '',
+        state: '',
+        zipcode: '',
+        country: 'USA',
+      },
+      isCurrentLocation: false,
+    },
   ]);
+
+  const [showStateModal, setShowStateModal] = useState<{
+    show: boolean;
+    placeType: 'home' | 'school' | 'therapy' | null;
+  }>({show: false, placeType: null});
+
+  const [showCountryModal, setShowCountryModal] = useState<{
+    show: boolean;
+    placeType: 'home' | 'school' | 'therapy' | null;
+  }>({show: false, placeType: null});
 
   // Load saved places on component mount
   useEffect(() => {
@@ -49,34 +174,83 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
       setPlaces(prev =>
         prev.map(place => ({
           ...place,
-          address: place.isCurrentLocation
-            ? location.display_name || ''
-            : place.address,
+          addressDetails: place.isCurrentLocation
+            ? parseLocationToAddressDetails(location.display_name || '')
+            : place.addressDetails,
         })),
       );
     }
   }, [location]);
+
+  const parseLocationToAddressDetails = (
+    locationString: string,
+  ): AddressDetails => {
+    // Simple parsing - in a real app you might want more sophisticated parsing
+    const parts = locationString.split(', ');
+    return {
+      address: parts[0] || '',
+      address2: '',
+      city: parts[1] || '',
+      state: parts[2] || '',
+      zipcode: '',
+      country: 'USA',
+    };
+  };
+
+  const formatAddressToString = (addressDetails: AddressDetails): string => {
+    const parts = [
+      addressDetails.address,
+      addressDetails.address2,
+      addressDetails.city,
+      addressDetails.state,
+      addressDetails.zipcode,
+      addressDetails.country,
+    ].filter(part => part.trim() !== '');
+
+    return parts.join(', ');
+  };
 
   const loadSavedPlaces = async () => {
     try {
       const savedPlaces = await getItem('specialPlaces');
       if (savedPlaces) {
         const parsedPlaces = JSON.parse(savedPlaces);
-        setPlaces(parsedPlaces);
+        // Handle backward compatibility with old format
+        const migratedPlaces = parsedPlaces.map((place: any) => {
+          if (typeof place.address === 'string') {
+            // Old format - migrate to new format
+            return {
+              ...place,
+              addressDetails: parseLocationToAddressDetails(
+                place.address || '',
+              ),
+            };
+          }
+          return place;
+        });
+        setPlaces(migratedPlaces);
       }
     } catch (error) {
       console.error('Error loading saved places:', error);
     }
   };
 
-  const handleAddressChange = (
+  const handleAddressFieldChange = (
     type: 'home' | 'school' | 'therapy',
-    address: string,
+    field: keyof AddressDetails,
+    value: string,
   ) => {
     setPlaces(prev =>
       prev.map(place =>
         place.type === type
-          ? {...place, address, isCurrentLocation: false}
+          ? {
+              ...place,
+              addressDetails: {
+                ...place.addressDetails,
+                [field]: value,
+              },
+              isCurrentLocation: false,
+            }
           : place,
       ),
     );
@@ -97,9 +271,9 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
           ? {
               ...place,
               isCurrentLocation: !place.isCurrentLocation,
-              address: !place.isCurrentLocation
-                ? location.display_name || ''
-                : place.address,
+              addressDetails: !place.isCurrentLocation
+                ? parseLocationToAddressDetails(location.display_name || '')
+                : place.addressDetails,
             }
           : place,
       ),
@@ -108,20 +282,28 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
 
   const handleSave = async (type: 'home' | 'school' | 'therapy') => {
     const place = places.find(p => p.type === type);
-    if (!place?.address.trim()) {
-      Alert.alert('Address Required', `Please enter an address for ${type}.`);
+    if (
+      !place?.addressDetails.address.trim() ||
+      !place?.addressDetails.city.trim()
+    ) {
+      Alert.alert(
+        'Required Fields',
+        'Please enter at least an address and city.',
+      );
       return;
     }
 
     try {
-      // Save individual place
-      await setItem(`${type}Address`, place.address);
+      const fullAddress = formatAddressToString(place.addressDetails);
+
+      // Save individual place (maintain backward compatibility)
+      await setItem(`${type}Address`, fullAddress);
       await setItem(
         `${type}IsCurrentLocation`,
         place.isCurrentLocation.toString(),
       );
 
-      // Save all places
+      // Save all places with new format
       await setItem('specialPlaces', JSON.stringify(places));
 
       Alert.alert(
@@ -154,10 +336,23 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
           onPress: async () => {
             try {
               // Clear the place data
+              const emptyAddressDetails: AddressDetails = {
+                address: '',
+                address2: '',
+                city: '',
+                state: '',
+                zipcode: '',
+                country: 'USA',
+              };
+
               setPlaces(prev =>
                 prev.map(place =>
                   place.type === type
-                    ? {...place, address: '', isCurrentLocation: false}
+                    ? {
+                        ...place,
+                        addressDetails: emptyAddressDetails,
+                        isCurrentLocation: false,
+                      }
                     : place,
                 ),
               );
@@ -169,7 +364,11 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
               // Update all places in storage
               const updatedPlaces = places.map(place =>
                 place.type === type
-                  ? {...place, address: '', isCurrentLocation: false}
+                  ? {
+                      ...place,
+                      addressDetails: emptyAddressDetails,
+                      isCurrentLocation: false,
+                    }
                   : place,
               );
               await setItem('specialPlaces', JSON.stringify(updatedPlaces));
@@ -219,6 +418,204 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
     }
   };
 
+  const getStatesForCountry = (country: 'USA' | 'Canada' | 'Other') => {
+    switch (country) {
+      case 'USA':
+        return US_STATES;
+      case 'Canada':
+        return CANADIAN_PROVINCES;
+      default:
+        return [];
+    }
+  };
+
+  const isAddressComplete = (addressDetails: AddressDetails) => {
+    return (
+      addressDetails.address.trim() !== '' && addressDetails.city.trim() !== ''
+    );
+  };
+
+  const renderAddressForm = (place: SpecialPlace) => (
+    <View style={styles.addressForm}>
+      <TextInput
+        style={styles.input}
+        placeholder="Address *"
+        value={place.addressDetails.address}
+        onChangeText={text =>
+          handleAddressFieldChange(place.type, 'address', text)
+        }
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Address 2 (Optional)"
+        value={place.addressDetails.address2}
+        onChangeText={text =>
+          handleAddressFieldChange(place.type, 'address2', text)
+        }
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="City *"
+        value={place.addressDetails.city}
+        onChangeText={text =>
+          handleAddressFieldChange(place.type, 'city', text)
+        }
+      />
+
+      <TouchableOpacity
+        style={[styles.input, styles.dropdown]}
+        onPress={() =>
+          setShowCountryModal({show: true, placeType: place.type})
+        }>
+        <Text style={styles.dropdownText}>
+          {place.addressDetails.country === 'Other'
+            ? 'Other'
+            : place.addressDetails.country}
+        </Text>
+        <Text style={styles.dropdownArrow}>▼</Text>
+      </TouchableOpacity>
+
+      <View style={styles.rowContainer}>
+        {place.addressDetails.country !== 'Other' && (
+          <TouchableOpacity
+            style={[styles.input, styles.dropdown, {flex: 1, marginRight: 8}]}
+            onPress={() =>
+              setShowStateModal({show: true, placeType: place.type})
+            }>
+            <Text
+              style={[
+                styles.dropdownText,
+                !place.addressDetails.state && styles.placeholder,
+              ]}>
+              {place.addressDetails.state || 'State/Province'}
+            </Text>
+            <Text style={styles.dropdownArrow}>▼</Text>
+          </TouchableOpacity>
+        )}
+
+        <TextInput
+          style={[styles.input, {flex: 1}]}
+          placeholder={
+            place.addressDetails.country === 'Canada'
+              ? 'Postal Code'
+              : 'ZIP Code'
+          }
+          value={place.addressDetails.zipcode}
+          onChangeText={text =>
+            handleAddressFieldChange(place.type, 'zipcode', text)
+          }
+        />
+      </View>
+    </View>
+  );
+
+  const renderStateModal = () => {
+    if (!showStateModal.show || !showStateModal.placeType) return null;
+
+    const place = places.find(p => p.type === showStateModal.placeType);
+    if (!place) return null;
+
+    const states = getStatesForCountry(place.addressDetails.country);
+
+    return (
+      <Modal
+        visible={true}
+        transparent
+        animationType="slide"
+        supportedOrientations={['landscape-left', 'landscape-right']}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Select{' '}
+                {place.addressDetails.country === 'Canada'
+                  ? 'Province'
+                  : 'State'}
+              </Text>
+              <TouchableOpacity
+                onPress={() =>
+                  setShowStateModal({show: false, placeType: null})
+                }>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={states}
+              keyExtractor={item => item}
+              renderItem={({item}) => (
+                <TouchableOpacity
+                  style={styles.modalItem}
+                  onPress={() => {
+                    handleAddressFieldChange(
+                      showStateModal.placeType!,
+                      'state',
+                      item,
+                    );
+                    setShowStateModal({show: false, placeType: null});
+                  }}>
+                  <Text style={styles.modalItemText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderCountryModal = () => {
+    if (!showCountryModal.show || !showCountryModal.placeType) return null;
+
+    const countries = ['USA', 'Canada', 'Other'];
+
+    return (
+      <Modal
+        visible={true}
+        transparent
+        animationType="slide"
+        supportedOrientations={['landscape-left', 'landscape-right']}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Country</Text>
+              <TouchableOpacity
+                onPress={() =>
+                  setShowCountryModal({show: false, placeType: null})
+                }>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {countries.map(country => (
+              <TouchableOpacity
+                key={country}
+                style={styles.modalItem}
+                onPress={() => {
+                  handleAddressFieldChange(
+                    showCountryModal.placeType!,
+                    'country',
+                    country as any,
+                  );
+                  // Clear state when changing country
+                  handleAddressFieldChange(
+                    showCountryModal.placeType!,
+                    'state',
+                    '',
+                  );
+                  setShowCountryModal({show: false, placeType: null});
+                }}>
+                <Text style={styles.modalItemText}>
+                  {country === 'Other' ? 'Other' : country}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <View style={isSettingsMode ? styles.settingsContainer : styles.container}>
       {!isSettingsMode && (
@@ -227,69 +624,74 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
           places. You can skip this step and set them up later.
         </Text>
       )}
+      {isSettingsMode && (
+        <Text style={styles.settingsHeaderText}>Special Places</Text>
+      )}
 
-      <View style={styles.columnsContainer}>
-        {places.map(place => (
-          <View key={place.type} style={styles.column}>
-            <View style={styles.columnHeader}>
-              <Text style={styles.iconText}>{getPlaceIcon(place.type)}</Text>
-              <Text style={styles.columnTitle}>
-                {getPlaceTitle(place.type)}
-              </Text>
-            </View>
+      <ScrollView
+        style={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.columnsContainer}>
+          {places.map(place => (
+            <View key={place.type} style={styles.column}>
+              <View style={styles.columnHeader}>
+                <Text style={styles.iconText}>{getPlaceIcon(place.type)}</Text>
+                <Text style={styles.columnTitle}>
+                  {getPlaceTitle(place.type)}
+                </Text>
+              </View>
 
-            <TextInput
-              style={styles.addressInput}
-              placeholder={`Enter ${place.type} address`}
-              value={place.address}
-              onChangeText={text => handleAddressChange(place.type, text)}
-              multiline
-              numberOfLines={3}
-            />
+              {renderAddressForm(place)}
 
-            <TouchableOpacity
-              style={[
-                styles.currentLocationButton,
-                place.isCurrentLocation && styles.currentLocationButtonActive,
-              ]}
-              onPress={() => handleCurrentLocationToggle(place.type)}>
-              <Text
-                style={[
-                  styles.currentLocationText,
-                  place.isCurrentLocation && styles.currentLocationTextActive,
-                ]}>
-                {place.isCurrentLocation
-                  ? '✓ Current Location'
-                  : 'Use Current Location'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.saveButton,
-                !place.address.trim() && styles.saveButtonDisabled,
-              ]}
-              onPress={() => handleSave(place.type)}
-              disabled={!place.address.trim()}>
-              <Text
-                style={[
-                  styles.saveButtonText,
-                  !place.address.trim() && styles.saveButtonTextDisabled,
-                ]}>
-                Save
-              </Text>
-            </TouchableOpacity>
-
-            {place.address.trim() && (
               <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDelete(place.type)}>
-                <Text style={styles.deleteButtonText}>Delete</Text>
+                style={[
+                  styles.currentLocationButton,
+                  place.isCurrentLocation && styles.currentLocationButtonActive,
+                ]}
+                onPress={() => handleCurrentLocationToggle(place.type)}>
+                <Text
+                  style={[
+                    styles.currentLocationText,
+                    place.isCurrentLocation && styles.currentLocationTextActive,
+                  ]}>
+                  {place.isCurrentLocation
+                    ? '✓ Current Location'
+                    : 'Use Current Location'}
+                </Text>
               </TouchableOpacity>
-            )}
-          </View>
-        ))}
-      </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveButton,
+                  !isAddressComplete(place.addressDetails) &&
+                    styles.saveButtonDisabled,
+                ]}
+                onPress={() => handleSave(place.type)}
+                disabled={!isAddressComplete(place.addressDetails)}>
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    !isAddressComplete(place.addressDetails) &&
+                      styles.saveButtonTextDisabled,
+                  ]}>
+                  Save
+                </Text>
+              </TouchableOpacity>
+
+              {isAddressComplete(place.addressDetails) && (
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDelete(place.type)}>
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+
+      {renderStateModal()}
+      {renderCountryModal()}
     </View>
   );
 };
@@ -297,12 +699,16 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: height * 0.6,
+    height: height * 0.8,
     paddingHorizontal: 20,
   },
   settingsContainer: {
     width: '100%',
     paddingHorizontal: 0,
+    flex: 1,
+  },
+  scrollContainer: {
+    flex: 1,
   },
   headerText: {
     fontSize: 16,
@@ -312,10 +718,17 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '500',
   },
+  settingsHeaderText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+    marginBottom: 8,
+    paddingHorizontal: 0,
+  },
   columnsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    flex: 1,
+    paddingBottom: 20,
   },
   column: {
     width: '31%',
@@ -345,17 +758,41 @@ const styles = StyleSheet.create({
     color: '#333',
     textAlign: 'center',
   },
-  addressInput: {
+  addressForm: {
+    marginBottom: 12,
+  },
+  input: {
     backgroundColor: '#F5F5F5',
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
     color: '#333',
-    textAlignVertical: 'top',
-    minHeight: 80,
-    marginBottom: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    minHeight: 44,
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dropdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dropdownText: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  placeholder: {
+    color: '#999',
+  },
+  dropdownArrow: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
   },
   currentLocationButton: {
     backgroundColor: '#E3F2FD',
@@ -405,6 +842,47 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    paddingBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalClose: {
+    fontSize: 24,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  modalItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: '#333',
   },
 });
 

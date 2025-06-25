@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Platform,
+  BackHandler,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -103,6 +104,22 @@ const OpenScreen: React.FC = () => {
 
   useEffect(() => {
     console.log('Modal visibility changed:', modalVisible);
+  }, [modalVisible]);
+
+  // Handle Android back button when modal is visible
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (modalVisible) {
+          closeModal();
+          return true; // Prevent default behavior
+        }
+        return false; // Let default behavior handle it
+      },
+    );
+
+    return () => backHandler.remove();
   }, [modalVisible]);
 
   const handleNavigation = (state: string) => {
@@ -355,6 +372,22 @@ const OpenScreen: React.FC = () => {
                   maxLength={4}
                   secureTextEntry={true}
                   autoFocus={true}
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    if (adminCodeInput.length === 4) {
+                      handleAdminCodeSubmit();
+                    }
+                  }}
+                  onBlur={() => {
+                    // Auto-cancel when user dismisses keyboard by tapping away
+                    setTimeout(() => {
+                      // Small delay to allow for done button press if that was the intent
+                      if (modalVisible && adminCodeInput.length !== 4) {
+                        closeModal();
+                      }
+                    }, 100);
+                  }}
+                  blurOnSubmit={true}
                 />
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
@@ -557,8 +590,9 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
+    paddingTop: height * 0.1,
   },
   modalContent: {
     backgroundColor: 'white',

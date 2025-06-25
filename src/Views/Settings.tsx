@@ -704,9 +704,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: statusBarHeight,
+    paddingTop: statusBarHeight - 20,
     paddingHorizontal: 20,
-    paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e1e1',
   },
