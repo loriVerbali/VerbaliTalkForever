@@ -20,6 +20,8 @@ export interface ConfigType {
   openAiKey: string;
   geminiAPIKey: string;
   picGeneration: string;
+  assemblyAIURL: string;
+  transcriptionByOpenAI: boolean;
   methods: Record<string, MethodObject>;
 }
 
@@ -30,6 +32,8 @@ const Config: ConfigType = {
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: 'AIzaSyB_8RqAlGXY7UPgN0j8bXsIll59U-P_BaA',
   picGeneration: 'polli',
+  transcriptionByOpenAI: true,
+  assemblyAIURL: 'https://api.assemblyai.com/v2',
   openAiKey:
     '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',
 
@@ -64,6 +68,34 @@ const Config: ConfigType = {
     },
     transcribeAudio: {
       description: 'transcribeAudio',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/audio/transcriptions',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: true,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'multipart/form-data',
+    },
+    transcribeAudioAssembly: {
+      description: 'transcribeAudioAssembly',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/audio/transcriptions',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: true,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'multipart/form-data',
+    },
+    uploadAudioAssemblyAI: {
+      description: 'uploadAudioAssemblyAI',
       isAuthenticated: true,
       verb: 'POST',
       sendDeviceKey: false,
