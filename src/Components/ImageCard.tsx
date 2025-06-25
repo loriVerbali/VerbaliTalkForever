@@ -14,6 +14,7 @@ import Tts from 'react-native-tts';
 import {useAppSettings} from '../utils/persistance';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
+import {useAdmin} from '../contexts/adminContext';
 
 // Add interface for error event
 interface ImageErrorEvent {
@@ -44,6 +45,38 @@ const ImageCard: React.FC<ImageCardProps> = ({
 }) => {
   const {preferences} = useAppSettings();
   const navigation = useNavigation();
+  const {isTablet} = useAdmin();
+
+  // Responsive values based on device type - now calculated from screen dimensions
+  const responsiveValues = {
+    // Container dimensions and spacing - calculated from screen dimensions
+    containerMarginBottom: isTablet ? height * 0.02 : height * 0.01,
+    containerMarginVertical: isTablet ? height * 0.012 : height * 0.006,
+    containerBorderRadius: isTablet ? width * 0.045 : width * 0.04,
+
+    // Image border radius - calculated from screen dimensions
+    imageBorderRadius: isTablet ? width * 0.045 : width * 0.04,
+
+    // Label container - calculated from screen dimensions
+    labelPaddingVertical: isTablet ? height * 0.012 : height * 0.007,
+    labelBorderRadius: isTablet ? width * 0.045 : width * 0.04,
+
+    // Typography - calculated from screen dimensions
+    labelFontSize: isTablet ? width * 0.048 : width * 0.045,
+    questionMarkFontSize: isTablet ? width * 0.085 : width * 0.075,
+    centralQuestionMarkFontSize: isTablet ? width * 0.17 : width * 0.15,
+
+    // Shadow properties - calculated from screen dimensions
+    shadowRadius: isTablet ? width * 0.015 : width * 0.012,
+    shadowOffset: isTablet
+      ? {width: 0, height: height * 0.012}
+      : {width: 0, height: height * 0.01},
+    elevation: isTablet ? 10 : 8,
+
+    // Question mark positioning - calculated from screen dimensions
+    questionMarkTop: isTablet ? height * 0.015 : height * 0.012,
+    questionMarkLeft: isTablet ? width * 0.045 : width * 0.037,
+  };
 
   const sayAnswer = (prompt: string) => {
     Tts.speak(prompt, {
@@ -88,7 +121,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {marginVertical: responsiveValues.containerMarginVertical},
+      ]}>
       {images.map((image, index) => {
         // Handle the "More" button specially
         if (image.isMoreButton) {
@@ -96,7 +133,16 @@ const ImageCard: React.FC<ImageCardProps> = ({
           return (
             <Pressable
               key={index}
-              style={styles.imageContainer}
+              style={[
+                styles.imageContainer,
+                {
+                  borderRadius: responsiveValues.containerBorderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                  marginBottom: responsiveValues.containerMarginBottom,
+                },
+              ]}
               onPress={() => {
                 handleRefresh();
                 // Log the "More Answers" selection
@@ -111,14 +157,33 @@ const ImageCard: React.FC<ImageCardProps> = ({
                       : require('../assets/cantfindIt.png')
                   }
                   style={[
-                    styles.image,
-                    {borderTopLeftRadius: 16, borderTopRightRadius: 16},
+                    {
+                      width: width,
+                      height: height,
+                      backgroundColor: '#f0f0f0',
+                    },
+                    {
+                      borderTopLeftRadius: responsiveValues.imageBorderRadius,
+                      borderTopRightRadius: responsiveValues.imageBorderRadius,
+                    },
                   ]}
                   resizeMode={FastImage.resizeMode.cover}
                 />
               </View>
-              <View style={styles.labelContainer}>
-                <Text style={styles.label}>
+              <View
+                style={[
+                  styles.labelContainer,
+                  {
+                    paddingVertical: responsiveValues.labelPaddingVertical,
+                    borderBottomLeftRadius: responsiveValues.labelBorderRadius,
+                    borderBottomRightRadius: responsiveValues.labelBorderRadius,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.label,
+                    {fontSize: responsiveValues.labelFontSize},
+                  ]}>
                   {isMaxRetries ? 'Try shortcuts' : 'Get more answers'}
                 </Text>
               </View>
@@ -129,7 +194,16 @@ const ImageCard: React.FC<ImageCardProps> = ({
         return (
           <Pressable
             key={index}
-            style={styles.imageContainer}
+            style={[
+              styles.imageContainer,
+              {
+                borderRadius: responsiveValues.containerBorderRadius,
+                shadowRadius: responsiveValues.shadowRadius,
+                shadowOffset: responsiveValues.shadowOffset,
+                elevation: responsiveValues.elevation,
+                marginBottom: responsiveValues.containerMarginBottom,
+              },
+            ]}
             onPress={() => {
               sayAnswer(image.prompt);
               // Call the callback to log the conversation
@@ -142,8 +216,16 @@ const ImageCard: React.FC<ImageCardProps> = ({
                   <Image
                     source={require('../assets/welcome.png')}
                     style={[
-                      styles.image,
-                      {borderTopLeftRadius: 16, borderTopRightRadius: 16},
+                      {
+                        width: width,
+                        height: height,
+                        backgroundColor: '#f0f0f0',
+                      },
+                      {
+                        borderTopLeftRadius: responsiveValues.imageBorderRadius,
+                        borderTopRightRadius:
+                          responsiveValues.imageBorderRadius,
+                      },
                     ]}
                     resizeMode="cover"
                   />
@@ -154,16 +236,37 @@ const ImageCard: React.FC<ImageCardProps> = ({
                     uri: typeof image.url.url === 'string' ? image.url.url : '',
                   }}
                   style={[
-                    styles.image,
-                    {borderTopLeftRadius: 16, borderTopRightRadius: 16},
+                    {
+                      width: width,
+                      height: height,
+                      backgroundColor: '#f0f0f0',
+                    },
+                    {
+                      borderTopLeftRadius: responsiveValues.imageBorderRadius,
+                      borderTopRightRadius: responsiveValues.imageBorderRadius,
+                    },
                   ]}
                   resizeMode={FastImage.resizeMode.cover}
                 />
               )}
             </View>
-            <View style={styles.labelContainer}>
+            <View
+              style={[
+                styles.labelContainer,
+                {
+                  paddingVertical: responsiveValues.labelPaddingVertical,
+                  borderBottomLeftRadius: responsiveValues.labelBorderRadius,
+                  borderBottomRightRadius: responsiveValues.labelBorderRadius,
+                },
+              ]}>
               {image.url.url !== 'placeholder' ? (
-                <Text style={styles.label}>{image.prompt}</Text>
+                <Text
+                  style={[
+                    styles.label,
+                    {fontSize: responsiveValues.labelFontSize},
+                  ]}>
+                  {image.prompt}
+                </Text>
               ) : (
                 <View
                   style={{
@@ -188,36 +291,22 @@ const ImageCard: React.FC<ImageCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 10,
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-around',
+    justifyContent: 'space-evenly',
     width: '100%',
   },
   imageContainer: {
     flexDirection: 'column',
-    borderRadius: 16,
     overflow: 'visible',
     shadowColor: 'gray',
     shadowOpacity: 0.8,
-    shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
     backgroundColor: 'white',
-    marginBottom: 15,
-  },
-  image: {
-    width: width * 0.25,
-    height: width * 0.2,
-    backgroundColor: '#f0f0f0',
   },
   labelContainer: {
     backgroundColor: '#FFFFFF',
     width: '100%',
-    paddingVertical: 8,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
   },
   moreButton: {
     backgroundColor: '#ffffff',
@@ -227,15 +316,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   questionMark: {
-    fontSize: 30,
     color: '#3A89FF',
     fontWeight: 'bold',
     position: 'absolute',
-    top: 10,
-    left: 15,
   },
   centralQuestionMark: {
-    fontSize: 60,
     color: '#3A89FF',
     fontWeight: 'bold',
   },
@@ -246,7 +331,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 18,
     color: '#333',
     textAlign: 'center',
     fontWeight: '600',

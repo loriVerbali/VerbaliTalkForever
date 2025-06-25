@@ -30,8 +30,9 @@ import {
   getContextualInfo,
 } from '../contexts/ChatContextProvider';
 import {logInitConversation} from '../utils/initConversationLogger';
+import {useAdmin} from '../contexts/adminContext';
 
-const DEBUGCONVONOIMAGEGENERATION = true;
+const DEBUGCONVONOIMAGEGENERATION = false;
 
 const {width, height} = Dimensions.get('window');
 
@@ -99,6 +100,51 @@ const Convo = () => {
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  // Get device type for responsive design
+  const {isTablet} = useAdmin();
+
+  // Responsive values based on device type
+  const responsiveValues = {
+    safeAreaPadding: isTablet
+      ? SCREEN_HEIGHT * 0.05
+      : Platform.OS === 'ios'
+      ? SCREEN_HEIGHT * 0.05
+      : SCREEN_HEIGHT * 0.03,
+    inputHeight: isTablet ? SCREEN_HEIGHT * 0.06 : SCREEN_HEIGHT * 0.055,
+    inputFontSize: isTablet ? SCREEN_HEIGHT * 0.02 : SCREEN_HEIGHT * 0.018,
+    inputMarginHorizontal: isTablet ? SCREEN_WIDTH * 0.03 : SCREEN_WIDTH * 0.02,
+    inputMarginVertical: isTablet
+      ? SCREEN_HEIGHT * 0.02
+      : SCREEN_HEIGHT * 0.015,
+    navButtonSize: isTablet ? SCREEN_WIDTH * 0.08 : SCREEN_WIDTH * 0.07,
+    navButtonMargin: isTablet ? SCREEN_WIDTH * 0.02 : SCREEN_WIDTH * 0.015,
+    navButtonFontSize: isTablet ? SCREEN_WIDTH * 0.02 : SCREEN_WIDTH * 0.018,
+    speakerAudienceWidth: isTablet ? ('15%' as const) : ('21%' as const),
+    speakerAudienceMargin: isTablet ? SCREEN_WIDTH * 0.03 : SCREEN_WIDTH * 0.03,
+    rightContentWidth: isTablet ? ('79%' as const) : ('71%' as const),
+    sectionTitleFontSize: isTablet ? 18 : 12,
+    optionTextFontSize: isTablet ? 14 : 12,
+    personContainerSize: isTablet ? width * 0.08 : width * 0.04,
+    personImageSize: isTablet ? width * 0.05 : width * 0.04,
+    talkContainerSize: isTablet ? width * 0.1 : width * 0.05,
+    gridImageHeight: isTablet ? SCREEN_HEIGHT * 0.2 : SCREEN_HEIGHT * 0.13,
+    gridItemMarginBottom: isTablet ? 15 : 10,
+    labelGridFontSize: isTablet ? 16 : 12,
+    sliderMarginTop: isTablet ? height * 0.04 : 0.01,
+    playButtonWidth: isTablet ? width * 0.2 : width * 0.15,
+    playButtonHeight: isTablet ? width * 0.05 : width * 0.03,
+    playButtonFontSize: isTablet ? 20 : 12,
+    playButtonMarginTop: isTablet ? height * 0.06 : height * 0.04,
+    matalkIconSize: isTablet ? 60 : 35,
+    matalkIconBottom: isTablet ? height * 0.04 : height * 0.03,
+    matalkIconLeft: isTablet ? width * 0.03 : width * 0.02,
+    borderRadius: isTablet ? 16 : 16,
+    shadowRadius: isTablet ? 5 : 3,
+    shadowOffset: isTablet ? {width: 0, height: 2} : {width: 0, height: 1},
+    elevation: isTablet ? 5 : 3,
+    carouselWindowSize: isTablet ? 3 : 2,
+  };
 
   const speakerCarouselRef = useRef<ICarouselInstance>(null);
   const audienceCarouselRef = useRef<ICarouselInstance>(null);
@@ -199,25 +245,19 @@ const Convo = () => {
 
   // Helper to parse JSON responses from the assistant
   const parseAssistantResponse = (jsonString: any) => {
-    console.log('🔍 Attempting to parse assistant response:', jsonString);
     try {
       if (jsonString?.response) {
-        console.log('✅ Successfully parsed response:', jsonString.response);
         return jsonString.response;
       } else {
-        console.log('❌ No response found in JSON string');
         return null;
       }
     } catch (error) {
-      console.error('❌ Error parsing assistant response:', error);
       return null;
     }
   };
 
   // Helper function to use the Assistant API
   const callAssistant = async (mode: string, prompt: string) => {
-    console.log(`🔄 Starting assistant call - Mode: ${mode}`);
-    console.log(`📤 Prompt: ${prompt}`);
     try {
       setIsLoading(true);
 
@@ -236,7 +276,6 @@ const Convo = () => {
           | 'generate_answers'
           | 'sentence',
       );
-      console.log(`📨 Message sent with ID: ${messageId} and mode: ${mode}`);
 
       // Run the assistant
       const runId = await runAssistant();
@@ -278,7 +317,6 @@ const Convo = () => {
 
   const generateImage = async (array: ImagePrompt[], mode: string) => {
     const images: ImageGenerated[] = [];
-
     try {
       // Get the enhanced context with weather and location
       //const {weather, location} = useChatContext();
@@ -307,8 +345,8 @@ const Convo = () => {
       // Process the response and update image URLs
       if (responseImages && Array.isArray(responseImages.results)) {
         const images = responseImages.results.map((imageData: any) => ({
-          url: imageData.imageUrl,
-          prompt: imageData.word,
+          url: imageData.url,
+          text: imageData.text,
         }));
 
         if (mode === 'topic') {
@@ -325,92 +363,49 @@ const Convo = () => {
     }
   };
 
-  const generateImageOLD = async (array: ImagePrompt[], mode: string) => {
-    try {
-      const images: ImageGenerated[] = [];
-      // Process each prompt in the array
-      for (const prompt of array) {
-        const text = prompt.text;
-        let imageUrl = DEBUGCONVONOIMAGEGENERATION ? welcomeImg : '';
-        if (!DEBUGCONVONOIMAGEGENERATION) {
-          const encodedPrompt = encodeURIComponent(prompt.image_prompt);
-
-          // Generate a random seed for variety
-          const seed = Math.floor(Math.random() * 1000);
-
-          const response = await fetchHelper(
-            'generateImage',
-            {
-              prompt: encodedPrompt,
-              seed: seed.toString(),
-            },
-            {},
-          );
-
-          // Handle different possible response formats
-          let imageUrl = '';
-          if (typeof response === 'string') {
-            // Direct URL string response
-            imageUrl = response;
-          } else if (
-            response &&
-            typeof response === 'object' &&
-            'url' in response
-          ) {
-            // Object response with url property
-            imageUrl = response.url || '';
-          }
-        }
-
-        if (imageUrl) {
-          // Add both the text prompt and image URL to the array
-          images.push({
-            text: text,
-            url: imageUrl,
-          });
-        }
-      }
-
-      // Update state with generated images
-      if (mode === 'topic') {
-        setGeneratedTopicImages(images);
-      } else if (mode === 'list_possible_actions') {
-        setGeneratedActionImages(images);
-      } else if (mode === 'list_possible_objects') {
-        setGeneratedObjectImages(images);
-      }
-      return images;
-    } catch (error) {
-      console.error('Failed to generate image:', error);
-      throw error;
-    }
-  };
-
   // Handle assistant responses
   useEffect(() => {
     if (response) {
       try {
         // Handle the response based on its modeType
         if (response.modeType === 'list_possible_topics') {
+          // Guard clause: Don't process topics if basic requirements aren't met
+          if (
+            !sentence.speaker ||
+            !sentence.audience ||
+            !sentence.sentenceType
+          ) {
+            return;
+          }
+
           try {
             const topicsArray = JSON.parse(response.response);
             if (
               Array.isArray(topicsArray.topics) &&
               topicsArray.topics.length > 0
             ) {
-              console.log('📋 Got topics array:', topicsArray.topics);
               setAvailableTopics(
                 topicsArray.topics
                   .slice(0, 4)
                   .map((item: {text: any}) => item.text) as Topic[],
               );
               generateImage(topicsArray.topics, 'topic');
-              console.log('✅ Topics updated');
             }
           } catch (error) {
             console.error('Error parsing topics:', error);
           }
         } else if (response.modeType === 'list_possible_actions') {
+          // Guard clause: Don't process actions if basic requirements aren't met
+          if (
+            !sentence.speaker ||
+            !sentence.audience ||
+            !sentence.sentenceType ||
+            !topic ||
+            topic === 'NA'
+          ) {
+            return;
+          }
+
           try {
             const actionsData = JSON.parse(response.response);
             if (
@@ -418,18 +413,28 @@ const Convo = () => {
               Array.isArray(actionsData.verbs) &&
               actionsData.verbs.length > 0
             ) {
-              console.log('🎯 Got actions:', actionsData.verbs);
               setAvailableActions(actionsData.verbs.slice(0, 4) as Action[]);
               //setSentence({...sentence, action: '', object: ''});
-              console.log(
-                '✅ Actions updated, cleared action and object selections',
-              );
+
               generateImage(actionsData.verbs, 'list_possible_actions');
             }
           } catch (error) {
             console.error('Error parsing actions:', error);
           }
         } else if (response.modeType === 'list_possible_objects') {
+          // Guard clause: Don't process objects if basic requirements aren't met
+          if (
+            !sentence.speaker ||
+            !sentence.audience ||
+            !sentence.sentenceType ||
+            !topic ||
+            topic === 'NA' ||
+            !action ||
+            action === 'NA'
+          ) {
+            return;
+          }
+
           try {
             const objectsData = JSON.parse(response.response);
             if (
@@ -437,10 +442,8 @@ const Convo = () => {
               Array.isArray(objectsData.objects) &&
               objectsData.objects.length > 0
             ) {
-              console.log('📦 Got objects:', objectsData.objects);
               setAvailableObjects(objectsData.objects.slice(0, 4) as Object[]);
               // setSentence({...sentence, object: ''});
-              console.log('✅ Objects updated, cleared object selection');
               generateImage(objectsData.objects, 'list_possible_objects');
             }
           } catch (error) {
@@ -453,20 +456,22 @@ const Convo = () => {
             if (sentenceData) {
               setGeneratedSentence(sentenceData);
               setInputText(sentenceData);
-              console.log('✅ Generated sentence applied to input');
             }
           } catch (error) {
             console.error('Error parsing sentence:', error);
           }
         } else {
-          console.log('⚠️ Unrecognized mode type:', response.modeType);
+          console.log(
+            '⚠️ Unrecognized mode type:',
+            response.modeType,
+            response,
+          );
         }
       } catch (error) {
         console.error('❌ Error processing assistant response:', error);
       }
 
       setIsLoading(false);
-      console.log('🏁 Assistant processing complete, loading state cleared');
     }
   }, [response]);
 
@@ -493,10 +498,6 @@ const Convo = () => {
           '🔄 Calling assistant for list_possible_topics with context',
         );
         await callAssistant('list_possible_topics', prompt);
-      } else {
-        console.log(
-          '⏳ Waiting for all prerequisites before generating topics',
-        );
       }
     };
 
@@ -532,10 +533,8 @@ const Convo = () => {
           sentenceType === '?' ? 'question' : 'statement'
         }. Consider the current weather, time of day, location, and day when suggesting actions. I need up to 3 simple, kid-friendly action verbs that are appropriate for the current context and conditions. The message.metadata.mode = 'actions'`;
 
-        console.log('🔄 Calling assistant for actions with context');
         await callAssistant('list_possible_actions', prompt);
       } else {
-        console.log('⏳ Waiting for prerequisites before generating actions');
       }
     };
 
@@ -576,10 +575,11 @@ const Convo = () => {
   useEffect(() => {
     const {speaker, audience, sentenceType} = sentence;
     const generateSentence = async () => {
-      const sentencePrompt = `Please create a complete, kid-friendly sentence where ${speaker} wants to ${action} with the topic "${topic}" to ${audience}. The sentence should be a ${
+      const sentencePrompt = `Write one complete, kid-friendly sentence using the word "${action}" as the verb and "${object}" as the object. The sentence must clearly relate to the topic "${topic}", either by naming it or describing something from it. The speaker is "${speaker}", and the sentence should be addressed to "${audience}". The sentence must be a ${
         sentenceType === '?' ? 'question' : 'statement'
-      }. Return just the sentence.`;
-      console.log('🔵 All selected, generating sentence');
+      }. Make it easy for a young child to understand and speak. Return only the sentence, nothing else.`;
+
+      console.log('🔵 All selected, generating sentence', sentencePrompt);
       await callAssistant('sentence', sentencePrompt);
     };
 
@@ -664,7 +664,72 @@ const Convo = () => {
   const handleHome = () => {
     // Reset the assistant state (everything except threadId)
     resetAssistant();
-    navigation.navigate(views.OPEN as never);
+
+    // Reset all sentence fields completely
+    setSentence({
+      speaker: '',
+      audience: '',
+      sentenceType: '',
+      list_possible_topics: '',
+      action: '',
+      object: '',
+    });
+    setAvailableTopics([]);
+    setAvailableActions([]);
+    setAvailableObjects([]);
+    setGeneratedTopicImages([]);
+    setGeneratedActionImages([]);
+    setGeneratedObjectImages([]);
+    setSentenceTypeIndex(0);
+    setInputText('');
+    setTopic('NA');
+    setAction('NA');
+    setObject('NA');
+    setGeneratedSentence('');
+    setSpeakerIndex(0);
+    setAudienceIndex(0);
+    setSentenceTypeIndex(0);
+    setTopicIndex(0);
+    setActionIndex(0);
+    setObjectIndex(0);
+    setSliderPosition(0);
+
+    // Reset carousel positions
+    if (speakerCarouselRef.current) {
+      // @ts-ignore
+      speakerCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (audienceCarouselRef.current) {
+      // @ts-ignore
+      audienceCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (sentenceTypeCarouselRef.current) {
+      // @ts-ignore
+      sentenceTypeCarouselRef.current.scrollTo({
+        index: 0,
+        animated: true,
+      });
+    }
+    if (topicCarouselRef.current) {
+      // @ts-ignore
+      topicCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (actionCarouselRef.current) {
+      // @ts-ignore
+      actionCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+    if (objectCarouselRef.current) {
+      // @ts-ignore
+      objectCarouselRef.current.scrollTo({index: 0, animated: true});
+    }
+
+    console.log('🏠 Cleanup complete - State reset');
+
+    // Allow time for state to update and screen to re-render before navigating
+    setTimeout(() => {
+      console.log('🏠 Navigating to home screen');
+      navigation.navigate(views.OPEN as never);
+    }, 100);
   };
 
   const toggleKeyboard = () => {
@@ -773,17 +838,6 @@ const Convo = () => {
     }
   }, [action]);
 
-  // useEffect(() => {
-  //   if (topic === 'NA' && (sliderPosition === 1 || sliderPosition === 2)) {
-  //     setSliderPosition(0);
-  //     setTimeout(() => setIsAutoSliding(false), 0);
-  //   }
-  //   if (action === 'NA' && sliderPosition === 2) {
-  //     setSliderPosition(1);
-  //     setTimeout(() => setIsAutoSliding(false), 0);
-  //   }
-  // }, [sliderPosition]);
-
   // Function to handle TTS playback
   const handlePlaySentence = async () => {
     if (
@@ -865,32 +919,95 @@ const Convo = () => {
   return (
     <LinearGradient colors={['#FFF8E7', '#FFF8E7']} style={styles.container}>
       {/* Input and Navigation Section - Adjusted with safe area padding */}
-      <View style={styles.safeAreaPadding} />
+      <View
+        style={[
+          styles.safeAreaPadding,
+          {height: responsiveValues.safeAreaPadding},
+        ]}
+      />
 
-      <View style={styles.inputNavigationContainer}>
+      <View
+        style={[
+          styles.inputNavigationContainer,
+          {marginVertical: responsiveValues.inputMarginVertical},
+        ]}>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              height: responsiveValues.inputHeight,
+              fontSize: responsiveValues.inputFontSize,
+              marginHorizontal: responsiveValues.inputMarginHorizontal,
+            },
+          ]}
           placeholder="Waiting for input..."
           value={inputText}
           onChangeText={setInputText}
         />
         <View style={styles.inlineNavigationButtons}>
-          <Pressable style={styles.smallNavButton} onPress={toggleContextInfo}>
-            <Text style={styles.smallNavIcon}>ℹ️</Text>
+          <Pressable
+            style={[
+              styles.smallNavButton,
+              {
+                width: responsiveValues.navButtonSize,
+                height: responsiveValues.navButtonSize,
+                borderRadius: responsiveValues.navButtonSize / 2,
+                marginLeft: responsiveValues.navButtonMargin,
+              },
+            ]}
+            onPress={toggleContextInfo}>
+            <Text
+              style={[
+                styles.smallNavIcon,
+                {fontSize: responsiveValues.navButtonFontSize},
+              ]}>
+              ℹ️
+            </Text>
           </Pressable>
-          <Pressable style={styles.smallNavButton} onPress={handleHome}>
-            <Text style={styles.smallNavIcon}>🏠</Text>
+          <Pressable
+            style={[
+              styles.smallNavButton,
+              {
+                width: responsiveValues.navButtonSize,
+                height: responsiveValues.navButtonSize,
+                borderRadius: responsiveValues.navButtonSize / 2,
+                marginLeft: responsiveValues.navButtonMargin,
+              },
+            ]}
+            onPress={handleHome}>
+            <Text
+              style={[
+                styles.smallNavIcon,
+                {fontSize: responsiveValues.navButtonFontSize},
+              ]}>
+              🏠
+            </Text>
           </Pressable>
         </View>
       </View>
 
       <View style={styles.columnsContainer}>
         {/* Column 1: Speaker & Audience */}
-        <View style={styles.speakerAudienceColumn}>
+        <View
+          style={[
+            styles.speakerAudienceColumn,
+            {
+              width: responsiveValues.speakerAudienceWidth,
+              marginRight: responsiveValues.speakerAudienceMargin,
+              marginLeft: responsiveValues.speakerAudienceMargin,
+            },
+          ]}>
           {/* Speaker Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>The speaker:</Text>
-            <View style={styles.cardWrapper}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {fontSize: responsiveValues.sectionTitleFontSize},
+              ]}>
+              The speaker:
+            </Text>
+            <View
+              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
               {speakers.length > 0 && (
                 <ConvoCarousel<Speaker>
                   carouselRef={speakerCarouselRef}
@@ -904,6 +1021,7 @@ const Convo = () => {
                   showPersonIcon={true}
                   familyMembers={familyMembers}
                   getFamilyMemberImage={getFamilyMemberImage}
+                  responsiveValues={responsiveValues}
                 />
               )}
             </View>
@@ -911,8 +1029,15 @@ const Convo = () => {
 
           {/* Audience Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>The audience:</Text>
-            <View style={styles.cardWrapper}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {fontSize: responsiveValues.sectionTitleFontSize},
+              ]}>
+              The audience:
+            </Text>
+            <View
+              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
               {audience.length > 0 && (
                 <ConvoCarousel<Audience>
                   carouselRef={audienceCarouselRef}
@@ -926,6 +1051,7 @@ const Convo = () => {
                   showPersonIcon={true}
                   familyMembers={familyMembers}
                   getFamilyMemberImage={getFamilyMemberImage}
+                  responsiveValues={responsiveValues}
                 />
               )}
             </View>
@@ -933,8 +1059,15 @@ const Convo = () => {
 
           {/* Sentence Type*/}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sentence</Text>
-            <View style={styles.cardWrapper}>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {fontSize: responsiveValues.sectionTitleFontSize},
+              ]}>
+              Sentence
+            </Text>
+            <View
+              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
               <ConvoCarousel<SentenceType>
                 carouselRef={sentenceTypeCarouselRef}
                 currentIndex={sentenceTypeIndex}
@@ -945,6 +1078,7 @@ const Convo = () => {
                 handleItemSelect={handleSentenceTypeSelect}
                 fieldName="sentenceType"
                 showTalkIcon={true}
+                responsiveValues={responsiveValues}
               />
             </View>
           </View>
@@ -952,95 +1086,156 @@ const Convo = () => {
 
         <View
           style={{
-            width: '79%',
+            width: responsiveValues.rightContentWidth,
             height: '100%',
             flexDirection: 'column',
             alignItems: 'center',
           }}>
-          <View
-            style={{
-              width: '100%',
-              flexDirection: 'row',
-              height: '60%',
-            }}>
-            {/* Column 2: Topic */}
-            <View style={styles.column}>
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Choose the topic:</Text>
-                <View style={styles.cardWrapper}>
-                  <ConvoCarousel<Topic | ImageGenerated>
-                    carouselRef={topicCarouselRef}
-                    currentIndex={topicIndex}
-                    setCurrentIndex={setTopicIndex}
-                    sentence={sentence}
-                    setSentence={setSentence}
-                    data={
-                      generatedTopicImages.length > 0
-                        ? generatedTopicImages
-                        : []
-                    }
-                    handleItemSelect={handleTopicSelect}
-                    fieldName="list_possible_topics"
-                    selectedTopic={topic}
-                  />
+          {availableTopics.length == 0 &&
+          availableActions.length == 0 &&
+          availableObjects.length === 0 ? (
+            <>
+              <View
+                style={{
+                  width: '80%',
+                  height: isTablet ? '60%' : '50%',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                <Image
+                  source={require('../assets/talk.png')}
+                  style={{width: '50%', height: '50%', zIndex: 39}}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+                <Text style={{color: 'black', fontWeight: 600}}>
+                  {sentence.speaker === '' ? 'Choose a speaker' : null}
+                  {sentence.speaker !== '' && sentence.sentenceType === ''
+                    ? 'Question or Statement'
+                    : null}
+                  {sentence.speaker !== '' &&
+                  sentence.audience == '' &&
+                  sentence.sentenceType !== ''
+                    ? 'Pick an Audience'
+                    : null}
+                  {sentence.speaker !== '' &&
+                  sentence.sentenceType !== '' &&
+                  sentence.audience !== ''
+                    ? 'Making magic'
+                    : null}
+                </Text>
+              </View>
+            </>
+          ) : (
+            <View
+              style={{
+                width: '100%',
+                flexDirection: 'row',
+                height: isTablet ? '60%' : '50%',
+              }}>
+              {/* Column 2: Topic */}
+              <View style={styles.column}>
+                <View style={styles.section}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {fontSize: responsiveValues.sectionTitleFontSize},
+                    ]}>
+                    Choose the topic:
+                  </Text>
+                  <View style={styles.cardWrapper}>
+                    <ConvoCarousel<Topic | ImageGenerated>
+                      carouselRef={topicCarouselRef}
+                      currentIndex={topicIndex}
+                      setCurrentIndex={setTopicIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={
+                        generatedTopicImages.length > 0
+                          ? generatedTopicImages
+                          : []
+                      }
+                      handleItemSelect={handleTopicSelect}
+                      fieldName="list_possible_topics"
+                      selectedTopic={topic}
+                      responsiveValues={responsiveValues}
+                    />
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* Column 3: Action */}
-            <View style={styles.column}>
-              {topic && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Choose the action:</Text>
-                  <View style={styles.cardWrapper}>
-                    <ConvoCarousel<Action | ImageGenerated>
-                      carouselRef={actionCarouselRef}
-                      currentIndex={actionIndex}
-                      setCurrentIndex={setActionIndex}
-                      sentence={sentence}
-                      setSentence={setSentence}
-                      data={
-                        generatedActionImages.length > 0
-                          ? generatedActionImages
-                          : []
-                      }
-                      handleItemSelect={handleActionSelect}
-                      fieldName="list_possible_actions"
-                      selectedAction={action}
-                    />
+              {/* Column 3: Action */}
+              <View style={styles.column}>
+                {topic && (
+                  <View style={styles.section}>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        {fontSize: responsiveValues.sectionTitleFontSize},
+                      ]}>
+                      Choose the action:
+                    </Text>
+                    <View style={styles.cardWrapper}>
+                      <ConvoCarousel<Action | ImageGenerated>
+                        carouselRef={actionCarouselRef}
+                        currentIndex={actionIndex}
+                        setCurrentIndex={setActionIndex}
+                        sentence={sentence}
+                        setSentence={setSentence}
+                        data={
+                          generatedActionImages.length > 0
+                            ? generatedActionImages
+                            : []
+                        }
+                        handleItemSelect={handleActionSelect}
+                        fieldName="list_possible_actions"
+                        selectedAction={action}
+                        responsiveValues={responsiveValues}
+                      />
+                    </View>
                   </View>
-                </View>
-              )}
-            </View>
+                )}
+              </View>
 
-            {/* Column 4: Object */}
-            <View style={styles.column}>
-              {action && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Choose the object:</Text>
-                  <View style={styles.cardWrapper}>
-                    <ConvoCarousel<Object | ImageGenerated>
-                      carouselRef={objectCarouselRef}
-                      currentIndex={objectIndex}
-                      setCurrentIndex={setObjectIndex}
-                      sentence={sentence}
-                      setSentence={setSentence}
-                      data={
-                        generatedObjectImages.length > 0
-                          ? generatedObjectImages
-                          : []
-                      }
-                      handleItemSelect={handleObjectSelect}
-                      fieldName="list_possible_objects"
-                      selectedObject={object}
-                    />
+              {/* Column 4: Object */}
+              <View style={styles.column}>
+                {action && (
+                  <View style={styles.section}>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        {fontSize: responsiveValues.sectionTitleFontSize},
+                      ]}>
+                      Choose the object:
+                    </Text>
+                    <View style={styles.cardWrapper}>
+                      <ConvoCarousel<Object | ImageGenerated>
+                        carouselRef={objectCarouselRef}
+                        currentIndex={objectIndex}
+                        setCurrentIndex={setObjectIndex}
+                        sentence={sentence}
+                        setSentence={setSentence}
+                        data={
+                          generatedObjectImages.length > 0
+                            ? generatedObjectImages
+                            : []
+                        }
+                        handleItemSelect={handleObjectSelect}
+                        fieldName="list_possible_objects"
+                        selectedObject={object}
+                        responsiveValues={responsiveValues}
+                      />
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
+              </View>
             </View>
-          </View>
+          )}
           {/* Slider for navigation between topics, actions, objects */}
-          <View style={styles.sliderContainer}>
+          <View
+            style={[
+              styles.sliderContainer,
+              {marginTop: responsiveValues.sliderMarginTop},
+            ]}>
             <Slider
               style={[
                 styles.slider,
@@ -1093,10 +1288,22 @@ const Convo = () => {
           </View>
 
           {/* Play Button */}
-          <View style={styles.playButtonContainer}>
+          <View
+            style={[
+              styles.playButtonContainer,
+              {marginTop: responsiveValues.playButtonMarginTop},
+            ]}>
             <Pressable
               style={[
                 styles.playButton,
+                {
+                  width: responsiveValues.playButtonWidth,
+                  height: responsiveValues.playButtonHeight,
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 // Disable if sentence is not complete
                 (!topic ||
                   topic === 'NA' ||
@@ -1128,6 +1335,7 @@ const Convo = () => {
               <Text
                 style={[
                   styles.playButtonIcon,
+                  {fontSize: responsiveValues.playButtonFontSize},
                   // Dim text when disabled
                   (!topic ||
                     topic === 'NA' ||
@@ -1149,8 +1357,24 @@ const Convo = () => {
         </View>
       </View>
 
-      <View style={styles.matalkIcon}>
-        <FastImage source={matalkImg} style={styles.iconSize} />
+      <View
+        style={[
+          styles.matalkIcon,
+          {
+            bottom: responsiveValues.matalkIconBottom,
+            left: responsiveValues.matalkIconLeft,
+          },
+        ]}>
+        <FastImage
+          source={matalkImg}
+          style={[
+            styles.iconSize,
+            {
+              width: responsiveValues.matalkIconSize,
+              height: responsiveValues.matalkIconSize,
+            },
+          ]}
+        />
       </View>
 
       <ContextInfo
@@ -1167,55 +1391,46 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   safeAreaPadding: {
-    height: Platform.OS === 'ios' ? SCREEN_HEIGHT * 0.05 : SCREEN_HEIGHT * 0.03,
+    // Height is now set dynamically via responsiveValues
   },
   inputNavigationContainer: {
     flexDirection: 'row',
     width: '90%',
     alignSelf: 'center',
     alignItems: 'center',
-    marginVertical: SCREEN_HEIGHT * 0.02,
+    // marginVertical is now set dynamically via responsiveValues
     justifyContent: 'space-between',
   },
   matalkIcon: {
-    bottom: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
-    left: width * 0.03,
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
     position: 'absolute',
+    // bottom and left are now set dynamically via responsiveValues
   },
   iconSize: {
-    width: 60,
-    height: 60,
-    resizeMode: 'contain',
+    // width and height are now set dynamically via responsiveValues
   },
   input: {
     flex: 1,
-    height: SCREEN_HEIGHT * 0.06,
     maxHeight: 60,
     backgroundColor: '#E5E5E5',
     borderRadius: 8,
     paddingHorizontal: SCREEN_WIDTH * 0.03,
-    fontSize: SCREEN_HEIGHT * 0.02,
-    marginHorizontal: SCREEN_WIDTH * 0.02,
+    // height, fontSize, and marginHorizontal are now set dynamically via responsiveValues
   },
   inlineNavigationButtons: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   smallNavButton: {
-    width: SCREEN_WIDTH * 0.08,
-    height: SCREEN_WIDTH * 0.08,
     maxWidth: 50,
     maxHeight: 50,
-    borderRadius: SCREEN_WIDTH * 0.04,
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: SCREEN_WIDTH * 0.02,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -1224,9 +1439,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    // width, height, borderRadius, and marginLeft are now set dynamically via responsiveValues
   },
   smallNavIcon: {
-    fontSize: SCREEN_WIDTH * 0.02,
+    // fontSize is now set dynamically via responsiveValues
   },
   columnsContainer: {
     flexDirection: 'row',
@@ -1239,10 +1455,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   speakerAudienceColumn: {
-    width: '15%',
-    marginRight: SCREEN_WIDTH * 0.03,
-    marginLeft: SCREEN_WIDTH * 0.03,
     overflow: 'hidden',
+    // width, marginRight, and marginLeft are now set dynamically via responsiveValues
   },
   content: {
     flex: 1,
@@ -1253,10 +1467,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sectionTitle: {
-    fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 10,
+    marginBottom: height * 0.01,
+    // fontSize is now set dynamically via responsiveValues
   },
   labelGrid: {
     fontWeight: 'bold',
@@ -1265,8 +1479,8 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   optionText: {
-    fontSize: 14,
     color: '#333',
+    // fontSize is now set dynamically via responsiveValues
   },
   speakerOption: {
     borderRadius: 10,
@@ -1330,14 +1544,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    width: width * 0.08,
-    height: width * 0.08,
     marginBottom: height * 0.01,
+    // width and height are now set dynamically via responsiveValues
   },
   personImage: {
-    width: width * 0.05,
-    height: width * 0.05,
     resizeMode: 'contain',
+    // width and height are now set dynamically via responsiveValues
   },
   familyImage: {
     width: '100%',
@@ -1373,13 +1585,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  cardWrapperPhone: {
+    width: '70%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: 'gray',
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   talkContainer: {
-    width: width * 0.1,
-    height: width * 0.1,
-    borderRadius: width * 0.05,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 5,
+    // width, height, and borderRadius are now set dynamically via responsiveValues
   },
   gridLabelContainer: {
     backgroundColor: '#FFFFFF',
@@ -1401,9 +1624,9 @@ const styles = StyleSheet.create({
   },
   gridImageContainer: {
     width: '100%',
-    height: SCREEN_HEIGHT * 0.2,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
+    // height is now set dynamically via responsiveValues
   },
   sliderContainer: {
     backgroundColor: '#F3F3F3',
@@ -1424,28 +1647,20 @@ const styles = StyleSheet.create({
     height: height * 0.05,
     justifyContent: 'center',
     alignItems: 'flex-end',
-    marginTop: height * 0.06,
+    // marginTop is now set dynamically via responsiveValues
   },
   playButton: {
-    width: width * 0.2,
-    height: width * 0.05,
-    borderRadius: 16,
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    // width, height, borderRadius, shadowRadius, shadowOffset, and elevation are now set dynamically via responsiveValues
   },
   playButtonIcon: {
-    fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
+    // fontSize is now set dynamically via responsiveValues
   },
   disabledPlayButton: {
     backgroundColor: '#CCCCCC',
@@ -1483,6 +1698,7 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   selectedObject,
   familyMembers = [],
   getFamilyMemberImage,
+  responsiveValues,
 }: {
   carouselRef: React.RefObject<ICarouselInstance | null>;
   currentIndex: number;
@@ -1507,6 +1723,7 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
   selectedObject?: Object;
   familyMembers?: FamilyMember[];
   getFamilyMemberImage?: (memberName: string) => string | undefined;
+  responsiveValues?: any;
 }) => {
   // Return null if data is empty to prevent rendering issues
   if (!data || data.length === 0) {
@@ -1544,13 +1761,21 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
         contentContainerStyle={{
           justifyContent: 'flex-start',
           alignItems: 'center',
-          marginTop: height * 0.02,
-          paddingBottom: height * 0.2, // Add padding to prevent last item from being cut off
+          marginTop: responsiveValues
+            ? responsiveValues.gridImageHeight * 0.1
+            : height * 0.02,
+          paddingBottom: responsiveValues
+            ? responsiveValues.gridImageHeight * 1.5
+            : height * 0.2, // Add padding to prevent last item from being cut off
         }}
         style={{
           width: '100%',
-          maxHeight: SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
-          minHeight: SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
+          maxHeight: responsiveValues
+            ? responsiveValues.gridImageHeight * 4
+            : SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
+          minHeight: responsiveValues
+            ? responsiveValues.gridImageHeight * 4
+            : SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
         }}>
         {data.map((item, index) => (
           <Pressable
@@ -1569,7 +1794,15 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
               },
             ]}
             onPress={() => handleItemSelect(item, index)}>
-            <View style={styles.gridImageContainer}>
+            <View
+              style={[
+                styles.gridImageContainer,
+                {
+                  height: responsiveValues
+                    ? responsiveValues.gridImageHeight
+                    : SCREEN_HEIGHT * 0.2,
+                },
+              ]}>
               {getItemImageUrl(item) ? (
                 <FastImage
                   source={
@@ -1589,7 +1822,17 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
               )}
             </View>
             <View style={styles.gridLabelContainer}>
-              <Text style={styles.labelGrid}>{getItemText(item)}</Text>
+              <Text
+                style={[
+                  styles.labelGrid,
+                  {
+                    fontSize: responsiveValues
+                      ? responsiveValues.labelGridFontSize
+                      : 16,
+                  },
+                ]}>
+                {getItemText(item)}
+              </Text>
             </View>
           </Pressable>
         ))}
@@ -1614,7 +1857,7 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
         setSentence({...sentence, [fieldName]: value});
       }}
       defaultIndex={0}
-      windowSize={3}
+      windowSize={responsiveValues ? responsiveValues.carouselWindowSize : 3}
       mode="parallax"
       modeConfig={{
         parallaxScrollingScale: 0.95,
@@ -1633,7 +1876,18 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
           onPress={() => handleItemSelect(cardItem, index)}>
           {showPersonIcon ? (
             <>
-              <View style={styles.personContainer}>
+              <View
+                style={[
+                  styles.personContainer,
+                  {
+                    width: responsiveValues
+                      ? responsiveValues.personContainerSize
+                      : width * 0.08,
+                    height: responsiveValues
+                      ? responsiveValues.personContainerSize
+                      : width * 0.08,
+                  },
+                ]}>
                 {(() => {
                   const memberName = getItemText(cardItem);
                   const familyImageUri = getFamilyMemberImage?.(memberName);
@@ -1650,13 +1904,33 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
                     return (
                       <Image
                         source={require('../assets/person.png')}
-                        style={styles.personImage}
+                        style={[
+                          styles.personImage,
+                          {
+                            width: responsiveValues
+                              ? responsiveValues.personImageSize
+                              : width * 0.05,
+                            height: responsiveValues
+                              ? responsiveValues.personImageSize
+                              : width * 0.05,
+                          },
+                        ]}
                       />
                     );
                   }
                 })()}
               </View>
-              <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
+              <Text
+                style={[
+                  styles.optionText,
+                  {
+                    fontSize: responsiveValues
+                      ? responsiveValues.optionTextFontSize
+                      : 14,
+                  },
+                ]}>
+                {getItemText(cardItem)}
+              </Text>
               {sentence[fieldName as keyof Sentence] ===
                 getItemText(cardItem) && (
                 <View style={styles.personSelectionContainer} />
@@ -1667,6 +1941,17 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
               <View
                 style={[
                   styles.talkContainer,
+                  {
+                    width: responsiveValues
+                      ? responsiveValues.talkContainerSize
+                      : width * 0.1,
+                    height: responsiveValues
+                      ? responsiveValues.talkContainerSize
+                      : width * 0.1,
+                    borderRadius: responsiveValues
+                      ? responsiveValues.talkContainerSize / 2
+                      : width * 0.05,
+                  },
                   sentence.sentenceType === getItemText(cardItem) && {
                     borderBottomWidth: 3,
                     borderBottomColor: 'red',
@@ -1705,7 +1990,17 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
                     resizeMode="contain"
                   />
                 )}
-                <Text style={styles.optionText}>{getItemText(cardItem)}</Text>
+                <Text
+                  style={[
+                    styles.optionText,
+                    {
+                      fontSize: responsiveValues
+                        ? responsiveValues.optionTextFontSize
+                        : 14,
+                    },
+                  ]}>
+                  {getItemText(cardItem)}
+                </Text>
               </View>
             </>
           )}

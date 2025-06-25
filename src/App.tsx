@@ -19,9 +19,14 @@ import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {Auth0Provider} from 'react-native-auth0';
 import WakeWordService from './utils/wakewordService';
 import {Mixpanel} from 'mixpanel-react-native';
+import Orientation from 'react-native-orientation-locker';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
+
+  // Lock to landscape orientation as early as possible
+  console.log('🔄 Attempting to lock orientation to landscape...');
+  Orientation.lockToLandscapeLeft();
 
   const trackAutomaticEvents = true;
   const mixpanel = new Mixpanel(
@@ -33,6 +38,10 @@ const App = () => {
 
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
+    // Force landscape orientation immediately
+    console.log('🔄 UseEffect: Locking orientation to landscape...');
+    Orientation.lockToLandscapeLeft();
+
     const initServices = async () => {
       // Initialize TTS service when the app starts
       await TTSService.initialize();
@@ -41,26 +50,7 @@ const App = () => {
     initServices();
 
     // Handle app state changes for Vosk model management
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
-        console.log('🔄 App has come to the foreground - reloading Vosk model');
-        // App has come to the foreground, reload the model
-      } else if (
-        appState.current === 'active' &&
-        nextAppState.match(/inactive|background/)
-      ) {
-        console.log(
-          '💤 App has gone to the background - offloading Vosk model',
-        );
-        // App is going to the background, offload the model
-      }
-
-      appState.current = nextAppState;
-      console.log('AppState:', appState.current);
-    };
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {};
 
     const subscription = AppState.addEventListener(
       'change',
@@ -78,7 +68,7 @@ const App = () => {
     <Auth0Provider
       domain={'dev-64l2kpebzn1y4zm7.us.auth0.com'}
       clientId={'9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX'}>
-      <GestureHandlerRootView>
+      <GestureHandlerRootView style={styles.container}>
         <ConnectionProvider>
           <AppSettingsProvider>
             <AdminProvider>
@@ -95,6 +85,10 @@ const App = () => {
   );
 };
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
 
 export default App;

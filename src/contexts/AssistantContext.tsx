@@ -149,12 +149,16 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             );
 
             const messageType = messagesResponse.data[1].metadata.mode;
-
             if (messageType === 'list_possible_topics') {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
               ) {
+                console.log(
+                  '🔵 messageType',
+                  messageType,
+                  messagesResponse.data[0].content[0].text.value,
+                );
                 getTopicFromResponse(
                   messagesResponse.data[0].content[0].text.value,
                 );
@@ -545,20 +549,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     };
     generateImages();
   }, [status, possibleAnswers]);
-
-  // Update history when error occurs
-  useEffect(() => {
-    if (error) {
-      setHistory(prev => [
-        ...prev,
-        {
-          type: 'error',
-          content: `Error: ${error}`,
-          timestamp: new Date(),
-        },
-      ]);
-    }
-  }, [error]);
 
   const runAssistant = async (threadIdOverride?: string) => {
     // Ensure we have a thread ID first by checking if we need a new one

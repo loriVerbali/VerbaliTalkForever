@@ -14,6 +14,7 @@ import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
 import HomeButton from '../Components/HomeButton';
+import {useAdmin} from '../contexts/adminContext';
 
 // General assets
 import micImg from '../assets/microphone.png';
@@ -101,58 +102,58 @@ const topCategories = [
 
 // Feeling grid data - using the same image for all cards as placeholder
 const attention = [
-  {label: 'Hi', image: hiImg, backgroundColor: '#FFE4E1'},
-  {label: 'Look', image: lookImg, backgroundColor: '#FFE4E1'},
-  {label: 'Listen', image: listenImg, backgroundColor: '#FFE4E1'},
-  {label: 'Come', image: myturnImg, backgroundColor: '#FFE4E1'},
-  {label: 'My Turn', image: myturnImg, backgroundColor: '#FFE4E1'},
-  {label: 'Stop', image: stopImg, backgroundColor: '#FFE4E1'},
-  {label: 'I have a question', image: questionImg, backgroundColor: '#FFE4E1'},
+  {label: 'Hi', image: hiImg, backgroundColor: '#FFFFFF'},
+  {label: 'Look', image: lookImg, backgroundColor: '#FFFFFF'},
+  {label: 'Listen', image: listenImg, backgroundColor: '#FFFFFF'},
+  {label: 'Come', image: myturnImg, backgroundColor: '#FFFFFF'},
+  {label: 'My Turn', image: myturnImg, backgroundColor: '#FFFFFF'},
+  {label: 'Stop', image: stopImg, backgroundColor: '#FFFFFF'},
+  {label: 'I have a question', image: questionImg, backgroundColor: '#FFFFFF'},
 ];
 
 const iWantNeed = [
-  {label: 'Eat', image: eatImg, backgroundColor: '#FFE4E1'},
-  {label: 'Drink', image: drinkImg, backgroundColor: '#FFE4E1'},
-  {label: 'Bathroom', image: bathroomImg, backgroundColor: '#FFE4E1'},
-  {label: 'Sleep', image: sleepImg, backgroundColor: '#FFE4E1'},
-  {label: 'Help', image: helpImg, backgroundColor: '#FFE4E1'},
-  {label: 'More', image: moreImg, backgroundColor: '#FFE4E1'},
-  {label: 'All done', image: allDoneImg, backgroundColor: '#FFE4E1'},
+  {label: 'Eat', image: eatImg, backgroundColor: '#FFFFFF'},
+  {label: 'Drink', image: drinkImg, backgroundColor: '#FFFFFF'},
+  {label: 'Bathroom', image: bathroomImg, backgroundColor: '#FFFFFF'},
+  {label: 'Sleep', image: sleepImg, backgroundColor: '#FFFFFF'},
+  {label: 'Help', image: helpImg, backgroundColor: '#FFFFFF'},
+  {label: 'More', image: moreImg, backgroundColor: '#FFFFFF'},
+  {label: 'All done', image: allDoneImg, backgroundColor: '#FFFFFF'},
 ];
 
 const fun = [
-  {label: 'Play', image: playImg, backgroundColor: '#FFE4E1'},
-  {label: 'Outside', image: outsideImg, backgroundColor: '#FFE4E1'},
-  {label: 'Mine', image: mineImg, backgroundColor: '#FFE4E1'},
-  {label: 'Go', image: goImg, backgroundColor: '#FFE4E1'},
-  {label: 'Game', image: gameImg, backgroundColor: '#FFE4E1'},
-  {label: 'Book', image: bookImg, backgroundColor: '#FFE4E1'},
+  {label: 'Play', image: playImg, backgroundColor: '#FFFFFF'},
+  {label: 'Outside', image: outsideImg, backgroundColor: '#FFFFFF'},
+  {label: 'Mine', image: mineImg, backgroundColor: '#FFFFFF'},
+  {label: 'Go', image: goImg, backgroundColor: '#FFFFFF'},
+  {label: 'Game', image: gameImg, backgroundColor: '#FFFFFF'},
+  {label: 'Book', image: bookImg, backgroundColor: '#FFFFFF'},
 ];
 
 const actions = [
-  {label: 'Open', image: openImg, backgroundColor: '#FFE4E1'},
-  {label: 'Close', image: closeImg, backgroundColor: '#FFE4E1'},
-  {label: 'Turn On', image: turnOnImg, backgroundColor: '#FFE4E1'},
-  {label: 'Turn Off', image: turnOffImg, backgroundColor: '#FFE4E1'},
-  {label: 'Give', image: giveImg, backgroundColor: '#FFE4E1'},
-  {label: 'Take', image: takeImg, backgroundColor: '#FFE4E1'},
+  {label: 'Open', image: openImg, backgroundColor: '#FFFFFF'},
+  {label: 'Close', image: closeImg, backgroundColor: '#FFFFFF'},
+  {label: 'Turn On', image: turnOnImg, backgroundColor: '#FFFFFF'},
+  {label: 'Turn Off', image: turnOffImg, backgroundColor: '#FFFFFF'},
+  {label: 'Give', image: giveImg, backgroundColor: '#FFFFFF'},
+  {label: 'Take', image: takeImg, backgroundColor: '#FFFFFF'},
 ];
 
 const positions = [
-  {label: 'Up', image: upImg, backgroundColor: '#FFE4E1'},
-  {label: 'Down', image: downImg, backgroundColor: '#FFE4E1'},
-  {label: 'In', image: inImg, backgroundColor: '#FFE4E1'},
-  {label: 'Out', image: outImg, backgroundColor: '#FFE4E1'},
-  {label: 'On', image: onImg, backgroundColor: '#FFE4E1'},
-  {label: 'Under', image: underImg, backgroundColor: '#FFE4E1'},
+  {label: 'Up', image: upImg, backgroundColor: '#FFFFFF'},
+  {label: 'Down', image: downImg, backgroundColor: '#FFFFFF'},
+  {label: 'In', image: inImg, backgroundColor: '#FFFFFF'},
+  {label: 'Out', image: outImg, backgroundColor: '#FFFFFF'},
+  {label: 'On', image: onImg, backgroundColor: '#FFFFFF'},
+  {label: 'Under', image: underImg, backgroundColor: '#FFFFFF'},
 ];
 
-// Update the GRID_WIDTH constant to accommodate exactly 4 items per row
-const GRID_WIDTH = (width * 0.8) / 4 - 16; // Explicitly calculate width for 4 items with margins
-const GRID_IMAGE_HEIGHT = height * 0.2;
+// Responsive values are now handled within the component
 
 const ShortCuts = () => {
   const navigation = useNavigation();
+  const {isTablet} = useAdmin();
+
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
     | 'attention'
@@ -171,6 +172,29 @@ const ShortCuts = () => {
     fun: new Animated.Value(0),
     positions: new Animated.Value(0),
   }).current;
+
+  // Responsive values based on device type
+  const responsiveValues = {
+    iconSize: isTablet ? {width: 60, height: 60} : {width: 40, height: 40},
+    topRowHeight: isTablet ? height * 0.22 : height * 0.22,
+    topItemWidth: isTablet ? width * 0.11 : width * 0.15,
+    topItemHeight: isTablet ? height * 0.22 * 0.8 : height * 0.22 * 0.8,
+    topRowGap: isTablet ? width * 0.03 : width * 0.02,
+    scrollContentWidth: isTablet ? width * 0.8 : width * 0.85,
+    gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
+    gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
+    labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
+    labelGridFontSize: isTablet ? 16 : 14,
+    marginTop: isTablet ? height * 0.02 : height * 0.01,
+    marginBottom: isTablet ? height * 0.01 : height * 0.005,
+    gridItemMarginBottom: isTablet ? 15 : 10,
+    gridLabelPadding: isTablet ? 8 : 6,
+    borderRadius: isTablet ? 16 : 12,
+    shadowRadius: isTablet ? 5 : 3,
+    shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
+    elevation: isTablet ? 8 : 5,
+    rowGap: isTablet ? 20 : 10,
+  };
 
   useEffect(() => {
     // Initialize TTS when component mounts
@@ -247,21 +271,40 @@ const ShortCuts = () => {
     <View style={styles.screen}>
       {/* Microphone Button */}
       <View style={styles.micIcon}>
-        <FastImage source={micImg} style={styles.iconSize} />
+        <FastImage source={micImg} style={responsiveValues.iconSize} />
       </View>
 
       <View style={styles.matalkIcon}>
-        <FastImage source={matalkImg} style={styles.iconSize} />
+        <FastImage source={matalkImg} style={responsiveValues.iconSize} />
       </View>
 
       {/* Home Button */}
       <HomeButton zIndex={5} navigation={navigation} />
 
-      <View style={styles.scrollContent}>
-        <View style={styles.topRow}>
+      <View
+        style={[
+          styles.scrollContent,
+          {
+            width: responsiveValues.scrollContentWidth,
+            marginTop: responsiveValues.marginTop,
+          },
+        ]}>
+        <View
+          style={[
+            styles.topRow,
+            {
+              height: responsiveValues.topRowHeight,
+              gap: responsiveValues.topRowGap,
+              marginBottom: responsiveValues.marginBottom,
+            },
+          ]}>
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {
+                width: responsiveValues.topItemWidth,
+                height: responsiveValues.topItemHeight,
+              },
               {
                 transform: [
                   {
@@ -277,19 +320,39 @@ const ShortCuts = () => {
               onPress={() => handleCategoryPress('attention')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'attention' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[0].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[0].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[0].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[0].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -297,6 +360,10 @@ const ShortCuts = () => {
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {
+                width: responsiveValues.topItemWidth,
+                height: responsiveValues.topItemHeight,
+              },
               {
                 transform: [
                   {
@@ -312,19 +379,39 @@ const ShortCuts = () => {
               onPress={() => handleCategoryPress('iWantNeed')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'iWantNeed' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[1].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[1].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[1].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[1].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -332,6 +419,10 @@ const ShortCuts = () => {
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {
+                width: responsiveValues.topItemWidth,
+                height: responsiveValues.topItemHeight,
+              },
               {
                 transform: [
                   {
@@ -347,19 +438,39 @@ const ShortCuts = () => {
               onPress={() => handleCategoryPress('actions')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'actions' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[2].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[2].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[2].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[2].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -367,6 +478,10 @@ const ShortCuts = () => {
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {
+                width: responsiveValues.topItemWidth,
+                height: responsiveValues.topItemHeight,
+              },
               {
                 transform: [
                   {
@@ -382,25 +497,49 @@ const ShortCuts = () => {
               onPress={() => handleCategoryPress('fun')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'fun' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[3].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[3].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[3].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[3].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {
+                width: responsiveValues.topItemWidth,
+                height: responsiveValues.topItemHeight,
+              },
               {
                 transform: [
                   {
@@ -416,19 +555,39 @@ const ShortCuts = () => {
               onPress={() => handleCategoryPress('positions')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'positions' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[4].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[4].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[4].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[4].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -436,7 +595,11 @@ const ShortCuts = () => {
       </View>
 
       {/* Grid Items - Feelings */}
-      <View style={styles.grid}>
+      <View
+        style={[
+          styles.grid,
+          {width: isTablet ? '80%' : '85%', rowGap: responsiveValues.rowGap},
+        ]}>
         {rows.map((row, rowIndex) => (
           <React.Fragment key={`row-${rowIndex}`}>
             {row.map((feeling, colIndex) => (
@@ -444,22 +607,49 @@ const ShortCuts = () => {
                 key={`item-${rowIndex}-${colIndex}`}
                 style={({pressed}) => [
                   styles.gridItem,
+                  {
+                    width: responsiveValues.gridWidth,
+                    borderRadius: responsiveValues.borderRadius,
+                    shadowRadius: responsiveValues.shadowRadius,
+                    shadowOffset: responsiveValues.shadowOffset,
+                    elevation: responsiveValues.elevation,
+                    marginBottom: responsiveValues.gridItemMarginBottom,
+                  },
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={() => handleFeelingPress(feeling.label)}>
                 <View
                   style={[
                     styles.gridImageContainer,
-                    {backgroundColor: feeling.backgroundColor},
+                    {
+                      backgroundColor: feeling.backgroundColor,
+                      height: responsiveValues.gridImageHeight,
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                    },
                   ]}>
                   <Image
                     source={feeling.image}
                     style={styles.imageGrid}
-                    resizeMode="cover"
+                    resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                 </View>
-                <View style={styles.gridLabelContainer}>
-                  <Text style={styles.labelGrid}>{feeling.label}</Text>
+                <View
+                  style={[
+                    styles.gridLabelContainer,
+                    {
+                      paddingVertical: responsiveValues.gridLabelPadding,
+                      borderBottomLeftRadius: responsiveValues.borderRadius,
+                      borderBottomRightRadius: responsiveValues.borderRadius,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.labelGrid,
+                      {fontSize: responsiveValues.labelGridFontSize},
+                    ]}>
+                    {feeling.label}
+                  </Text>
                 </View>
               </Pressable>
             ))}
@@ -469,7 +659,11 @@ const ShortCuts = () => {
               Array.from({length: emptyPlaceholders}).map((_, index) => (
                 <View
                   key={`empty-${index}`}
-                  style={[styles.gridItem, styles.emptyItem]}
+                  style={[
+                    styles.gridItem,
+                    styles.emptyItem,
+                    {width: responsiveValues.gridWidth},
+                  ]}
                 />
               ))}
           </React.Fragment>
@@ -490,35 +684,28 @@ const styles = StyleSheet.create({
     width: width,
   },
   scrollContent: {
-    width: width * 0.8,
+    // width and marginTop are now handled dynamically
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: height * 0.02,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    height: height * 0.22,
+    // height, gap, and marginBottom are now handled dynamically
     width: '100%',
-    gap: width * 0.03,
     alignContent: 'center',
-    marginBottom: height * 0.01,
   },
   topItemWrapper: {
-    width: width * 0.11,
-    height: '80%',
+    // width and height are now handled dynamically
     overflow: 'visible',
   },
   topItem: {
     width: '100%',
     height: '100%',
-    borderRadius: 16,
+    // borderRadius, shadowRadius, shadowOffset, elevation are now handled dynamically
     overflow: 'visible',
     shadowColor: 'gray',
     shadowOpacity: 0.8,
-    shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
     backgroundColor: '6CAD50',
   },
   topItemSelected: {
@@ -535,7 +722,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'white',
-    borderRadius: 16,
+    // borderRadius is now handled dynamically
     overflow: 'hidden',
   },
   emojiIcon: {
@@ -571,7 +758,7 @@ const styles = StyleSheet.create({
   },
   labelTop: {
     fontWeight: 'bold',
-    fontSize: width * 0.014,
+    // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
     paddingBottom: height * 0.03,
@@ -581,34 +768,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    width: '80%', // Set to exactly 80% of screen width
-    rowGap: 20,
+    // width and rowGap are now handled dynamically
   },
   gridItem: {
-    width: GRID_WIDTH,
-    borderRadius: 16,
+    // width, borderRadius, shadowRadius, shadowOffset, elevation, marginBottom are now handled dynamically
     overflow: 'visible',
     shadowColor: 'gray',
     shadowOpacity: 0.8,
-    shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
     backgroundColor: 'white',
-    marginBottom: 15,
   },
   gridImageContainer: {
     width: '100%',
-    height: GRID_IMAGE_HEIGHT,
-    backgroundColor: '#FFE4E1',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    // height, borderTopLeftRadius, borderTopRightRadius are now handled dynamically
+    backgroundColor: '#FFFFFF',
   },
   gridLabelContainer: {
     backgroundColor: '#FFFFFF',
     width: '100%',
-    paddingVertical: 8,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+    // paddingVertical, borderBottomLeftRadius, borderBottomRightRadius are now handled dynamically
   },
   imageGrid: {
     width: '100%',
@@ -618,7 +795,7 @@ const styles = StyleSheet.create({
   },
   labelGrid: {
     fontWeight: 'bold',
-    fontSize: 16,
+    // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
   },

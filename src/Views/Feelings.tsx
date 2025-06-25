@@ -31,7 +31,7 @@ import warmImg from '../assets/feelings/goodBody/warm.png';
 import strongImg from '../assets/feelings/goodBody/strong.png';
 import energeticImg from '../assets/feelings/goodBody/energetic.png';
 import {Mixpanel} from 'mixpanel-react-native';
-
+import {useAdmin} from '../contexts/adminContext';
 // For simplicity, we'll use the same dog image for all feeling cards
 // In a real app, you would have different images for each feeling
 const dogImg = require('../assets/welcome.png'); // Replace with actual dog image
@@ -69,46 +69,47 @@ const topCategories = [
 
 // Feeling grid data - using the same image for all cards as placeholder
 const goodBody = [
-  {label: 'Comfortable', image: comfortableImg, backgroundColor: '#FFE4E1'},
-  {label: 'Relaxed', image: relaxedImg, backgroundColor: '#FFE4E1'},
-  {label: "I'm OK", image: okImg, backgroundColor: '#FFE4E1'},
-  {label: 'Warm', image: warmImg, backgroundColor: '#FFE4E1'},
-  {label: 'Strong', image: strongImg, backgroundColor: '#FFE4E1'},
-  {label: 'Energetic', image: energeticImg, backgroundColor: '#FFE4E1'},
+  {label: 'Comfortable', image: comfortableImg, backgroundColor: '#FFFFFF'},
+  {label: 'Relaxed', image: relaxedImg, backgroundColor: '#FFFFFF'},
+  {label: "I'm OK", image: okImg, backgroundColor: '#FFFFFF'},
+  {label: 'Warm', image: warmImg, backgroundColor: '#FFFFFF'},
+  {label: 'Strong', image: strongImg, backgroundColor: '#FFFFFF'},
+  {label: 'Energetic', image: energeticImg, backgroundColor: '#FFFFFF'},
 ];
 
 const goodFeelings = [
-  {label: 'Happy', image: happyImg, backgroundColor: '#FFE4E1'},
-  {label: 'Excited', image: excitedImg, backgroundColor: '#FFE4E1'},
-  {label: 'Loved', image: lovedImg, backgroundColor: '#FFE4E1'},
-  {label: 'Calm', image: calmImg, backgroundColor: '#FFE4E1'},
-  {label: 'Proud', image: proudImg, backgroundColor: '#FFE4E1'},
-  {label: 'Silly', image: sillyImg, backgroundColor: '#FFE4E1'},
+  {label: 'Happy', image: happyImg, backgroundColor: '#FFFFFF'},
+  {label: 'Excited', image: excitedImg, backgroundColor: '#FFFFFF'},
+  {label: 'Loved', image: lovedImg, backgroundColor: '#FFFFFF'},
+  {label: 'Calm', image: calmImg, backgroundColor: '#FFFFFF'},
+  {label: 'Proud', image: proudImg, backgroundColor: '#FFFFFF'},
+  {label: 'Silly', image: sillyImg, backgroundColor: '#FFFFFF'},
 ];
 
 const badFeelings = [
-  {label: 'Sad', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Bored', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Scared', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Worried', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Embarrassed', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Angry', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Sad', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Bored', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Scared', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Worried', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Embarrassed', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Angry', image: dogImg, backgroundColor: '#FFFFFF'},
 ];
 
 const badBody = [
-  {label: 'Cold', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Hurt', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Sick', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Tired', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Dizzy', image: dogImg, backgroundColor: '#FFE4E1'},
-  {label: 'Itchy', image: dogImg, backgroundColor: '#FFE4E1'},
+  {label: 'Cold', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Hurt', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Sick', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Tired', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Dizzy', image: dogImg, backgroundColor: '#FFFFFF'},
+  {label: 'Itchy', image: dogImg, backgroundColor: '#FFFFFF'},
 ];
 
-const GRID_WIDTH = (width - 20) / 4;
-const GRID_IMAGE_HEIGHT = height * 0.25;
+// Responsive values are now handled within the component
 
 const Feelings = () => {
   const navigation = useNavigation();
+  const {isTablet} = useAdmin();
+
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
   const [selectedCategory, setSelectedCategory] =
@@ -121,6 +122,27 @@ const Feelings = () => {
     badBody: new Animated.Value(0),
     badFeelings: new Animated.Value(0),
   }).current;
+
+  // Responsive values based on device type
+  const responsiveValues = {
+    iconSize: isTablet ? {width: 60, height: 60} : {width: 30, height: 30},
+    topRowHeight: isTablet ? height * 0.22 : height * 0.18,
+    topItemWidth: isTablet ? width * 0.16 : width * 0.2,
+    topRowGap: isTablet ? width * 0.03 : width * 0.02,
+    scrollContentWidth: isTablet ? width * 0.8 : width * 0.9,
+    gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4,
+    gridImageHeight: isTablet ? height * 0.25 : height * 0.15,
+    labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
+    labelGridFontSize: isTablet ? 16 : 14,
+    marginTop: isTablet ? height * 0.02 : height * 0.01,
+    marginBottom: isTablet ? height * 0.05 : height * 0.03,
+    gridItemMarginBottom: isTablet ? 15 : 10,
+    gridLabelPadding: isTablet ? 8 : 6,
+    borderRadius: isTablet ? 16 : 12,
+    shadowRadius: isTablet ? 5 : 3,
+    shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
+    elevation: isTablet ? 8 : 5,
+  };
 
   useEffect(() => {
     // Initialize TTS when component mounts
@@ -182,21 +204,37 @@ const Feelings = () => {
     <View style={styles.screen}>
       {/* Microphone Button */}
       <View style={styles.micIcon}>
-        <FastImage source={micImg} style={styles.iconSize} />
+        <FastImage source={micImg} style={responsiveValues.iconSize} />
       </View>
 
       <View style={styles.matalkIcon}>
-        <FastImage source={matalkImg} style={styles.iconSize} />
+        <FastImage source={matalkImg} style={responsiveValues.iconSize} />
       </View>
 
       {/* Home Button */}
       <HomeButton zIndex={5} navigation={navigation} />
 
-      <View style={styles.scrollContent}>
-        <View style={styles.topRow}>
+      <View
+        style={[
+          styles.scrollContent,
+          {
+            width: responsiveValues.scrollContentWidth,
+            marginTop: responsiveValues.marginTop,
+          },
+        ]}>
+        <View
+          style={[
+            styles.topRow,
+            {
+              height: responsiveValues.topRowHeight,
+              gap: responsiveValues.topRowGap,
+              marginBottom: responsiveValues.marginBottom,
+            },
+          ]}>
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {width: responsiveValues.topItemWidth},
               {
                 transform: [
                   {
@@ -212,19 +250,39 @@ const Feelings = () => {
               onPress={() => handleCategoryPress('goodBody')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'goodBody' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[0].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[0].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[0].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[0].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -232,6 +290,7 @@ const Feelings = () => {
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {width: responsiveValues.topItemWidth},
               {
                 transform: [
                   {
@@ -247,19 +306,39 @@ const Feelings = () => {
               onPress={() => handleCategoryPress('goodFeelings')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'goodFeelings' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[1].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[1].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[1].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[1].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -267,6 +346,7 @@ const Feelings = () => {
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {width: responsiveValues.topItemWidth},
               {
                 transform: [
                   {
@@ -282,19 +362,39 @@ const Feelings = () => {
               onPress={() => handleCategoryPress('badBody')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'badBody' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[2].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[2].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[2].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[2].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -302,6 +402,7 @@ const Feelings = () => {
           <Animated.View
             style={[
               styles.topItemWrapper,
+              {width: responsiveValues.topItemWidth},
               {
                 transform: [
                   {
@@ -317,19 +418,39 @@ const Feelings = () => {
               onPress={() => handleCategoryPress('badFeelings')}
               style={({pressed}) => [
                 styles.topItem,
+                {
+                  borderRadius: responsiveValues.borderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                },
                 selectedCategory === 'badFeelings' && styles.topItemSelected,
                 pressed && styles.buttonPressed,
               ]}>
-              <View style={styles.topImageContainer}>
+              <View
+                style={[
+                  styles.topImageContainer,
+                  {borderRadius: responsiveValues.borderRadius},
+                ]}>
                 <FastImage
                   source={topCategories[3].image}
                   style={[
                     styles.imageTop,
                     {backgroundColor: topCategories[3].backgroundColor},
                   ]}
-                  resizeMode={FastImage.resizeMode.cover}
+                  resizeMode={
+                    isTablet
+                      ? FastImage.resizeMode.cover
+                      : FastImage.resizeMode.contain
+                  }
                 />
-                <Text style={styles.labelTop}>{topCategories[3].label}</Text>
+                <Text
+                  style={[
+                    styles.labelTop,
+                    {fontSize: responsiveValues.labelTopFontSize},
+                  ]}>
+                  {topCategories[3].label}
+                </Text>
               </View>
             </Pressable>
           </Animated.View>
@@ -343,22 +464,49 @@ const Feelings = () => {
             key={i}
             style={({pressed}) => [
               styles.gridItem,
+              {
+                width: responsiveValues.gridWidth,
+                borderRadius: responsiveValues.borderRadius,
+                shadowRadius: responsiveValues.shadowRadius,
+                shadowOffset: responsiveValues.shadowOffset,
+                elevation: responsiveValues.elevation,
+                marginBottom: responsiveValues.gridItemMarginBottom,
+              },
               pressed && styles.buttonPressed,
             ]}
             onPress={() => handleFeelingPress(feeling.label)}>
             <View
               style={[
                 styles.gridImageContainer,
-                {backgroundColor: feeling.backgroundColor},
+                {
+                  backgroundColor: feeling.backgroundColor,
+                  height: responsiveValues.gridImageHeight,
+                  borderTopLeftRadius: 16,
+                  borderTopRightRadius: 16,
+                },
               ]}>
               <Image
                 source={feeling.image}
                 style={styles.imageGrid}
-                resizeMode="cover"
+                resizeMode={isTablet ? 'cover' : 'contain'}
               />
             </View>
-            <View style={styles.gridLabelContainer}>
-              <Text style={styles.labelGrid}>{feeling.label}</Text>
+            <View
+              style={[
+                styles.gridLabelContainer,
+                {
+                  paddingVertical: responsiveValues.gridLabelPadding,
+                  borderBottomLeftRadius: responsiveValues.borderRadius,
+                  borderBottomRightRadius: responsiveValues.borderRadius,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.labelGrid,
+                  {fontSize: responsiveValues.labelGridFontSize},
+                ]}>
+                {feeling.label}
+              </Text>
             </View>
           </Pressable>
         ))}
@@ -378,35 +526,29 @@ const styles = StyleSheet.create({
     width: width,
   },
   scrollContent: {
-    width: width * 0.8,
+    // width and marginTop are now handled dynamically
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: height * 0.02,
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    height: height * 0.22,
+    // height, gap, and marginBottom are now handled dynamically
     width: '100%',
-    gap: width * 0.03,
     alignContent: 'center',
-    marginBottom: height * 0.05,
   },
   topItemWrapper: {
-    width: width * 0.16,
+    // width is now handled dynamically
     height: '100%',
     overflow: 'visible',
   },
   topItem: {
     width: '100%',
     height: '100%',
-    borderRadius: 16,
+    // borderRadius, shadowRadius, shadowOffset, elevation are now handled dynamically
     overflow: 'visible',
     shadowColor: 'gray',
     shadowOpacity: 0.8,
-    shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
     backgroundColor: '6CAD50',
   },
   topItemSelected: {
@@ -423,7 +565,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'white',
-    borderRadius: 16,
+    // borderRadius is now handled dynamically
     overflow: 'hidden',
   },
   emojiIcon: {
@@ -459,7 +601,7 @@ const styles = StyleSheet.create({
   },
   labelTop: {
     fontWeight: 'bold',
-    fontSize: width * 0.014,
+    // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
     paddingBottom: height * 0.03,
@@ -473,38 +615,31 @@ const styles = StyleSheet.create({
     width: '80%',
   },
   gridItem: {
-    width: GRID_WIDTH,
-    borderRadius: 16,
+    // width, borderRadius, shadowRadius, shadowOffset, elevation, marginBottom are now handled dynamically
     overflow: 'visible',
     shadowColor: 'gray',
     shadowOpacity: 0.8,
-    shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
     backgroundColor: 'white',
-    marginBottom: 15,
   },
   gridImageContainer: {
     width: '100%',
-    height: GRID_IMAGE_HEIGHT,
-    backgroundColor: '#FFE4E1',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    // height, borderTopLeftRadius, borderTopRightRadius are now handled dynamically
+    backgroundColor: '#FFFFFF',
   },
   gridLabelContainer: {
     backgroundColor: '#FFFFFF',
     width: '100%',
-    paddingVertical: 8,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+    // paddingVertical, borderBottomLeftRadius, borderBottomRightRadius are now handled dynamically
   },
   imageGrid: {
     width: '100%',
     height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   labelGrid: {
     fontWeight: 'bold',
-    fontSize: 16,
+    // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
   },

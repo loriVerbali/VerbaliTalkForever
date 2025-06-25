@@ -32,4 +32,9 @@ class AppDelegate: RCTAppDelegate {
   override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
     return RCTLinkingManager.application(app, open: url, options: options)
   }
+  
+  // Handle orientation changes for react-native-orientation-locker
+  override func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+    return UIInterfaceOrientationMask.landscape
+  }
 }

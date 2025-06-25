@@ -3,6 +3,7 @@ import {Pressable, Text, StyleSheet, Dimensions} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import {useAssistant} from '../contexts/AssistantContext';
+import {useAdmin} from '../contexts/adminContext';
 
 const {width, height} = Dimensions.get('window');
 
@@ -21,6 +22,16 @@ const HomeButton: React.FC<HomeButtonProps> = ({
   const navigationHook = useNavigation();
   const navigation = navigationProp || navigationHook;
   const {resetAssistant} = useAssistant();
+  const {isTablet} = useAdmin();
+
+  // Responsive values for home button
+  const responsiveValues = {
+    iconSize: isTablet
+      ? {width: width * 0.05, height: width * 0.05}
+      : {width: width * 0.04, height: width * 0.04},
+    borderRadius: isTablet ? width * 0.04 : width * 0.03,
+    fontSize: isTablet ? 30 : 20,
+  };
 
   const handleHomePress = () => {
     // Call additional reset logic if provided
@@ -37,10 +48,15 @@ const HomeButton: React.FC<HomeButtonProps> = ({
       onPress={handleHomePress}
       style={({pressed}) => [
         styles.homeIcon,
+        responsiveValues.iconSize,
+        {borderRadius: responsiveValues.borderRadius},
         pressed && styles.buttonPressed,
         {zIndex: zIndex},
       ]}>
-      <Text style={styles.homeIconText}>🏠</Text>
+      <Text
+        style={[styles.homeIconText, {fontSize: responsiveValues.fontSize}]}>
+        🏠
+      </Text>
     </Pressable>
   );
 };
@@ -55,17 +71,15 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     position: 'absolute',
-    width: width * 0.05,
-    height: width * 0.05,
+    // width, height, borderRadius are now handled dynamically
     backgroundColor: '#FFF',
-    borderRadius: width * 0.04,
   },
   buttonPressed: {
     opacity: 0.8,
     transform: [{scale: 0.98}],
   },
   homeIconText: {
-    fontSize: 30,
+    // fontSize is now handled dynamically
     color: '#FFFFFF',
   },
 });
