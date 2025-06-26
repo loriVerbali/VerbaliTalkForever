@@ -1025,7 +1025,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   welcomeContainer: {
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
     width: '90%',
     flexDirection: 'row',
