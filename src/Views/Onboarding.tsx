@@ -207,7 +207,7 @@ const OnboardingScreen: React.FC = () => {
             <View style={styles.gridItem}>
               <View style={styles.gridImageContainer}>
                 <FastImage
-                  source={require('../assets/shortCuts/fun/game.png')}
+                  source={require('../assets/shortCuts/fun/game.jpg')}
                   style={styles.welcomeImage}
                   resizeMode={FastImage.resizeMode.contain}
                 />
@@ -217,7 +217,7 @@ const OnboardingScreen: React.FC = () => {
             <View style={styles.gridItem}>
               <View style={styles.gridImageContainer}>
                 <FastImage
-                  source={require('../assets/shortCuts/wantNeed/eat.png')}
+                  source={require('../assets/shortCuts/wantNeed/eat.jpg')}
                   style={styles.welcomeImage}
                   resizeMode={FastImage.resizeMode.contain}
                 />
@@ -227,7 +227,7 @@ const OnboardingScreen: React.FC = () => {
             <View style={styles.gridItem}>
               <View style={styles.gridImageContainer}>
                 <FastImage
-                  source={require('../assets/shortCuts/fun/outside.png')}
+                  source={require('../assets/shortCuts/fun/outside.jpg')}
                   style={styles.welcomeImage}
                   resizeMode={FastImage.resizeMode.contain}
                 />
