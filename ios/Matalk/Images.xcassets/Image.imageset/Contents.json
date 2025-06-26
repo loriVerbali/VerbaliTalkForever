@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "ic_launcher-playstore.png",
+      "filename" : "Ma-Talklogo.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "ic_launcher-playstore 1.png",
+      "filename" : "Ma-Talklogo 1.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "ic_launcher-playstore 2.png",
+      "filename" : "Ma-Talklogo 2.png",
       "idiom" : "universal",
       "scale" : "3x"
     }

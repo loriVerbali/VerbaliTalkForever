@@ -15,8 +15,8 @@ interface InstanceConfig {
 
 const instanceConfigs: InstanceConfig[] = [
   {
-    id: 'hey_lookdeep',
-    modelName: 'hey_lookdeep.onnx',
+    id: 'hey_verbi_v1',
+    modelName: 'hey_verbi_v1.onnx',
     threshold: 0.9999,
     bufferCnt: 3,
     sticky: false,
