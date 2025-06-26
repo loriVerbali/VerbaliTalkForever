@@ -81,31 +81,31 @@ const topCategories = [
   {
     label: 'Attention',
     image: attentionImg,
-    backgroundColor: '#6CAD50',
+    backgroundColor: '#FFFFFF',
     description: 'Feeling healthy and strong',
   },
   {
     label: 'I want/need',
     image: iWantNeedImg,
-    backgroundColor: '#4FC3F7',
+    backgroundColor: '#FFFFFF',
     description: 'Feeling happy and loved',
   },
   {
     label: 'Actions',
     image: actionsImg,
-    backgroundColor: '#F44336',
+    backgroundColor: '#FFFFFF',
     description: 'Feeling pain or discomfort',
   },
   {
     label: 'Fun',
     image: funImg,
-    backgroundColor: '#F44336',
+    backgroundColor: '#FFFFFF',
     description: 'Feeling pain or discomfort',
   },
   {
     label: 'Positions',
     image: positionsImg,
-    backgroundColor: '#F44336',
+    backgroundColor: '#FFFFFF',
     description: 'Feeling pain or discomfort',
   },
 ];
@@ -403,7 +403,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.contain
+                        ? FastImage.resizeMode.cover
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -462,7 +462,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.contain
+                        ? FastImage.resizeMode.cover
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -521,7 +521,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.contain
+                        ? FastImage.resizeMode.cover
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -580,7 +580,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.contain
+                        ? FastImage.resizeMode.cover
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -638,7 +638,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.contain
+                        ? FastImage.resizeMode.cover
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -819,8 +819,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#146CF0',
   },
   imageTop: {
-    width: '100%',
-    height: '90%',
+    width: '80%',
+    height: '80%',
     justifyContent: 'center',
     alignItems: 'center',
   },
