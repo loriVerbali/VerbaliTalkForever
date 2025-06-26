@@ -20,6 +20,7 @@ import {
   PanGestureHandler,
   State,
 } from 'react-native-gesture-handler';
+import {useConnection} from '../utils/connection';
 
 // General assets
 import micImg from '../assets/microphone.png';
@@ -163,6 +164,8 @@ const positions = [
 const ShortCuts = () => {
   const navigation = useNavigation();
   const {isTablet} = useAdmin();
+  const {isConnected} = useConnection();
+  const [connectionState, setConnectionState] = useState(isConnected);
 
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
@@ -332,7 +335,14 @@ const ShortCuts = () => {
       <View style={styles.screen}>
         {/* Microphone Button */}
         <View style={styles.micIcon}>
-          <FastImage source={micImg} style={responsiveValues.iconSize} />
+          <FastImage
+            source={
+              connectionState
+                ? require('../assets/michrophone.gif')
+                : require('../assets/noMic.png')
+            }
+            style={responsiveValues.iconSize}
+          />
         </View>
 
         <View style={styles.matalkIcon}>
