@@ -403,7 +403,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.cover
+                        ? FastImage.resizeMode.contain
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -462,7 +462,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.cover
+                        ? FastImage.resizeMode.contain
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -521,7 +521,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.cover
+                        ? FastImage.resizeMode.contain
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -580,7 +580,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.cover
+                        ? FastImage.resizeMode.contain
                         : FastImage.resizeMode.contain
                     }
                   />
@@ -638,7 +638,7 @@ const ShortCuts = () => {
                     ]}
                     resizeMode={
                       isTablet
-                        ? FastImage.resizeMode.cover
+                        ? FastImage.resizeMode.contain
                         : FastImage.resizeMode.contain
                     }
                   />
