@@ -6,7 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
-    "start": "react-native start",
+    "start": "react-native start --reset-cache",
     "test": "jest",
     "copyHermes": "./copy_hermes_dsym.sh Matalk DD-MM-2025, HH.MM.xcarchive"
   },

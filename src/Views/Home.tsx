@@ -293,7 +293,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       if (!DEBUGWITHOUTTRANSCRIPTION) {
         transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
       } else {
-        transcribeResponse = {text: 'How was school?'};
+        transcribeResponse = {text: 'Whats your name?'};
       }
 
       if (transcribeResponse?.text) {
@@ -309,7 +309,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           const contextInfo = getContextualInfo(weather, location);
 
           // Combine the transcribed text with context information
-          const messageWithContext = `${contextInfo}. User said: "${transcribedText}"`;
+          const messageWithContext = `Prompt is: "${transcribedText}" , this is the weather , tima and location info: ${contextInfo}`;
 
           console.log('📍 Sending message with context:', messageWithContext);
 

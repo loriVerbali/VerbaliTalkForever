@@ -116,7 +116,10 @@ const useAssistantResponse = (threadId: string, runId: string) => {
   useEffect(() => {
     let isSubscribed = true;
 
-    console.log('🔄 Polling status for thread:', threadId, runId);
+    // Don't start polling if we don't have both threadId and runId
+    if (!threadId || !runId) {
+      return;
+    }
 
     const pollStatus = async () => {
       try {
@@ -126,20 +129,34 @@ const useAssistantResponse = (threadId: string, runId: string) => {
         while (isSubscribed && pollCount < maxPolls) {
           pollCount++;
 
-          const statusResponse = await fetchHelper(
-            'checkRunStatus',
-            {
-              thread_id: threadId,
-              run_id: runId,
-            },
-            {},
-          );
+          let data;
+          try {
+            const statusResponse = await fetchHelper(
+              'checkRunStatus',
+              {
+                thread_id: threadId,
+                run_id: runId,
+              },
+              {},
+            );
+            data = await statusResponse;
+          } catch (apiError) {
+            console.error('❌ Error checking run status:', apiError);
+            // Wait longer before retrying on API error
+            await new Promise<void>(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
 
-          const data = await statusResponse;
+          // Safety check: ensure we have valid status data
+          if (!data || !data.status) {
+            await new Promise<void>(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
 
-          if (data?.status === 'completed') {
-            setStatus(data.status);
+          // Update status for any valid status
+          setStatus(data.status);
 
+          if (data.status === 'completed') {
             const messagesResponse = await fetchHelper(
               'getMessages',
               {
@@ -154,11 +171,6 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
               ) {
-                console.log(
-                  '🔵 messageType',
-                  messageType,
-                  messagesResponse.data[0].content[0].text.value,
-                );
                 getTopicFromResponse(
                   messagesResponse.data[0].content[0].text.value,
                 );
@@ -224,26 +236,22 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                       responseData['Identified Question'] || '',
                     );
                     setPossibleAnswers(answers);
-                  } else {
-                    console.log('⚠️ No answers found in response');
                   }
                 } catch (parseError) {
                   console.error(
                     '❌ Failed to parse response as JSON:',
                     parseError,
                   );
-                  console.log('📄 Raw response was:', responseText);
                 }
-              } else {
-                console.warn('⚠️ No message content found in response');
               }
             }
             break;
           }
 
-          if (['failed', 'cancelled', 'expired'].includes(data?.status)) {
-            // console.error(`❌ Run ${data?.status}`);
-            // setError(`Run ${data?.status}`);
+          if (['failed', 'cancelled', 'expired'].includes(data.status)) {
+            console.error(`❌ Run ${data.status}`);
+            setError(`Run ${data.status}`);
+            setStatus(data.status as any);
             break;
           }
 
@@ -266,9 +274,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
       }
     };
 
-    if (threadId && runId) {
-      pollStatus();
-    }
+    pollStatus();
 
     return () => {
       isSubscribed = false;
@@ -351,7 +357,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   const createThreadIfNeeded = async () => {
     try {
-      console.log('🔄 Creating new thread...');
       // Otherwise create a new thread
       const response = await fetchHelper('createThread', {}, {});
       const data = await response;

@@ -26,8 +26,8 @@ export interface ConfigType {
 }
 
 const Config: ConfigType = {
-  baseUrl: 'https://matalkapi-production.up.railway.app',
-  //baseUrl: 'http://localhost:3000',
+  //baseUrl: 'https://matalkapi-production.up.railway.app',
+  baseUrl: 'http://localhost:3000',
   openAiUrl: 'https://api.openai.com/v1',
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: 'AIzaSyB_8RqAlGXY7UPgN0j8bXsIll59U-P_BaA',
