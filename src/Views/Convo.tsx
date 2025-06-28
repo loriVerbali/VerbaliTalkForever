@@ -206,6 +206,18 @@ const Convo = () => {
 
   // Load family members data and update speakers/audience
   useEffect(() => {
+    // Send wakeup call to backend when entering Convo screen
+    const sendWakeupCall = async () => {
+      try {
+        await fetchHelper('wakeup', {}, {});
+      } catch (error) {
+        console.error('Error sending wakeup call from Convo screen:', error);
+      }
+    };
+
+    // Send wakeup call first
+    sendWakeupCall();
+
     const loadFamilyData = async () => {
       try {
         // Load conversation mode

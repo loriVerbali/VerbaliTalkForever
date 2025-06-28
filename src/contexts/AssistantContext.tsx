@@ -124,7 +124,8 @@ const useAssistantResponse = (threadId: string, runId: string) => {
     const pollStatus = async () => {
       try {
         let pollCount = 0;
-        const maxPolls = 30; // Set a reasonable limit for polling attempts
+        const maxPolls = 40; // Increase max polls to account for longer intervals
+        let pollInterval = 300; // Start with 300ms
 
         while (isSubscribed && pollCount < maxPolls) {
           pollCount++;
@@ -142,14 +143,19 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             data = await statusResponse;
           } catch (apiError) {
             console.error('❌ Error checking run status:', apiError);
-            // Wait longer before retrying on API error
-            await new Promise<void>(resolve => setTimeout(resolve, 2000));
+            // Use exponential backoff on API errors
+            pollInterval = Math.min(pollInterval * 1.5, 3000);
+            await new Promise<void>(resolve =>
+              setTimeout(resolve, pollInterval),
+            );
             continue;
           }
 
           // Safety check: ensure we have valid status data
           if (!data || !data.status) {
-            await new Promise<void>(resolve => setTimeout(resolve, 1000));
+            await new Promise<void>(resolve =>
+              setTimeout(resolve, pollInterval),
+            );
             continue;
           }
 
@@ -255,7 +261,17 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             break;
           }
 
-          await new Promise<void>(resolve => setTimeout(resolve, 500));
+          // Adaptive polling: start fast, then slow down
+          // For the first 5 polls, use shorter intervals
+          if (pollCount <= 5) {
+            pollInterval = 300; // 300ms for first 5 polls
+          } else if (pollCount <= 15) {
+            pollInterval = 800; // 800ms for next 10 polls
+          } else {
+            pollInterval = 1500; // 1.5s for remaining polls
+          }
+
+          await new Promise<void>(resolve => setTimeout(resolve, pollInterval));
         }
 
         if (pollCount >= maxPolls) {
@@ -264,7 +280,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
           );
           setError('Polling timed out after maximum attempts');
         }
-      } catch (err: unknown) {
+      } catch (err) {
         console.error('❌ Error during polling:', err);
         if (isSubscribed) {
           setError(

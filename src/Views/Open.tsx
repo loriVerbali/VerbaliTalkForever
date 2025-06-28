@@ -66,7 +66,6 @@ const OpenScreen: React.FC = () => {
   }, [isConnected]);
 
   useEffect(() => {
-    console.log('OpenScreen mounted');
     mixpanel.track('MainScreen', {
       Opened: 'MainScreen',
     });
@@ -79,7 +78,6 @@ const OpenScreen: React.FC = () => {
 
     // Set up callback for when wake word is detected
     wakeWordService.setCallback((phrase: string) => {
-      console.log('Wake word detected:', phrase);
       // Handle wake word detection
       navigation.navigate(views.HOME as never, {
         stateof: 'Attention',
@@ -92,19 +90,18 @@ const OpenScreen: React.FC = () => {
     // Clean up on unmount
     return () => {
       setRecognizedText('');
+      // Properly stop wake word service to prevent memory leaks
+      wakeWordService.stopListening();
     };
   }, []);
 
   const startListening = () => {
-    console.log('Starting listening');
     navigation.navigate(views.HOME as never, {
       stateof: 'Attention',
     });
   };
 
-  useEffect(() => {
-    console.log('Modal visibility changed:', modalVisible);
-  }, [modalVisible]);
+  useEffect(() => {}, [modalVisible]);
 
   // Handle Android back button when modal is visible
   useEffect(() => {
@@ -146,22 +143,17 @@ const OpenScreen: React.FC = () => {
   };
 
   const handleSettingsPress = () => {
-    console.log('Settings button pressed, current modal state:', modalVisible);
     setModalVisible(true);
-    console.log('Setting modal visible to true');
   };
 
   const closeModal = () => {
-    console.log('Closing modal');
     setModalVisible(false);
     setAdminCodeInput('');
     setIsError(false);
   };
 
   const handleAdminCodeSubmit = async () => {
-    console.log('Submitting admin code:', adminCodeInput);
     const storedAdminCode = await getItem('adminCode');
-    console.log('Stored admin code:', storedAdminCode);
     if (adminCodeInput === storedAdminCode) {
       closeModal();
       navigation.navigate(views.SETTINGS as never);

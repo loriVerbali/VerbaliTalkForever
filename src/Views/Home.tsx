@@ -62,6 +62,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {isTablet} = useAdmin();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
 
   // Responsive values based on device type
   const responsiveValues = {
@@ -130,6 +131,28 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     elevation: isTablet ? 6 : 4,
   };
 
+  // Add context caching to improve performance
+  const [cachedContextInfo, setCachedContextInfo] = useState<string>('');
+  const [lastContextUpdate, setLastContextUpdate] = useState<number>(0);
+  const CONTEXT_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+
+  // Cache context information to avoid repeated expensive calls
+  const getCachedContextInfo = useCallback(() => {
+    const now = Date.now();
+
+    // If cache is still valid (less than 5 minutes old), use cached version
+    if (cachedContextInfo && now - lastContextUpdate < CONTEXT_CACHE_DURATION) {
+      return cachedContextInfo;
+    }
+
+    // Generate new context and cache it
+    const contextInfo = getContextualInfo(weather, location);
+    setCachedContextInfo(contextInfo);
+    setLastContextUpdate(now);
+
+    return contextInfo;
+  }, [weather, location, cachedContextInfo, lastContextUpdate]);
+
   // Add keyboard input state
   const [keyboardInput, setKeyboardInput] = useState('');
   const [debouncedKeyboardInput, setDebouncedKeyboardInput] = useState('');
@@ -150,6 +173,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const MAX_RETRIES = 3;
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   useEffect(() => {
+    // Send wakeup call to backend when entering Home screen
+    const sendWakeupCall = async () => {
+      try {
+        await fetchHelper('wakeup', {}, {});
+      } catch (error) {
+        console.error('Error sending wakeup call from Home screen:', error);
+      }
+    };
+
+    // Send wakeup call
+    sendWakeupCall();
+
+    // Track screen opening
     mixpanel.track('Conversation', {
       Opened: 'Conversation',
     });
@@ -254,8 +290,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   };
 
   const stopRecording = async () => {
-    console.log('stopRecording - Starting stopRecording function');
-
     if (recordingTimer.current) {
       //console.log('stopRecording - Clearing recording timer');
       clearTimeout(recordingTimer.current);
@@ -299,29 +333,66 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       if (transcribeResponse?.text) {
         const transcribedText = transcribeResponse.text.trim();
 
+        // OPTIMIZATION 1: Show transcribed text immediately before API calls
+        if (
+          transcribedText.length > 0 &&
+          transcribedText !== 'null' &&
+          transcribedText !== 'Thank you for watching!'
+        ) {
+          setFinishedTranscribing(true);
+          setTranscribedText(transcribedText);
+          setIsProcessingAnswer(true); // Show processing immediately
+
+          // Set the transcribed text in the top input
+          if (inputsRef.current) {
+            inputsRef.current.setInput(transcribedText);
+          }
+        }
+
         if (
           threadId &&
           transcribedText.length > 0 &&
           transcribedText !== 'null' &&
           transcribedText !== 'Thank you for watching!'
         ) {
-          // Get contextual information (time, weather, location, special places)
-          const contextInfo = getContextualInfo(weather, location);
+          // OPTIMIZATION 2: Create optimized context message
+          // Use simpler context to reduce message size and processing time
+          const contextInfo = getCachedContextInfo();
 
-          // Combine the transcribed text with context information
-          const messageWithContext = `Prompt is: "${transcribedText}" , this is the weather , tima and location info: ${contextInfo}`;
+          // Split into core prompt and context for better processing
+          const corePrompt = `User asked: "${transcribedText}"`;
+          const contextPrompt = `Context: ${contextInfo}`;
+          const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
-          console.log('📍 Sending message with context:', messageWithContext);
+          // OPTIMIZATION 3: Start both API calls and don't wait for sendMessage to complete
+          try {
+            const messagePromise = sendMessage(
+              messageWithContext,
+              threadId,
+              'generate_answers',
+            );
 
-          const messageId = await sendMessage(
-            messageWithContext,
-            threadId,
-            'generate_answers',
-          );
-          setFinishedTranscribing(true);
-          setTranscribedText(transcribedText);
-          if (messageId) {
-            await runAssistant(threadId);
+            // Wait for message to be sent, then immediately start assistant
+            const messageId = await messagePromise;
+
+            if (messageId) {
+              // Start assistant run immediately without waiting
+              runAssistant(threadId).catch(error => {
+                console.error('Failed to run assistant:', error);
+                setIsProcessingAnswer(false);
+                TTSService.speak(
+                  'Failed to process your request. Please try again.',
+                  true,
+                );
+              });
+            }
+          } catch (error) {
+            console.error('Failed to send message:', error);
+            setIsProcessingAnswer(false);
+            TTSService.speak(
+              'Failed to process your request. Please try again.',
+              true,
+            );
           }
         }
       } else {
@@ -334,29 +405,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   };
 
   useEffect(() => {
-    // Add detailed logging to inspect the structure
-    if (imageUrls && imageUrls.length > 0) {
-      console.log('First image URL structure:', JSON.stringify(imageUrls[0]));
-
-      // Log all image URLs for debugging
-      imageUrls.forEach((img, idx) => {
-        console.log(
-          `Image ${idx} URL:`,
-          typeof img.url === 'string' ? img.url : JSON.stringify(img.url),
-        );
-      });
-    }
     if (status === 'completed' && imageUrls?.length > 0) {
-      debugger;
       setShowImages(true);
       setIsRetrying(false); // Reset retry state when new images are ready
-    } else {
-      console.log(
-        'Not showing images. Status:',
-        status,
-        'Image count:',
-        imageUrls?.length || 0,
-      );
+      setIsProcessingAnswer(false); // Reset processing state when images are ready
     }
   }, [imageUrls, status]);
 
@@ -376,6 +428,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setShowImages(false);
     setIsRetrying(false);
     setRetryCount(0);
+    setIsProcessingAnswer(false); // Reset processing state
     setKeyboardInput(''); // Reset keyboard input
     setDebouncedKeyboardInput('');
     setIsSubmittingKeyboard(false);
@@ -411,17 +464,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     try {
       setIsRetrying(true);
+      setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
       setRetryCount(prev => prev + 1);
 
       // Get contextual information (time, weather, location, special places)
-      const contextInfo = getContextualInfo(weather, location);
+      const contextInfo = getCachedContextInfo();
 
       // Create a retry message asking for more alternatives
       const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
-
-      console.log('🔄 Retrying with message:', retryMessage);
-      console.log('🔄 Retry count:', retryCount + 1);
 
       const messageId = await sendMessage(
         retryMessage,
@@ -430,14 +481,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       );
 
       if (messageId) {
-        await runAssistant(threadId);
+        runAssistant(threadId).catch(error => {
+          console.error('handleCantFindIt - Failed to retry:', error);
+          setIsProcessingAnswer(false);
+          setIsRetrying(false);
+          TTSService.speak(
+            'Failed to get more answers. Please try again.',
+            true,
+          );
+          setRetryCount(prev => prev - 1); // Revert retry count on error
+        });
       }
     } catch (error) {
       console.error('handleCantFindIt - Failed to retry:', error);
+      setIsProcessingAnswer(false);
+      setIsRetrying(false);
       TTSService.speak('Failed to get more answers. Please try again.', true);
       setRetryCount(prev => prev - 1); // Revert retry count on error
-    } finally {
-      setIsRetrying(false);
     }
   };
 
@@ -479,8 +539,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
       // Simply display what was written without making API calls
       TTSService.speak(inputText, true);
-
-      console.log('📝 Displaying keyboard input:', inputText);
     } catch (error) {
       console.error('handleKeyboardSubmit - Processing failed:', error);
     } finally {
@@ -857,10 +915,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           style={{
                             fontSize: responsiveValues.transcriptionFontSize,
                             fontWeight: 'bold',
+                            marginBottom: 20,
                           }}>
                           {`${transcribedText}`}
                         </Text>
-                        {transcribedText.length === 0 || isRetrying ? (
+                        {/* Show different loading states based on processing phase */}
+                        {isProcessingAnswer ? (
+                          <View style={{alignItems: 'center'}}>
+                            <ActivityIndicator size="large" color="#007AFF" />
+                            <Text
+                              style={[
+                                styles.retryText,
+                                {
+                                  fontSize: responsiveValues.retryFontSize,
+                                  marginTop: 10,
+                                },
+                              ]}>
+                              Finding answers...
+                            </Text>
+                          </View>
+                        ) : transcribedText.length === 0 || isRetrying ? (
                           <ActivityIndicator size="large" color="#0000ff" />
                         ) : null}
                         {isRetrying && (
