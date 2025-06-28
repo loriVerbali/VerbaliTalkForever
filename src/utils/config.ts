@@ -276,6 +276,20 @@ const Config: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    wakeup: {
+      description: 'wakeup',
+      isAuthenticated: false,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: false,
+      suffixUrl: '/wakeup',
+      mustStringify: false,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
     // Add other methods as needed
   },
 };

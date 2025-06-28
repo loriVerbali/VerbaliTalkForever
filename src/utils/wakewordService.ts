@@ -15,8 +15,8 @@ interface InstanceConfig {
 
 const instanceConfigs: InstanceConfig[] = [
   {
-    id: 'hey_lookdeep',
-    modelName: 'hey_lookdeep.onnx',
+    id: 'hey_verbi_v1',
+    modelName: 'hey_verbi_v1.onnx',
     threshold: 0.9999,
     bufferCnt: 3,
     sticky: false,
@@ -61,8 +61,6 @@ class WakeWordService {
     }
 
     try {
-      console.log('Initializing Wake Word Service...');
-
       // Create instance
       const config = instanceConfigs[0];
       this.keywordInstance = await createKeyWordRNBridgeInstance(
@@ -74,16 +72,12 @@ class WakeWordService {
         throw new Error(`Failed to create instance ${config.id}`);
       }
 
-      console.log(`Instance ${config.id} created`);
-
       // Create the instance with model configuration
       await this.keywordInstance.createInstance(
         config.modelName,
         config.threshold,
         config.bufferCnt,
       );
-
-      console.log(`Instance ${config.id} createInstance() called`);
 
       // Set license
       const isLicensed = await this.keywordInstance.setKeywordDetectionLicense(
@@ -94,7 +88,6 @@ class WakeWordService {
       }
 
       this.isInitialized = true;
-      console.log('Wake Word Service initialized successfully');
     } catch (error) {
       console.error('Error initializing Wake Word Service:', error);
       throw error;
@@ -115,8 +108,6 @@ class WakeWordService {
         // Format the phrase
         const formattedPhrase = this.formatWakeWord(instanceConfigs[0].id);
 
-        console.log(`Wake word detected: ${formattedPhrase}`);
-
         // Call user callback if set
         if (this.wakeWordCallback) {
           this.wakeWordCallback(formattedPhrase);
@@ -129,7 +120,6 @@ class WakeWordService {
     // Set up event listener
     this.eventListener =
       this.keywordInstance.onKeywordDetectionEvent(keywordCallback);
-    console.log('Event listener set up successfully');
   }
 
   // Remove event listener
@@ -137,7 +127,6 @@ class WakeWordService {
     if (this.eventListener && typeof this.eventListener.remove === 'function') {
       this.eventListener.remove();
       this.eventListener = null;
-      console.log('Event listener removed');
     }
   }
 
@@ -155,7 +144,6 @@ class WakeWordService {
       }
 
       if (this.isListening) {
-        console.log('Already listening for wake words');
         return;
       }
 
@@ -173,8 +161,6 @@ class WakeWordService {
         instanceConfigs[0].threshold,
       );
       this.isListening = true;
-
-      console.log('Started listening for wake words');
     } catch (error) {
       console.error('Error starting wake word detection:', error);
       throw error;
@@ -185,15 +171,12 @@ class WakeWordService {
   public async stopListening(): Promise<void> {
     try {
       if (!this.isListening || !this.keywordInstance) {
-        console.log('Not currently listening');
         return;
       }
 
       // Stop detection
       await this.keywordInstance.stopKeywordDetection();
       this.isListening = false;
-
-      console.log('Stopped listening for wake words');
     } catch (error) {
       console.error('Error stopping wake word detection:', error);
       throw error;
@@ -213,8 +196,6 @@ class WakeWordService {
       this.keywordInstance = null;
       this.isInitialized = false;
       this.wakeWordCallback = null;
-
-      console.log('Wake Word Service cleaned up');
     } catch (error) {
       console.error('Error during cleanup:', error);
     }

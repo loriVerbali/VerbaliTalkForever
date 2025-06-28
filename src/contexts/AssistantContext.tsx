@@ -116,30 +116,53 @@ const useAssistantResponse = (threadId: string, runId: string) => {
   useEffect(() => {
     let isSubscribed = true;
 
-    console.log('🔄 Polling status for thread:', threadId, runId);
+    // Don't start polling if we don't have both threadId and runId
+    if (!threadId || !runId) {
+      return;
+    }
 
     const pollStatus = async () => {
       try {
         let pollCount = 0;
-        const maxPolls = 30; // Set a reasonable limit for polling attempts
+        const maxPolls = 40; // Increase max polls to account for longer intervals
+        let pollInterval = 300; // Start with 300ms
 
         while (isSubscribed && pollCount < maxPolls) {
           pollCount++;
 
-          const statusResponse = await fetchHelper(
-            'checkRunStatus',
-            {
-              thread_id: threadId,
-              run_id: runId,
-            },
-            {},
-          );
+          let data;
+          try {
+            const statusResponse = await fetchHelper(
+              'checkRunStatus',
+              {
+                thread_id: threadId,
+                run_id: runId,
+              },
+              {},
+            );
+            data = await statusResponse;
+          } catch (apiError) {
+            console.error('❌ Error checking run status:', apiError);
+            // Use exponential backoff on API errors
+            pollInterval = Math.min(pollInterval * 1.5, 3000);
+            await new Promise<void>(resolve =>
+              setTimeout(resolve, pollInterval),
+            );
+            continue;
+          }
 
-          const data = await statusResponse;
+          // Safety check: ensure we have valid status data
+          if (!data || !data.status) {
+            await new Promise<void>(resolve =>
+              setTimeout(resolve, pollInterval),
+            );
+            continue;
+          }
 
-          if (data?.status === 'completed') {
-            setStatus(data.status);
+          // Update status for any valid status
+          setStatus(data.status);
 
+          if (data.status === 'completed') {
             const messagesResponse = await fetchHelper(
               'getMessages',
               {
@@ -154,11 +177,6 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
               ) {
-                console.log(
-                  '🔵 messageType',
-                  messageType,
-                  messagesResponse.data[0].content[0].text.value,
-                );
                 getTopicFromResponse(
                   messagesResponse.data[0].content[0].text.value,
                 );
@@ -224,30 +242,36 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                       responseData['Identified Question'] || '',
                     );
                     setPossibleAnswers(answers);
-                  } else {
-                    console.log('⚠️ No answers found in response');
                   }
                 } catch (parseError) {
                   console.error(
                     '❌ Failed to parse response as JSON:',
                     parseError,
                   );
-                  console.log('📄 Raw response was:', responseText);
                 }
-              } else {
-                console.warn('⚠️ No message content found in response');
               }
             }
             break;
           }
 
-          if (['failed', 'cancelled', 'expired'].includes(data?.status)) {
-            // console.error(`❌ Run ${data?.status}`);
-            // setError(`Run ${data?.status}`);
+          if (['failed', 'cancelled', 'expired'].includes(data.status)) {
+            console.error(`❌ Run ${data.status}`);
+            setError(`Run ${data.status}`);
+            setStatus(data.status as any);
             break;
           }
 
-          await new Promise<void>(resolve => setTimeout(resolve, 500));
+          // Adaptive polling: start fast, then slow down
+          // For the first 5 polls, use shorter intervals
+          if (pollCount <= 5) {
+            pollInterval = 300; // 300ms for first 5 polls
+          } else if (pollCount <= 15) {
+            pollInterval = 800; // 800ms for next 10 polls
+          } else {
+            pollInterval = 1500; // 1.5s for remaining polls
+          }
+
+          await new Promise<void>(resolve => setTimeout(resolve, pollInterval));
         }
 
         if (pollCount >= maxPolls) {
@@ -256,7 +280,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
           );
           setError('Polling timed out after maximum attempts');
         }
-      } catch (err: unknown) {
+      } catch (err) {
         console.error('❌ Error during polling:', err);
         if (isSubscribed) {
           setError(
@@ -266,9 +290,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
       }
     };
 
-    if (threadId && runId) {
-      pollStatus();
-    }
+    pollStatus();
 
     return () => {
       isSubscribed = false;
@@ -351,7 +373,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   const createThreadIfNeeded = async () => {
     try {
-      console.log('🔄 Creating new thread...');
       // Otherwise create a new thread
       const response = await fetchHelper('createThread', {}, {});
       const data = await response;

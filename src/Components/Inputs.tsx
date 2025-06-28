@@ -27,6 +27,7 @@ interface InputsProps {
 
 export interface InputsRef {
   clearInput: () => void;
+  setInput: (text: string) => void;
 }
 
 const {width, height} = Dimensions.get('window');
@@ -52,6 +53,12 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
         setInputText('');
         if (onInputChange) {
           onInputChange('');
+        }
+      },
+      setInput: (text: string) => {
+        setInputText(text);
+        if (onInputChange) {
+          onInputChange(text);
         }
       },
     }));

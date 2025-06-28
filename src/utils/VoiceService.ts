@@ -198,7 +198,6 @@ class VoiceService {
   }
 
   public async stopListening(): Promise<boolean> {
-    console.log('stopping voice recognition inside stopListening');
     if (!this.isListening) {
       return true;
     }

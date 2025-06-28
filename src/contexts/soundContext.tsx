@@ -16,7 +16,6 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
   useEffect(() => {
     const sound = new Sound('snap.mp3', Sound.MAIN_BUNDLE, error => {
       if (error) {
-        console.log('Failed to load the sound', error);
         return;
       }
       sound.setVolume(1.0);
@@ -35,7 +34,6 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
         soundRef.current.stop(() => {
           // Get the duration of the sound
           const duration = soundRef.current?.getDuration() || 0;
-          console.log('Sound duration:', duration);
 
           // Reset sound to beginning and set loops
           if (soundRef.current) {
@@ -45,14 +43,12 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
             soundRef.current.play(success => {
               if (!success) {
                 // If play failed, resolve immediately
-                console.log('Sound play failed');
                 resolve(false);
                 return;
               }
 
               // Wait for the full sound duration before resolving
               setTimeout(() => {
-                console.log('Sound play complete');
                 resolve(true);
               }, Math.max(100, duration * 100)); // At least 1 second, convert to milliseconds
             });
@@ -61,7 +57,6 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
           }
         });
       } else {
-        console.log('No sound available');
         resolve(false);
       }
     });
@@ -75,7 +70,6 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
 
       const sound = new Sound(cleanPath, '', error => {
         if (error) {
-          console.log('Failed to load the sound:', cleanPath, error);
           resolve(false);
           return;
         }
@@ -85,7 +79,6 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
 
         sound.play(success => {
           if (!success) {
-            console.log('Sound play failed for:', cleanPath);
             sound.release();
             resolve(false);
             return;
@@ -93,10 +86,8 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
 
           // Get the duration and wait for it to complete
           const duration = sound.getDuration();
-          console.log('Playing sound:', cleanPath, 'Duration:', duration);
 
           setTimeout(() => {
-            console.log('Sound play complete for:', cleanPath);
             sound.release();
             resolve(true);
           }, Math.max(100, duration * 1000)); // Convert to milliseconds

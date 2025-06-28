@@ -20,12 +20,12 @@ import {Auth0Provider} from 'react-native-auth0';
 import WakeWordService from './utils/wakewordService';
 import {Mixpanel} from 'mixpanel-react-native';
 import Orientation from 'react-native-orientation-locker';
+import fetchHelper from './utils/fetcher';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
 
   // Lock to landscape orientation as early as possible
-  console.log('🔄 Attempting to lock orientation to landscape...');
   Orientation.lockToLandscapeLeft();
 
   const trackAutomaticEvents = true;
@@ -39,7 +39,6 @@ const App = () => {
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
     // Force landscape orientation immediately
-    console.log('🔄 UseEffect: Locking orientation to landscape...');
     Orientation.lockToLandscapeLeft();
 
     const initServices = async () => {
@@ -49,8 +48,52 @@ const App = () => {
 
     initServices();
 
-    // Handle app state changes for Vosk model management
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {};
+    // Handle app state changes for wake word and resource management
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      const wakeWordService = WakeWordService.getInstance();
+
+      if (nextAppState === 'background') {
+        // Stop wake word service when app goes to background to save battery and memory
+        try {
+          await wakeWordService.stopListening();
+        } catch (error) {
+          console.error(
+            'Error stopping wake word service on background:',
+            error,
+          );
+        }
+      } else if (
+        nextAppState === 'active' &&
+        appState.current === 'background'
+      ) {
+        // App is coming back to foreground - send wakeup call to backend
+
+        try {
+          await fetchHelper('wakeup', {}, {});
+        } catch (error) {
+          console.error('Error sending wakeup call to backend:', error);
+        }
+
+        // Restart wake word service when app comes back to foreground
+        try {
+          await wakeWordService.startListening();
+        } catch (error) {
+          console.error(
+            'Error restarting wake word service on foreground:',
+            error,
+          );
+        }
+      } else if (nextAppState === 'active' && appState.current === 'inactive') {
+        // App is being opened for the first time or from inactive state
+        try {
+          await fetchHelper('wakeup', {}, {});
+        } catch (error) {
+          console.error('Error sending wakeup call to backend:', error);
+        }
+      }
+
+      appState.current = nextAppState;
+    };
 
     const subscription = AppState.addEventListener(
       'change',
@@ -60,6 +103,8 @@ const App = () => {
     // Clean up resources when app is closed
     return () => {
       TTSService.shutdown();
+      // Clean up wake word service when app closes
+      WakeWordService.getInstance().cleanup();
       subscription?.remove();
     };
   }, []);

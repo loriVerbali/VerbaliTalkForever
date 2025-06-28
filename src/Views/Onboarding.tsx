@@ -85,7 +85,7 @@ const onboardingSteps = [
 const OnboardingScreen: React.FC = () => {
   const navigation = useNavigation();
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
-  const {setItem} = useAppSettings();
+  const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
   const {completeOnboarding} = useContext(OnboardingContext);
   const [currentStep, setCurrentStep] = useState(0);
@@ -103,7 +103,75 @@ const OnboardingScreen: React.FC = () => {
   const [locationPermissionSuccess, setLocationPermissionSuccess] =
     useState(false);
   const [specialPlacesCompleted, setSpecialPlacesCompleted] = useState(false);
+  const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
+    'easy',
+  );
+
+  // Load conversation mode setting
+  useEffect(() => {
+    const loadConversationMode = async () => {
+      try {
+        const savedConversationMode = await getItem('conversationMode');
+        setConversationMode(
+          (savedConversationMode as 'easy' | 'advanced') || 'easy',
+        );
+      } catch (error) {
+        console.error('Error loading conversation mode:', error);
+      }
+    };
+    loadConversationMode();
+  }, []);
+
+  const handleBack = () => {
+    // Handle going back while skipping family members in easy mode
+    const shouldSkipBackFromAdminCode =
+      conversationMode === 'easy' &&
+      onboardingSteps[currentStep].id === 'admin-code';
+
+    if (shouldSkipBackFromAdminCode) {
+      // Go back to gender step instead of family members
+      const genderIndex = onboardingSteps.findIndex(
+        step => step.id === 'gender',
+      );
+      if (genderIndex !== -1) {
+        setCurrentStep(genderIndex);
+        return;
+      }
+    }
+
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   const handleNext = async () => {
+    // Skip family members step if in easy mode
+    const shouldSkipFamilyMembers =
+      conversationMode === 'easy' &&
+      onboardingSteps[currentStep].id === 'gender' &&
+      currentStep < onboardingSteps.length - 1;
+
+    const shouldSkipFromFamilyMembers =
+      conversationMode === 'easy' &&
+      onboardingSteps[currentStep].id === 'Family Members';
+
+    if (shouldSkipFamilyMembers) {
+      // Skip directly to admin-code step
+      const adminCodeIndex = onboardingSteps.findIndex(
+        step => step.id === 'admin-code',
+      );
+      if (adminCodeIndex !== -1) {
+        setCurrentStep(adminCodeIndex);
+        return;
+      }
+    }
+
+    if (shouldSkipFromFamilyMembers) {
+      // Skip to next step after family members
+      setCurrentStep(currentStep + 1);
+      return;
+    }
+
     if (currentStep < onboardingSteps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -139,39 +207,30 @@ const OnboardingScreen: React.FC = () => {
             <View style={styles.gridItem}>
               <View style={styles.gridImageContainer}>
                 <FastImage
-                  source={require('../assets/shortCuts/fun/game.png')}
+                  source={require('../assets/shortCuts/fun/game.jpg')}
                   style={styles.welcomeImage}
                   resizeMode={FastImage.resizeMode.contain}
                 />
-              </View>
-              <View style={styles.gridLabelContainer}>
-                <Text style={styles.labelGrid}>Game</Text>
               </View>
             </View>
 
             <View style={styles.gridItem}>
               <View style={styles.gridImageContainer}>
                 <FastImage
-                  source={require('../assets/shortCuts/wantNeed/eat.png')}
+                  source={require('../assets/shortCuts/wantNeed/eat.jpg')}
                   style={styles.welcomeImage}
                   resizeMode={FastImage.resizeMode.contain}
                 />
-              </View>
-              <View style={styles.gridLabelContainer}>
-                <Text style={styles.labelGrid}>Eat</Text>
               </View>
             </View>
 
             <View style={styles.gridItem}>
               <View style={styles.gridImageContainer}>
                 <FastImage
-                  source={require('../assets/shortCuts/fun/outside.png')}
+                  source={require('../assets/shortCuts/fun/outside.jpg')}
                   style={styles.welcomeImage}
                   resizeMode={FastImage.resizeMode.contain}
                 />
-              </View>
-              <View style={styles.gridLabelContainer}>
-                <Text style={styles.labelGrid}>Go Outside</Text>
               </View>
             </View>
           </View>
@@ -645,9 +704,7 @@ const OnboardingScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       {currentStep > 0 && (
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => setCurrentStep(currentStep - 1)}>
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
       )}
@@ -659,12 +716,22 @@ const OnboardingScreen: React.FC = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}>
           <View style={styles.stepIndicator}>
-            {onboardingSteps.map((_, index) => (
-              <View
-                key={index}
-                style={[styles.dot, currentStep === index && styles.activeDot]}
-              />
-            ))}
+            {onboardingSteps.map((step, index) => {
+              // Hide family members step indicator in easy mode
+              if (conversationMode === 'easy' && step.id === 'Family Members') {
+                return null;
+              }
+
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    currentStep === index && styles.activeDot,
+                  ]}
+                />
+              );
+            })}
           </View>
 
           <View style={styles.content}>
@@ -682,7 +749,8 @@ const OnboardingScreen: React.FC = () => {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <Text style={styles.question}>
+                  <Text
+                    style={isTablet ? styles.questionTablet : styles.question}>
                     {currentStepData.question}
                   </Text>
                 )}
@@ -818,6 +886,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   question: {
+    fontSize: Math.min(22, width * 0.05),
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
+    lineHeight: Math.min(40, width * 0.1),
+  },
+  questionTablet: {
     fontSize: Math.min(32, width * 0.08),
     fontWeight: 'bold',
     textAlign: 'center',
@@ -950,7 +1025,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   welcomeContainer: {
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
     width: '90%',
     flexDirection: 'row',
@@ -959,6 +1034,7 @@ const styles = StyleSheet.create({
   welcomeImage: {
     width: width * 0.15,
     height: width * 0.15,
+    borderRadius: 16,
   },
   nameContainer: {
     flexDirection: 'row',

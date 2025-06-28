@@ -15,6 +15,12 @@ import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
 import HomeButton from '../Components/HomeButton';
 import {useAdmin} from '../contexts/adminContext';
+import {
+  GestureHandlerRootView,
+  PanGestureHandler,
+  State,
+} from 'react-native-gesture-handler';
+import {useConnection} from '../utils/connection';
 
 // General assets
 import micImg from '../assets/microphone.png';
@@ -23,37 +29,37 @@ import matalkImg from '../assets/matalk.png';
 import dogImg from '../assets/welcome.png';
 
 // Attention category images
-import hiImg from '../assets/shortCuts/attention/hi.png';
-import lookImg from '../assets/shortCuts/attention/look.png';
-import listenImg from '../assets/shortCuts/attention/listen.png';
-import myturnImg from '../assets/shortCuts/attention/myturn.png';
-import questionImg from '../assets/shortCuts/attention/question.png';
-import stopImg from '../assets/shortCuts/attention/Stop.png';
+import hiImg from '../assets/shortCuts/attention/hi.jpg';
+import lookImg from '../assets/shortCuts/attention/look.jpg';
+import listenImg from '../assets/shortCuts/attention/listen.jpg';
+import myturnImg from '../assets/shortCuts/attention/myturn.jpg';
+import questionImg from '../assets/shortCuts/attention/question.jpg';
+import stopImg from '../assets/shortCuts/attention/stop.jpg';
 
 // Want/Need category images
-import eatImg from '../assets/shortCuts/wantNeed/eat.png';
-import drinkImg from '../assets/shortCuts/wantNeed/drink.png';
-import bathroomImg from '../assets/shortCuts/wantNeed/bathroom.png';
-import sleepImg from '../assets/shortCuts/wantNeed/sleep.png';
-import helpImg from '../assets/shortCuts/wantNeed/help.png';
-import moreImg from '../assets/shortCuts/wantNeed/more.png';
-import allDoneImg from '../assets/shortCuts/wantNeed/alldone.png';
+import eatImg from '../assets/shortCuts/wantNeed/eat.jpg';
+import drinkImg from '../assets/shortCuts/wantNeed/drink.jpg';
+import bathroomImg from '../assets/shortCuts/wantNeed/bathroom.jpg';
+import sleepImg from '../assets/shortCuts/wantNeed/sleep.jpg';
+import helpImg from '../assets/shortCuts/wantNeed/help.jpg';
+import moreImg from '../assets/shortCuts/wantNeed/more.jpg';
+import allDoneImg from '../assets/shortCuts/wantNeed/alldone.jpg';
 
 // Fun category images
-import playImg from '../assets/shortCuts/fun/play.png';
-import outsideImg from '../assets/shortCuts/fun/outside.png';
-import mineImg from '../assets/shortCuts/fun/mine.png';
+import playImg from '../assets/shortCuts/fun/play.jpg';
+import outsideImg from '../assets/shortCuts/fun/outside.jpg';
+import mineImg from '../assets/shortCuts/fun/mine.jpg';
 import goImg from '../assets/shortCuts/fun/go.png';
-import gameImg from '../assets/shortCuts/fun/game.png';
-import bookImg from '../assets/shortCuts/fun/book.png';
+import gameImg from '../assets/shortCuts/fun/game.jpg';
+import bookImg from '../assets/shortCuts/fun/book.jpg';
 
 // Positions category images
-import upImg from '../assets/shortCuts/positions/up.png';
-import downImg from '../assets/shortCuts/positions/down.png';
-import inImg from '../assets/shortCuts/positions/in.png';
-import outImg from '../assets/shortCuts/positions/out.png';
-import onImg from '../assets/shortCuts/positions/on.png';
-import underImg from '../assets/shortCuts/positions/under.png';
+import upImg from '../assets/shortCuts/positions/up.jpg';
+import downImg from '../assets/shortCuts/positions/down.jpg';
+import inImg from '../assets/shortCuts/positions/in.jpg';
+import outImg from '../assets/shortCuts/positions/out.jpg';
+import onImg from '../assets/shortCuts/positions/on.jpg';
+import underImg from '../assets/shortCuts/positions/under.jpg';
 
 // Actions category images
 import openImg from '../assets/shortCuts/actions/open.png';
@@ -65,37 +71,42 @@ import takeImg from '../assets/shortCuts/actions/take.png';
 import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
+const attentionImg = require('../assets/shortCuts/attention.jpg');
+const iWantNeedImg = require('../assets/shortCuts/IwantNeed.jpg');
+const actionsImg = require('../assets/shortCuts/actions.jpg');
+const funImg = require('../assets/shortCuts/fun.jpg');
+const positionsImg = require('../assets/shortCuts/positions.jpg');
 
 // Top category data with emoji representations (since we don't have the actual images)
 const topCategories = [
   {
     label: 'Attention',
-    image: boyImg,
-    backgroundColor: '#6CAD50',
+    image: attentionImg,
+    backgroundColor: '#FFFFFF',
     description: 'Feeling healthy and strong',
   },
   {
     label: 'I want/need',
-    image: boyImg,
-    backgroundColor: '#4FC3F7',
+    image: iWantNeedImg,
+    backgroundColor: '#FFFFFF',
     description: 'Feeling happy and loved',
   },
   {
     label: 'Actions',
-    image: boyImg,
-    backgroundColor: '#F44336',
+    image: actionsImg,
+    backgroundColor: '#FFFFFF',
     description: 'Feeling pain or discomfort',
   },
   {
     label: 'Fun',
-    image: boyImg,
-    backgroundColor: '#F44336',
+    image: funImg,
+    backgroundColor: '#FFFFFF',
     description: 'Feeling pain or discomfort',
   },
   {
     label: 'Positions',
-    image: boyImg,
-    backgroundColor: '#F44336',
+    image: positionsImg,
+    backgroundColor: '#FFFFFF',
     description: 'Feeling pain or discomfort',
   },
 ];
@@ -153,6 +164,8 @@ const positions = [
 const ShortCuts = () => {
   const navigation = useNavigation();
   const {isTablet} = useAdmin();
+  const {isConnected} = useConnection();
+  const [connectionState, setConnectionState] = useState(isConnected);
 
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
@@ -163,6 +176,15 @@ const ShortCuts = () => {
     | 'positions';
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryKey>('attention');
+
+  // Define category order for swipe navigation (matches visual left-to-right order)
+  const categoryOrder: CategoryKey[] = [
+    'attention',
+    'iWantNeed',
+    'actions',
+    'fun',
+    'positions',
+  ];
 
   // Use useRef to maintain animated values across renders
   const animatedValues = useRef({
@@ -236,6 +258,47 @@ const ShortCuts = () => {
     TTSService.speak(feeling, true); // Use immediate=true to prioritize this speech
   };
 
+  // Handle swipe gestures
+  const handleSwipe = (direction: 'left' | 'right') => {
+    const currentIndex = categoryOrder.indexOf(selectedCategory);
+    let nextIndex;
+
+    if (direction === 'right') {
+      // Swipe right - go to next category
+      nextIndex = (currentIndex + 1) % categoryOrder.length;
+    } else {
+      // Swipe left - go to previous category
+      nextIndex =
+        (currentIndex - 1 + categoryOrder.length) % categoryOrder.length;
+    }
+
+    const nextCategory = categoryOrder[nextIndex];
+    handleCategoryPress(nextCategory);
+  };
+
+  const onPanGestureEvent = (event: any) => {
+    const {translationX, velocityX, state} = event.nativeEvent;
+
+    if (state === State.END) {
+      // Determine swipe direction based on translation and velocity
+      const threshold = 50; // Minimum distance for swipe
+      const velocityThreshold = 500; // Minimum velocity for swipe
+
+      if (
+        Math.abs(translationX) > threshold ||
+        Math.abs(velocityX) > velocityThreshold
+      ) {
+        if (translationX > 0 || velocityX > 0) {
+          // Swiped right
+          handleSwipe('right');
+        } else {
+          // Swiped left
+          handleSwipe('left');
+        }
+      }
+    }
+  };
+
   // Determine which feeling cards to display based on selected category
   const getFeelingsToDisplay = () => {
     switch (selectedCategory) {
@@ -268,408 +331,423 @@ const ShortCuts = () => {
   const emptyPlaceholders = lastRow.length < 4 ? 4 - lastRow.length : 0;
 
   return (
-    <View style={styles.screen}>
-      {/* Microphone Button */}
-      <View style={styles.micIcon}>
-        <FastImage source={micImg} style={responsiveValues.iconSize} />
-      </View>
+    <GestureHandlerRootView style={styles.screen}>
+      <View style={styles.screen}>
+        {/* Microphone Button */}
+        <View style={styles.micIcon}>
+          <FastImage
+            source={
+              connectionState
+                ? require('../assets/michrophone.gif')
+                : require('../assets/noMic.png')
+            }
+            style={responsiveValues.iconSize}
+          />
+        </View>
 
-      <View style={styles.matalkIcon}>
-        <FastImage source={matalkImg} style={responsiveValues.iconSize} />
-      </View>
+        <View style={styles.matalkIcon}>
+          <FastImage source={matalkImg} style={responsiveValues.iconSize} />
+        </View>
 
-      {/* Home Button */}
-      <HomeButton zIndex={5} navigation={navigation} />
+        {/* Home Button */}
+        <HomeButton zIndex={5} navigation={navigation} />
 
-      <View
-        style={[
-          styles.scrollContent,
-          {
-            width: responsiveValues.scrollContentWidth,
-            marginTop: responsiveValues.marginTop,
-          },
-        ]}>
         <View
           style={[
-            styles.topRow,
+            styles.scrollContent,
             {
-              height: responsiveValues.topRowHeight,
-              gap: responsiveValues.topRowGap,
-              marginBottom: responsiveValues.marginBottom,
+              width: responsiveValues.scrollContentWidth,
+              marginTop: responsiveValues.marginTop,
             },
           ]}>
-          <Animated.View
+          <View
             style={[
-              styles.topItemWrapper,
+              styles.topRow,
               {
-                width: responsiveValues.topItemWidth,
-                height: responsiveValues.topItemHeight,
-              },
-              {
-                transform: [
-                  {
-                    translateY: animatedValues.attention.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -15],
-                    }),
-                  },
-                ],
+                height: responsiveValues.topRowHeight,
+                gap: responsiveValues.topRowGap,
+                marginBottom: responsiveValues.marginBottom,
               },
             ]}>
-            <Pressable
-              onPress={() => handleCategoryPress('attention')}
-              style={({pressed}) => [
-                styles.topItem,
+            <Animated.View
+              style={[
+                styles.topItemWrapper,
                 {
-                  borderRadius: responsiveValues.borderRadius,
-                  shadowRadius: responsiveValues.shadowRadius,
-                  shadowOffset: responsiveValues.shadowOffset,
-                  elevation: responsiveValues.elevation,
+                  width: responsiveValues.topItemWidth,
+                  height: responsiveValues.topItemHeight,
                 },
-                selectedCategory === 'attention' && styles.topItemSelected,
-                pressed && styles.buttonPressed,
-              ]}>
-              <View
-                style={[
-                  styles.topImageContainer,
-                  {borderRadius: responsiveValues.borderRadius},
-                ]}>
-                <FastImage
-                  source={topCategories[0].image}
-                  style={[
-                    styles.imageTop,
-                    {backgroundColor: topCategories[0].backgroundColor},
-                  ]}
-                  resizeMode={
-                    isTablet
-                      ? FastImage.resizeMode.cover
-                      : FastImage.resizeMode.contain
-                  }
-                />
-                <Text
-                  style={[
-                    styles.labelTop,
-                    {fontSize: responsiveValues.labelTopFontSize},
-                  ]}>
-                  {topCategories[0].label}
-                </Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.topItemWrapper,
-              {
-                width: responsiveValues.topItemWidth,
-                height: responsiveValues.topItemHeight,
-              },
-              {
-                transform: [
-                  {
-                    translateY: animatedValues.iWantNeed.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -15],
-                    }),
-                  },
-                ],
-              },
-            ]}>
-            <Pressable
-              onPress={() => handleCategoryPress('iWantNeed')}
-              style={({pressed}) => [
-                styles.topItem,
                 {
-                  borderRadius: responsiveValues.borderRadius,
-                  shadowRadius: responsiveValues.shadowRadius,
-                  shadowOffset: responsiveValues.shadowOffset,
-                  elevation: responsiveValues.elevation,
+                  transform: [
+                    {
+                      translateY: animatedValues.attention.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -15],
+                      }),
+                    },
+                  ],
                 },
-                selectedCategory === 'iWantNeed' && styles.topItemSelected,
-                pressed && styles.buttonPressed,
               ]}>
-              <View
-                style={[
-                  styles.topImageContainer,
-                  {borderRadius: responsiveValues.borderRadius},
-                ]}>
-                <FastImage
-                  source={topCategories[1].image}
-                  style={[
-                    styles.imageTop,
-                    {backgroundColor: topCategories[1].backgroundColor},
-                  ]}
-                  resizeMode={
-                    isTablet
-                      ? FastImage.resizeMode.cover
-                      : FastImage.resizeMode.contain
-                  }
-                />
-                <Text
-                  style={[
-                    styles.labelTop,
-                    {fontSize: responsiveValues.labelTopFontSize},
-                  ]}>
-                  {topCategories[1].label}
-                </Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.topItemWrapper,
-              {
-                width: responsiveValues.topItemWidth,
-                height: responsiveValues.topItemHeight,
-              },
-              {
-                transform: [
-                  {
-                    translateY: animatedValues.actions.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -15],
-                    }),
-                  },
-                ],
-              },
-            ]}>
-            <Pressable
-              onPress={() => handleCategoryPress('actions')}
-              style={({pressed}) => [
-                styles.topItem,
-                {
-                  borderRadius: responsiveValues.borderRadius,
-                  shadowRadius: responsiveValues.shadowRadius,
-                  shadowOffset: responsiveValues.shadowOffset,
-                  elevation: responsiveValues.elevation,
-                },
-                selectedCategory === 'actions' && styles.topItemSelected,
-                pressed && styles.buttonPressed,
-              ]}>
-              <View
-                style={[
-                  styles.topImageContainer,
-                  {borderRadius: responsiveValues.borderRadius},
-                ]}>
-                <FastImage
-                  source={topCategories[2].image}
-                  style={[
-                    styles.imageTop,
-                    {backgroundColor: topCategories[2].backgroundColor},
-                  ]}
-                  resizeMode={
-                    isTablet
-                      ? FastImage.resizeMode.cover
-                      : FastImage.resizeMode.contain
-                  }
-                />
-                <Text
-                  style={[
-                    styles.labelTop,
-                    {fontSize: responsiveValues.labelTopFontSize},
-                  ]}>
-                  {topCategories[2].label}
-                </Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.topItemWrapper,
-              {
-                width: responsiveValues.topItemWidth,
-                height: responsiveValues.topItemHeight,
-              },
-              {
-                transform: [
-                  {
-                    translateY: animatedValues.fun.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -15],
-                    }),
-                  },
-                ],
-              },
-            ]}>
-            <Pressable
-              onPress={() => handleCategoryPress('fun')}
-              style={({pressed}) => [
-                styles.topItem,
-                {
-                  borderRadius: responsiveValues.borderRadius,
-                  shadowRadius: responsiveValues.shadowRadius,
-                  shadowOffset: responsiveValues.shadowOffset,
-                  elevation: responsiveValues.elevation,
-                },
-                selectedCategory === 'fun' && styles.topItemSelected,
-                pressed && styles.buttonPressed,
-              ]}>
-              <View
-                style={[
-                  styles.topImageContainer,
-                  {borderRadius: responsiveValues.borderRadius},
-                ]}>
-                <FastImage
-                  source={topCategories[3].image}
-                  style={[
-                    styles.imageTop,
-                    {backgroundColor: topCategories[3].backgroundColor},
-                  ]}
-                  resizeMode={
-                    isTablet
-                      ? FastImage.resizeMode.cover
-                      : FastImage.resizeMode.contain
-                  }
-                />
-                <Text
-                  style={[
-                    styles.labelTop,
-                    {fontSize: responsiveValues.labelTopFontSize},
-                  ]}>
-                  {topCategories[3].label}
-                </Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.topItemWrapper,
-              {
-                width: responsiveValues.topItemWidth,
-                height: responsiveValues.topItemHeight,
-              },
-              {
-                transform: [
-                  {
-                    translateY: animatedValues.positions.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0, -15],
-                    }),
-                  },
-                ],
-              },
-            ]}>
-            <Pressable
-              onPress={() => handleCategoryPress('positions')}
-              style={({pressed}) => [
-                styles.topItem,
-                {
-                  borderRadius: responsiveValues.borderRadius,
-                  shadowRadius: responsiveValues.shadowRadius,
-                  shadowOffset: responsiveValues.shadowOffset,
-                  elevation: responsiveValues.elevation,
-                },
-                selectedCategory === 'positions' && styles.topItemSelected,
-                pressed && styles.buttonPressed,
-              ]}>
-              <View
-                style={[
-                  styles.topImageContainer,
-                  {borderRadius: responsiveValues.borderRadius},
-                ]}>
-                <FastImage
-                  source={topCategories[4].image}
-                  style={[
-                    styles.imageTop,
-                    {backgroundColor: topCategories[4].backgroundColor},
-                  ]}
-                  resizeMode={
-                    isTablet
-                      ? FastImage.resizeMode.cover
-                      : FastImage.resizeMode.contain
-                  }
-                />
-                <Text
-                  style={[
-                    styles.labelTop,
-                    {fontSize: responsiveValues.labelTopFontSize},
-                  ]}>
-                  {topCategories[4].label}
-                </Text>
-              </View>
-            </Pressable>
-          </Animated.View>
-        </View>
-      </View>
-
-      {/* Grid Items - Feelings */}
-      <View
-        style={[
-          styles.grid,
-          {width: isTablet ? '80%' : '85%', rowGap: responsiveValues.rowGap},
-        ]}>
-        {rows.map((row, rowIndex) => (
-          <React.Fragment key={`row-${rowIndex}`}>
-            {row.map((feeling, colIndex) => (
               <Pressable
-                key={`item-${rowIndex}-${colIndex}`}
+                onPress={() => handleCategoryPress('attention')}
                 style={({pressed}) => [
-                  styles.gridItem,
+                  styles.topItem,
                   {
-                    width: responsiveValues.gridWidth,
                     borderRadius: responsiveValues.borderRadius,
                     shadowRadius: responsiveValues.shadowRadius,
                     shadowOffset: responsiveValues.shadowOffset,
                     elevation: responsiveValues.elevation,
-                    marginBottom: responsiveValues.gridItemMarginBottom,
                   },
+                  selectedCategory === 'attention' && styles.topItemSelected,
                   pressed && styles.buttonPressed,
-                ]}
-                onPress={() => handleFeelingPress(feeling.label)}>
+                ]}>
                 <View
                   style={[
-                    styles.gridImageContainer,
-                    {
-                      backgroundColor: feeling.backgroundColor,
-                      height: responsiveValues.gridImageHeight,
-                      borderTopLeftRadius: 16,
-                      borderTopRightRadius: 16,
-                    },
+                    styles.topImageContainer,
+                    {borderRadius: responsiveValues.borderRadius},
                   ]}>
-                  <Image
-                    source={feeling.image}
-                    style={styles.imageGrid}
-                    resizeMode={isTablet ? 'cover' : 'contain'}
+                  <FastImage
+                    source={topCategories[0].image}
+                    style={[
+                      styles.imageTop,
+                      {backgroundColor: topCategories[0].backgroundColor},
+                    ]}
+                    resizeMode={
+                      isTablet
+                        ? FastImage.resizeMode.cover
+                        : FastImage.resizeMode.contain
+                    }
                   />
-                </View>
-                <View
-                  style={[
-                    styles.gridLabelContainer,
-                    {
-                      paddingVertical: responsiveValues.gridLabelPadding,
-                      borderBottomLeftRadius: responsiveValues.borderRadius,
-                      borderBottomRightRadius: responsiveValues.borderRadius,
-                    },
-                  ]}>
                   <Text
                     style={[
-                      styles.labelGrid,
-                      {fontSize: responsiveValues.labelGridFontSize},
+                      styles.labelTop,
+                      {fontSize: responsiveValues.labelTopFontSize},
                     ]}>
-                    {feeling.label}
+                    {topCategories[0].label}
                   </Text>
                 </View>
               </Pressable>
-            ))}
+            </Animated.View>
 
-            {/* Add empty placeholders to complete the last row */}
-            {rowIndex === rows.length - 1 &&
-              Array.from({length: emptyPlaceholders}).map((_, index) => (
+            <Animated.View
+              style={[
+                styles.topItemWrapper,
+                {
+                  width: responsiveValues.topItemWidth,
+                  height: responsiveValues.topItemHeight,
+                },
+                {
+                  transform: [
+                    {
+                      translateY: animatedValues.iWantNeed.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -15],
+                      }),
+                    },
+                  ],
+                },
+              ]}>
+              <Pressable
+                onPress={() => handleCategoryPress('iWantNeed')}
+                style={({pressed}) => [
+                  styles.topItem,
+                  {
+                    borderRadius: responsiveValues.borderRadius,
+                    shadowRadius: responsiveValues.shadowRadius,
+                    shadowOffset: responsiveValues.shadowOffset,
+                    elevation: responsiveValues.elevation,
+                  },
+                  selectedCategory === 'iWantNeed' && styles.topItemSelected,
+                  pressed && styles.buttonPressed,
+                ]}>
                 <View
-                  key={`empty-${index}`}
                   style={[
-                    styles.gridItem,
-                    styles.emptyItem,
-                    {width: responsiveValues.gridWidth},
-                  ]}
-                />
-              ))}
-          </React.Fragment>
-        ))}
+                    styles.topImageContainer,
+                    {borderRadius: responsiveValues.borderRadius},
+                  ]}>
+                  <FastImage
+                    source={topCategories[1].image}
+                    style={[
+                      styles.imageTop,
+                      {backgroundColor: topCategories[1].backgroundColor},
+                    ]}
+                    resizeMode={
+                      isTablet
+                        ? FastImage.resizeMode.cover
+                        : FastImage.resizeMode.contain
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.labelTop,
+                      {fontSize: responsiveValues.labelTopFontSize},
+                    ]}>
+                    {topCategories[1].label}
+                  </Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.topItemWrapper,
+                {
+                  width: responsiveValues.topItemWidth,
+                  height: responsiveValues.topItemHeight,
+                },
+                {
+                  transform: [
+                    {
+                      translateY: animatedValues.actions.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -15],
+                      }),
+                    },
+                  ],
+                },
+              ]}>
+              <Pressable
+                onPress={() => handleCategoryPress('actions')}
+                style={({pressed}) => [
+                  styles.topItem,
+                  {
+                    borderRadius: responsiveValues.borderRadius,
+                    shadowRadius: responsiveValues.shadowRadius,
+                    shadowOffset: responsiveValues.shadowOffset,
+                    elevation: responsiveValues.elevation,
+                  },
+                  selectedCategory === 'actions' && styles.topItemSelected,
+                  pressed && styles.buttonPressed,
+                ]}>
+                <View
+                  style={[
+                    styles.topImageContainer,
+                    {borderRadius: responsiveValues.borderRadius},
+                  ]}>
+                  <FastImage
+                    source={topCategories[2].image}
+                    style={[
+                      styles.imageTop,
+                      {backgroundColor: topCategories[2].backgroundColor},
+                    ]}
+                    resizeMode={
+                      isTablet
+                        ? FastImage.resizeMode.cover
+                        : FastImage.resizeMode.contain
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.labelTop,
+                      {fontSize: responsiveValues.labelTopFontSize},
+                    ]}>
+                    {topCategories[2].label}
+                  </Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.topItemWrapper,
+                {
+                  width: responsiveValues.topItemWidth,
+                  height: responsiveValues.topItemHeight,
+                },
+                {
+                  transform: [
+                    {
+                      translateY: animatedValues.fun.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -15],
+                      }),
+                    },
+                  ],
+                },
+              ]}>
+              <Pressable
+                onPress={() => handleCategoryPress('fun')}
+                style={({pressed}) => [
+                  styles.topItem,
+                  {
+                    borderRadius: responsiveValues.borderRadius,
+                    shadowRadius: responsiveValues.shadowRadius,
+                    shadowOffset: responsiveValues.shadowOffset,
+                    elevation: responsiveValues.elevation,
+                  },
+                  selectedCategory === 'fun' && styles.topItemSelected,
+                  pressed && styles.buttonPressed,
+                ]}>
+                <View
+                  style={[
+                    styles.topImageContainer,
+                    {borderRadius: responsiveValues.borderRadius},
+                  ]}>
+                  <FastImage
+                    source={topCategories[3].image}
+                    style={[
+                      styles.imageTop,
+                      {backgroundColor: topCategories[3].backgroundColor},
+                    ]}
+                    resizeMode={
+                      isTablet
+                        ? FastImage.resizeMode.cover
+                        : FastImage.resizeMode.contain
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.labelTop,
+                      {fontSize: responsiveValues.labelTopFontSize},
+                    ]}>
+                    {topCategories[3].label}
+                  </Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.topItemWrapper,
+                {
+                  width: responsiveValues.topItemWidth,
+                  height: responsiveValues.topItemHeight,
+                },
+                {
+                  transform: [
+                    {
+                      translateY: animatedValues.positions.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, -15],
+                      }),
+                    },
+                  ],
+                },
+              ]}>
+              <Pressable
+                onPress={() => handleCategoryPress('positions')}
+                style={({pressed}) => [
+                  styles.topItem,
+                  {
+                    borderRadius: responsiveValues.borderRadius,
+                    shadowRadius: responsiveValues.shadowRadius,
+                    shadowOffset: responsiveValues.shadowOffset,
+                    elevation: responsiveValues.elevation,
+                  },
+                  selectedCategory === 'positions' && styles.topItemSelected,
+                  pressed && styles.buttonPressed,
+                ]}>
+                <View
+                  style={[
+                    styles.topImageContainer,
+                    {borderRadius: responsiveValues.borderRadius},
+                  ]}>
+                  <FastImage
+                    source={topCategories[4].image}
+                    style={[
+                      styles.imageTop,
+                      {backgroundColor: topCategories[4].backgroundColor},
+                    ]}
+                    resizeMode={
+                      isTablet
+                        ? FastImage.resizeMode.cover
+                        : FastImage.resizeMode.contain
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.labelTop,
+                      {fontSize: responsiveValues.labelTopFontSize},
+                    ]}>
+                    {topCategories[4].label}
+                  </Text>
+                </View>
+              </Pressable>
+            </Animated.View>
+          </View>
+        </View>
+
+        {/* Grid Items - Feelings with Gesture Handler */}
+        <PanGestureHandler onHandlerStateChange={onPanGestureEvent}>
+          <View
+            style={[
+              styles.grid,
+              {
+                width: isTablet ? '80%' : '85%',
+                rowGap: responsiveValues.rowGap,
+              },
+            ]}>
+            {rows.map((row, rowIndex) => (
+              <React.Fragment key={`row-${rowIndex}`}>
+                {row.map((feeling, colIndex) => (
+                  <Pressable
+                    key={`item-${rowIndex}-${colIndex}`}
+                    style={({pressed}) => [
+                      styles.gridItem,
+                      {
+                        width: responsiveValues.gridWidth,
+                        borderRadius: responsiveValues.borderRadius,
+                        shadowRadius: responsiveValues.shadowRadius,
+                        shadowOffset: responsiveValues.shadowOffset,
+                        elevation: responsiveValues.elevation,
+                        marginBottom: responsiveValues.gridItemMarginBottom,
+                      },
+                      pressed && styles.buttonPressed,
+                    ]}
+                    onPress={() => handleFeelingPress(feeling.label)}>
+                    <View
+                      style={[
+                        styles.gridImageContainer,
+                        {
+                          backgroundColor: feeling.backgroundColor,
+                          height: responsiveValues.gridImageHeight,
+                          borderTopLeftRadius: 16,
+                          borderTopRightRadius: 16,
+                        },
+                      ]}>
+                      <Image
+                        source={feeling.image}
+                        style={styles.imageGrid}
+                        resizeMode={isTablet ? 'cover' : 'contain'}
+                      />
+                    </View>
+                    <View
+                      style={[
+                        styles.gridLabelContainer,
+                        {
+                          paddingVertical: responsiveValues.gridLabelPadding,
+                          borderBottomLeftRadius: responsiveValues.borderRadius,
+                          borderBottomRightRadius:
+                            responsiveValues.borderRadius,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.labelGrid,
+                          {fontSize: responsiveValues.labelGridFontSize},
+                        ]}>
+                        {feeling.label}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+
+                {/* Add empty placeholders to complete the last row */}
+                {rowIndex === rows.length - 1 &&
+                  Array.from({length: emptyPlaceholders}).map((_, index) => (
+                    <View
+                      key={`empty-${index}`}
+                      style={[
+                        styles.gridItem,
+                        styles.emptyItem,
+                        {width: responsiveValues.gridWidth},
+                      ]}
+                    />
+                  ))}
+              </React.Fragment>
+            ))}
+          </View>
+        </PanGestureHandler>
       </View>
-    </View>
+    </GestureHandlerRootView>
   );
 };
 
@@ -751,8 +829,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#146CF0',
   },
   imageTop: {
-    width: '100%',
-    height: '90%',
+    width: '80%',
+    height: '80%',
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -100,22 +100,18 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
       // Get saved special places
       const specialPlacesData = await getItem('specialPlaces');
       if (!specialPlacesData) {
-        console.log('No special places data found');
         return null;
       }
 
       const specialPlaces: SpecialPlace[] = JSON.parse(specialPlacesData);
-      console.log('Found special places:', specialPlaces.length);
 
       // Check each special place
       for (const place of specialPlaces) {
-        console.log(`Checking place: ${place.type} - ${place.address}`);
         if (place.address && place.address.trim()) {
           let isMatch = false;
 
           // If this place was set using current location, try to get its coordinates for comparison
           if (place.isCurrentLocation && currentLat && currentLon) {
-            console.log('Trying coordinate-based matching for', place.type);
             // For places set as "current location", we can try geocoding the saved address
             // to get coordinates and compare distance
             try {
@@ -136,14 +132,10 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
                   savedLat,
                   savedLon,
                 );
-                console.log(
-                  `Distance to ${place.type}: ${distance.toFixed(3)} km`,
-                );
 
                 // If within 100 meters, consider it a match
                 if (distance < 0.1) {
                   isMatch = true;
-                  console.log(`Coordinate match found for ${place.type}`);
                 }
               }
             } catch (error) {
@@ -153,7 +145,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
 
           // If coordinate matching didn't work or wasn't applicable, fall back to address matching
           if (!isMatch) {
-            console.log('Trying address-based matching for', place.type);
             // Enhanced address matching
             const placeAddressLower = place.address.toLowerCase();
             const currentAddressLower = currentAddress.toLowerCase();
@@ -183,9 +174,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
             const placeComponents = cleanAddress(placeAddressLower);
             const currentComponents = cleanAddress(currentAddressLower);
 
-            console.log(`Place components for ${place.type}:`, placeComponents);
-            console.log('Current components:', currentComponents);
-
             // Count matching components with fuzzy matching
             let matchCount = 0;
             for (const placeComp of placeComponents) {
@@ -197,9 +185,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
                   currentComp.includes(placeComp)
                 ) {
                   matchCount++;
-                  console.log(
-                    `Exact match found: ${placeComp} <-> ${currentComp}`,
-                  );
                   break; // Don't count the same component multiple times
                 }
 
@@ -211,11 +196,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
                   );
                   if (similarity > 0.8) {
                     matchCount += 0.5; // Partial match
-                    console.log(
-                      `Fuzzy match found: ${placeComp} <-> ${currentComp} (${similarity.toFixed(
-                        2,
-                      )})`,
-                    );
                     break;
                   }
                 }
@@ -226,22 +206,14 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
             const matchRatio = matchCount / Math.max(placeComponents.length, 1);
             const minMatchRatio = placeComponents.length <= 2 ? 0.8 : 0.6; // Higher threshold for shorter addresses
 
-            console.log(
-              `Match ratio for ${place.type}: ${matchRatio.toFixed(
-                2,
-              )} (threshold: ${minMatchRatio})`,
-            );
-
             if (matchRatio >= minMatchRatio && matchCount >= 1) {
               isMatch = true;
-              console.log(`Address match found for ${place.type}`);
             }
           }
 
           if (isMatch) {
             const placeName =
               place.type.charAt(0).toUpperCase() + place.type.slice(1);
-            console.log(`Detected special place: ${placeName} (${place.type})`);
             return {
               type: place.type,
               name: placeName,
@@ -346,7 +318,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
   const reverseGeocode = async (lat: number, lon: number) => {
     try {
       const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
-      console.log('Reverse geocoding:', url);
 
       const response = await fetch(url);
       const data = await response.json();
@@ -367,7 +338,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
   const fetchWeatherData = async (lat: number, lon: number) => {
     try {
       const url = `https://api.weatherapi.com/v1/current.json?key=${WEATHER_API_KEY}&q=${lat},${lon}&aqi=no`;
-      console.log('Fetching weather from:', url);
 
       // Fetch both weather data and reverse geocoding in parallel
       const [weatherResponse, geocodeData] = await Promise.all([
@@ -392,14 +362,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
         const currentAddress =
           geocodeData?.display_name ||
           `${weatherData.location.name}, ${weatherData.location.region}`;
-        console.log('Checking special places for address:', currentAddress);
         const specialPlace = await checkSpecialPlaces(currentAddress, lat, lon);
-
-        if (specialPlace) {
-          console.log('Found special place match:', specialPlace);
-        } else {
-          console.log('No special place matches found');
-        }
 
         const locationData: LocationData = {
           name: weatherData.location.name,
@@ -431,7 +394,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
 
   // Main function to refresh weather data
   const refreshWeatherData = async () => {
-    console.log('refreshWeatherData');
     if (loading) return; // Prevent multiple simultaneous requests
 
     setLoading(true);
@@ -460,7 +422,6 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
 
   // Auto-refresh every 3 hours
   useEffect(() => {
-    console.log('wasLocationOnboarded', preferences.wasLocationOnboarded);
     const interval = setInterval(() => {
       if (isDataStale() && preferences.wasLocationOnboarded === '1') {
         refreshWeatherData();
@@ -500,76 +461,74 @@ export const getContextualInfo = (
   location: LocationData | null,
 ): string => {
   const now = new Date();
-  const dayOfWeek = now.toLocaleDateString('en-US', {weekday: 'long'});
-  const timeOfDay = now.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
 
-  // Determine time period
+  // Use more efficient date formatting
+  const dayOfWeek = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ][now.getDay()];
   const hour = now.getHours();
-  let timePeriod = '';
+  const minute = now.getMinutes();
+  const timeString = `${hour > 12 ? hour - 12 : hour === 0 ? 12 : hour}:${minute
+    .toString()
+    .padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+
+  // Determine time period more efficiently
+  let timePeriod = 'night';
   if (hour >= 5 && hour < 12) timePeriod = 'morning';
   else if (hour >= 12 && hour < 17) timePeriod = 'afternoon';
   else if (hour >= 17 && hour < 21) timePeriod = 'evening';
-  else timePeriod = 'night';
 
-  let contextInfo = `Current context: It's ${dayOfWeek} ${timePeriod} at ${timeOfDay}`;
+  // Build context string more efficiently
+  let contextParts = [`It's ${dayOfWeek} ${timePeriod} at ${timeString}`];
 
   if (location) {
-    // Check if user is at a special place
     if (location.specialPlace) {
-      contextInfo += `. Location: Currently at ${location.specialPlace.name}`;
+      contextParts.push(`Location: ${location.specialPlace.name}`);
 
       // Add context-specific information based on the special place
-      switch (location.specialPlace.type) {
-        case 'home':
-          contextInfo += ' (home environment - comfortable, familiar setting)';
-          break;
-        case 'school':
-          contextInfo += ' (school environment - learning, social interaction)';
-          break;
-        case 'therapy':
-          contextInfo +=
-            ' (therapy environment - supportive, therapeutic setting)';
-          break;
+      const placeContext = {
+        home: '(home environment)',
+        school: '(school environment)',
+        therapy: '(therapy environment)',
+      }[location.specialPlace.type];
+
+      if (placeContext) {
+        contextParts.push(placeContext);
       }
     } else {
-      contextInfo += `. Location: ${location.name}, ${location.region}, ${location.country}`;
+      contextParts.push(`Location: ${location.name}, ${location.region}`);
     }
   }
 
   if (weather) {
-    contextInfo += `. Weather: ${weather.temperature}°F, ${weather.description}`;
+    const temp = weather.temperature;
+    let tempDesc = 'pleasant';
+    if (temp < 40) tempDesc = 'very cold';
+    else if (temp < 60) tempDesc = 'cool';
+    else if (temp > 80) tempDesc = 'hot';
 
-    // Add weather-specific context
-    if (weather.temperature < 40) {
-      contextInfo += ' (very cold)';
-    } else if (weather.temperature < 60) {
-      contextInfo += ' (cool)';
-    } else if (weather.temperature > 80) {
-      contextInfo += ' (hot)';
-    } else {
-      contextInfo += ' (pleasant)';
-    }
+    contextParts.push(
+      `Weather: ${temp}°F, ${weather.description} (${tempDesc})`,
+    );
 
-    if (
-      weather.description.includes('rain') ||
-      weather.description.includes('storm')
-    ) {
-      contextInfo += ', rainy weather';
-    } else if (weather.description.includes('snow')) {
-      contextInfo += ', snowy weather';
-    } else if (
-      weather.description.includes('sun') ||
-      weather.description.includes('clear')
-    ) {
-      contextInfo += ', sunny weather';
-    } else if (weather.description.includes('cloud')) {
-      contextInfo += ', cloudy weather';
+    // Add weather-specific context more efficiently
+    const desc = weather.description.toLowerCase();
+    if (desc.includes('rain') || desc.includes('storm')) {
+      contextParts.push('rainy weather');
+    } else if (desc.includes('snow')) {
+      contextParts.push('snowy weather');
+    } else if (desc.includes('sun') || desc.includes('clear')) {
+      contextParts.push('sunny weather');
+    } else if (desc.includes('cloud')) {
+      contextParts.push('cloudy weather');
     }
   }
 
-  return contextInfo;
+  return `Current context: ${contextParts.join('. ')}`;
 };

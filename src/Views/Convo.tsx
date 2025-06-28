@@ -91,12 +91,22 @@ const Convo = () => {
     resetAssistant,
   } = useAssistant();
 
+  // Reset loading state if assistant fails
+  useEffect(() => {
+    if (status === 'failed') {
+      setIsLoading(false);
+    }
+  }, [status]);
+
   // Get chat context for weather and location
   const {weather, location} = useChatContext();
 
   // Get app settings for family pics data
   const {getItem} = useAppSettings();
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
+    'easy',
+  );
 
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -153,6 +163,12 @@ const Convo = () => {
   const actionCarouselRef = useRef<ICarouselInstance>(null);
   const objectCarouselRef = useRef<ICarouselInstance>(null);
 
+  // Add a ref to track active calls and prevent duplicates
+  const activeCallsRef = useRef<Set<string>>(new Set());
+
+  // Track the last processed response to avoid processing the same response multiple times
+  const lastProcessedResponseRef = useRef<string>('');
+
   // Dynamic speakers and audience based on family members
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [audience, setAudience] = useState<Audience[]>([]);
@@ -190,8 +206,26 @@ const Convo = () => {
 
   // Load family members data and update speakers/audience
   useEffect(() => {
+    // Send wakeup call to backend when entering Convo screen
+    const sendWakeupCall = async () => {
+      try {
+        await fetchHelper('wakeup', {}, {});
+      } catch (error) {
+        console.error('Error sending wakeup call from Convo screen:', error);
+      }
+    };
+
+    // Send wakeup call first
+    sendWakeupCall();
+
     const loadFamilyData = async () => {
       try {
+        // Load conversation mode
+        const savedConversationMode = await getItem('conversationMode');
+        setConversationMode(
+          (savedConversationMode as 'easy' | 'advanced') || 'easy',
+        );
+
         const savedData = await getItem('familyPicsData');
         if (savedData) {
           const parsedData = JSON.parse(savedData);
@@ -214,11 +248,32 @@ const Convo = () => {
           setSpeakers(['I', 'Mom', 'Dad']);
           setAudience(['I', 'Mom', 'Dad']);
         }
+
+        // Set default speaker and audience for easy mode
+        const mode = (savedConversationMode as 'easy' | 'advanced') || 'easy';
+        if (mode === 'easy') {
+          setSentence(prev => ({
+            ...prev,
+            speaker: 'I',
+            audience: 'anyone',
+          }));
+        }
       } catch (error) {
         console.error('Error loading family data:', error);
         // Fallback to default
         setSpeakers(['I', 'Mom', 'Dad']);
         setAudience(['I', 'Mom', 'Dad']);
+
+        // Set default for easy mode even on error
+        const mode = 'easy';
+        setConversationMode(mode);
+        if (mode === 'easy') {
+          setSentence(prev => ({
+            ...prev,
+            speaker: 'I',
+            audience: 'anyone',
+          }));
+        }
       }
     };
 
@@ -258,12 +313,24 @@ const Convo = () => {
 
   // Helper function to use the Assistant API
   const callAssistant = async (mode: string, prompt: string) => {
+    // Prevent duplicate calls
+    if (activeCallsRef.current.has(mode)) {
+      return false;
+    }
+
+    // If already loading, don't start another call
+    if (isLoading && status === 'in_progress') {
+      return false;
+    }
+
     try {
+      activeCallsRef.current.add(mode);
       setIsLoading(true);
 
       // Prepare the message with the mode and content
       // Format the message to clearly indicate the mode for the assistant
-      const message = `${prompt}`;
+      const contextInfo = getContextualInfo(weather, location);
+      const message = `${prompt} , this is the weather , tima and location info: ${contextInfo}`;
 
       // Send the message
       const messageId = await sendMessage(
@@ -279,10 +346,20 @@ const Convo = () => {
 
       // Run the assistant
       const runId = await runAssistant();
+
+      // Set a backup timeout to reset loading state if no response comes back
+      setTimeout(() => {
+        if (isLoading) {
+          setIsLoading(false);
+          activeCallsRef.current.delete(mode);
+        }
+      }, 8000); // 8 seconds, shorter than the main timeout
+
       return true;
     } catch (error) {
       console.error(`❌ Error calling assistant in ${mode} mode:`, error);
       setIsLoading(false);
+      activeCallsRef.current.delete(mode);
       return false;
     }
   };
@@ -290,13 +367,10 @@ const Convo = () => {
   // Function to log conversation process
   const logConversationProcess = async () => {
     if (!threadId || !generatedSentence) {
-      console.log('⏳ Missing threadId or generated sentence for logging');
       return;
     }
 
     try {
-      console.log('📝 Logging conversation process...');
-
       await logInitConversation({
         question: generatedSentence,
         possibleTopics: availableTopics,
@@ -308,19 +382,17 @@ const Convo = () => {
         objectPicked: object,
         threadId: threadId,
       });
-
-      console.log('✅ Conversation process logged successfully');
     } catch (error) {
       console.error('❌ Error logging conversation process:', error);
     }
   };
 
   const generateImage = async (array: ImagePrompt[], mode: string) => {
-    const images: ImageGenerated[] = [];
     try {
-      // Get the enhanced context with weather and location
-      //const {weather, location} = useChatContext();
-      //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
+      // Validate input data
+      if (!array || !Array.isArray(array) || array.length === 0) {
+        return;
+      }
 
       // Prepare all items in one array
       const items = array.map(answer => ({
@@ -330,7 +402,7 @@ const Convo = () => {
         topic: topic,
         object: object,
         action: action,
-        text: answer.text,
+        text: answer.text || answer, // Handle both object and string formats
       }));
 
       // Call the process_images API with all items
@@ -356,16 +428,48 @@ const Convo = () => {
         } else if (mode === 'list_possible_objects') {
           setGeneratedObjectImages(images);
         }
+
         return images;
       }
     } catch (err) {
-      console.error('Failed to process images:', err);
+      console.error('❌ Failed to process images:', err);
+
+      // Create fallback images without URLs to prevent hanging
+      const fallbackImages = array.map(item => ({
+        text:
+          typeof item === 'string'
+            ? item
+            : item.text || item.image_prompt || 'Unknown',
+        url: '',
+      }));
+
+      if (mode === 'topic') {
+        setGeneratedTopicImages(fallbackImages);
+      } else if (mode === 'list_possible_actions') {
+        setGeneratedActionImages(fallbackImages);
+      } else if (mode === 'list_possible_objects') {
+        setGeneratedObjectImages(fallbackImages);
+      }
     }
   };
 
   // Handle assistant responses
   useEffect(() => {
     if (response) {
+      // Create a unique identifier for this response
+      const responseId = `${response.modeType}-${response.response?.substring(
+        0,
+        50,
+      )}`;
+
+      // Check if we've already processed this response
+      if (lastProcessedResponseRef.current === responseId) {
+        return;
+      }
+
+      // Mark this response as processed
+      lastProcessedResponseRef.current = responseId;
+
       try {
         // Handle the response based on its modeType
         if (response.modeType === 'list_possible_topics') {
@@ -380,19 +484,27 @@ const Convo = () => {
 
           try {
             const topicsArray = JSON.parse(response.response);
+
             if (
               Array.isArray(topicsArray.topics) &&
               topicsArray.topics.length > 0
             ) {
-              setAvailableTopics(
-                topicsArray.topics
-                  .slice(0, 4)
-                  .map((item: {text: any}) => item.text) as Topic[],
-              );
-              generateImage(topicsArray.topics, 'topic');
+              const topics = topicsArray.topics
+                .slice(0, 4)
+                .map((item: {text: any}) => item.text) as Topic[];
+
+              setAvailableTopics(topics);
+
+              generateImage(topicsArray.topics, 'topic').catch(error => {
+                console.error(
+                  '❌ Error in image generation for topics:',
+                  error,
+                );
+                setIsLoading(false);
+              });
             }
           } catch (error) {
-            console.error('Error parsing topics:', error);
+            console.error('❌ Error parsing topics:', error);
           }
         } else if (response.modeType === 'list_possible_actions') {
           // Guard clause: Don't process actions if basic requirements aren't met
@@ -408,18 +520,28 @@ const Convo = () => {
 
           try {
             const actionsData = JSON.parse(response.response);
+
             if (
               actionsData &&
               Array.isArray(actionsData.verbs) &&
               actionsData.verbs.length > 0
             ) {
-              setAvailableActions(actionsData.verbs.slice(0, 4) as Action[]);
-              //setSentence({...sentence, action: '', object: ''});
+              const actions = actionsData.verbs.slice(0, 4) as Action[];
+              setAvailableActions(actions);
 
-              generateImage(actionsData.verbs, 'list_possible_actions');
+              generateImage(actionsData.verbs, 'list_possible_actions').catch(
+                error => {
+                  console.error(
+                    '❌ Error in image generation for actions:',
+                    error,
+                  );
+                  setIsLoading(false);
+                },
+              );
             }
           } catch (error) {
-            console.error('Error parsing actions:', error);
+            console.error('❌ Error parsing actions:', error);
+            setIsLoading(false);
           }
         } else if (response.modeType === 'list_possible_objects') {
           // Guard clause: Don't process objects if basic requirements aren't met
@@ -437,17 +559,28 @@ const Convo = () => {
 
           try {
             const objectsData = JSON.parse(response.response);
+
             if (
               objectsData &&
               Array.isArray(objectsData.objects) &&
               objectsData.objects.length > 0
             ) {
-              setAvailableObjects(objectsData.objects.slice(0, 4) as Object[]);
-              // setSentence({...sentence, object: ''});
-              generateImage(objectsData.objects, 'list_possible_objects');
+              const objects = objectsData.objects.slice(0, 4) as Object[];
+              setAvailableObjects(objects);
+
+              generateImage(objectsData.objects, 'list_possible_objects').catch(
+                error => {
+                  console.error(
+                    '❌ Error in image generation for objects:',
+                    error,
+                  );
+                  setIsLoading(false);
+                },
+              );
             }
           } catch (error) {
-            console.error('Error parsing objects:', error);
+            console.error('❌ Error parsing objects:', error);
+            setIsLoading(false);
           }
         } else if (response.modeType === 'sentence') {
           try {
@@ -460,43 +593,52 @@ const Convo = () => {
           } catch (error) {
             console.error('Error parsing sentence:', error);
           }
-        } else {
-          console.log(
-            '⚠️ Unrecognized mode type:',
-            response.modeType,
-            response,
-          );
         }
       } catch (error) {
         console.error('❌ Error processing assistant response:', error);
+      } finally {
+        // Always reset loading state, regardless of success or failure
+        setIsLoading(false);
+        // Clear active calls when response is processed
+        activeCallsRef.current.clear();
       }
-
-      setIsLoading(false);
     }
   }, [response]);
+
+  // Add a safety mechanism to reset loading state if it gets stuck
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        setIsLoading(false);
+      }, 10000); // 10 second timeout for faster debugging
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading]);
 
   // Watch for speaker, audience, and sentenceType selections to generate topics
   useEffect(() => {
     const generateTopics = async () => {
       const {speaker, audience, sentenceType} = sentence;
 
-      // Only proceed if all three are selected, slider is at position 0, and we don't have a valid topic
-      if (
-        speaker &&
-        audience &&
-        sentenceType &&
-        sliderPosition === 0 &&
-        (!topic || topic === 'NA')
-      ) {
+      // For easy mode: generate topics when sentence type is selected
+      // For advanced mode: only proceed if all three are selected, slider is at position 0, and we don't have a valid topic
+      const shouldGenerate =
+        conversationMode === 'easy'
+          ? speaker && audience && sentenceType && (!topic || topic === 'NA')
+          : speaker &&
+            audience &&
+            sentenceType &&
+            sliderPosition === 0 &&
+            (!topic || topic === 'NA');
+
+      if (shouldGenerate) {
         // Get contextual information
         const contextInfo = getContextualInfo(weather, location);
 
         const prompt = `${contextInfo}. Please list possible topics for a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. Consider the current time, weather, location, and day when suggesting topics. I need up to 4 simple, kid-friendly topics that are appropriate for the current context. The message.metadata.mode = 'list_possible_topics'`;
-        console.log(
-          '🔄 Calling assistant for list_possible_topics with context',
-        );
         await callAssistant('list_possible_topics', prompt);
       }
     };
@@ -507,6 +649,7 @@ const Convo = () => {
     sentence.audience,
     sentence.sentenceType,
     sliderPosition,
+    conversationMode,
     weather,
     location,
   ]);
@@ -516,16 +659,25 @@ const Convo = () => {
     const generateActions = async () => {
       const {speaker, audience, sentenceType} = sentence;
 
-      // Only proceed if we have prerequisites and either no action selected or at position 1
-      if (
-        speaker &&
-        audience &&
-        sentenceType &&
-        topic &&
-        topic !== 'NA' &&
-        sliderPosition === 1 &&
-        (!action || action === 'NA')
-      ) {
+      // For easy mode: generate actions when topic is selected
+      // For advanced mode: only proceed if we have prerequisites and either no action selected or at position 1
+      const shouldGenerate =
+        conversationMode === 'easy'
+          ? speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            (!action || action === 'NA')
+          : speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            sliderPosition === 1 &&
+            (!action || action === 'NA');
+
+      if (shouldGenerate) {
         // Get contextual information
         const contextInfo = getContextualInfo(weather, location);
 
@@ -534,43 +686,50 @@ const Convo = () => {
         }. Consider the current weather, time of day, location, and day when suggesting actions. I need up to 3 simple, kid-friendly action verbs that are appropriate for the current context and conditions. The message.metadata.mode = 'actions'`;
 
         await callAssistant('list_possible_actions', prompt);
-      } else {
       }
     };
 
     generateActions();
-  }, [topic, sliderPosition, weather, location]);
+  }, [topic, sliderPosition, conversationMode, weather, location]);
 
   // Watch for action selection to generate objects
   useEffect(() => {
     const generateObjects = async () => {
       const {speaker, audience, sentenceType} = sentence;
 
-      // Only proceed if we have prerequisites and either no object selected or at position 2
-      if (
-        speaker &&
-        audience &&
-        sentenceType &&
-        topic &&
-        topic !== 'NA' &&
-        action &&
-        action !== 'NA' &&
-        sliderPosition === 2 &&
-        (!object || object === 'NA')
-      ) {
+      // For easy mode: generate objects when action is selected
+      // For advanced mode: only proceed if we have prerequisites and either no object selected or at position 2
+      const shouldGenerate =
+        conversationMode === 'easy'
+          ? speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            action &&
+            action !== 'NA' &&
+            (!object || object === 'NA')
+          : speaker &&
+            audience &&
+            sentenceType &&
+            topic &&
+            topic !== 'NA' &&
+            action &&
+            action !== 'NA' &&
+            sliderPosition === 2 &&
+            (!object || object === 'NA');
+
+      if (shouldGenerate) {
         const objectsPrompt = `Please list possible direct objects or noun phrases for the action "${action}" related to the topic "${topic}" in a conversation where ${speaker} is speaking to ${audience} with sentence type ${
           sentenceType === '?' ? 'question' : 'statement'
         }. I need up to 3 simple, kid-friendly objects. The message.metadata.mode = 'objects'`;
 
-        console.log('🔄 Calling assistant for objects');
         await callAssistant('list_possible_objects', objectsPrompt);
-      } else {
-        console.log('⏳ Waiting for prerequisites before generating objects');
       }
     };
 
     generateObjects();
-  }, [action, sliderPosition]);
+  }, [action, sliderPosition, conversationMode]);
 
   useEffect(() => {
     const {speaker, audience, sentenceType} = sentence;
@@ -579,7 +738,6 @@ const Convo = () => {
         sentenceType === '?' ? 'question' : 'statement'
       }. Make it easy for a young child to understand and speak. Return only the sentence, nothing else.`;
 
-      console.log('🔵 All selected, generating sentence', sentencePrompt);
       await callAssistant('sentence', sentencePrompt);
     };
 
@@ -666,14 +824,25 @@ const Convo = () => {
     resetAssistant();
 
     // Reset all sentence fields completely
-    setSentence({
-      speaker: '',
-      audience: '',
-      sentenceType: '',
-      list_possible_topics: '',
-      action: '',
-      object: '',
-    });
+    if (conversationMode === 'easy') {
+      setSentence({
+        speaker: 'I',
+        audience: 'anyone',
+        sentenceType: '',
+        list_possible_topics: '',
+        action: '',
+        object: '',
+      });
+    } else {
+      setSentence({
+        speaker: '',
+        audience: '',
+        sentenceType: '',
+        list_possible_topics: '',
+        action: '',
+        object: '',
+      });
+    }
     setAvailableTopics([]);
     setAvailableActions([]);
     setAvailableObjects([]);
@@ -723,11 +892,8 @@ const Convo = () => {
       objectCarouselRef.current.scrollTo({index: 0, animated: true});
     }
 
-    console.log('🏠 Cleanup complete - State reset');
-
     // Allow time for state to update and screen to re-render before navigating
     setTimeout(() => {
-      console.log('🏠 Navigating to home screen');
       navigation.navigate(views.OPEN as never);
     }, 100);
   };
@@ -854,13 +1020,25 @@ const Convo = () => {
         // Wait for 3 seconds before resetting
         setTimeout(() => {
           // Reset everything except sentence type first
-          setSentence(prev => ({
-            ...prev,
-            sentenceType: '',
-            list_possible_topics: '',
-            action: '',
-            object: '',
-          }));
+          if (conversationMode === 'easy') {
+            setSentence(prev => ({
+              ...prev,
+              speaker: 'I',
+              audience: 'anyone',
+              sentenceType: '',
+              list_possible_topics: '',
+              action: '',
+              object: '',
+            }));
+          } else {
+            setSentence(prev => ({
+              ...prev,
+              sentenceType: '',
+              list_possible_topics: '',
+              action: '',
+              object: '',
+            }));
+          }
           setSentenceTypeIndex(0);
           setInputText('');
           setTopic('NA');
@@ -987,106 +1165,207 @@ const Convo = () => {
       </View>
 
       <View style={styles.columnsContainer}>
-        {/* Column 1: Speaker & Audience */}
-        <View
-          style={[
-            styles.speakerAudienceColumn,
-            {
-              width: responsiveValues.speakerAudienceWidth,
-              marginRight: responsiveValues.speakerAudienceMargin,
-              marginLeft: responsiveValues.speakerAudienceMargin,
-            },
-          ]}>
-          {/* Speaker Section */}
-          <View style={styles.section}>
+        {conversationMode === 'easy' ? (
+          // Easy Mode: Only show sentence type selection with vertical buttons
+          <View style={styles.easyModeContainer}>
             <Text
               style={[
-                styles.sectionTitle,
-                {fontSize: responsiveValues.sectionTitleFontSize},
+                styles.easyModeTitle,
+                {fontSize: responsiveValues.sectionTitleFontSize * 1.2},
               ]}>
-              The speaker:
+              Start Talking
             </Text>
-            <View
-              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
-              {speakers.length > 0 && (
-                <ConvoCarousel<Speaker>
-                  carouselRef={speakerCarouselRef}
-                  currentIndex={speakerIndex}
-                  setCurrentIndex={setSpeakerIndex}
-                  sentence={sentence}
-                  setSentence={setSentence}
-                  data={speakers}
-                  handleItemSelect={handleSpeakerSelect}
-                  fieldName="speaker"
-                  showPersonIcon={true}
-                  familyMembers={familyMembers}
-                  getFamilyMemberImage={getFamilyMemberImage}
-                  responsiveValues={responsiveValues}
-                />
-              )}
+
+            <View style={styles.easyModeButtonsContainer}>
+              <Pressable
+                style={[
+                  styles.easyModeButton,
+                  sentence.sentenceType === '?' &&
+                    styles.easyModeButtonSelected,
+                  {
+                    height: SCREEN_HEIGHT * 0.25,
+                    borderRadius: responsiveValues.borderRadius,
+                  },
+                ]}
+                onPress={() => handleSentenceTypeSelect('?', 0)}>
+                <View
+                  style={[
+                    styles.easyModeImageContainer,
+                    {
+                      width: responsiveValues.talkContainerSize,
+                      height: responsiveValues.talkContainerSize,
+                      borderRadius: responsiveValues.talkContainerSize / 2,
+                    },
+                  ]}>
+                  <Image
+                    source={require('../assets/boyAsk.png')}
+                    style={styles.talkImage}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.easyModeButtonText,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                    sentence.sentenceType === '?' &&
+                      styles.easyModeButtonTextSelected,
+                  ]}>
+                  Ask a Question
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  styles.easyModeButton,
+                  sentence.sentenceType === '!' &&
+                    styles.easyModeButtonSelected,
+                  {
+                    height: SCREEN_HEIGHT * 0.25,
+                    borderRadius: responsiveValues.borderRadius,
+                    marginTop: responsiveValues.inputMarginVertical,
+                  },
+                ]}
+                onPress={() => handleSentenceTypeSelect('!', 1)}>
+                <View
+                  style={[
+                    styles.easyModeImageContainer,
+                    {
+                      width: responsiveValues.talkContainerSize,
+                      height: responsiveValues.talkContainerSize,
+                      borderRadius: responsiveValues.talkContainerSize / 2,
+                    },
+                  ]}>
+                  <Image
+                    source={require('../assets/boyTalk.png')}
+                    style={styles.talkImage}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.easyModeButtonText,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                    sentence.sentenceType === '!' &&
+                      styles.easyModeButtonTextSelected,
+                  ]}>
+                  Make a Statement
+                </Text>
+              </Pressable>
             </View>
           </View>
-
-          {/* Audience Section */}
-          <View style={styles.section}>
-            <Text
+        ) : (
+          // Advanced Mode: Original full interface
+          <>
+            {/* Column 1: Speaker & Audience */}
+            <View
               style={[
-                styles.sectionTitle,
-                {fontSize: responsiveValues.sectionTitleFontSize},
+                styles.speakerAudienceColumn,
+                {
+                  width: responsiveValues.speakerAudienceWidth,
+                  marginRight: responsiveValues.speakerAudienceMargin,
+                  marginLeft: responsiveValues.speakerAudienceMargin,
+                },
               ]}>
-              The audience:
-            </Text>
-            <View
-              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
-              {audience.length > 0 && (
-                <ConvoCarousel<Audience>
-                  carouselRef={audienceCarouselRef}
-                  currentIndex={audienceIndex}
-                  setCurrentIndex={setAudienceIndex}
-                  sentence={sentence}
-                  setSentence={setSentence}
-                  data={audience}
-                  handleItemSelect={handleAudienceSelect}
-                  fieldName="audience"
-                  showPersonIcon={true}
-                  familyMembers={familyMembers}
-                  getFamilyMemberImage={getFamilyMemberImage}
-                  responsiveValues={responsiveValues}
-                />
-              )}
-            </View>
-          </View>
+              {/* Speaker Section */}
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                  ]}>
+                  The speaker:
+                </Text>
+                <View
+                  style={
+                    isTablet ? styles.cardWrapper : styles.cardWrapperPhone
+                  }>
+                  {speakers.length > 0 && (
+                    <ConvoCarousel<Speaker>
+                      carouselRef={speakerCarouselRef}
+                      currentIndex={speakerIndex}
+                      setCurrentIndex={setSpeakerIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={speakers}
+                      handleItemSelect={handleSpeakerSelect}
+                      fieldName="speaker"
+                      showPersonIcon={true}
+                      familyMembers={familyMembers}
+                      getFamilyMemberImage={getFamilyMemberImage}
+                      responsiveValues={responsiveValues}
+                    />
+                  )}
+                </View>
+              </View>
 
-          {/* Sentence Type*/}
-          <View style={styles.section}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                {fontSize: responsiveValues.sectionTitleFontSize},
-              ]}>
-              Sentence
-            </Text>
-            <View
-              style={isTablet ? styles.cardWrapper : styles.cardWrapperPhone}>
-              <ConvoCarousel<SentenceType>
-                carouselRef={sentenceTypeCarouselRef}
-                currentIndex={sentenceTypeIndex}
-                setCurrentIndex={setSentenceTypeIndex}
-                sentence={sentence}
-                setSentence={setSentence}
-                data={sentenceTypes}
-                handleItemSelect={handleSentenceTypeSelect}
-                fieldName="sentenceType"
-                showTalkIcon={true}
-                responsiveValues={responsiveValues}
-              />
-            </View>
-          </View>
-        </View>
+              {/* Audience Section */}
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                  ]}>
+                  The audience:
+                </Text>
+                <View
+                  style={
+                    isTablet ? styles.cardWrapper : styles.cardWrapperPhone
+                  }>
+                  {audience.length > 0 && (
+                    <ConvoCarousel<Audience>
+                      carouselRef={audienceCarouselRef}
+                      currentIndex={audienceIndex}
+                      setCurrentIndex={setAudienceIndex}
+                      sentence={sentence}
+                      setSentence={setSentence}
+                      data={audience}
+                      handleItemSelect={handleAudienceSelect}
+                      fieldName="audience"
+                      showPersonIcon={true}
+                      familyMembers={familyMembers}
+                      getFamilyMemberImage={getFamilyMemberImage}
+                      responsiveValues={responsiveValues}
+                    />
+                  )}
+                </View>
+              </View>
 
+              {/* Sentence Type*/}
+              <View style={styles.section}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {fontSize: responsiveValues.sectionTitleFontSize},
+                  ]}>
+                  Sentence
+                </Text>
+                <View
+                  style={
+                    isTablet ? styles.cardWrapper : styles.cardWrapperPhone
+                  }>
+                  <ConvoCarousel<SentenceType>
+                    carouselRef={sentenceTypeCarouselRef}
+                    currentIndex={sentenceTypeIndex}
+                    setCurrentIndex={setSentenceTypeIndex}
+                    sentence={sentence}
+                    setSentence={setSentence}
+                    data={sentenceTypes}
+                    handleItemSelect={handleSentenceTypeSelect}
+                    fieldName="sentenceType"
+                    showTalkIcon={true}
+                    responsiveValues={responsiveValues}
+                  />
+                </View>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Right side content - same for both modes but with adjusted width */}
         <View
           style={{
-            width: responsiveValues.rightContentWidth,
+            width:
+              conversationMode === 'easy'
+                ? '60%'
+                : responsiveValues.rightContentWidth,
             height: '100%',
             flexDirection: 'column',
             alignItems: 'center',
@@ -1677,6 +1956,54 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     marginTop: 2,
+  },
+  easyModeContainer: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: height * 0.05,
+  },
+  easyModeTitle: {
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: height * 0.02,
+  },
+  easyModeButtonsContainer: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    width: '80%',
+  },
+  easyModeButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#333',
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  easyModeButtonSelected: {
+    backgroundColor: '#333',
+  },
+  easyModeImageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  easyModeButtonText: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  easyModeButtonTextSelected: {
+    color: '#FFF',
   },
 });
 
