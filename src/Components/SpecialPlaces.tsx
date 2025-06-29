@@ -624,9 +624,6 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
           places. You can skip this step and set them up later.
         </Text>
       )}
-      {isSettingsMode && (
-        <Text style={styles.settingsHeaderText}>Special Places</Text>
-      )}
 
       <ScrollView
         style={styles.scrollContainer}

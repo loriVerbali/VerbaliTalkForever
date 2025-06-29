@@ -312,6 +312,7 @@
 				INFOPLIST_FILE = Matalk/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -350,6 +351,7 @@
 				INFOPLIST_FILE = Matalk/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -54,6 +54,7 @@ const InfoModal = ({
     animationType="fade"
     transparent={true}
     visible={visible}
+    supportedOrientations={['landscape-left', 'landscape-right']}
     onRequestClose={onClose}>
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
@@ -435,10 +436,10 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
+          <Text style={styles.sectionTitle}>Account Settings</Text>
 
           <View style={styles.sliderGrid}>
-            <View style={styles.sliderRow}>
+            {/* <View style={styles.sliderRow}>
               <MessagesSlider
                 value={returnedMessages}
                 onChange={handleMessagesChange}
@@ -449,9 +450,9 @@ const SettingsScreen: React.FC = () => {
                 onChange={handleTopicsChange}
                 description="Determines the number of conversation topics available. More topics provide variety but may make selection more complex. 4-6 topics are recommended for focused conversations, 7-8 for broader discussions."
               />
-            </View>
+            </View> */}
 
-            <View style={styles.sliderRow}>
+            {/* <View style={styles.sliderRow}>
               <RangeSlider
                 label="Amount of Actions"
                 value={actionsCount}
@@ -464,7 +465,7 @@ const SettingsScreen: React.FC = () => {
                 onChange={handleObjectsChange}
                 description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
               />
-            </View>
+            </View> */}
 
             <View style={styles.genderSection}>
               <Text style={styles.settingLabel}>Gender</Text>

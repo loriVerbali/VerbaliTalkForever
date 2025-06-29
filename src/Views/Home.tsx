@@ -40,6 +40,7 @@ import fetchHelper from '../utils/fetcher';
 import {Mixpanel} from 'mixpanel-react-native';
 import {logConversation} from '../utils/conversationLogger';
 import {useAdmin} from '../contexts/adminContext';
+import {views} from '../utils/constants';
 
 const {width, height} = Dimensions.get('window');
 
@@ -52,12 +53,18 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = false;
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {sendMessage, runAssistant, threadId, imageUrls, status} =
-    useAssistant();
+  const {
+    sendMessage,
+    runAssistant,
+    threadId,
+    imageUrls,
+    status,
+    resetAssistant,
+  } = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
   const stateof = route?.params?.stateof ?? '';
@@ -159,7 +166,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
-
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
   const {playAttention, playThisSound} = useSound();
@@ -327,7 +333,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       if (!DEBUGWITHOUTTRANSCRIPTION) {
         transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
       } else {
-        transcribeResponse = {text: 'Whats your name?'};
+        transcribeResponse = {text: 'Whats your favourite food?'};
       }
 
       if (transcribeResponse?.text) {
@@ -507,23 +513,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       return;
     }
 
-    try {
-      // Extract all possible answers from imageUrls
-      const possibleAnswers = imageUrls
-        .filter(item => item && item.prompt)
-        .map(item => item.prompt);
+    // Extract all possible answers from imageUrls
+    const possibleAnswers = imageUrls
+      .filter(item => item && item.prompt)
+      .map(item => item.prompt);
 
-      // Log the conversation
-      await logConversation({
-        question: transcribedText,
-        possibleAnswers: possibleAnswers,
-        answerPicked: selectedAnswer,
-        threadId: threadId,
-      });
-    } catch (error) {
-      console.error('Failed to log conversation:', error);
-      // Don't show error to user as this is background logging
-    }
+    // Log the conversation
+    logConversation({
+      question: transcribedText,
+      possibleAnswers: possibleAnswers,
+      answerPicked: selectedAnswer,
+      threadId: threadId,
+    });
+
+    // Wait 1 second to allow user to hear the selected answer being spoken
+    setTimeout(() => {
+      resetAssistant();
+      resetLocalStates();
+      // Navigate to Open.tsx
+      navigation.navigate(views.OPEN as never);
+    }, 1000);
   };
 
   // Function to handle keyboard input submission
@@ -698,7 +707,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         </View>
 
         {/* Home Button */}
-        <HomeButton navigation={navigation} onReset={resetLocalStates} />
+        <HomeButton
+          navigation={navigation}
+          onReset={resetLocalStates}
+          disabled={
+            isRecording ||
+            isProcessingAnswer ||
+            isRetrying ||
+            isSubmittingKeyboard ||
+            (finishedTranscribing && !showImages)
+          }
+        />
 
         {/* Matalk Icon */}
         <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
