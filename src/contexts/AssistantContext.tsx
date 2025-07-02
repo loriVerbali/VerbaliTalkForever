@@ -170,7 +170,6 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               },
               {},
             );
-
             const messageType = messagesResponse.data[1].metadata.mode;
             if (messageType === 'list_possible_topics') {
               if (

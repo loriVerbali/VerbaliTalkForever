@@ -198,7 +198,7 @@ const Config: ConfigType = {
       verb: 'GET',
       sendDeviceKey: false,
       jsonMethod: true,
-      suffixUrl: '/threads/{thread_id}/messages',
+      suffixUrl: '/threads/{thread_id}/messages?limit=2&order=desc',
       mustStringify: false,
       isFlatResponse: false,
       openAi: true,

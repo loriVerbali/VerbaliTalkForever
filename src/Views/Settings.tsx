@@ -8,13 +8,10 @@ import {
   Pressable,
   Dimensions,
   StatusBar,
-  Linking,
   TouchableOpacity,
   Modal,
   useWindowDimensions,
   TextInput,
-  TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';

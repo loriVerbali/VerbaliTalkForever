@@ -4,13 +4,8 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  Modal,
   TouchableOpacity,
   Platform,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-  TextInput,
 } from 'react-native';
 import {useNavigation, RouteProp} from '@react-navigation/native';
 import RNFS from 'react-native-fs';
@@ -23,7 +18,6 @@ import AudioRecorderPlayer, {
 
 // Add imports for the components
 import Inputs, {InputsRef} from '../Components/Inputs';
-import Transcription from '../Components/Transcription';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
 import {useAssistant} from '../contexts/AssistantContext';
@@ -53,7 +47,7 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = false;
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
@@ -77,6 +71,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     microphoneSize: isTablet
       ? {width: 45, height: 45}
       : {width: 35, height: 35},
+    fetchingSize: isTablet
+      ? {width: 200, height: 200}
+      : {width: 150, height: 150},
     matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
 
     // Layout dimensions
@@ -94,7 +91,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       ? {width: width * 0.3, height: width * 0.3}
       : {width: width * 0.25, height: width * 0.25},
     recordingIconSize: isTablet
-      ? {width: width * 0.4, height: width * 0.3}
+      ? {width: width * 0.4, height: width * 0.4}
       : {width: width * 0.35, height: width * 0.2},
 
     // Typography
@@ -526,13 +523,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       threadId: threadId,
     });
 
-    // Wait 1 second to allow user to hear the selected answer being spoken
-    setTimeout(() => {
-      resetAssistant();
-      resetLocalStates();
-      // Navigate to Open.tsx
-      navigation.navigate(views.OPEN as never);
-    }, 1000);
+    // Only navigate back to Open if not currently retrying/getting more answers
+    if (selectedAnswer !== 'MoreAnswers') {
+      // Wait 1 second to allow user to hear the selected answer being spoken
+      setTimeout(() => {
+        resetAssistant();
+        resetLocalStates();
+        // Navigate to Open.tsx
+        navigation.navigate(views.OPEN as never);
+      }, 1000);
+    }
   };
 
   // Function to handle keyboard input submission
@@ -669,7 +669,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                 debouncedKeyboardInput.trim().length === 0
               }>
               {isSubmittingKeyboard ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <FastImage
+                  source={require('../assets/movie/output.gif')}
+                  style={[styles.iconSize, responsiveValues.fetchingSize]}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
               ) : (
                 <Text
                   style={[
@@ -914,11 +918,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       <KeyboardInputComponent />
                     ) : isRecording ? (
                       <FastImage
-                        source={require('../assets/recording.gif')}
+                        source={require('../assets/movie/recording.gif')}
                         style={responsiveValues.recordingIconSize}
                         resizeMode={
                           isTablet
-                            ? FastImage.resizeMode.cover
+                            ? FastImage.resizeMode.center
                             : FastImage.resizeMode.contain
                         }
                       />
@@ -941,7 +945,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         {/* Show different loading states based on processing phase */}
                         {isProcessingAnswer ? (
                           <View style={{alignItems: 'center'}}>
-                            <ActivityIndicator size="large" color="#007AFF" />
+                            <FastImage
+                              source={require('../assets/movie/output.gif')}
+                              style={[
+                                styles.iconSize,
+                                responsiveValues.fetchingSize,
+                              ]}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
                             <Text
                               style={[
                                 styles.retryText,
@@ -954,7 +965,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             </Text>
                           </View>
                         ) : transcribedText.length === 0 || isRetrying ? (
-                          <ActivityIndicator size="large" color="#0000ff" />
+                          <FastImage
+                            source={require('../assets/movie/output.gif')}
+                            style={[
+                              styles.iconSize,
+                              responsiveValues.fetchingSize,
+                            ]}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
                         ) : null}
                         {isRetrying && (
                           <Text

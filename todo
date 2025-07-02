@@ -1,0 +1,21 @@
+
+
+2. change api to one select 
+  `SELECT word, url FROM word_table WHERE word = ANY($1)`,
+
+3.hook up replicate images
+
+4. Make verbi dog bigger
+
+5. recordingIcon
+
+6. add terms/privacy of use 
+
+7. Add to settings not to go back
+
+8. Create subscription pages
+
+9. My own topics
+
+1.Make things faster : 
+GET /v1/threads/{thread_id}/messages  --done

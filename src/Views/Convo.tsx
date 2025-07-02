@@ -979,12 +979,12 @@ const Convo = () => {
     setSliderPosition(newPosition);
   };
 
-  useEffect(() => {
-    // Stop listening when component mounts, but don't block loading
-    setTimeout(() => {}, 0);
+  // useEffect(() => {
+  //   // Stop listening when component mounts, but don't block loading
+  //   setTimeout(() => {}, 0);
 
-    // No need for cleanup since we're already stopped
-  }, []);
+  //   // No need for cleanup since we're already stopped
+  // }, []);
 
   // Auto-advance slider when topic is selected
   useEffect(() => {
