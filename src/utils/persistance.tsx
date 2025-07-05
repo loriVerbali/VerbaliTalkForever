@@ -28,6 +28,7 @@ interface Preferences {
   therapyIsCurrentLocation: string;
   wasLocationOnboarded: string;
   conversationMode: string;
+  gobackAfterSelection: string;
 }
 
 const initEnum = {
@@ -69,6 +70,7 @@ const initialPreferences: Preferences = {
   therapyAddress: '',
   therapyIsCurrentLocation: '',
   conversationMode: 'easy',
+  gobackAfterSelection: initEnum.true,
 };
 
 interface AppSettingsContextProps {

@@ -779,9 +779,7 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'Permissions' && !permissionsGranted) ||
                 (currentStepData.id === 'Optional Permissions' &&
                   !locationPermissionAttempted &&
-                  !locationPermissionSuccess) ||
-                (currentStepData.id === 'Special Places' &&
-                  !specialPlacesCompleted)
+                  !locationPermissionSuccess)
               }>
               <Text style={styles.buttonText}>
                 {currentStepData.buttonText}
@@ -1140,17 +1138,17 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     backgroundColor: 'transparent',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 15,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: 'rgba(20, 108, 240, 0.75)',
     marginLeft: 10,
   },
   skipButtonText: {
     color: 'rgba(20, 108, 240, 0.75)',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '800',
     textAlign: 'center',
   },
 });

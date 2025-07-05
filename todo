@@ -15,7 +15,9 @@
 
 8. Create subscription pages
 
-9. My own topics
+9. My own topics - Done
 
 1.Make things faster : 
 GET /v1/threads/{thread_id}/messages  --done
+
+10. fix adress details input -done

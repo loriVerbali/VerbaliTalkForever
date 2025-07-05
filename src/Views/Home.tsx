@@ -35,6 +35,7 @@ import {Mixpanel} from 'mixpanel-react-native';
 import {logConversation} from '../utils/conversationLogger';
 import {useAdmin} from '../contexts/adminContext';
 import {views} from '../utils/constants';
+import {useAppSettings} from '../utils/persistance';
 
 const {width, height} = Dimensions.get('window');
 
@@ -61,9 +62,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   } = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
+  const {getItem} = useAppSettings();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
+  const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
 
   // Responsive values based on device type
   const responsiveValues = {
@@ -185,8 +188,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       }
     };
 
+    // Load gobackAfterSelection setting
+    const loadGobackAfterSelectionSetting = async () => {
+      try {
+        const setting = await getItem('gobackAfterSelection');
+        setGobackAfterSelection(setting === '1');
+      } catch (error) {
+        console.error('Error loading gobackAfterSelection setting:', error);
+      }
+    };
+
     // Send wakeup call
     sendWakeupCall();
+
+    // Load the setting
+    loadGobackAfterSelectionSetting();
 
     // Track screen opening
     mixpanel.track('Conversation', {
@@ -529,8 +545,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       setTimeout(() => {
         resetAssistant();
         resetLocalStates();
-        // Navigate to Open.tsx
-        navigation.navigate(views.OPEN as never);
+        // Navigate to Open.tsx only if gobackAfterSelection is true
+        if (gobackAfterSelection) {
+          navigation.navigate(views.OPEN as never);
+        }
       }, 1000);
     }
   };

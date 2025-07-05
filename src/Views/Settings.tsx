@@ -195,6 +195,9 @@ const SettingsScreen: React.FC = () => {
   const [conversationMode, setConversationMode] = useState('easy');
   const [showConversationModeInfo, setShowConversationModeInfo] =
     useState(false);
+  const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
+  const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
+    useState(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   useEffect(() => {
@@ -210,6 +213,7 @@ const SettingsScreen: React.FC = () => {
         const wasOnboarded = await getItem('wasOnboarded');
         const savedAdminCode = await getItem('adminCode');
         const savedConversationMode = await getItem('conversationMode');
+        const savedGobackAfterSelection = await getItem('gobackAfterSelection');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
@@ -218,6 +222,7 @@ const SettingsScreen: React.FC = () => {
         setShowOnboardingEnabled(wasOnboarded !== '1');
         setAdminCode(savedAdminCode || '');
         setConversationMode(savedConversationMode || 'easy');
+        setGobackAfterSelection(savedGobackAfterSelection === '1');
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -280,6 +285,11 @@ const SettingsScreen: React.FC = () => {
     const mode = value ? 'advanced' : 'easy';
     setConversationMode(mode);
     await setItem('conversationMode', mode);
+  };
+
+  const handleGobackAfterSelectionToggle = async (value: boolean) => {
+    setGobackAfterSelection(value);
+    await setItem('gobackAfterSelection', value ? '1' : '0');
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
@@ -701,6 +711,24 @@ const SettingsScreen: React.FC = () => {
                 value={showOnboardingEnabled}
               />
             </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabel}>
+                <Text style={styles.settingLabel}>Go Back After Selection</Text>
+                <TouchableOpacity
+                  onPress={() => setShowGobackAfterSelectionInfo(true)}
+                  style={styles.infoButton}>
+                  <Text style={styles.infoIcon}>?</Text>
+                </TouchableOpacity>
+              </View>
+              <Switch
+                trackColor={{false: '#767577', true: '#8E24AA'}}
+                thumbColor={gobackAfterSelection ? '#fff' : '#f4f3f4'}
+                ios_backgroundColor="#3e3e3e"
+                onValueChange={handleGobackAfterSelectionToggle}
+                value={gobackAfterSelection}
+              />
+            </View>
           </View>
         </View>
 
@@ -751,6 +779,13 @@ const SettingsScreen: React.FC = () => {
           onClose={() => setShowConversationModeInfo(false)}
           title="Conversation Mode"
           description="Easy mode provides a simplified interface with just Question or Statement buttons, automatically setting the speaker as 'I' and audience as 'anyone'. Advanced mode shows the full interface with speaker, audience, and sentence type selection for more detailed conversations."
+        />
+
+        <InfoModal
+          visible={showGobackAfterSelectionInfo}
+          onClose={() => setShowGobackAfterSelectionInfo(false)}
+          title="Go Back After Selection"
+          description="When enabled, the app will automatically navigate back to the main screen after you select an answer. When disabled, you'll stay on the conversation screen and can continue asking questions without returning to the main screen."
         />
       </ScrollView>
     </LinearGradient>

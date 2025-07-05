@@ -185,15 +185,79 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
   const parseLocationToAddressDetails = (
     locationString: string,
   ): AddressDetails => {
-    // Simple parsing - in a real app you might want more sophisticated parsing
+    // Parse location string - handle different formats
     const parts = locationString.split(', ');
+
+    // Handle various formats:
+    // Format 1: "Place Name, 7000, Old Gate Road, Neighborhood, City, County, State, Zip, Country"
+    // Format 2: "123, Main Street, City, State, Country"
+    // Format 3: "123 Main Street, City, State, Country"
+    // Format 4: "Main Street, City, State, Country"
+
+    let address = '';
+    let city = '';
+    let state = '';
+    let zipcode = '';
+    let country = 'USA';
+
+    if (parts.length >= 8) {
+      // Format: "Place Name, 7000, Old Gate Road, Neighborhood, City, County, State, Zip, Country"
+      // Skip the first part (place name) and combine street number and name
+      address = `${parts[1]} ${parts[2]}`.trim();
+      city = parts[4] || '';
+      state = parts[6] || '';
+      zipcode = parts[7] || '';
+      country =
+        parts[8] === 'United States'
+          ? 'USA'
+          : parts[8] === 'Canada'
+          ? 'Canada'
+          : 'USA';
+    } else if (parts.length >= 5) {
+      // Format: "123, Main Street, City, State, Country"
+      address = `${parts[0]} ${parts[1]}`.trim();
+      city = parts[2] || '';
+      state = parts[3] || '';
+      country = parts[4] === 'Canada' ? 'Canada' : 'USA';
+    } else if (parts.length === 4) {
+      // Format: "123 Main Street, City, State, Country"
+      address = parts[0] || '';
+      city = parts[1] || '';
+      state = parts[2] || '';
+      country = parts[3] === 'Canada' ? 'Canada' : 'USA';
+    } else if (parts.length === 3) {
+      // Format: "Address, City, State"
+      address = parts[0] || '';
+      city = parts[1] || '';
+      state = parts[2] || '';
+    } else if (parts.length === 2) {
+      // Format: "Address, City"
+      address = parts[0] || '';
+      city = parts[1] || '';
+    } else {
+      // Single part - use as address
+      address = parts[0] || '';
+    }
+
+    // Validate state against our known states
+    const validStates = country === 'Canada' ? CANADIAN_PROVINCES : US_STATES;
+    const normalizedState = state.trim();
+    const isValidState = validStates.includes(normalizedState);
+
+    // If state is not valid, log a warning but keep the parsed value
+    if (normalizedState && !isValidState) {
+      console.warn(
+        `Parsed state "${normalizedState}" is not in the ${country} states list`,
+      );
+    }
+
     return {
-      address: parts[0] || '',
+      address: address.trim(),
       address2: '',
-      city: parts[1] || '',
-      state: parts[2] || '',
-      zipcode: '',
-      country: 'USA',
+      city: city.trim(),
+      state: normalizedState,
+      zipcode: zipcode.trim(),
+      country: country as 'USA' | 'Canada' | 'Other',
     };
   };
 
@@ -264,7 +328,6 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
       );
       return;
     }
-
     setPlaces(prev =>
       prev.map(place =>
         place.type === type
@@ -435,81 +498,83 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
     );
   };
 
-  const renderAddressForm = (place: SpecialPlace) => (
-    <View style={styles.addressForm}>
-      <TextInput
-        style={styles.input}
-        placeholder="Address *"
-        value={place.addressDetails.address}
-        onChangeText={text =>
-          handleAddressFieldChange(place.type, 'address', text)
-        }
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Address 2 (Optional)"
-        value={place.addressDetails.address2}
-        onChangeText={text =>
-          handleAddressFieldChange(place.type, 'address2', text)
-        }
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="City *"
-        value={place.addressDetails.city}
-        onChangeText={text =>
-          handleAddressFieldChange(place.type, 'city', text)
-        }
-      />
-
-      <TouchableOpacity
-        style={[styles.input, styles.dropdown]}
-        onPress={() =>
-          setShowCountryModal({show: true, placeType: place.type})
-        }>
-        <Text style={styles.dropdownText}>
-          {place.addressDetails.country === 'Other'
-            ? 'Other'
-            : place.addressDetails.country}
-        </Text>
-        <Text style={styles.dropdownArrow}>▼</Text>
-      </TouchableOpacity>
-
-      <View style={styles.rowContainer}>
-        {place.addressDetails.country !== 'Other' && (
-          <TouchableOpacity
-            style={[styles.input, styles.dropdown, {flex: 1, marginRight: 8}]}
-            onPress={() =>
-              setShowStateModal({show: true, placeType: place.type})
-            }>
-            <Text
-              style={[
-                styles.dropdownText,
-                !place.addressDetails.state && styles.placeholder,
-              ]}>
-              {place.addressDetails.state || 'State/Province'}
-            </Text>
-            <Text style={styles.dropdownArrow}>▼</Text>
-          </TouchableOpacity>
-        )}
-
+  const renderAddressForm = (place: SpecialPlace) => {
+    return (
+      <View style={styles.addressForm}>
         <TextInput
-          style={[styles.input, {flex: 1}]}
-          placeholder={
-            place.addressDetails.country === 'Canada'
-              ? 'Postal Code'
-              : 'ZIP Code'
-          }
-          value={place.addressDetails.zipcode}
+          style={styles.input}
+          placeholder="Address *"
+          value={place.addressDetails.address}
           onChangeText={text =>
-            handleAddressFieldChange(place.type, 'zipcode', text)
+            handleAddressFieldChange(place.type, 'address', text)
           }
         />
+
+        <TextInput
+          style={styles.input}
+          placeholder="Address 2 (Optional)"
+          value={place.addressDetails.address2}
+          onChangeText={text =>
+            handleAddressFieldChange(place.type, 'address2', text)
+          }
+        />
+
+        <TextInput
+          style={styles.input}
+          placeholder="City *"
+          value={place.addressDetails.city}
+          onChangeText={text =>
+            handleAddressFieldChange(place.type, 'city', text)
+          }
+        />
+
+        <TouchableOpacity
+          style={[styles.input, styles.dropdown]}
+          onPress={() =>
+            setShowCountryModal({show: true, placeType: place.type})
+          }>
+          <Text style={styles.dropdownText}>
+            {place.addressDetails.country === 'Other'
+              ? 'Other'
+              : place.addressDetails.country}
+          </Text>
+          <Text style={styles.dropdownArrow}>▼</Text>
+        </TouchableOpacity>
+
+        <View style={styles.rowContainer}>
+          {place.addressDetails.country !== 'Other' && (
+            <TouchableOpacity
+              style={[styles.input, styles.dropdown, {flex: 1, marginRight: 8}]}
+              onPress={() =>
+                setShowStateModal({show: true, placeType: place.type})
+              }>
+              <Text
+                style={[
+                  styles.dropdownText,
+                  !place.addressDetails.state && styles.placeholder,
+                ]}>
+                {place.addressDetails.state || 'State/Province'}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
+          )}
+
+          <TextInput
+            style={[styles.input, {flex: 1}]}
+            placeholder={
+              place.addressDetails.country === 'Canada'
+                ? 'Postal Code'
+                : 'ZIP Code'
+            }
+            value={place.addressDetails.zipcode}
+            onChangeText={text =>
+              handleAddressFieldChange(place.type, 'zipcode', text)
+            }
+          />
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderStateModal = () => {
     if (!showStateModal.show || !showStateModal.placeType) return null;
@@ -638,42 +703,46 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                 </Text>
               </View>
 
-              {renderAddressForm(place)}
-
-              <TouchableOpacity
-                style={[
-                  styles.currentLocationButton,
-                  place.isCurrentLocation && styles.currentLocationButtonActive,
-                ]}
-                onPress={() => handleCurrentLocationToggle(place.type)}>
-                <Text
+              <View style={styles.topButtonsContainer}>
+                <TouchableOpacity
                   style={[
-                    styles.currentLocationText,
-                    place.isCurrentLocation && styles.currentLocationTextActive,
-                  ]}>
-                  {place.isCurrentLocation
-                    ? '✓ Current Location'
-                    : 'Use Current Location'}
-                </Text>
-              </TouchableOpacity>
+                    styles.currentLocationButton,
+                    place.isCurrentLocation &&
+                      styles.currentLocationButtonActive,
+                  ]}
+                  onPress={() => handleCurrentLocationToggle(place.type)}>
+                  <Text
+                    style={[
+                      styles.currentLocationText,
+                      place.isCurrentLocation &&
+                        styles.currentLocationTextActive,
+                    ]}>
+                    {place.isCurrentLocation
+                      ? '✓ Current Location'
+                      : 'Use Current Location'}
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.saveButton,
-                  !isAddressComplete(place.addressDetails) &&
-                    styles.saveButtonDisabled,
-                ]}
-                onPress={() => handleSave(place.type)}
-                disabled={!isAddressComplete(place.addressDetails)}>
-                <Text
+                <TouchableOpacity
                   style={[
-                    styles.saveButtonText,
+                    styles.saveButton,
                     !isAddressComplete(place.addressDetails) &&
-                      styles.saveButtonTextDisabled,
-                  ]}>
-                  Save
-                </Text>
-              </TouchableOpacity>
+                      styles.saveButtonDisabled,
+                  ]}
+                  onPress={() => handleSave(place.type)}
+                  disabled={!isAddressComplete(place.addressDetails)}>
+                  <Text
+                    style={[
+                      styles.saveButtonText,
+                      !isAddressComplete(place.addressDetails) &&
+                        styles.saveButtonTextDisabled,
+                    ]}>
+                    Save
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {renderAddressForm(place)}
 
               {isAddressComplete(place.addressDetails) && (
                 <TouchableOpacity
@@ -756,6 +825,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   addressForm: {
+    marginBottom: 12,
+  },
+  topButtonsContainer: {
     marginBottom: 12,
   },
   input: {
