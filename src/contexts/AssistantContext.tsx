@@ -535,20 +535,15 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
           // const {weather, location} = useChatContext();
           //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
 
-          // Prepare all items in one array
-          const items = possibleAnswers.map(answer => ({
-            possibleanswer: answer,
-            questionContext: questionContext,
-            identifiedQuestion: identifiedQuestion,
-            questionTopic: questionTopic,
-          }));
-
-          // Call the process_images API with all items
+          // Call the process_images API with all answers in one request
           const responseImages = await fetchHelper(
             'processImages',
             {},
             {
-              items: items,
+              possibleAnswers: possibleAnswers,
+              questionContext: questionContext,
+              identifiedQuestion: identifiedQuestion,
+              questionTopic: questionTopic,
             },
           );
 

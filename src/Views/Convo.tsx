@@ -477,48 +477,77 @@ const Convo = () => {
         return;
       }
 
-      // Prepare all items in one array
-      const items = array.map(answer => ({
-        speaker: sentence.speaker,
-        audience: sentence.audience,
-        sentenceType: sentence.sentenceType,
-        topic: topic,
-        object: object,
-        action: action,
-        text: answer.text || answer, // Handle both object and string formats
-      }));
-
-      // Call the process_images API with all items
-      const responseImages = await fetchHelper(
-        'processImagesConvo',
-        {},
-        {
-          items: items,
-        },
-      );
-
-      // Process the response and update image URLs
-      if (responseImages && Array.isArray(responseImages.results)) {
-        const images = responseImages.results.map((imageData: any) => ({
-          url: imageData.url,
-          text: imageData.text,
-        }));
-
-        if (mode === 'topic') {
-          // Add "All topics" card to the topic images
-          const allTopicsCard = {
-            text: 'All topics',
-            url: '', // No URL needed for local image
+      // Process each item individually
+      const images = [];
+      for (const answer of array) {
+        try {
+          // Create single item with all context information
+          const item = {
+            speaker: sentence.speaker,
+            audience: sentence.audience,
+            sentenceType: sentence.sentenceType,
+            topic: topic,
+            object: object,
+            action: action,
+            text: answer.text || answer, // Handle both object and string formats
           };
-          setGeneratedTopicImages([...images, allTopicsCard]);
-        } else if (mode === 'list_possible_actions') {
-          setGeneratedActionImages(images);
-        } else if (mode === 'list_possible_objects') {
-          setGeneratedObjectImages(images);
-        }
 
-        return images;
+          // Call the process_images API with single item
+          const responseImages = await fetchHelper(
+            'processImagesConvo',
+            {},
+            {
+              items: [item],
+            },
+          );
+
+          // Process the response and add to images array
+          if (
+            responseImages &&
+            Array.isArray(responseImages.results) &&
+            responseImages.results.length > 0
+          ) {
+            images.push({
+              url: responseImages.results[0].url,
+              text: responseImages.results[0].text,
+            });
+          } else {
+            // Add fallback if no result
+            images.push({
+              text:
+                typeof answer === 'string'
+                  ? answer
+                  : answer.text || answer.image_prompt || 'Unknown',
+              url: '',
+            });
+          }
+        } catch (itemError) {
+          console.error('❌ Failed to process individual image:', itemError);
+          // Add fallback for this item
+          images.push({
+            text:
+              typeof answer === 'string'
+                ? answer
+                : answer.text || answer.image_prompt || 'Unknown',
+            url: '',
+          });
+        }
       }
+
+      if (mode === 'topic') {
+        // Add "All topics" card to the topic images
+        const allTopicsCard = {
+          text: 'All topics',
+          url: '', // No URL needed for local image
+        };
+        setGeneratedTopicImages([...images, allTopicsCard]);
+      } else if (mode === 'list_possible_actions') {
+        setGeneratedActionImages(images);
+      } else if (mode === 'list_possible_objects') {
+        setGeneratedObjectImages(images);
+      }
+
+      return images;
     } catch (err) {
       console.error('❌ Failed to process images:', err);
 

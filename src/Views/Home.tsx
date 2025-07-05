@@ -36,6 +36,7 @@ import {logConversation} from '../utils/conversationLogger';
 import {useAdmin} from '../contexts/adminContext';
 import {views} from '../utils/constants';
 import {useAppSettings} from '../utils/persistance';
+import WakeWordService from '../utils/wakewordService';
 
 const {width, height} = Dimensions.get('window');
 
@@ -67,6 +68,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
+  const [waitingForNextConversation, setWaitingForNextConversation] =
+    useState(false);
 
   // Responsive values based on device type
   const responsiveValues = {
@@ -136,6 +139,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     shadowRadius: isTablet ? 5 : 3,
     shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
     elevation: isTablet ? 6 : 4,
+
+    // Waiting for next conversation
+    waitingContainerPadding: isTablet ? 30 : 20,
+    waitingLabelMarginBottom: isTablet ? 30 : 20,
   };
 
   // Add context caching to improve performance
@@ -168,7 +175,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const {playAttention, playThisSound} = useSound();
+  const {playAttention} = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showImages, setShowImages] = useState(false);
@@ -216,6 +223,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     if (stateof === 'Keyboard') {
     }
   }, []);
+
+  // Cleanup useEffect for wake word service
+  useEffect(() => {
+    return () => {
+      if (waitingForNextConversation) {
+        const wakeWordService = WakeWordService.getInstance();
+        wakeWordService.stopListening();
+      }
+    };
+  }, [waitingForNextConversation]);
 
   const playSound = async () => {
     //console.log('playSound - Starting playSound function');
@@ -340,7 +357,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       });
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
-      //const res = await playThisSound(audioPath);
 
       let transcribeResponse: any;
       if (!DEBUGWITHOUTTRANSCRIPTION) {
@@ -451,6 +467,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setKeyboardInput(''); // Reset keyboard input
     setDebouncedKeyboardInput('');
     setIsSubmittingKeyboard(false);
+    setWaitingForNextConversation(false); // Reset waiting state
 
     // Clear the input in the Inputs component
     if (inputsRef.current) {
@@ -461,6 +478,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
       debounceTimer.current = null;
+    }
+
+    // Clean up wake word service if waiting
+    if (waitingForNextConversation) {
+      const wakeWordService = WakeWordService.getInstance();
+      wakeWordService.stopListening();
     }
   };
 
@@ -548,6 +571,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         // Navigate to Open.tsx only if gobackAfterSelection is true
         if (gobackAfterSelection) {
           navigation.navigate(views.OPEN as never);
+        } else {
+          // NEW: Set waiting state and activate wake word
+          setWaitingForNextConversation(true);
+
+          // Activate wake word listening (safe - no current conflict)
+          const wakeWordService = WakeWordService.getInstance();
+          wakeWordService.setCallback((phrase: string) => {
+            // When wake word detected, start new conversation
+            setWaitingForNextConversation(false);
+            playSound(); // This will trigger handleRecord()
+          });
+          wakeWordService.startListening();
         }
       }, 1000);
     }
@@ -932,7 +967,33 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       justifyContent: 'center',
                       alignItems: 'center',
                     }}>
-                    {stateof === 'Keyboard' ? (
+                    {waitingForNextConversation ? (
+                      <View
+                        style={[
+                          styles.waitingForNextContainer,
+                          {padding: responsiveValues.waitingContainerPadding},
+                        ]}>
+                        <Text
+                          style={[
+                            styles.waitingLabel,
+                            {
+                              fontSize: responsiveValues.transcriptionFontSize,
+                              marginBottom:
+                                responsiveValues.waitingLabelMarginBottom,
+                            },
+                          ]}>
+                          Waiting to continue the conversation
+                        </Text>
+                        <FastImage
+                          source={require('../assets/movie/output.gif')}
+                          style={[
+                            styles.iconSize,
+                            responsiveValues.fetchingSize,
+                          ]}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
+                    ) : stateof === 'Keyboard' ? (
                       <KeyboardInputComponent />
                     ) : isRecording ? (
                       <FastImage
@@ -1191,12 +1252,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  waitingLabel: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
+
   keyboardTextInput: {
     width: '100%',
     minHeight: 100,
@@ -1299,6 +1355,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
+  },
+  waitingForNextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waitingLabel: {
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
   },
 });
 
