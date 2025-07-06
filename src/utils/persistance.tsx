@@ -132,7 +132,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const clear = async (): Promise<void> => {
     try {
-      console.log('Clearing DefaultPreference');
       await DefaultPreference.clearAll();
       setPreferences(initialPreferences);
     } catch (error) {

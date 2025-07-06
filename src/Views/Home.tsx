@@ -49,7 +49,7 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = true;
+const DEBUGWITHOUTTRANSCRIPTION = false;
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
@@ -561,6 +561,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       answerPicked: selectedAnswer,
       threadId: threadId,
     });
+
+    // Send the selected answer back to the assistant for learning (without triggering response flow)
+    try {
+      const currentTime = new Date().toLocaleString();
+      const learningMessage = `User selected answer: "${selectedAnswer}" for question: "${transcribedText}" from possible answers: [${possibleAnswers.join(
+        ', ',
+      )}]. Context - Time: ${currentTime}, Location: ${
+        location || 'Unknown'
+      }, Weather: ${weather || 'Unknown'}`;
+      await sendMessage(learningMessage, threadId, 'learning_feedback');
+    } catch (error) {
+      console.error('Failed to send learning feedback:', error);
+      // Don't block the user flow if learning feedback fails
+    }
 
     // Only navigate back to Open if not currently retrying/getting more answers
     if (selectedAnswer !== 'MoreAnswers') {

@@ -596,7 +596,7 @@ const SettingsScreen: React.FC = () => {
               <Text style={styles.settingLabel}>Special Places</Text>
               <Text style={styles.specialPlacesDescription}>
                 Set up your special places (Home, School, Therapy) to help
-                Matalk provide better contextual responses
+                Ma-Talk AI provide better contextual responses
               </Text>
               <SpecialPlaces isSettingsMode={true} />
             </View>
@@ -756,15 +756,15 @@ const SettingsScreen: React.FC = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.aboutText}>Matalk v1.0.0</Text>
+          <Text style={styles.aboutText}>Ma-Talk AI v1.0.0</Text>
           <Text style={styles.aboutDescription}>
-            Matalk is a communication tool designed to help users interact more
-            effectively.
+            Ma-Talk AI is a communication tool designed to help users interact
+            more effectively.
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2023 Matalk</Text>
+          <Text style={styles.footerText}>© 2025 Ma-Talk AI</Text>
         </View>
 
         <InfoModal

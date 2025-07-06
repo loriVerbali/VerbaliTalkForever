@@ -34,7 +34,7 @@ const {width, height} = Dimensions.get('window');
 const onboardingSteps = [
   {
     id: 'welcome',
-    question: 'Welcome to Matalk',
+    question: 'Welcome to Ma-Talk AI',
     additionalComponents: 'welcome',
     buttonText: 'Next',
   },
@@ -404,7 +404,7 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {fontSize: 24, fontWeight: '900'},
                       ]}>
-                      Matalk needs the following permissions:
+                      Ma-Talk AI needs the following permissions:
                     </Text>
                     <Text
                       style={[styles.permissionsExplanation, {width: '80%'}]}>
@@ -445,7 +445,7 @@ const OnboardingScreen: React.FC = () => {
                         {color: '#FF6B6B'},
                       ]}>
                       Please enable microphone and storage permissions manually
-                      in your device settings to continue using Matalk.
+                      in your device settings to continue using Ma-Talk AI.
                     </Text>
                   </>
                 )}

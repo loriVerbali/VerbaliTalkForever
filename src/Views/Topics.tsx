@@ -358,7 +358,7 @@ const Topics: React.FC<TopicsProps> = ({onSelectTopic}) => {
                         {
                           translateY: animatedValues[categoryKey].interpolate({
                             inputRange: [0, 1],
-                            outputRange: [0, -15],
+                            outputRange: [0, -7.5],
                           }),
                         },
                       ],

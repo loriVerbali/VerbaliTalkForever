@@ -1175,6 +1175,22 @@ const Convo = () => {
         // Log the conversation process before playing
         await logConversationProcess();
 
+        // Send learning feedback to assistant
+        try {
+          const currentTime = new Date().toLocaleString();
+          const learningMessage = `User created sentence: "${inputText}" with choices - Speaker: ${
+            sentence.speaker
+          }, Audience: ${sentence.audience}, Sentence Type: ${
+            sentence.sentenceType === '?' ? 'Question' : 'Statement'
+          }, Topic: ${topic}, Action: ${action}, Object: ${object}. Context - Time: ${currentTime}, Location: ${
+            location || 'Unknown'
+          }, Weather: ${weather || 'Unknown'}`;
+          await sendMessage(learningMessage, threadId, 'learning_feedback');
+        } catch (error) {
+          console.error('Failed to send learning feedback:', error);
+          // Don't block the user flow if learning feedback fails
+        }
+
         await TTSService.speak(inputText);
 
         // Wait for 3 seconds before resetting

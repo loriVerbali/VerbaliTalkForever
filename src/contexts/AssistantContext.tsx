@@ -53,7 +53,8 @@ interface AssistantContextType {
       | 'list_possible_objects'
       | 'list_possible_actions'
       | 'generate_answers'
-      | 'sentence',
+      | 'sentence'
+      | 'learning_feedback',
   ) => Promise<string>;
   runAssistant: (threadIdOverride?: string) => Promise<string>;
   setThreadId: (id: string) => void;
@@ -171,6 +172,11 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               {},
             );
             const messageType = messagesResponse.data[1].metadata.mode;
+
+            // Skip processing for learning feedback messages
+            if (messageType === 'learning_feedback') {
+              break;
+            }
             if (messageType === 'list_possible_topics') {
               if (
                 messagesResponse.data &&
@@ -399,7 +405,8 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       | 'list_possible_objects'
       | 'list_possible_actions'
       | 'generate_answers'
-      | 'sentence',
+      | 'sentence'
+      | 'learning_feedback',
   ) => {
     let idToUse = threadIdOverride || threadId;
 
