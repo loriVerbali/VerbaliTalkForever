@@ -53,7 +53,8 @@ interface AssistantContextType {
       | 'list_possible_objects'
       | 'list_possible_actions'
       | 'generate_answers'
-      | 'sentence',
+      | 'sentence'
+      | 'learning_feedback',
   ) => Promise<string>;
   runAssistant: (threadIdOverride?: string) => Promise<string>;
   setThreadId: (id: string) => void;
@@ -170,8 +171,12 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               },
               {},
             );
-
             const messageType = messagesResponse.data[1].metadata.mode;
+
+            // Skip processing for learning feedback messages
+            if (messageType === 'learning_feedback') {
+              break;
+            }
             if (messageType === 'list_possible_topics') {
               if (
                 messagesResponse.data &&
@@ -400,7 +405,8 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       | 'list_possible_objects'
       | 'list_possible_actions'
       | 'generate_answers'
-      | 'sentence',
+      | 'sentence'
+      | 'learning_feedback',
   ) => {
     let idToUse = threadIdOverride || threadId;
 
@@ -536,20 +542,15 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
           // const {weather, location} = useChatContext();
           //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
 
-          // Prepare all items in one array
-          const items = possibleAnswers.map(answer => ({
-            possibleanswer: answer,
-            questionContext: questionContext,
-            identifiedQuestion: identifiedQuestion,
-            questionTopic: questionTopic,
-          }));
-
-          // Call the process_images API with all items
+          // Call the process_images API with all answers in one request
           const responseImages = await fetchHelper(
             'processImages',
             {},
             {
-              items: items,
+              possibleAnswers: possibleAnswers,
+              questionContext: questionContext,
+              identifiedQuestion: identifiedQuestion,
+              questionTopic: questionTopic,
             },
           );
 

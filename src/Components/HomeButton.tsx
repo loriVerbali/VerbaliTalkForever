@@ -11,12 +11,14 @@ interface HomeButtonProps {
   zIndex?: number;
   navigation?: any; // Navigation prop can be passed, otherwise will use useNavigation hook
   onReset?: () => void; // Optional callback for additional reset logic
+  disabled?: boolean; // Disable the button when processing
 }
 
 const HomeButton: React.FC<HomeButtonProps> = ({
   zIndex = 1,
   navigation: navigationProp,
   onReset,
+  disabled = false,
 }) => {
   // Use passed navigation if provided, otherwise use the hook
   const navigationHook = useNavigation();
@@ -34,6 +36,11 @@ const HomeButton: React.FC<HomeButtonProps> = ({
   };
 
   const handleHomePress = () => {
+    // Don't do anything if disabled
+    if (disabled) {
+      return;
+    }
+
     // Call additional reset logic if provided
     if (onReset) {
       onReset();
@@ -46,15 +53,21 @@ const HomeButton: React.FC<HomeButtonProps> = ({
   return (
     <Pressable
       onPress={handleHomePress}
+      disabled={disabled}
       style={({pressed}) => [
         styles.homeIcon,
         responsiveValues.iconSize,
         {borderRadius: responsiveValues.borderRadius},
-        pressed && styles.buttonPressed,
+        pressed && !disabled && styles.buttonPressed,
+        disabled && styles.buttonDisabled,
         {zIndex: zIndex},
       ]}>
       <Text
-        style={[styles.homeIconText, {fontSize: responsiveValues.fontSize}]}>
+        style={[
+          styles.homeIconText,
+          {fontSize: responsiveValues.fontSize},
+          disabled && styles.homeIconTextDisabled,
+        ]}>
         🏠
       </Text>
     </Pressable>
@@ -78,9 +91,16 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     transform: [{scale: 0.98}],
   },
+  buttonDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#E0E0E0',
+  },
   homeIconText: {
     // fontSize is now handled dynamically
     color: '#FFFFFF',
+  },
+  homeIconTextDisabled: {
+    color: '#999999',
   },
 });
 

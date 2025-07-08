@@ -34,7 +34,7 @@ const {width, height} = Dimensions.get('window');
 const onboardingSteps = [
   {
     id: 'welcome',
-    question: 'Welcome to Matalk',
+    question: 'Welcome to Ma-Talk AI',
     additionalComponents: 'welcome',
     buttonText: 'Next',
   },
@@ -404,7 +404,7 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {fontSize: 24, fontWeight: '900'},
                       ]}>
-                      Matalk needs the following permissions:
+                      Ma-Talk AI needs the following permissions:
                     </Text>
                     <Text
                       style={[styles.permissionsExplanation, {width: '80%'}]}>
@@ -445,7 +445,7 @@ const OnboardingScreen: React.FC = () => {
                         {color: '#FF6B6B'},
                       ]}>
                       Please enable microphone and storage permissions manually
-                      in your device settings to continue using Matalk.
+                      in your device settings to continue using Ma-Talk AI.
                     </Text>
                   </>
                 )}
@@ -779,9 +779,7 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'Permissions' && !permissionsGranted) ||
                 (currentStepData.id === 'Optional Permissions' &&
                   !locationPermissionAttempted &&
-                  !locationPermissionSuccess) ||
-                (currentStepData.id === 'Special Places' &&
-                  !specialPlacesCompleted)
+                  !locationPermissionSuccess)
               }>
               <Text style={styles.buttonText}>
                 {currentStepData.buttonText}
@@ -1140,17 +1138,17 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     backgroundColor: 'transparent',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 15,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: 'rgba(20, 108, 240, 0.75)',
     marginLeft: 10,
   },
   skipButtonText: {
     color: 'rgba(20, 108, 240, 0.75)',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '800',
     textAlign: 'center',
   },
 });

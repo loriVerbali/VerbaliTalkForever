@@ -8,13 +8,10 @@ import {
   Pressable,
   Dimensions,
   StatusBar,
-  Linking,
   TouchableOpacity,
   Modal,
   useWindowDimensions,
   TextInput,
-  TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
@@ -54,6 +51,7 @@ const InfoModal = ({
     animationType="fade"
     transparent={true}
     visible={visible}
+    supportedOrientations={['landscape-left', 'landscape-right']}
     onRequestClose={onClose}>
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
@@ -197,6 +195,9 @@ const SettingsScreen: React.FC = () => {
   const [conversationMode, setConversationMode] = useState('easy');
   const [showConversationModeInfo, setShowConversationModeInfo] =
     useState(false);
+  const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
+  const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
+    useState(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   useEffect(() => {
@@ -212,6 +213,7 @@ const SettingsScreen: React.FC = () => {
         const wasOnboarded = await getItem('wasOnboarded');
         const savedAdminCode = await getItem('adminCode');
         const savedConversationMode = await getItem('conversationMode');
+        const savedGobackAfterSelection = await getItem('gobackAfterSelection');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
@@ -220,6 +222,7 @@ const SettingsScreen: React.FC = () => {
         setShowOnboardingEnabled(wasOnboarded !== '1');
         setAdminCode(savedAdminCode || '');
         setConversationMode(savedConversationMode || 'easy');
+        setGobackAfterSelection(savedGobackAfterSelection === '1');
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -282,6 +285,11 @@ const SettingsScreen: React.FC = () => {
     const mode = value ? 'advanced' : 'easy';
     setConversationMode(mode);
     await setItem('conversationMode', mode);
+  };
+
+  const handleGobackAfterSelectionToggle = async (value: boolean) => {
+    setGobackAfterSelection(value);
+    await setItem('gobackAfterSelection', value ? '1' : '0');
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
@@ -435,10 +443,10 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
+          <Text style={styles.sectionTitle}>Account Settings</Text>
 
           <View style={styles.sliderGrid}>
-            <View style={styles.sliderRow}>
+            {/* <View style={styles.sliderRow}>
               <MessagesSlider
                 value={returnedMessages}
                 onChange={handleMessagesChange}
@@ -449,9 +457,9 @@ const SettingsScreen: React.FC = () => {
                 onChange={handleTopicsChange}
                 description="Determines the number of conversation topics available. More topics provide variety but may make selection more complex. 4-6 topics are recommended for focused conversations, 7-8 for broader discussions."
               />
-            </View>
+            </View> */}
 
-            <View style={styles.sliderRow}>
+            {/* <View style={styles.sliderRow}>
               <RangeSlider
                 label="Amount of Actions"
                 value={actionsCount}
@@ -464,7 +472,7 @@ const SettingsScreen: React.FC = () => {
                 onChange={handleObjectsChange}
                 description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
               />
-            </View>
+            </View> */}
 
             <View style={styles.genderSection}>
               <Text style={styles.settingLabel}>Gender</Text>
@@ -588,7 +596,7 @@ const SettingsScreen: React.FC = () => {
               <Text style={styles.settingLabel}>Special Places</Text>
               <Text style={styles.specialPlacesDescription}>
                 Set up your special places (Home, School, Therapy) to help
-                Matalk provide better contextual responses
+                Ma-Talk AI provide better contextual responses
               </Text>
               <SpecialPlaces isSettingsMode={true} />
             </View>
@@ -703,6 +711,24 @@ const SettingsScreen: React.FC = () => {
                 value={showOnboardingEnabled}
               />
             </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabel}>
+                <Text style={styles.settingLabel}>Go Back After Selection</Text>
+                <TouchableOpacity
+                  onPress={() => setShowGobackAfterSelectionInfo(true)}
+                  style={styles.infoButton}>
+                  <Text style={styles.infoIcon}>?</Text>
+                </TouchableOpacity>
+              </View>
+              <Switch
+                trackColor={{false: '#767577', true: '#8E24AA'}}
+                thumbColor={gobackAfterSelection ? '#fff' : '#f4f3f4'}
+                ios_backgroundColor="#3e3e3e"
+                onValueChange={handleGobackAfterSelectionToggle}
+                value={gobackAfterSelection}
+              />
+            </View>
           </View>
         </View>
 
@@ -730,15 +756,15 @@ const SettingsScreen: React.FC = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.aboutText}>Matalk v1.0.0</Text>
+          <Text style={styles.aboutText}>Ma-Talk AI v1.0.0</Text>
           <Text style={styles.aboutDescription}>
-            Matalk is a communication tool designed to help users interact more
-            effectively.
+            Ma-Talk AI is a communication tool designed to help users interact
+            more effectively.
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2023 Matalk</Text>
+          <Text style={styles.footerText}>© 2025 Ma-Talk AI</Text>
         </View>
 
         <InfoModal
@@ -753,6 +779,13 @@ const SettingsScreen: React.FC = () => {
           onClose={() => setShowConversationModeInfo(false)}
           title="Conversation Mode"
           description="Easy mode provides a simplified interface with just Question or Statement buttons, automatically setting the speaker as 'I' and audience as 'anyone'. Advanced mode shows the full interface with speaker, audience, and sentence type selection for more detailed conversations."
+        />
+
+        <InfoModal
+          visible={showGobackAfterSelectionInfo}
+          onClose={() => setShowGobackAfterSelectionInfo(false)}
+          title="Go Back After Selection"
+          description="When enabled, the app will automatically navigate back to the main screen after you select an answer. When disabled, you'll stay on the conversation screen and can continue asking questions without returning to the main screen."
         />
       </ScrollView>
     </LinearGradient>

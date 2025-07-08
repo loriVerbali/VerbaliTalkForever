@@ -4,13 +4,8 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  Modal,
   TouchableOpacity,
   Platform,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-  TextInput,
 } from 'react-native';
 import {useNavigation, RouteProp} from '@react-navigation/native';
 import RNFS from 'react-native-fs';
@@ -23,7 +18,6 @@ import AudioRecorderPlayer, {
 
 // Add imports for the components
 import Inputs, {InputsRef} from '../Components/Inputs';
-import Transcription from '../Components/Transcription';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
 import {useAssistant} from '../contexts/AssistantContext';
@@ -40,6 +34,9 @@ import fetchHelper from '../utils/fetcher';
 import {Mixpanel} from 'mixpanel-react-native';
 import {logConversation} from '../utils/conversationLogger';
 import {useAdmin} from '../contexts/adminContext';
+import {views} from '../utils/constants';
+import {useAppSettings} from '../utils/persistance';
+import WakeWordService from '../utils/wakewordService';
 
 const {width, height} = Dimensions.get('window');
 
@@ -56,13 +53,23 @@ const DEBUGWITHOUTTRANSCRIPTION = false;
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {sendMessage, runAssistant, threadId, imageUrls, status} =
-    useAssistant();
+  const {
+    sendMessage,
+    runAssistant,
+    threadId,
+    imageUrls,
+    status,
+    resetAssistant,
+  } = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
+  const {getItem} = useAppSettings();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
+  const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
+  const [waitingForNextConversation, setWaitingForNextConversation] =
+    useState(false);
 
   // Responsive values based on device type
   const responsiveValues = {
@@ -70,6 +77,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     microphoneSize: isTablet
       ? {width: 45, height: 45}
       : {width: 35, height: 35},
+    fetchingSize: isTablet
+      ? {width: 200, height: 200}
+      : {width: 150, height: 150},
     matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
 
     // Layout dimensions
@@ -87,7 +97,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       ? {width: width * 0.3, height: width * 0.3}
       : {width: width * 0.25, height: width * 0.25},
     recordingIconSize: isTablet
-      ? {width: width * 0.4, height: width * 0.3}
+      ? {width: width * 0.4, height: width * 0.4}
       : {width: width * 0.35, height: width * 0.2},
 
     // Typography
@@ -129,6 +139,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     shadowRadius: isTablet ? 5 : 3,
     shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
     elevation: isTablet ? 6 : 4,
+
+    // Waiting for next conversation
+    waitingContainerPadding: isTablet ? 30 : 20,
+    waitingLabelMarginBottom: isTablet ? 30 : 20,
   };
 
   // Add context caching to improve performance
@@ -159,10 +173,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
-
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const {playAttention, playThisSound} = useSound();
+  const {playAttention} = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showImages, setShowImages] = useState(false);
@@ -182,8 +195,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       }
     };
 
+    // Load gobackAfterSelection setting
+    const loadGobackAfterSelectionSetting = async () => {
+      try {
+        const setting = await getItem('gobackAfterSelection');
+        setGobackAfterSelection(setting === '1');
+      } catch (error) {
+        console.error('Error loading gobackAfterSelection setting:', error);
+      }
+    };
+
     // Send wakeup call
     sendWakeupCall();
+
+    // Load the setting
+    loadGobackAfterSelectionSetting();
 
     // Track screen opening
     mixpanel.track('Conversation', {
@@ -197,6 +223,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     if (stateof === 'Keyboard') {
     }
   }, []);
+
+  // Cleanup useEffect for wake word service
+  useEffect(() => {
+    return () => {
+      if (waitingForNextConversation) {
+        const wakeWordService = WakeWordService.getInstance();
+        wakeWordService.stopListening();
+      }
+    };
+  }, [waitingForNextConversation]);
 
   const playSound = async () => {
     //console.log('playSound - Starting playSound function');
@@ -321,13 +357,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       });
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
-      //const res = await playThisSound(audioPath);
 
       let transcribeResponse: any;
       if (!DEBUGWITHOUTTRANSCRIPTION) {
         transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
       } else {
-        transcribeResponse = {text: 'Whats your name?'};
+        transcribeResponse = {text: 'Whats your favourite food?'};
       }
 
       if (transcribeResponse?.text) {
@@ -432,6 +467,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setKeyboardInput(''); // Reset keyboard input
     setDebouncedKeyboardInput('');
     setIsSubmittingKeyboard(false);
+    setWaitingForNextConversation(false); // Reset waiting state
 
     // Clear the input in the Inputs component
     if (inputsRef.current) {
@@ -442,6 +478,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
       debounceTimer.current = null;
+    }
+
+    // Clean up wake word service if waiting
+    if (waitingForNextConversation) {
+      const wakeWordService = WakeWordService.getInstance();
+      wakeWordService.stopListening();
     }
   };
 
@@ -507,22 +549,56 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       return;
     }
 
-    try {
-      // Extract all possible answers from imageUrls
-      const possibleAnswers = imageUrls
-        .filter(item => item && item.prompt)
-        .map(item => item.prompt);
+    // Extract all possible answers from imageUrls
+    const possibleAnswers = imageUrls
+      .filter(item => item && item.prompt)
+      .map(item => item.prompt);
 
-      // Log the conversation
-      await logConversation({
-        question: transcribedText,
-        possibleAnswers: possibleAnswers,
-        answerPicked: selectedAnswer,
-        threadId: threadId,
-      });
+    // Log the conversation
+    logConversation({
+      question: transcribedText,
+      possibleAnswers: possibleAnswers,
+      answerPicked: selectedAnswer,
+      threadId: threadId,
+    });
+
+    // Send the selected answer back to the assistant for learning (without triggering response flow)
+    try {
+      const currentTime = new Date().toLocaleString();
+      const learningMessage = `User selected answer: "${selectedAnswer}" for question: "${transcribedText}" from possible answers: [${possibleAnswers.join(
+        ', ',
+      )}]. Context - Time: ${currentTime}, Location: ${
+        location || 'Unknown'
+      }, Weather: ${weather || 'Unknown'}`;
+      await sendMessage(learningMessage, threadId, 'learning_feedback');
     } catch (error) {
-      console.error('Failed to log conversation:', error);
-      // Don't show error to user as this is background logging
+      console.error('Failed to send learning feedback:', error);
+      // Don't block the user flow if learning feedback fails
+    }
+
+    // Only navigate back to Open if not currently retrying/getting more answers
+    if (selectedAnswer !== 'MoreAnswers') {
+      // Wait 1 second to allow user to hear the selected answer being spoken
+      setTimeout(() => {
+        resetAssistant();
+        resetLocalStates();
+        // Navigate to Open.tsx only if gobackAfterSelection is true
+        if (gobackAfterSelection) {
+          navigation.navigate(views.OPEN as never);
+        } else {
+          // NEW: Set waiting state and activate wake word
+          setWaitingForNextConversation(true);
+
+          // Activate wake word listening (safe - no current conflict)
+          const wakeWordService = WakeWordService.getInstance();
+          wakeWordService.setCallback((phrase: string) => {
+            // When wake word detected, start new conversation
+            setWaitingForNextConversation(false);
+            playSound(); // This will trigger handleRecord()
+          });
+          wakeWordService.startListening();
+        }
+      }, 1000);
     }
   };
 
@@ -660,7 +736,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                 debouncedKeyboardInput.trim().length === 0
               }>
               {isSubmittingKeyboard ? (
-                <ActivityIndicator size="small" color="#FFF" />
+                <FastImage
+                  source={require('../assets/movie/output.gif')}
+                  style={[styles.iconSize, responsiveValues.fetchingSize]}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
               ) : (
                 <Text
                   style={[
@@ -698,7 +778,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         </View>
 
         {/* Home Button */}
-        <HomeButton navigation={navigation} onReset={resetLocalStates} />
+        <HomeButton
+          navigation={navigation}
+          onReset={resetLocalStates}
+          disabled={
+            isRecording ||
+            isProcessingAnswer ||
+            isRetrying ||
+            isSubmittingKeyboard ||
+            (finishedTranscribing && !showImages)
+          }
+        />
 
         {/* Matalk Icon */}
         <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
@@ -891,15 +981,41 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       justifyContent: 'center',
                       alignItems: 'center',
                     }}>
-                    {stateof === 'Keyboard' ? (
+                    {waitingForNextConversation ? (
+                      <View
+                        style={[
+                          styles.waitingForNextContainer,
+                          {padding: responsiveValues.waitingContainerPadding},
+                        ]}>
+                        <Text
+                          style={[
+                            styles.waitingLabel,
+                            {
+                              fontSize: responsiveValues.transcriptionFontSize,
+                              marginBottom:
+                                responsiveValues.waitingLabelMarginBottom,
+                            },
+                          ]}>
+                          Waiting to continue the conversation
+                        </Text>
+                        <FastImage
+                          source={require('../assets/movie/output.gif')}
+                          style={[
+                            styles.iconSize,
+                            responsiveValues.fetchingSize,
+                          ]}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
+                    ) : stateof === 'Keyboard' ? (
                       <KeyboardInputComponent />
                     ) : isRecording ? (
                       <FastImage
-                        source={require('../assets/recording.gif')}
+                        source={require('../assets/movie/recording.gif')}
                         style={responsiveValues.recordingIconSize}
                         resizeMode={
                           isTablet
-                            ? FastImage.resizeMode.cover
+                            ? FastImage.resizeMode.center
                             : FastImage.resizeMode.contain
                         }
                       />
@@ -922,7 +1038,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         {/* Show different loading states based on processing phase */}
                         {isProcessingAnswer ? (
                           <View style={{alignItems: 'center'}}>
-                            <ActivityIndicator size="large" color="#007AFF" />
+                            <FastImage
+                              source={require('../assets/movie/output.gif')}
+                              style={[
+                                styles.iconSize,
+                                responsiveValues.fetchingSize,
+                              ]}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
                             <Text
                               style={[
                                 styles.retryText,
@@ -935,7 +1058,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             </Text>
                           </View>
                         ) : transcribedText.length === 0 || isRetrying ? (
-                          <ActivityIndicator size="large" color="#0000ff" />
+                          <FastImage
+                            source={require('../assets/movie/output.gif')}
+                            style={[
+                              styles.iconSize,
+                              responsiveValues.fetchingSize,
+                            ]}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
                         ) : null}
                         {isRetrying && (
                           <Text
@@ -1136,12 +1266,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  waitingLabel: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
+
   keyboardTextInput: {
     width: '100%',
     minHeight: 100,
@@ -1244,6 +1369,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
+  },
+  waitingForNextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waitingLabel: {
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
   },
 });
 

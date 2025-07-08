@@ -9,8 +9,9 @@ import {
   Dimensions,
   Image,
   Platform,
+  Modal,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import Carousel, {ICarouselInstance} from 'react-native-reanimated-carousel';
 import TTSService from '../utils/TTSService';
@@ -21,10 +22,53 @@ import {useAssistant} from '../contexts/AssistantContext';
 import fetchHelper from '../utils/fetcher';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
+
+// Topic images from Topics.tsx
+import beachImg from '../assets/topics/beach_topic_other.jpg';
+import poolImg from '../assets/topics/pool_topic_other.jpg';
+import parkImg from '../assets/topics/park_topic_other.jpg';
+import playgroundImg from '../assets/topics/playground_topic_other.jpg';
+import museumImg from '../assets/topics/museum_topic_other.jpg';
+import backyardImg from '../assets/topics/backyard_topic_other.jpg';
+import zooImg from '../assets/topics/zoo_topic_other.jpg';
+import schoolImg from '../assets/topics/school_topic_other.jpg';
+import libraryImg from '../assets/topics/library_topic_other.jpg';
+import groceryStoreImg from '../assets/topics/grocery_store_topic_other.jpg';
+import hideAndSeekImg from '../assets/topics/hide_and_seek_topic_other.jpg';
+import dancingImg from '../assets/topics/dancing_topic_other.jpg';
+import buildingImg from '../assets/topics/building_topic_other.jpg';
+import ridesImg from '../assets/topics/rides_topic_other.jpg';
+import fortImg from '../assets/topics/fort_topic_other.jpg';
+import sandcastleImg from '../assets/topics/sandcastle_topic_other.jpg';
+import toyImg from '../assets/topics/toy_topic_other.jpg';
+import dinosaurImg from '../assets/topics/dinosaur_topic_other.jpg';
+import trainImg from '../assets/topics/train_topic_other.jpg';
+import airplanesImg from '../assets/topics/airplanes_topic_other.jpg';
+import pancakesImg from '../assets/topics/pancakes_topic_other.jpg';
+import iceCreamImg from '../assets/topics/ice_cream_topic_other.jpg';
+import cookiesImg from '../assets/topics/cookies_topic_other.jpg';
+import snackImg from '../assets/topics/snack_topic_other.jpg';
+import popcornImg from '../assets/topics/popcorn_topic_other.jpg';
+import hotChocolateImg from '../assets/topics/hot_chocolate_topic_other.jpg';
+import lemonadeImg from '../assets/topics/lemonade_topic_other.jpg';
+import dinnerImg from '../assets/topics/dinner_topic_other.jpg';
+import rainImg from '../assets/topics/rain_topic_other.jpg';
+import snowflakesImg from '../assets/topics/snowflakes_topic_other.jpg';
+import snowmanImg from '../assets/topics/snowman_topic_other.jpg';
+import puddlesImg from '../assets/topics/puddles_topic_other.jpg';
+import windImg from '../assets/topics/wind_topic_other.jpg';
+import cloudsImg from '../assets/topics/clouds_topic_other.jpg';
+import sunImg from '../assets/topics/sun_topic_other.jpg';
+import sunsetImg from '../assets/topics/sunset_topic_other.jpg';
+import birthdayPartyImg from '../assets/topics/birthday_party_topic_other.jpg';
+import weekendImg from '../assets/topics/weekend_topic_other.jpg';
+import movieImg from '../assets/topics/movie_topic_other.jpg';
+import partyImg from '../assets/topics/party_topic_other.jpg';
 import Slider from '@react-native-community/slider';
 import {useAppSettings} from '../utils/persistance';
 import {FamilyMember} from '../Components/FamilyPics';
 import ContextInfo from '../Components/ContextInfo';
+import Topics from './Topics';
 import {
   useChatContext,
   getContextualInfo,
@@ -34,9 +78,53 @@ import {useAdmin} from '../contexts/adminContext';
 
 const DEBUGCONVONOIMAGEGENERATION = false;
 
+// Mapping of topic names to their local images
+const TOPIC_IMAGE_MAPPING: {[key: string]: any} = {
+  Beach: beachImg,
+  Pool: poolImg,
+  Park: parkImg,
+  Playground: playgroundImg,
+  Museum: museumImg,
+  Backyard: backyardImg,
+  Zoo: zooImg,
+  School: schoolImg,
+  Library: libraryImg,
+  'Grocery store': groceryStoreImg,
+  'Hide and Seek': hideAndSeekImg,
+  Dancing: dancingImg,
+  Building: buildingImg,
+  Rides: ridesImg,
+  Fort: fortImg,
+  Sandcastle: sandcastleImg,
+  Toy: toyImg,
+  Dinosaur: dinosaurImg,
+  Train: trainImg,
+  Airplanes: airplanesImg,
+  Pancakes: pancakesImg,
+  'Ice cream': iceCreamImg,
+  Cookies: cookiesImg,
+  Snack: snackImg,
+  Popcorn: popcornImg,
+  'Hot chocolate': hotChocolateImg,
+  Lemonade: lemonadeImg,
+  Dinner: dinnerImg,
+  Rain: rainImg,
+  Snowflakes: snowflakesImg,
+  Snowman: snowmanImg,
+  Puddles: puddlesImg,
+  Wind: windImg,
+  Clouds: cloudsImg,
+  Sun: sunImg,
+  Sunset: sunsetImg,
+  'Birthday party': birthdayPartyImg,
+  Weekend: weekendImg,
+  Movie: movieImg,
+  Party: partyImg,
+};
+
 const {width, height} = Dimensions.get('window');
 
-type Topic = 'NA' | 'Talk' | 'Play';
+type Topic = 'NA' | 'Talk' | 'Play' | 'All topics' | string;
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
 type Object = 'NA' | 'ball';
 type Speaker = string;
@@ -68,6 +156,12 @@ interface ImageGenerated {
   url: string;
 }
 
+interface TopicData {
+  label: string;
+  image: any;
+  backgroundColor: string;
+}
+
 const Convo = () => {
   const [sentence, setSentence] = useState<Sentence>({
     speaker: '',
@@ -80,6 +174,7 @@ const Convo = () => {
   const [inputText, setInputText] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [contextInfoVisible, setContextInfoVisible] = useState(false);
+  const [topicsModalVisible, setTopicsModalVisible] = useState(false);
 
   // Get assistant context
   const {
@@ -286,18 +381,6 @@ const Convo = () => {
     return member?.imageUri;
   };
 
-  // Update input text when sentence changes
-  useEffect(() => {
-    const {speaker, audience, list_possible_topics, action, object} = sentence;
-    if (speaker && list_possible_topics && action && object) {
-      setInputText(
-        `${speaker} want to ${action} ${object} ${
-          audience ? 'to ' + audience : ''
-        }`,
-      );
-    }
-  }, [sentence]);
-
   // Helper to parse JSON responses from the assistant
   const parseAssistantResponse = (jsonString: any) => {
     try {
@@ -394,43 +477,77 @@ const Convo = () => {
         return;
       }
 
-      // Prepare all items in one array
-      const items = array.map(answer => ({
-        speaker: sentence.speaker,
-        audience: sentence.audience,
-        sentenceType: sentence.sentenceType,
-        topic: topic,
-        object: object,
-        action: action,
-        text: answer.text || answer, // Handle both object and string formats
-      }));
+      // Process each item individually
+      const images = [];
+      for (const answer of array) {
+        try {
+          // Create single item with all context information
+          const item = {
+            speaker: sentence.speaker,
+            audience: sentence.audience,
+            sentenceType: sentence.sentenceType,
+            topic: topic,
+            object: object,
+            action: action,
+            text: answer.text || answer, // Handle both object and string formats
+          };
 
-      // Call the process_images API with all items
-      const responseImages = await fetchHelper(
-        'processImagesConvo',
-        {},
-        {
-          items: items,
-        },
-      );
+          // Call the process_images API with single item
+          const responseImages = await fetchHelper(
+            'processImagesConvo',
+            {},
+            {
+              items: [item],
+            },
+          );
 
-      // Process the response and update image URLs
-      if (responseImages && Array.isArray(responseImages.results)) {
-        const images = responseImages.results.map((imageData: any) => ({
-          url: imageData.url,
-          text: imageData.text,
-        }));
-
-        if (mode === 'topic') {
-          setGeneratedTopicImages(images);
-        } else if (mode === 'list_possible_actions') {
-          setGeneratedActionImages(images);
-        } else if (mode === 'list_possible_objects') {
-          setGeneratedObjectImages(images);
+          // Process the response and add to images array
+          if (
+            responseImages &&
+            Array.isArray(responseImages.results) &&
+            responseImages.results.length > 0
+          ) {
+            images.push({
+              url: responseImages.results[0].url,
+              text: responseImages.results[0].text,
+            });
+          } else {
+            // Add fallback if no result
+            images.push({
+              text:
+                typeof answer === 'string'
+                  ? answer
+                  : answer.text || answer.image_prompt || 'Unknown',
+              url: '',
+            });
+          }
+        } catch (itemError) {
+          console.error('❌ Failed to process individual image:', itemError);
+          // Add fallback for this item
+          images.push({
+            text:
+              typeof answer === 'string'
+                ? answer
+                : answer.text || answer.image_prompt || 'Unknown',
+            url: '',
+          });
         }
-
-        return images;
       }
+
+      if (mode === 'topic') {
+        // Add "All topics" card to the topic images
+        const allTopicsCard = {
+          text: 'All topics',
+          url: '', // No URL needed for local image
+        };
+        setGeneratedTopicImages([...images, allTopicsCard]);
+      } else if (mode === 'list_possible_actions') {
+        setGeneratedActionImages(images);
+      } else if (mode === 'list_possible_objects') {
+        setGeneratedObjectImages(images);
+      }
+
+      return images;
     } catch (err) {
       console.error('❌ Failed to process images:', err);
 
@@ -444,7 +561,12 @@ const Convo = () => {
       }));
 
       if (mode === 'topic') {
-        setGeneratedTopicImages(fallbackImages);
+        // Add "All topics" card to the fallback images
+        const allTopicsCard = {
+          text: 'All topics',
+          url: '', // No URL needed for local image
+        };
+        setGeneratedTopicImages([...fallbackImages, allTopicsCard]);
       } else if (mode === 'list_possible_actions') {
         setGeneratedActionImages(fallbackImages);
       } else if (mode === 'list_possible_objects') {
@@ -789,6 +911,13 @@ const Convo = () => {
       typeof item === 'object' && 'text' in item
         ? (item.text as Topic)
         : (item as Topic);
+
+    // If "All topics" is selected, open the Topics modal
+    if (topicValue === 'All topics') {
+      setTopicsModalVisible(true);
+      return;
+    }
+
     setTopic(topicValue);
     setTopicIndex(index);
   };
@@ -906,6 +1035,37 @@ const Convo = () => {
     setContextInfoVisible(!contextInfoVisible);
   };
 
+  const toggleTopicsModal = () => {
+    setTopicsModalVisible(!topicsModalVisible);
+  };
+
+  const handleTopicSelection = (topicData: TopicData) => {
+    // Create an ImageGenerated object from the selected topic
+    const selectedTopicImage: ImageGenerated = {
+      text: topicData.label,
+      url: '', // We'll use the local image instead
+    };
+
+    // Add the selected topic to the beginning of the topic images array
+    const currentImages = generatedTopicImages.filter(
+      img => img.text !== 'All topics',
+    );
+    const allTopicsCard = generatedTopicImages.find(
+      img => img.text === 'All topics',
+    );
+
+    // Create new array with existing topics, then selected topic, then "All topics" card
+    const newTopicImages = [...currentImages, selectedTopicImage];
+    if (allTopicsCard) {
+      newTopicImages.push(allTopicsCard);
+    }
+
+    setGeneratedTopicImages(newTopicImages);
+    setTopic(topicData.label as Topic);
+    setTopicIndex(currentImages.length); // Set to the position of the newly added topic
+    setTopicsModalVisible(false); // Close modal after selection
+  };
+
   // Handle manual slider changes
   const handleSliderChange = (value: number) => {
     if (isAutoSliding) return; // Ignore manual changes during auto-sliding
@@ -979,12 +1139,12 @@ const Convo = () => {
     setSliderPosition(newPosition);
   };
 
-  useEffect(() => {
-    // Stop listening when component mounts, but don't block loading
-    setTimeout(() => {}, 0);
+  // useEffect(() => {
+  //   // Stop listening when component mounts, but don't block loading
+  //   setTimeout(() => {}, 0);
 
-    // No need for cleanup since we're already stopped
-  }, []);
+  //   // No need for cleanup since we're already stopped
+  // }, []);
 
   // Auto-advance slider when topic is selected
   useEffect(() => {
@@ -1014,6 +1174,22 @@ const Convo = () => {
       try {
         // Log the conversation process before playing
         await logConversationProcess();
+
+        // Send learning feedback to assistant
+        try {
+          const currentTime = new Date().toLocaleString();
+          const learningMessage = `User created sentence: "${inputText}" with choices - Speaker: ${
+            sentence.speaker
+          }, Audience: ${sentence.audience}, Sentence Type: ${
+            sentence.sentenceType === '?' ? 'Question' : 'Statement'
+          }, Topic: ${topic}, Action: ${action}, Object: ${object}. Context - Time: ${currentTime}, Location: ${
+            location || 'Unknown'
+          }, Weather: ${weather || 'Unknown'}`;
+          await sendMessage(learningMessage, threadId, 'learning_feedback');
+        } catch (error) {
+          console.error('Failed to send learning feedback:', error);
+          // Don't block the user flow if learning feedback fails
+        }
 
         await TTSService.speak(inputText);
 
@@ -1093,6 +1269,75 @@ const Convo = () => {
       }
     }
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset all state when Convo screen is focused
+      if (conversationMode === 'easy') {
+        setSentence({
+          speaker: 'I',
+          audience: 'anyone',
+          sentenceType: '',
+          list_possible_topics: '',
+          action: '',
+          object: '',
+        });
+      } else {
+        setSentence({
+          speaker: '',
+          audience: '',
+          sentenceType: '',
+          list_possible_topics: '',
+          action: '',
+          object: '',
+        });
+      }
+      setAvailableTopics([]);
+      setAvailableActions([]);
+      setAvailableObjects([]);
+      setGeneratedTopicImages([]);
+      setGeneratedActionImages([]);
+      setGeneratedObjectImages([]);
+      setSentenceTypeIndex(0);
+      setInputText('');
+      setTopic('NA');
+      setAction('NA');
+      setObject('NA');
+      setGeneratedSentence('');
+      setSpeakerIndex(0);
+      setAudienceIndex(0);
+      setSentenceTypeIndex(0);
+      setTopicIndex(0);
+      setActionIndex(0);
+      setObjectIndex(0);
+      setSliderPosition(0);
+      // Optionally reset carousels if needed
+      if (speakerCarouselRef.current) {
+        // @ts-ignore
+        speakerCarouselRef.current.scrollTo({index: 0, animated: true});
+      }
+      if (audienceCarouselRef.current) {
+        // @ts-ignore
+        audienceCarouselRef.current.scrollTo({index: 0, animated: true});
+      }
+      if (sentenceTypeCarouselRef.current) {
+        // @ts-ignore
+        sentenceTypeCarouselRef.current.scrollTo({index: 0, animated: true});
+      }
+      if (topicCarouselRef.current) {
+        // @ts-ignore
+        topicCarouselRef.current.scrollTo({index: 0, animated: true});
+      }
+      if (actionCarouselRef.current) {
+        // @ts-ignore
+        actionCarouselRef.current.scrollTo({index: 0, animated: true});
+      }
+      if (objectCarouselRef.current) {
+        // @ts-ignore
+        objectCarouselRef.current.scrollTo({index: 0, animated: true});
+      }
+    }, [conversationMode]),
+  );
 
   return (
     <LinearGradient colors={['#FFF8E7', '#FFF8E7']} style={styles.container}>
@@ -1636,7 +1881,7 @@ const Convo = () => {
         </View>
       </View>
 
-      <View
+      <Pressable
         style={[
           styles.matalkIcon,
           {
@@ -1654,12 +1899,34 @@ const Convo = () => {
             },
           ]}
         />
-      </View>
+      </Pressable>
 
       <ContextInfo
         visible={contextInfoVisible}
         onClose={() => setContextInfoVisible(false)}
       />
+
+      <Modal
+        visible={topicsModalVisible}
+        animationType="fade"
+        transparent={true}
+        supportedOrientations={['landscape-left', 'landscape-right']}
+        onRequestClose={() => setTopicsModalVisible(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setTopicsModalVisible(false)}>
+          <Pressable
+            style={styles.modalContainer}
+            onPress={e => e.stopPropagation()}>
+            <Topics onSelectTopic={handleTopicSelection} />
+            <Pressable
+              style={styles.modalCloseButtonOverlay}
+              onPress={() => setTopicsModalVisible(false)}>
+              <Text style={styles.modalCloseButtonText}>✕</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -2005,6 +2272,56 @@ const styles = StyleSheet.create({
   easyModeButtonTextSelected: {
     color: '#FFF',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    width: '90%',
+    height: '85%',
+    backgroundColor: '#FFF8E7',
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 15,
+    overflow: 'hidden',
+  },
+
+  modalCloseButtonOverlay: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 45,
+    height: 45,
+    backgroundColor: '#FFF',
+    borderRadius: 22.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    zIndex: 1000,
+  },
+  modalCloseButtonText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#666',
+  },
 });
 
 export default Convo;
@@ -2130,7 +2447,19 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
                     : SCREEN_HEIGHT * 0.2,
                 },
               ]}>
-              {getItemImageUrl(item) ? (
+              {getItemText(item) === 'All topics' ? (
+                <Image
+                  source={matalkImg}
+                  style={styles.imageGrid}
+                  resizeMode="cover"
+                />
+              ) : TOPIC_IMAGE_MAPPING[getItemText(item)] ? (
+                <Image
+                  source={TOPIC_IMAGE_MAPPING[getItemText(item)]}
+                  style={styles.imageGrid}
+                  resizeMode="cover"
+                />
+              ) : getItemImageUrl(item) ? (
                 <FastImage
                   source={
                     DEBUGCONVONOIMAGEGENERATION
