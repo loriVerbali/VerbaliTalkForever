@@ -9,7 +9,6 @@ interface LogInitConversationData {
   topic: string;
   action: string;
   objectPicked: string;
-  threadId: string;
 }
 
 export const logInitConversation = async (
@@ -28,7 +27,6 @@ export const logInitConversation = async (
         topic: data.topic,
         action: data.action,
         objectPicked: data.objectPicked,
-        threadId: data.threadId,
       },
     );
   } catch (error) {

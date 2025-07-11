@@ -22,6 +22,7 @@ import {useAssistant} from '../contexts/AssistantContext';
 import fetchHelper from '../utils/fetcher';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
+import allTopicsImg from '../assets/topics/all_topics_topiccats_other.jpg';
 
 // Topic images from Topics.tsx
 import beachImg from '../assets/topics/beach_topic_other.jpg';
@@ -463,7 +464,6 @@ const Convo = () => {
         topic: topic,
         action: action,
         objectPicked: object,
-        threadId: threadId,
       });
     } catch (error) {
       console.error('❌ Error logging conversation process:', error);
@@ -1185,7 +1185,7 @@ const Convo = () => {
           }, Topic: ${topic}, Action: ${action}, Object: ${object}. Context - Time: ${currentTime}, Location: ${
             location || 'Unknown'
           }, Weather: ${weather || 'Unknown'}`;
-          await sendMessage(learningMessage, threadId, 'learning_feedback');
+          // await sendMessage(learningMessage, threadId, 'learning_feedback');
         } catch (error) {
           console.error('Failed to send learning feedback:', error);
           // Don't block the user flow if learning feedback fails
@@ -2449,7 +2449,7 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
               ]}>
               {getItemText(item) === 'All topics' ? (
                 <Image
-                  source={matalkImg}
+                  source={allTopicsImg}
                   style={styles.imageGrid}
                   resizeMode="cover"
                 />

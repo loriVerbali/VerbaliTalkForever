@@ -440,21 +440,28 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   };
 
   useEffect(() => {
-    if (status === 'completed' && imageUrls?.length > 0) {
-      setShowImages(true);
-      setIsRetrying(false); // Reset retry state when new images are ready
-      setIsProcessingAnswer(false); // Reset processing state when images are ready
+    if (status === 'completed') {
+      // Count valid images (not placeholders)
+      const validImageCount =
+        imageUrls?.filter(item => {
+          if (!item || !item.url) return false;
+          const urlObj =
+            typeof item.url === 'object' ? item.url : {url: item.url};
+          return urlObj.url && urlObj.url !== 'placeholder';
+        }).length || 0;
+
+      // Always reset retry and processing states when completed
+      setIsRetrying(false);
+      setIsProcessingAnswer(false);
+
+      if (validImageCount > 0) {
+        setShowImages(true);
+      } else {
+        // No valid images returned - keep processing state false but don't show images
+        setShowImages(false);
+      }
     }
   }, [imageUrls, status]);
-
-  // Create placeholder images - make sure we have 5 animal placeholders
-  const placeholderImages = [
-    {url: {url: 'placeholder'}, prompt: 'Waiting'},
-    {url: {url: 'placeholder'}, prompt: 'Waiting'},
-    {url: {url: 'placeholder'}, prompt: 'Waiting'},
-    {url: {url: 'placeholder'}, prompt: 'Waiting'},
-    {url: {url: 'placeholder'}, prompt: 'Waiting'},
-  ];
 
   // Reset function for local states
   const resetLocalStates = () => {
@@ -519,7 +526,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       const messageId = await sendMessage(
         retryMessage,
         threadId,
-        'generate_answers',
+        'generate_more_answers',
       );
 
       if (messageId) {
@@ -559,7 +566,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       question: transcribedText,
       possibleAnswers: possibleAnswers,
       answerPicked: selectedAnswer,
-      threadId: threadId,
     });
 
     // Send the selected answer back to the assistant for learning (without triggering response flow)
@@ -570,7 +576,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       )}]. Context - Time: ${currentTime}, Location: ${
         location || 'Unknown'
       }, Weather: ${weather || 'Unknown'}`;
-      await sendMessage(learningMessage, threadId, 'learning_feedback');
+      // await sendMessage(learningMessage, threadId, 'learning_feedback');
     } catch (error) {
       console.error('Failed to send learning feedback:', error);
       // Don't block the user flow if learning feedback fails
@@ -825,7 +831,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                 (() => {
                   // If no images are available after filtering, show a message
                   const validImages = imageUrls
-                    .filter(item => item && item.url)
+                    .filter(item => {
+                      if (!item || !item.url) return false;
+                      const urlObj =
+                        typeof item.url === 'object'
+                          ? item.url
+                          : {url: item.url};
+                      return urlObj.url && urlObj.url !== 'placeholder';
+                    })
                     .map(item => {
                       try {
                         const urlObj =

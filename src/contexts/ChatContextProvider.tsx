@@ -6,10 +6,11 @@ import React, {
   ReactNode,
 } from 'react';
 import Geolocation from '@react-native-community/geolocation';
+import Config from 'react-native-config';
 import {useAppSettings} from '../utils/persistance';
 
 // WeatherAPI.com API key
-const WEATHER_API_KEY = 'f9cce715fe3d4b7da27170914250306';
+const WEATHER_API_KEY = Config.WEATHER_API_KEY || '';
 
 // Cache duration: 3 hours in milliseconds
 const CACHE_DURATION = 3 * 60 * 60 * 1000;

@@ -18,6 +18,7 @@ interface Preferences {
   adminCode: string;
   gender: string;
   auth0Id: string;
+  assistantId: string;
   familyPicsData: string;
   specialPlaces: string;
   homeAddress: string;
@@ -61,6 +62,7 @@ const initialPreferences: Preferences = {
   adminCode: '',
   gender: '',
   auth0Id: '',
+  assistantId: '',
   familyPicsData: '',
   specialPlaces: '',
   homeAddress: '',

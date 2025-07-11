@@ -4,7 +4,6 @@ interface LogConversationData {
   question: string;
   possibleAnswers: string[];
   answerPicked: string;
-  threadId: string;
 }
 
 export const logConversation = async (
@@ -18,7 +17,6 @@ export const logConversation = async (
         question: data.question,
         possibleAnswers: data.possibleAnswers,
         answerPicked: data.answerPicked,
-        threadId: data.threadId,
       },
     );
   } catch (error) {

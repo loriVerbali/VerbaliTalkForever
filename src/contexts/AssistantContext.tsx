@@ -8,11 +8,11 @@ import React, {
 import fetchHelper from '../utils/fetcher';
 import {useAdmin} from './adminContext';
 import {GoogleGenAI, Modality} from '@google/genai';
-import Config from '../utils/config';
+import AppConfig from '../utils/config';
 import {useAppSettings} from '../utils/persistance';
 
-const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
-const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
+//const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
+//const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
 // Thread expiration time in milliseconds (4 hours)
 const THREAD_EXPIRATION_MS = 4 * 60 * 60 * 1000;
 
@@ -54,6 +54,7 @@ interface AssistantContextType {
       | 'list_possible_actions'
       | 'generate_answers'
       | 'sentence'
+      | 'generate_more_answers'
       | 'learning_feedback',
   ) => Promise<string>;
   runAssistant: (threadIdOverride?: string) => Promise<string>;
@@ -220,7 +221,10 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 );
               }
             }
-            if (messageType === 'generate_answers') {
+            if (
+              messageType === 'generate_answers' ||
+              messageType === 'generate_more_answers'
+            ) {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -406,6 +410,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       | 'list_possible_actions'
       | 'generate_answers'
       | 'sentence'
+      | 'generate_more_answers'
       | 'learning_feedback',
   ) => {
     let idToUse = threadIdOverride || threadId;
@@ -498,7 +503,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       return 'welcome.png';
     }
 
-    const ai = new GoogleGenAI({apiKey: Config.geminiAPIKey});
+    const ai = new GoogleGenAI({apiKey: AppConfig.geminiAPIKey});
 
     const imagePrompt =
       'Create a realistic image as an answer to this question or statement ' +
@@ -577,10 +582,52 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     let idToUse = threadIdOverride || threadId;
 
     try {
+      // Check if we have an assistant ID, if not, try to get it
+      let assistantId = preferences.assistantId;
+
+      if (!assistantId || assistantId === '') {
+        console.log('No assistant ID found, attempting to fetch it...');
+
+        // Get the user ID from preferences
+        const userId = preferences.auth0Id;
+        if (!userId || userId === '') {
+          throw new Error(
+            'No user ID found in preferences. User must be logged in.',
+          );
+        }
+
+        try {
+          const response = await fetchHelper(
+            'getAssistantId',
+            {},
+            {
+              userId: userId,
+            },
+          );
+
+          if (response && response.assistantId) {
+            assistantId = response.assistantId;
+            // Store the assistant ID for future use
+            await setItem('assistantId', response.assistantId);
+            console.log(
+              'Assistant ID retrieved and stored:',
+              response.assistantId,
+            );
+          } else {
+            throw new Error('No assistant ID returned from API');
+          }
+        } catch (apiError) {
+          console.error('Failed to get assistant ID:', apiError);
+          throw new Error(
+            'Unable to retrieve assistant ID. Please try logging in again.',
+          );
+        }
+      }
+
       const response = await fetchHelper(
         'runAssistant',
         {thread_id: idToUse},
-        {assistant_id: ASSISTANT_ID_LORI},
+        {assistant_id: assistantId},
       );
       const data = await response;
       setRunId(data.id);

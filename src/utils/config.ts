@@ -1,3 +1,5 @@
+import Config from 'react-native-config';
+
 export interface MethodObject {
   description: string;
   isAuthenticated: boolean;
@@ -25,17 +27,16 @@ export interface ConfigType {
   methods: Record<string, MethodObject>;
 }
 
-const Config: ConfigType = {
+const AppConfig: ConfigType = {
   baseUrl: 'https://matalkapi-production.up.railway.app',
   //baseUrl: 'http://localhost:3000',
   openAiUrl: 'https://api.openai.com/v1',
   picsUrl: 'https://image.pollinations.ai/prompt',
-  geminiAPIKey: 'AIzaSyB_8RqAlGXY7UPgN0j8bXsIll59U-P_BaA',
+  geminiAPIKey: Config.GEMINI_API_KEY || '',
   picGeneration: 'polli',
   transcriptionByOpenAI: true,
   assemblyAIURL: 'https://api.assemblyai.com/v2',
-  openAiKey:
-    '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',
+  openAiKey: Config.OPENAI_API_KEY || '',
 
   methods: {
     registerUser: {
@@ -198,7 +199,7 @@ const Config: ConfigType = {
       verb: 'GET',
       sendDeviceKey: false,
       jsonMethod: true,
-      suffixUrl: '/threads/{thread_id}/messages?limit=2&order=desc',
+      suffixUrl: '/threads/{thread_id}/messages?limit=10&order=desc',
       mustStringify: false,
       isFlatResponse: false,
       openAi: true,
@@ -222,7 +223,7 @@ const Config: ConfigType = {
     },
     logconversation: {
       description: 'logconversation',
-      isAuthenticated: false,
+      isAuthenticated: true,
       verb: 'POST',
       sendDeviceKey: false,
       jsonMethod: true,
@@ -236,7 +237,7 @@ const Config: ConfigType = {
     },
     loginitconversation: {
       description: 'loginitconversation',
-      isAuthenticated: false,
+      isAuthenticated: true,
       verb: 'POST',
       sendDeviceKey: false,
       jsonMethod: true,
@@ -250,7 +251,7 @@ const Config: ConfigType = {
     },
     processImages: {
       description: 'processImages',
-      isAuthenticated: false,
+      isAuthenticated: true,
       verb: 'POST',
       sendDeviceKey: false,
       jsonMethod: true,
@@ -264,7 +265,7 @@ const Config: ConfigType = {
     },
     processImagesConvo: {
       description: 'processImagesConvo',
-      isAuthenticated: false,
+      isAuthenticated: true,
       verb: 'POST',
       sendDeviceKey: false,
       jsonMethod: true,
@@ -290,8 +291,22 @@ const Config: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    getAssistantId: {
+      description: 'getAssistantId',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/get-assistant',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
     // Add other methods as needed
   },
 };
 
-export default Config;
+export default AppConfig;
