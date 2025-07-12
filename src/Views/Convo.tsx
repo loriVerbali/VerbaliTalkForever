@@ -1081,41 +1081,33 @@ const Convo = () => {
 
     // Moving backwards - special handling
     if (newPosition < sliderPosition) {
+      // First update the slider position so UI reflects the change immediately
       setSliderPosition(newPosition);
 
       if (newPosition === 0) {
-        // Moving back to topics - only clear actions and objects, keep topic
+        // Returned to the Topics column – clear everything that depends on the topic
+        // so the assistant will generate a *fresh* set of suggestions.
+        setTopic('NA');
+        setAvailableTopics([]);
+        setGeneratedTopicImages([]);
+
+        // Down-stream choices (actions / objects) must also be cleared
         setAction('NA');
         setObject('NA');
         setAvailableActions([]);
         setAvailableObjects([]);
         setGeneratedActionImages([]);
         setGeneratedObjectImages([]);
-
-        // Auto-advance to actions after a short delay if topic is selected
-        if (topic && topic !== 'NA') {
-          setTimeout(() => {
-            setIsAutoSliding(true);
-            setSliderPosition(1);
-            setTimeout(() => setIsAutoSliding(false), 300);
-          }, 100);
-        }
       } else if (newPosition === 1) {
-        // Moving back to actions - only clear objects
+        // Returned to the Actions column – clear the action/object so the assistant
+        // can propose a new set of actions and objects.
+        setAction('NA');
         setObject('NA');
         setAvailableObjects([]);
         setGeneratedObjectImages([]);
-
-        // Auto-advance to objects after a short delay if action is selected
-        if (action && action !== 'NA') {
-          setTimeout(() => {
-            setIsAutoSliding(true);
-            setSliderPosition(2);
-            setTimeout(() => setIsAutoSliding(false), 300);
-          }, 100);
-        }
       }
-      return;
+
+      return; // No auto-advance – let the user decide when to move forward again
     }
 
     // Moving forward - check prerequisites
