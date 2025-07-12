@@ -126,14 +126,7 @@ const Login: React.FC = () => {
   const onPress = async () => {
     try {
       const result = await authorize({
-        scope: 'openid profile email',
-        // Add the audience for your backend API
-        // IMPORTANT: Replace with your actual API identifier from Auth0 dashboard
-        // To get this value:
-        // 1. Go to Auth0 Dashboard > APIs
-        // 2. Create a new API or select existing one
-        // 3. Use the "Identifier" field value here
-        // 4. Common format: https://your-domain.com/api or https://your-backend-url
+        scope: 'openid profile email offline_access',
         audience: 'https://matalkapi-production.up.railway.app/',
       });
 

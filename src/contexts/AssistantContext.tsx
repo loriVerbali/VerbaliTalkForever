@@ -14,7 +14,7 @@ import {useAppSettings} from '../utils/persistance';
 //const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
 //const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
 // Thread expiration time in milliseconds (4 hours)
-const THREAD_EXPIRATION_MS = 4 * 60 * 60 * 1000;
+const THREAD_EXPIRATION_MS = 12 * 60 * 60 * 1000;
 
 // Debug flag to disable image generation
 const DEBUGWITHOUTIMAGEGENERATION = false;
@@ -540,12 +540,16 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   // Effect for generating images when status is completed
   useEffect(() => {
+    let isMounted = true;
+    let isProcessing = false;
+
     const generateImages = async () => {
+      // Prevent multiple simultaneous processing
+      if (isProcessing || !isMounted) return;
+
       if (status === 'completed' && possibleAnswers) {
         try {
-          // Get the enhanced context with weather and location
-          // const {weather, location} = useChatContext();
-          //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
+          isProcessing = true;
 
           // Call the process_images API with all answers in one request
           const responseImages = await fetchHelper(
@@ -559,23 +563,48 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
             },
           );
 
-          // Process the response and update image URLs
-          if (responseImages && Array.isArray(responseImages.results)) {
+          // Only update state if the component is still mounted and we have valid results
+          if (
+            isMounted &&
+            responseImages?.results &&
+            Array.isArray(responseImages.results)
+          ) {
             const newImageUrls = responseImages.results.map(
               (imageData: any) => ({
                 url: imageData.imageUrl,
                 prompt: imageData.word,
               }),
             );
-            setImageUrls(newImageUrls);
+            // Clear previous images first
+            setImageUrls([]);
+            // Set new images in next tick to ensure clean update
+            setTimeout(() => {
+              if (isMounted) {
+                setImageUrls(newImageUrls);
+              }
+            }, 0);
           }
         } catch (err) {
           console.error('Failed to process images:', err);
+        } finally {
+          isProcessing = false;
         }
       }
     };
+
     generateImages();
-  }, [status, possibleAnswers]);
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    status,
+    possibleAnswers,
+    questionContext,
+    identifiedQuestion,
+    questionTopic,
+  ]);
 
   const runAssistant = async (threadIdOverride?: string) => {
     // Ensure we have a thread ID first by checking if we need a new one
@@ -640,12 +669,12 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   const resetAssistant = () => {
     // Reset all state except threadId
+    setImageUrls([]);
     setHistory([]);
     setRunId('');
     setLocalStatus(null);
     setLocalResponse('');
     setLocalError(null);
-    setImageUrls([]);
     setIsThreadFresh(false);
   };
 

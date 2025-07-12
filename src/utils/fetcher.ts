@@ -5,7 +5,7 @@ import {Platform} from 'react-native';
 import _ from 'lodash';
 import AppConfig, {MethodObject} from './config';
 
-const METHODTODEBUG = 'transcribeAudio'; ////remove this after debugging//
+const METHODTODEBUG = 'transcribeAudio';
 
 // Global reference to Auth0 instance for token refresh
 let auth0Instance: Auth0 | null = null;
@@ -17,16 +17,31 @@ export const setAuth0Instance = (instance: Auth0) => {
 
 // Function to refresh the token
 export const refreshToken = async (): Promise<string | null> => {
-  // For now, just return the existing token without refresh logic
   try {
+    // For now, just try to get the existing token
+    // If it's invalid, the 401 handler will trigger a re-auth
     const existingToken = await DefaultPreference.get('token');
     if (existingToken && existingToken !== 'init.NotSet') {
       return existingToken;
     }
     return null;
   } catch (error) {
-    console.error('Error getting token:', error);
+    console.error('Error accessing token:', error);
     return null;
+  }
+};
+
+// Function to handle token expiration/invalidation
+export const handleTokenExpiration = async (): Promise<void> => {
+  try {
+    // Clear all auth-related data
+    await DefaultPreference.set('token', '');
+    await DefaultPreference.set('loggedIn', '0');
+    await DefaultPreference.set('username', '');
+
+    console.log('Token invalidated - user needs to re-authenticate');
+  } catch (error) {
+    console.error('Error handling token expiration:', error);
   }
 };
 
@@ -58,7 +73,7 @@ export const isAuthenticated = async (): Promise<boolean> => {
   }
 };
 
-// Retry-enabled fetch function
+// Modify the fetchWithRetry function to handle 401s better
 const fetchWithRetry = async (
   url: string,
   methodName: keyof typeof AppConfig.methods,
@@ -81,26 +96,16 @@ const fetchWithRetry = async (
     if (response.status === 500) {
       return Promise.reject('Server error');
     }
+
     if (response.status === 401) {
       // Handle 401 responses differently based on whether the method requires authentication
       const methodObject = AppConfig.methods[methodName];
       if (methodObject.isAuthenticated && !methodObject.openAi) {
-        console.log(
-          'Received 401 for authenticated method, attempting token refresh...',
-        );
-        const newToken = await refreshToken();
-        if (newToken) {
-          // Update the Authorization header with the new token
-          const headers = request.headers as Record<string, string>;
-          headers['Authorization'] = `Bearer ${newToken}`;
+        console.log('Received 401 - token is invalid');
 
-          // Retry the request with the new token
-          console.log('Retrying request with refreshed token...');
-          return fetchWithRetry(url, methodName, request, retries - 1, delay);
-        }
-        return Promise.reject(
-          'Authentication failed - unable to refresh token',
-        );
+        // Clear the invalid token and trigger re-auth
+        await handleTokenExpiration();
+        return Promise.reject('Authentication failed - please log in again');
       } else {
         // For non-authenticated methods, a 401 indicates a server configuration issue
         console.error(
@@ -111,18 +116,20 @@ const fetchWithRetry = async (
         );
       }
     }
+
     if (response.status === 400) {
       return response;
     }
 
     // Retry on 504 status
     if (response.status === 504) {
-      return Promise.reject(
-        'WE made a bubu! Sorry about that , please open the app again',
-      );
+      return Promise.reject('Server timeout error. Please try again.');
     }
+
+    return Promise.reject(`Request failed with status ${response.status}`);
   } catch (error) {
-    console.warn('Error:', error);
+    console.error('Network or parsing error:', error);
+    throw error;
   }
 };
 

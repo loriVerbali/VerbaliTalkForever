@@ -739,7 +739,7 @@ const SettingsScreen: React.FC = () => {
             style={styles.linkRow}
             onPress={() =>
               handleLinkPress(
-                ' https://verbali.io/MaTalkPrivacyPolicy',
+                'https://www.verbali.io/matalk-ai-privacy-policy',
                 'Privacy Policy',
               )
             }>
@@ -750,7 +750,10 @@ const SettingsScreen: React.FC = () => {
           <Pressable
             style={styles.linkRow}
             onPress={() =>
-              handleLinkPress('https://verbali.io/TermOfUse', 'Terms of Use')
+              handleLinkPress(
+                'https://www.verbali.io/termsofuse',
+                'Terms of Use',
+              )
             }>
             <Text style={styles.linkText}>Terms of Use</Text>
             <Text style={styles.linkArrow}>→</Text>

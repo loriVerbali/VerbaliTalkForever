@@ -70,7 +70,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
-
   // Responsive values based on device type
   const responsiveValues = {
     // Icon sizes
