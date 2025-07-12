@@ -13,7 +13,7 @@ import {useAppSettings} from '../utils/persistance';
 
 //const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
 //const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
-// Thread expiration time in milliseconds (4 hours)
+// Thread expiration time in milliseconds (12 hours)
 const THREAD_EXPIRATION_MS = 12 * 60 * 60 * 1000;
 
 // Debug flag to disable image generation
