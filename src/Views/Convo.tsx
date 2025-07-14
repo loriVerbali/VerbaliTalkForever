@@ -22,6 +22,7 @@ import {useAssistant} from '../contexts/AssistantContext';
 import fetchHelper from '../utils/fetcher';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
+import allTopicsImg from '../assets/topics/all_topics_topiccats_other.jpg';
 
 // Topic images from Topics.tsx
 import beachImg from '../assets/topics/beach_topic_other.jpg';
@@ -463,7 +464,6 @@ const Convo = () => {
         topic: topic,
         action: action,
         objectPicked: object,
-        threadId: threadId,
       });
     } catch (error) {
       console.error('❌ Error logging conversation process:', error);
@@ -1081,41 +1081,33 @@ const Convo = () => {
 
     // Moving backwards - special handling
     if (newPosition < sliderPosition) {
+      // First update the slider position so UI reflects the change immediately
       setSliderPosition(newPosition);
 
       if (newPosition === 0) {
-        // Moving back to topics - only clear actions and objects, keep topic
+        // Returned to the Topics column – clear everything that depends on the topic
+        // so the assistant will generate a *fresh* set of suggestions.
+        setTopic('NA');
+        setAvailableTopics([]);
+        setGeneratedTopicImages([]);
+
+        // Down-stream choices (actions / objects) must also be cleared
         setAction('NA');
         setObject('NA');
         setAvailableActions([]);
         setAvailableObjects([]);
         setGeneratedActionImages([]);
         setGeneratedObjectImages([]);
-
-        // Auto-advance to actions after a short delay if topic is selected
-        if (topic && topic !== 'NA') {
-          setTimeout(() => {
-            setIsAutoSliding(true);
-            setSliderPosition(1);
-            setTimeout(() => setIsAutoSliding(false), 300);
-          }, 100);
-        }
       } else if (newPosition === 1) {
-        // Moving back to actions - only clear objects
+        // Returned to the Actions column – clear the action/object so the assistant
+        // can propose a new set of actions and objects.
+        setAction('NA');
         setObject('NA');
         setAvailableObjects([]);
         setGeneratedObjectImages([]);
-
-        // Auto-advance to objects after a short delay if action is selected
-        if (action && action !== 'NA') {
-          setTimeout(() => {
-            setIsAutoSliding(true);
-            setSliderPosition(2);
-            setTimeout(() => setIsAutoSliding(false), 300);
-          }, 100);
-        }
       }
-      return;
+
+      return; // No auto-advance – let the user decide when to move forward again
     }
 
     // Moving forward - check prerequisites
@@ -1185,7 +1177,7 @@ const Convo = () => {
           }, Topic: ${topic}, Action: ${action}, Object: ${object}. Context - Time: ${currentTime}, Location: ${
             location || 'Unknown'
           }, Weather: ${weather || 'Unknown'}`;
-          await sendMessage(learningMessage, threadId, 'learning_feedback');
+          // await sendMessage(learningMessage, threadId, 'learning_feedback');
         } catch (error) {
           console.error('Failed to send learning feedback:', error);
           // Don't block the user flow if learning feedback fails
@@ -2449,7 +2441,7 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
               ]}>
               {getItemText(item) === 'All topics' ? (
                 <Image
-                  source={matalkImg}
+                  source={allTopicsImg}
                   style={styles.imageGrid}
                   resizeMode="cover"
                 />

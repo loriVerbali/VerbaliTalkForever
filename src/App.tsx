@@ -20,7 +20,9 @@ import {Auth0Provider} from 'react-native-auth0';
 import WakeWordService from './utils/wakewordService';
 import {Mixpanel} from 'mixpanel-react-native';
 import Orientation from 'react-native-orientation-locker';
-import fetchHelper from './utils/fetcher';
+import fetchHelper, {setAuth0Instance} from './utils/fetcher';
+import {ToastProvider} from './contexts/ToastContext';
+import Auth0 from 'react-native-auth0';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
@@ -35,6 +37,15 @@ const App = () => {
   );
 
   mixpanel.init();
+
+  // Initialize Auth0 instance for token refresh
+  useEffect(() => {
+    const auth0 = new Auth0({
+      domain: 'dev-64l2kpebzn1y4zm7.us.auth0.com',
+      clientId: '9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX',
+    });
+    setAuth0Instance(auth0);
+  }, []);
 
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
@@ -114,17 +125,19 @@ const App = () => {
       domain={'dev-64l2kpebzn1y4zm7.us.auth0.com'}
       clientId={'9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX'}>
       <GestureHandlerRootView style={styles.container}>
-        <ConnectionProvider>
-          <AppSettingsProvider>
-            <AdminProvider>
-              <ChatContextProvider>
-                <SoundProvider>
-                  <RootControllerView />
-                </SoundProvider>
-              </ChatContextProvider>
-            </AdminProvider>
-          </AppSettingsProvider>
-        </ConnectionProvider>
+        <ToastProvider>
+          <ConnectionProvider>
+            <AppSettingsProvider>
+              <AdminProvider>
+                <ChatContextProvider>
+                  <SoundProvider>
+                    <RootControllerView />
+                  </SoundProvider>
+                </ChatContextProvider>
+              </AdminProvider>
+            </AppSettingsProvider>
+          </ConnectionProvider>
+        </ToastProvider>
       </GestureHandlerRootView>
     </Auth0Provider>
   );

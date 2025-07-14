@@ -1,0 +1,177 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "85F8286F",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6747360571",
+    "_compatibilityTimeRate" : {
+      "3" : 6
+    },
+    "_developerTeamID" : "5H8P29SJNH",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 773876949.14794803,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ],
+    "_timeRate" : 1002
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21727885",
+      "localizations" : [
+
+      ],
+      "name" : "MaTalk",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "29.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6748365966",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Ma-Talk AI monthly subscription",
+              "displayName" : "Monthly Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "verbali.matalkai.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "SimpeMonthly",
+          "subscriptionGroupID" : "21727885",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "300.0",
+          "familyShareable" : false,
+          "groupNumber" : 4,
+          "internalID" : "6748482446",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Ma-Talk AI yearly subscription",
+              "displayName" : "Annual Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "verbali.matalkai.oneyear",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "SimpleAnnual",
+          "subscriptionGroupID" : "21727885",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "89.99",
+          "familyShareable" : false,
+          "groupNumber" : 3,
+          "internalID" : "6748481007",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "3 months for 90",
+              "displayName" : "Quarterly Plan",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "verbali.matalkai.quarterly",
+          "recurringSubscriptionPeriod" : "P3M",
+          "referenceName" : "SimpleQuarterly",
+          "subscriptionGroupID" : "21727885",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

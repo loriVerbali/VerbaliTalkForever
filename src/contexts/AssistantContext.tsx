@@ -8,13 +8,13 @@ import React, {
 import fetchHelper from '../utils/fetcher';
 import {useAdmin} from './adminContext';
 import {GoogleGenAI, Modality} from '@google/genai';
-import Config from '../utils/config';
+import AppConfig from '../utils/config';
 import {useAppSettings} from '../utils/persistance';
 
-const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
-const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
-// Thread expiration time in milliseconds (4 hours)
-const THREAD_EXPIRATION_MS = 4 * 60 * 60 * 1000;
+//const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
+//const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
+// Thread expiration time in milliseconds (12 hours)
+const THREAD_EXPIRATION_MS = 12 * 60 * 60 * 1000;
 
 // Debug flag to disable image generation
 const DEBUGWITHOUTIMAGEGENERATION = false;
@@ -54,6 +54,7 @@ interface AssistantContextType {
       | 'list_possible_actions'
       | 'generate_answers'
       | 'sentence'
+      | 'generate_more_answers'
       | 'learning_feedback',
   ) => Promise<string>;
   runAssistant: (threadIdOverride?: string) => Promise<string>;
@@ -220,7 +221,10 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                 );
               }
             }
-            if (messageType === 'generate_answers') {
+            if (
+              messageType === 'generate_answers' ||
+              messageType === 'generate_more_answers'
+            ) {
               if (
                 messagesResponse.data &&
                 messagesResponse.data[0]?.content[0]?.text?.value
@@ -406,6 +410,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       | 'list_possible_actions'
       | 'generate_answers'
       | 'sentence'
+      | 'generate_more_answers'
       | 'learning_feedback',
   ) => {
     let idToUse = threadIdOverride || threadId;
@@ -498,7 +503,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       return 'welcome.png';
     }
 
-    const ai = new GoogleGenAI({apiKey: Config.geminiAPIKey});
+    const ai = new GoogleGenAI({apiKey: AppConfig.geminiAPIKey});
 
     const imagePrompt =
       'Create a realistic image as an answer to this question or statement ' +
@@ -535,12 +540,16 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   // Effect for generating images when status is completed
   useEffect(() => {
+    let isMounted = true;
+    let isProcessing = false;
+
     const generateImages = async () => {
+      // Prevent multiple simultaneous processing
+      if (isProcessing || !isMounted) return;
+
       if (status === 'completed' && possibleAnswers) {
         try {
-          // Get the enhanced context with weather and location
-          // const {weather, location} = useChatContext();
-          //   const enhancedContext = `${questionContext}. Weather: ${weather}. Location: ${location}`;
+          isProcessing = true;
 
           // Call the process_images API with all answers in one request
           const responseImages = await fetchHelper(
@@ -554,33 +563,100 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
             },
           );
 
-          // Process the response and update image URLs
-          if (responseImages && Array.isArray(responseImages.results)) {
+          // Only update state if the component is still mounted and we have valid results
+          if (
+            isMounted &&
+            responseImages?.results &&
+            Array.isArray(responseImages.results)
+          ) {
             const newImageUrls = responseImages.results.map(
               (imageData: any) => ({
                 url: imageData.imageUrl,
                 prompt: imageData.word,
               }),
             );
-            setImageUrls(newImageUrls);
+            // Clear previous images first
+            setImageUrls([]);
+            // Set new images in next tick to ensure clean update
+            setTimeout(() => {
+              if (isMounted) {
+                setImageUrls(newImageUrls);
+              }
+            }, 0);
           }
         } catch (err) {
           console.error('Failed to process images:', err);
+        } finally {
+          isProcessing = false;
         }
       }
     };
+
     generateImages();
-  }, [status, possibleAnswers]);
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    status,
+    possibleAnswers,
+    questionContext,
+    identifiedQuestion,
+    questionTopic,
+  ]);
 
   const runAssistant = async (threadIdOverride?: string) => {
     // Ensure we have a thread ID first by checking if we need a new one
     let idToUse = threadIdOverride || threadId;
 
     try {
+      // Check if we have an assistant ID, if not, try to get it
+      let assistantId = preferences.assistantId;
+
+      if (!assistantId || assistantId === '') {
+        console.log('No assistant ID found, attempting to fetch it...');
+
+        // Get the user ID from preferences
+        const userId = preferences.auth0Id;
+        if (!userId || userId === '') {
+          throw new Error(
+            'No user ID found in preferences. User must be logged in.',
+          );
+        }
+
+        try {
+          const response = await fetchHelper(
+            'getAssistantId',
+            {},
+            {
+              userId: userId,
+            },
+          );
+
+          if (response && response.assistantId) {
+            assistantId = response.assistantId;
+            // Store the assistant ID for future use
+            await setItem('assistantId', response.assistantId);
+            console.log(
+              'Assistant ID retrieved and stored:',
+              response.assistantId,
+            );
+          } else {
+            throw new Error('No assistant ID returned from API');
+          }
+        } catch (apiError) {
+          console.error('Failed to get assistant ID:', apiError);
+          throw new Error(
+            'Unable to retrieve assistant ID. Please try logging in again.',
+          );
+        }
+      }
+
       const response = await fetchHelper(
         'runAssistant',
         {thread_id: idToUse},
-        {assistant_id: ASSISTANT_ID_LORI},
+        {assistant_id: assistantId},
       );
       const data = await response;
       setRunId(data.id);
@@ -593,12 +669,12 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
   const resetAssistant = () => {
     // Reset all state except threadId
+    setImageUrls([]);
     setHistory([]);
     setRunId('');
     setLocalStatus(null);
     setLocalResponse('');
     setLocalError(null);
-    setImageUrls([]);
     setIsThreadFresh(false);
   };
 

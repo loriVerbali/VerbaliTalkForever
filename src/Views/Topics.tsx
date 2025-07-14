@@ -65,6 +65,11 @@ import partyImg from '../assets/topics/party_topic_other.jpg';
 
 // Placeholder image for category headers
 import welcomeImg from '../assets/welcome.png';
+import placesImg from '../assets/topics/places_topiccats_other.jpg';
+import extraFunImg from '../assets/topics/extra_fun_topiccats_other.jpg';
+import foodTreatsImg from '../assets/topics/food_treats_topiccats_other.jpg';
+import weatherNatureImg from '../assets/topics/weathe_nature_topiccats_other.jpg';
+import eventsSpecialImg from '../assets/topics/event_special_topiccats_other.jpg';
 
 const {width, height} = Dimensions.get('window');
 
@@ -72,31 +77,31 @@ const {width, height} = Dimensions.get('window');
 const topCategories = [
   {
     label: 'Places',
-    image: welcomeImg,
+    image: placesImg,
     backgroundColor: '#FFFFFF',
     description: 'Places to go and visit',
   },
   {
     label: 'Extra Fun',
-    image: welcomeImg,
+    image: extraFunImg,
     backgroundColor: '#FFFFFF',
     description: 'Fun activities and games',
   },
   {
     label: 'Food & Treats',
-    image: welcomeImg,
+    image: foodTreatsImg,
     backgroundColor: '#FFFFFF',
     description: 'Delicious food and drinks',
   },
   {
     label: 'Weather & Nature',
-    image: welcomeImg,
+    image: weatherNatureImg,
     backgroundColor: '#FFFFFF',
     description: 'Weather and natural things',
   },
   {
     label: 'Events & Special',
-    image: welcomeImg,
+    image: eventsSpecialImg,
     backgroundColor: '#FFFFFF',
     description: 'Special events and occasions',
   },

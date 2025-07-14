@@ -3,14 +3,17 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 70;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */; };
+		8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A69E13E2E2035D600B320B9 /* StoreKit.framework */; };
 		8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8A8772E82DC2994E00CD1BDE /* snap.mp3 */; };
+		8A9178D72E206CCC00B9BFBA /* Ma-Talk AI Test.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 8A9178D62E206CCC00B9BFBA /* Ma-Talk AI Test.storekit */; };
 		8D6A173332132F679CB3C6F1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		A319E8FD638BE39881AC2692 /* libPods-Matalk.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E6B782C1D5A77A4AFCD2ED7 /* libPods-Matalk.a */; };
 /* End PBXBuildFile section */
@@ -36,14 +39,13 @@
 		2E6B782C1D5A77A4AFCD2ED7 /* libPods-Matalk.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Matalk.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Matalk/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Matalk/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = hey_verbi_v1.onnx; sourceTree = "<group>"; };
+		8A69E13E2E2035D600B320B9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		8A8772E82DC2994E00CD1BDE /* snap.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snap.mp3; sourceTree = "<group>"; };
+		8A9178D62E206CCC00B9BFBA /* Ma-Talk AI Test.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Ma-Talk AI Test.storekit"; sourceTree = "<group>"; };
 		B9B65C31DA0A93CDAA5E14F6 /* Pods-Matalk.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Matalk.release.xcconfig"; path = "Target Support Files/Pods-Matalk/Pods-Matalk.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		8A5B9EF42E0D0F0200D456D8 /* models */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = models; sourceTree = "<group>"; };
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
@@ -51,6 +53,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A319E8FD638BE39881AC2692 /* libPods-Matalk.a in Frameworks */,
+				8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -60,7 +63,6 @@
 		13B07FAE1A68108700A75B9A /* Matalk */ = {
 			isa = PBXGroup;
 			children = (
-				8A5B9EF42E0D0F0200D456D8 /* models */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
@@ -73,6 +75,7 @@
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				8A69E13E2E2035D600B320B9 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				2E6B782C1D5A77A4AFCD2ED7 /* libPods-Matalk.a */,
 			);
@@ -89,6 +92,8 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				8A9178D62E206CCC00B9BFBA /* Ma-Talk AI Test.storekit */,
+				8A69E13C2E1CF2EE00B320B9 /* models */,
 				8A8772E42DC1706600CD1BDE /* Assets */,
 				13B07FAE1A68108700A75B9A /* Matalk */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
@@ -107,6 +112,14 @@
 				13B07F961A680F5B00A75B9A /* Matalk.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		8A69E13C2E1CF2EE00B320B9 /* models */ = {
+			isa = PBXGroup;
+			children = (
+				8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */,
+			);
+			path = models;
 			sourceTree = "<group>";
 		};
 		8A8772E32DC1706600CD1BDE /* sounds */ = {
@@ -154,9 +167,6 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				8A5B9EF42E0D0F0200D456D8 /* models */,
-			);
 			name = Matalk;
 			productName = Matalk;
 			productReference = 13B07F961A680F5B00A75B9A /* Matalk.app */;
@@ -200,6 +210,8 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */,
+				8A9178D72E206CCC00B9BFBA /* Ma-Talk AI Test.storekit in Resources */,
+				8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				8D6A173332132F679CB3C6F1 /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -302,14 +314,13 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Matalk/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk";
+				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk AI";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -320,7 +331,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk.test;
+				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk;
 				PRODUCT_NAME = Matalk;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -342,13 +353,12 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				INFOPLIST_FILE = Matalk/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk";
+				INFOPLIST_KEY_CFBundleDisplayName = "Ma-Talk AI";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -359,7 +369,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk.test;
+				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk;
 				PRODUCT_NAME = Matalk;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -421,7 +431,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -491,7 +501,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",

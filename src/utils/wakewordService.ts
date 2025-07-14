@@ -4,6 +4,7 @@ import {
   KeyWordRNBridgeInstance,
   createKeyWordRNBridgeInstance,
 } from 'react-native-wakeword';
+import Config from 'react-native-config';
 
 interface InstanceConfig {
   id: string;
@@ -32,8 +33,7 @@ class WakeWordService {
   private eventListener: any = null;
   private isInitialized: boolean = false;
   private isListening: boolean = false;
-  private license: string =
-    'MTc1MjUyNjgwMDAwMA==-RbOr3R66OPByzZxLe7vgM6JDlrrejrgRzbo41+g8qrM=';
+  private license: string = Config.WAKEWORD_LICENSE || '';
 
   private constructor() {
     // Private constructor for singleton

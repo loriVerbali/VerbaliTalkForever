@@ -25,6 +25,8 @@ import matalkImg from '../assets/matalk.png';
 import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
+import TermsAndConditions from '../Components/TermsAndConditions';
+import Subscription, {SubscriptionPlan} from '../Components/Subscription';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
 
@@ -39,11 +41,23 @@ const onboardingSteps = [
     buttonText: 'Next',
   },
   {
+    id: 'terms',
+    question: 'Terms and Conditions',
+    additionalComponents: 'terms-and-conditions',
+    buttonText: 'Next',
+  },
+  {
     id: 'name',
     question: "What is our Hero's name?",
     additionalComponents: 'name-input',
     buttonText: 'Next',
   },
+  // {
+  //   id: 'subscription',
+  //   question: 'Choose Your Plan',
+  //   additionalComponents: 'subscription-selection',
+  //   buttonText: 'Next',
+  // },
   {
     id: 'gender',
     question: 'Choose your gender',
@@ -103,6 +117,12 @@ const OnboardingScreen: React.FC = () => {
   const [locationPermissionSuccess, setLocationPermissionSuccess] =
     useState(false);
   const [specialPlacesCompleted, setSpecialPlacesCompleted] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState<
+    SubscriptionPlan | undefined
+  >(undefined);
+  const [subscriptionPurchaseSuccess, setSubscriptionPurchaseSuccess] =
+    useState(false);
   const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
     'easy',
   );
@@ -186,6 +206,10 @@ const OnboardingScreen: React.FC = () => {
       if (selectedGender) {
         await setItem('gender', selectedGender);
       }
+      if (selectedSubscriptionPlan) {
+        // TODO: Save subscription plan to preferences when type is updated
+        console.log('Selected subscription plan:', selectedSubscriptionPlan);
+      }
 
       // Use the context to complete onboarding
       completeOnboarding();
@@ -235,6 +259,12 @@ const OnboardingScreen: React.FC = () => {
             </View>
           </View>
         );
+      case 'terms-and-conditions':
+        return (
+          <View style={styles.termsContainer}>
+            <TermsAndConditions onAgree={handleTermsAgreement} />
+          </View>
+        );
       case 'name-input':
         return (
           <View style={styles.nameContainer}>
@@ -261,6 +291,23 @@ const OnboardingScreen: React.FC = () => {
               resizeMode={FastImage.resizeMode.contain}
             />
           </View>
+        );
+      case 'subscription-selection':
+        return (
+          <ScrollView
+            style={{width: '100%', paddingHorizontal: 20, marginVertical: 20}}
+            contentContainerStyle={{
+              alignItems: 'center',
+              paddingBottom: 40,
+            }}
+            showsVerticalScrollIndicator={false}>
+            <Subscription
+              onPlanSelect={handleSubscriptionPlanSelect}
+              selectedPlan={selectedSubscriptionPlan}
+              onPurchaseSuccess={handleSubscriptionPurchaseSuccess}
+              onPurchaseError={handleSubscriptionPurchaseError}
+            />
+          </ScrollView>
         );
       case 'gender-selection':
         return (
@@ -569,6 +616,22 @@ const OnboardingScreen: React.FC = () => {
     );
   };
 
+  const handleTermsAgreement = (agreed: boolean) => {
+    setTermsAgreed(agreed);
+  };
+
+  const handleSubscriptionPlanSelect = (plan: SubscriptionPlan) => {
+    setSelectedSubscriptionPlan(plan);
+  };
+
+  const handleSubscriptionPurchaseSuccess = () => {
+    setSubscriptionPurchaseSuccess(true);
+  };
+
+  const handleSubscriptionPurchaseError = () => {
+    setSubscriptionPurchaseSuccess(false);
+  };
+
   const currentStepData = onboardingSteps[currentStep];
 
   const requestPermission = async () => {
@@ -772,7 +835,11 @@ const OnboardingScreen: React.FC = () => {
               ]}
               onPress={handleNext}
               disabled={
+                (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
+                (currentStepData.id === 'subscription' &&
+                  (!selectedSubscriptionPlan ||
+                    !subscriptionPurchaseSuccess)) ||
                 (currentStepData.id === 'admin-code' &&
                   adminCode.length !== 4) ||
                 (currentStepData.id === 'gender' && !selectedGender) ||
@@ -1150,6 +1217,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  termsContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

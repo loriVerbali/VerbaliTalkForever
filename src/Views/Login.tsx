@@ -13,21 +13,81 @@ import {useNavigation} from '@react-navigation/native';
 import {useAppSettings} from '../utils/persistance';
 import {views} from '../utils/constants';
 import {set} from 'lodash';
+import fetchHelper from '../utils/fetcher';
 
 const Login: React.FC = () => {
-  const {authorize, clearSession, user, error, isLoading} = useAuth0();
+  const {authorize, clearSession, user, error, isLoading, getCredentials} =
+    useAuth0();
   const navigation = useNavigation();
   const {setItem, getItem} = useAppSettings();
+
+  // Helper function to extract user ID from Auth0 user.sub
+  const extractUserId = (userSub: string): string => {
+    // Handle both Auth0 and Google OAuth user IDs
+    if (userSub.startsWith('auth0|')) {
+      return userSub.replace('auth0|', '');
+    } else if (userSub.startsWith('google-oauth2|')) {
+      return userSub.replace('google-oauth2|', '');
+    }
+    // For other providers or if no prefix, return as-is
+    return userSub;
+  };
+
+  // Helper function to get assistant ID for the user
+  const getAssistantId = async (userId: string): Promise<void> => {
+    try {
+      const response = await fetchHelper(
+        'getAssistantId',
+        {},
+        {
+          userId: userId,
+        },
+      );
+
+      if (response && response.assistantId) {
+        await setItem('assistantId', response.assistantId);
+      } else {
+        console.log('No assistant ID returned from API');
+      }
+    } catch (error) {
+      console.log('Error getting assistant ID:', error);
+    }
+  };
+
+  // Helper function to get and store fresh credentials
+  const getAndStoreCredentials = async (): Promise<void> => {
+    try {
+      const credentials = await getCredentials();
+      if (credentials?.accessToken) {
+        await setItem('token', credentials.accessToken);
+      }
+    } catch (tokenError: any) {
+      // If we can't get credentials, user might need to re-authenticate
+      if (tokenError.message?.includes('No credentials stored')) {
+        await setItem('loggedIn', '0');
+        await setItem('token', '');
+      }
+    }
+  };
 
   // Check auth state on component mount
   useEffect(() => {
     const checkAuthState = async () => {
       if (user) {
-        setItem('auth0Id', user.sub?.replace('auth0|', '') || '');
+        const userId = user.sub ? extractUserId(user.sub) : '';
+        setItem('auth0Id', userId);
+
+        // Get and store the access token
+        await getAndStoreCredentials();
+
         // Save user data to preferences
         try {
           await setItem('loggedIn', '1');
           await setItem('username', user.name || '');
+
+          // Get and store the assistant ID for this user
+          await getAssistantId(userId);
+
           // Navigate to Open screen if user is logged in
           navigation.navigate(views.OPEN as never);
         } catch (e) {
@@ -38,7 +98,18 @@ const Login: React.FC = () => {
         try {
           const loggedInValue = await getItem('loggedIn');
           if (loggedInValue === '1') {
-            // If user was previously logged in, navigate to Open screen
+            // If user was previously logged in, try to get fresh credentials
+            await getAndStoreCredentials();
+
+            // Get the stored user ID and fetch assistant ID if not already stored
+            const storedUserId = await getItem('auth0Id');
+            const storedAssistantId = await getItem('assistantId');
+
+            if (storedUserId && !storedAssistantId) {
+              await getAssistantId(storedUserId);
+            }
+
+            // Navigate to Open screen if user is logged in
             navigation.navigate(views.OPEN as never);
           }
         } catch (e) {
@@ -47,26 +118,37 @@ const Login: React.FC = () => {
       }
     };
 
-    if (!isLoading && user) {
+    if (!isLoading) {
       checkAuthState();
     }
   }, [user, isLoading]);
 
   const onPress = async () => {
     try {
-      const result = await authorize();
-      console.log(result);
+      const result = await authorize({
+        scope: 'openid profile email offline_access',
+        audience: 'https://matalkapi-production.up.railway.app/',
+      });
+
+      // Store the access token from the result
+      if (result?.accessToken) {
+        await setItem('token', result.accessToken);
+      }
+
+      console.log('Authorization result:', result);
     } catch (e) {
-      console.log(e);
+      console.log('Authorization error:', e);
     }
   };
 
   const onLogout = async () => {
     try {
       await clearSession();
-      // Clear stored user data on logout
+      // Clear stored user data and token on logout
       await setItem('loggedIn', '0');
       await setItem('username', '');
+      await setItem('token', '');
+      console.log('User logged out and token cleared');
     } catch (e) {
       console.log('Log out cancelled');
     }
