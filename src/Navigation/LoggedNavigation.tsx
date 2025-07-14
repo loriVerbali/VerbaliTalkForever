@@ -14,10 +14,10 @@ import OpenScreen from '../Views/Open';
 import FeelingsScreen from '../Views/Feelings';
 import ShortCutsScreen from '../Views/ShortCuts';
 import Convo from '../Views/Convo';
-import Login from '../Views/Login';
 import SettingsScreen from '../Views/Settings';
 import WebViewScreen from '../Views/WebViewScreen';
 import {useAppSettings} from '../utils/persistance';
+import Login from '../Views/Login';
 
 const HomeStack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -41,6 +41,8 @@ function LoggedNavigation() {
           const loggedInValue = await getItem('loggedIn');
           if (loggedInValue === '1') {
             setInitialRoute(views.OPEN);
+          } else {
+            setInitialRoute(views.LOGIN);
           }
           isFirstRender.current = false;
         }

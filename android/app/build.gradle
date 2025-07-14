@@ -77,7 +77,6 @@ android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
-
     namespace "com.matalk"
     defaultConfig {
         applicationId "com.matalk"
@@ -86,6 +85,7 @@ android {
         versionCode 1
         versionName "1.0"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
+        missingDimensionStrategy "store", "play"
 
     }
     signingConfigs {

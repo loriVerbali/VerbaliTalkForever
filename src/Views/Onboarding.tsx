@@ -29,6 +29,8 @@ import TermsAndConditions from '../Components/TermsAndConditions';
 import Subscription, {SubscriptionPlan} from '../Components/Subscription';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
+import {useAuth0} from 'react-native-auth0';
+import fetchHelper from '../utils/fetcher';
 
 const {width, height} = Dimensions.get('window');
 
@@ -38,6 +40,12 @@ const onboardingSteps = [
     id: 'welcome',
     question: 'Welcome to Ma-Talk AI',
     additionalComponents: 'welcome',
+    buttonText: 'Next',
+  },
+  {
+    id: 'login',
+    question: 'Sign In to Continue',
+    additionalComponents: 'login',
     buttonText: 'Next',
   },
   {
@@ -102,6 +110,7 @@ const OnboardingScreen: React.FC = () => {
   const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
   const {completeOnboarding} = useContext(OnboardingContext);
+  const {authorize, user, isLoading: authLoading} = useAuth0();
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
   const [adminCode, setAdminCode] = useState('');
@@ -126,6 +135,8 @@ const OnboardingScreen: React.FC = () => {
   const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
     'easy',
   );
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginAttempted, setLoginAttempted] = useState(false);
 
   // Load conversation mode setting
   useEffect(() => {
@@ -141,6 +152,62 @@ const OnboardingScreen: React.FC = () => {
     };
     loadConversationMode();
   }, []);
+
+  // Check login status when on login step
+  useEffect(() => {
+    if (onboardingSteps[currentStep].id === 'login' && user) {
+      setIsLoggedIn(true);
+      setLoginAttempted(true);
+    }
+  }, [user, currentStep]);
+
+  // Helper function to extract user ID from Auth0 user.sub
+  const extractUserId = (userSub: string): string => {
+    if (userSub.startsWith('auth0|')) {
+      return userSub.replace('auth0|', '');
+    } else if (userSub.startsWith('google-oauth2|')) {
+      return userSub.replace('google-oauth2|', '');
+    }
+    return userSub;
+  };
+
+  // Helper function to get assistant ID for the user
+  const getAssistantId = async (userId: string): Promise<void> => {
+    try {
+      const response = await fetchHelper(
+        'getAssistantId',
+        {},
+        {
+          userId: userId,
+        },
+      );
+
+      if (response && response.assistantId) {
+        await setItem('assistantId', response.assistantId);
+      } else {
+        console.log('No assistant ID returned from API');
+      }
+    } catch (error) {
+      console.log('Error getting assistant ID:', error);
+    }
+  };
+
+  const handleLogin = async () => {
+    try {
+      const result = await authorize({
+        scope: 'openid profile email offline_access',
+        audience: 'https://matalkapi-production.up.railway.app/',
+      });
+
+      if (result?.accessToken) {
+        await setItem('token', result.accessToken);
+      }
+
+      console.log('Authorization result:', result);
+    } catch (e) {
+      console.log('Authorization error:', e);
+    }
+  };
 
   const handleBack = () => {
     // Handle going back while skipping family members in easy mode
@@ -165,6 +232,25 @@ const OnboardingScreen: React.FC = () => {
   };
 
   const handleNext = async () => {
+    // Handle login step
+    if (onboardingSteps[currentStep].id === 'login') {
+      if (!isLoggedIn) {
+        // Don't proceed if not logged in
+        return;
+      }
+
+      // Save user data when login is successful
+      if (user) {
+        const userId = user.sub ? extractUserId(user.sub) : '';
+        await setItem('auth0Id', userId);
+        await setItem('loggedIn', '1');
+        await setItem('username', user.name || '');
+
+        // Get and store the assistant ID for this user
+        await getAssistantId(userId);
+      }
+    }
+
     // Skip family members step if in easy mode
     const shouldSkipFamilyMembers =
       conversationMode === 'easy' &&
@@ -256,6 +342,32 @@ const OnboardingScreen: React.FC = () => {
                   resizeMode={FastImage.resizeMode.contain}
                 />
               </View>
+            </View>
+          </View>
+        );
+      case 'login':
+        return (
+          <View style={styles.loginContainer}>
+            <View style={styles.loginContent}>
+              {!isLoggedIn ? (
+                <TouchableOpacity
+                  style={styles.loginButton}
+                  onPress={handleLogin}
+                  disabled={authLoading}>
+                  <Text style={styles.loginButtonText}>
+                    {authLoading ? 'Signing In...' : 'Sign In with Auth0'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.loggedInContainer}>
+                  <Text style={styles.loggedInText}>
+                    Welcome, {user?.name || 'User'}!
+                  </Text>
+                  <Text style={styles.loggedInSubtext}>
+                    You're successfully signed in
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         );
@@ -835,6 +947,7 @@ const OnboardingScreen: React.FC = () => {
               ]}
               onPress={handleNext}
               disabled={
+                (currentStepData.id === 'login' && !isLoggedIn) ||
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
                 (currentStepData.id === 'subscription' &&
@@ -1223,6 +1336,49 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  loginContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  loginButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginVertical: 20,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  loggedInContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loggedInText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  loggedInSubtext: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
 });
 
