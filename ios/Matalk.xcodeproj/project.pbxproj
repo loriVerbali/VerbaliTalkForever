@@ -331,7 +331,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk.test;
+				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk;
 				PRODUCT_NAME = Matalk;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -369,7 +369,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk.test;
+				PRODUCT_BUNDLE_IDENTIFIER = org.verbali.matalk;
 				PRODUCT_NAME = Matalk;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
