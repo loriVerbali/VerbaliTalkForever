@@ -204,9 +204,9 @@ const fetchHelper = async (
   }
 
   if (methodName === METHODTODEBUG) {
-    console.log({url});
-    console.log({methodName});
-    console.log({request});
+    // console.log({url});
+    // console.log({methodName});
+    // console.log({request});
   }
 
   // Use fetchWithRetry for the request

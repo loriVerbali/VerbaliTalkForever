@@ -12,17 +12,20 @@ import {
   Modal,
   useWindowDimensions,
   TextInput,
+  Alert,
+  Keyboard,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, CommonActions} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import {useAuth0} from 'react-native-auth0';
-import {views} from '../utils/constants';
+import {stacks, views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import {Mixpanel} from 'mixpanel-react-native';
+import fetchHelper from '../utils/fetcher';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -34,6 +37,7 @@ type WebViewParams = {
 
 type RootStackParamList = {
   WebView: WebViewParams;
+  INITSTACK: undefined;
 };
 
 const InfoModal = ({
@@ -176,7 +180,7 @@ const RangeSlider = ({
 
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const {preferences, setItem, getItem} = useAppSettings();
+  const {preferences, setItem, getItem, clear} = useAppSettings();
   const {user, clearSession} = useAuth0();
 
   const [returnedMessages, setReturnedMessages] = useState(5);
@@ -198,6 +202,12 @@ const SettingsScreen: React.FC = () => {
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
     useState(false);
+  const [showGenderInfo, setShowGenderInfo] = useState(false);
+  // Hero name state
+  const [heroName, setHeroName] = useState('Name');
+  const [isEditingHeroName, setIsEditingHeroName] = useState(false);
+  const [newHeroName, setNewHeroName] = useState('');
+  const [heroNameError, setHeroNameError] = useState('');
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   useEffect(() => {
@@ -214,6 +224,7 @@ const SettingsScreen: React.FC = () => {
         const savedAdminCode = await getItem('adminCode');
         const savedConversationMode = await getItem('conversationMode');
         const savedGobackAfterSelection = await getItem('gobackAfterSelection');
+        const savedHeroName = await getItem('heroName');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
@@ -223,6 +234,9 @@ const SettingsScreen: React.FC = () => {
         setAdminCode(savedAdminCode || '');
         setConversationMode(savedConversationMode || 'easy');
         setGobackAfterSelection(savedGobackAfterSelection === '1');
+        setHeroName(
+          savedHeroName && savedHeroName.trim() ? savedHeroName : 'Name',
+        );
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -321,6 +335,79 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account? This action is irreversible. All your data will be deleted.You will be logged out and will need to signup again as we will also delete your assistant.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            deleteAccount();
+          },
+        },
+      ],
+    );
+  };
+
+  const deleteAccount = async () => {
+    await setItem('wasOnboarded', '0');
+    //todo delete account
+    console.log(
+      'deleteAccount',
+      preferences.assistantId,
+      user?.sub?.toString(),
+    );
+
+    await fetchHelper(
+      'deleteAccount',
+      {},
+      {assistantId: preferences.assistantId, userId: user?.sub?.toString()},
+    );
+    await setItem('token', '');
+
+    Alert.alert('Account deleted', '', [
+      {
+        text: 'OK',
+        style: 'destructive',
+        onPress: async () => {
+          await setItem('wasOnboarded', '0');
+          await setItem('showInit', '0');
+          await setItem('loggedIn', '0');
+          await setItem('username', '');
+          await setItem('assistantId', '');
+          await setItem('conversationMode', 'easy');
+          await setItem('gobackAfterSelection', '1');
+          await setItem('returnedMessages', '5');
+          await setItem('topicsCount', '4');
+          await setItem('actionsCount', '4');
+          await setItem('objectsCount', '4');
+          await setItem('gender', '');
+          await setItem('familyPicsData', '');
+          await setItem('specialPlaces', '');
+          await setItem('homeAddress', '');
+          await setItem('homeIsCurrentLocation', '0');
+          await setItem('schoolAddress', '');
+          await setItem('schoolIsCurrentLocation', '0');
+          await setItem('therapyAddress', '');
+          await setItem('therapyIsCurrentLocation', '0');
+          await setItem('wasLocationOnboarded', '0');
+          await setItem('adminCode', '');
+          await setItem('wasWelcomed', '0');
+          await setItem('threadId', '');
+          await setItem('threadCreatedAt', '');
+          await setItem('auth0Id', '');
+          await setItem('assistantId', '');
+          await setItem('heroName', '');
+
+          await handleLogout();
+        },
+      },
+    ]);
+  };
+
   const cancelAdminCodeEdit = () => {
     setIsEditingAdminCode(false);
     setNewAdminCode('');
@@ -413,6 +500,36 @@ const SettingsScreen: React.FC = () => {
     );
   };
 
+  // Hero name handlers
+  const handleEditHeroName = () => {
+    setNewHeroName(heroName === 'Name' ? '' : heroName);
+    setIsEditingHeroName(true);
+    setHeroNameError('');
+  };
+
+  const handleCancelHeroNameEdit = () => {
+    Keyboard.dismiss();
+    setIsEditingHeroName(false);
+    setNewHeroName('');
+    setHeroNameError('');
+  };
+
+  const handleSaveHeroName = async () => {
+    Keyboard.dismiss();
+    if (!newHeroName.trim()) {
+      setHeroNameError("Name can't be empty");
+      return;
+    }
+    try {
+      await setItem('heroName', newHeroName.trim());
+      setHeroName(newHeroName.trim());
+      setIsEditingHeroName(false);
+      setHeroNameError('');
+    } catch (e) {
+      setHeroNameError('Failed to save name');
+    }
+  };
+
   return (
     <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
       <View style={styles.header}>
@@ -445,6 +562,72 @@ const SettingsScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
 
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Hero Name</Text>
+            {/* Hero Name Edit UI */}
+            {isEditingHeroName ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: 10,
+                }}>
+                <TextInput
+                  style={[styles.codeInput, {flex: 1}]}
+                  value={newHeroName}
+                  onChangeText={setNewHeroName}
+                  placeholder="Name"
+                  maxLength={32}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveHeroName}
+                  blurOnSubmit={true}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.adminButton,
+                    styles.submitButton,
+                    {marginLeft: 8},
+                  ]}
+                  onPress={handleSaveHeroName}>
+                  <Text style={styles.buttonText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.adminButton,
+                    styles.cancelButton,
+                    {marginLeft: 8},
+                  ]}
+                  onPress={handleCancelHeroNameEdit}>
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: 10,
+                }}>
+                <Text style={{fontSize: 16, color: '#333', flex: 1}}>
+                  {heroName}
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.adminButton,
+                    styles.submitButton,
+                    {marginLeft: 8},
+                  ]}
+                  onPress={handleEditHeroName}>
+                  <Text style={styles.buttonText}>Edit</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {heroNameError ? (
+              <Text style={styles.errorText}>{heroNameError}</Text>
+            ) : null}
+          </View>
+
           <View style={styles.sliderGrid}>
             {/* <View style={styles.sliderRow}>
               <MessagesSlider
@@ -475,7 +658,31 @@ const SettingsScreen: React.FC = () => {
             </View> */}
 
             <View style={styles.genderSection}>
-              <Text style={styles.settingLabel}>Gender</Text>
+              <View style={styles.genderHeader}>
+                <View style={styles.genderLabelContainer}>
+                  <Text style={styles.settingLabel}>Gender (optional)</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowGenderInfo(true)}
+                    style={styles.infoButton}>
+                    <Text style={styles.infoIcon}>?</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.noneCheckbox}
+                    onPress={() => setItem('gender', '')}>
+                    <View
+                      style={[
+                        styles.checkbox,
+                        (!preferences.gender || preferences.gender === '') &&
+                          styles.checkedBox,
+                      ]}>
+                      {(!preferences.gender || preferences.gender === '') && (
+                        <Text style={styles.checkmark}>✓</Text>
+                      )}
+                    </View>
+                    <Text style={styles.noneLabel}>None</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
               <View style={styles.genderContainer}>
                 <TouchableOpacity
                   style={[
@@ -761,6 +968,18 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Delete My Account</Text>
+          <Text style={styles.aboutDescription}>
+            Delete your account and all your data. This action is irreversible.
+          </Text>
+          <TouchableOpacity
+            style={styles.deleteAccountButton}
+            onPress={handleDeleteAccount}>
+            <Text style={styles.logoutText}>Delete Account</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.aboutText}>Ma-Talk AI v1.0.0</Text>
           <Text style={styles.aboutDescription}>
@@ -792,6 +1011,13 @@ const SettingsScreen: React.FC = () => {
           onClose={() => setShowGobackAfterSelectionInfo(false)}
           title="Go Back After Selection"
           description="When enabled, the app will automatically navigate back to the main screen after you select an answer. When disabled, you'll stay on the conversation screen and can continue asking questions without returning to the main screen."
+        />
+
+        <InfoModal
+          visible={showGenderInfo}
+          onClose={() => setShowGenderInfo(false)}
+          title="Gender Selection"
+          description="Gender selection is completely optional and is used only for personalization purposes. You don't have to choose a gender if you prefer not to. This setting helps customize your experience but is not required for the app to function."
         />
       </ScrollView>
     </LinearGradient>
@@ -880,6 +1106,16 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
     marginTop: 10,
+  },
+  deleteAccountButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 10,
+    width: SCREEN_WIDTH * 0.2,
+    alignSelf: 'center',
   },
   logoutText: {
     color: 'white',
@@ -1204,6 +1440,60 @@ const styles = StyleSheet.create({
   conversationModeLabel: {
     fontSize: 14,
     color: '#333',
+  },
+  noneContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  noneIcon: {
+    fontSize: 24,
+    color: '#999',
+    fontWeight: 'bold',
+  },
+  genderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  noneCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: '#8E24AA',
+    borderRadius: 4,
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkedBox: {
+    backgroundColor: '#8E24AA',
+  },
+  checkmark: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  noneLabel: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  genderLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'flex-start',
+    width: '100%',
   },
 });
 

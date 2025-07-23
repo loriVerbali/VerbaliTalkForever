@@ -24,8 +24,8 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
   // Responsive values based on device type
   const responsiveValues = {
     // Container dimensions
-    maxHeight: isTablet ? height * 0.7 : height * 0.6,
-    containerPadding: isTablet ? 25 : 20,
+    maxHeight: isTablet ? height * 0.7 : height * 0.9,
+    containerPadding: isTablet ? 25 : 1,
 
     // Typography
     titleFontSize: isTablet ? 28 : 24,
@@ -58,15 +58,15 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
     tableRowLineHeight: isTablet ? 24 : 20,
 
     // Agreement section
-    agreementSectionPadding: isTablet ? 15 : 10,
-    scrollPromptFontSize: isTablet ? 18 : 16,
-    scrollPromptMarginBottom: isTablet ? 18 : 15,
+    agreementSectionPadding: isTablet ? 15 : 1,
+    scrollPromptFontSize: isTablet ? 18 : 12,
+    scrollPromptMarginBottom: isTablet ? 18 : 1,
     checkboxSize: isTablet ? 28 : 24,
-    checkboxMarginRight: isTablet ? 15 : 12,
+    checkboxMarginRight: isTablet ? 15 : 2,
     checkboxBorderRadius: isTablet ? 6 : 4,
     checkmarkFontSize: isTablet ? 18 : 16,
     agreementTextFontSize: isTablet ? 18 : 16,
-    checkboxContainerPadding: isTablet ? 12 : 10,
+    checkboxContainerPadding: isTablet ? 12 : 1,
 
     // Border and shadow
     borderRadius: isTablet ? 15 : 12,
@@ -94,6 +94,18 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
 
   return (
     <View style={[styles.container, {maxHeight: responsiveValues.maxHeight}]}>
+      {!hasScrolledToBottom && (
+        <Text
+          style={[
+            styles.scrollPrompt,
+            {
+              fontSize: responsiveValues.scrollPromptFontSize,
+              marginBottom: responsiveValues.scrollPromptMarginBottom,
+            },
+          ]}>
+          Please scroll to the bottom to continue
+        </Text>
+      )}
       <ScrollView
         ref={scrollViewRef}
         style={[
@@ -1203,22 +1215,12 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
         style={[
           styles.agreementSection,
           {
+            flexDirection: isTablet ? 'column' : 'row',
+          },
+          {
             paddingVertical: responsiveValues.agreementSectionPadding,
           },
         ]}>
-        {!hasScrolledToBottom && (
-          <Text
-            style={[
-              styles.scrollPrompt,
-              {
-                fontSize: responsiveValues.scrollPromptFontSize,
-                marginBottom: responsiveValues.scrollPromptMarginBottom,
-              },
-            ]}>
-            Please scroll to the bottom to continue
-          </Text>
-        )}
-
         <TouchableOpacity
           style={[
             styles.checkboxContainer,
@@ -1332,6 +1334,7 @@ const styles = StyleSheet.create({
   },
   agreementSection: {
     alignItems: 'center',
+
     // paddingVertical handled by responsive values
   },
   scrollPrompt: {

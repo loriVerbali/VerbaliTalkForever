@@ -28,7 +28,10 @@ const Login: React.FC = () => {
       return userSub.replace('auth0|', '');
     } else if (userSub.startsWith('google-oauth2|')) {
       return userSub.replace('google-oauth2|', '');
+    } else if (userSub.startsWith('apple|')) {
+      return userSub.replace('apple|', '');
     }
+
     // For other providers or if no prefix, return as-is
     return userSub;
   };
@@ -74,7 +77,7 @@ const Login: React.FC = () => {
   useEffect(() => {
     const checkAuthState = async () => {
       if (user) {
-        const userId = user.sub ? extractUserId(user.sub) : '';
+        const userId = user.sub?.toString() || '';
         setItem('auth0Id', userId);
 
         // Get and store the access token

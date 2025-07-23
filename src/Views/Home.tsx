@@ -980,6 +980,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         retryCount={retryCount}
                         maxRetries={MAX_RETRIES}
                         onAnswerSelected={handleAnswerSelected}
+                        ttsService={TTSService}
                       />
                     </View>
                   );
