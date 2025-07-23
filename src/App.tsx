@@ -30,13 +30,13 @@ const App = () => {
   // Lock to landscape orientation as early as possible
   Orientation.lockToLandscapeLeft();
 
-  const trackAutomaticEvents = true;
-  const mixpanel = new Mixpanel(
-    'b5c43b5eeefef8db948f6bf391e5ce39',
-    trackAutomaticEvents,
-  );
+  const trackAutomaticEvents = false;
+  const mixpanelToken = 'b5c43b5eeefef8db948f6bf391e5ce39';
 
+  const mixpanel = new Mixpanel(mixpanelToken, trackAutomaticEvents);
   mixpanel.init();
+  mixpanel.reset(); // anonymizes session, clears device_id and user_id
+  mixpanel.clearSuperProperties();
 
   // Initialize Auth0 instance for token refresh
   useEffect(() => {

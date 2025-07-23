@@ -26,10 +26,10 @@ import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import TermsAndConditions from '../Components/TermsAndConditions';
-import Subscription, {SubscriptionPlan} from '../Components/Subscription';
+//import Subscription, {SubscriptionPlan} from '../Components/Subscription';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
-import {useAuth0} from 'react-native-auth0';
+import auth0, {useAuth0} from 'react-native-auth0';
 import fetchHelper from '../utils/fetcher';
 
 const {width, height} = Dimensions.get('window');
@@ -68,7 +68,7 @@ const onboardingSteps = [
   // },
   {
     id: 'gender',
-    question: 'Choose your gender',
+    question: 'Choose your gender (optional)',
     additionalComponents: 'gender-selection',
     buttonText: 'Next',
   },
@@ -110,7 +110,13 @@ const OnboardingScreen: React.FC = () => {
   const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
   const {completeOnboarding} = useContext(OnboardingContext);
-  const {authorize, user, isLoading: authLoading} = useAuth0();
+  const {
+    authorize,
+    user,
+    isLoading: authLoading,
+    clearSession,
+    getCredentials,
+  } = useAuth0();
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
   const [adminCode, setAdminCode] = useState('');
@@ -123,15 +129,11 @@ const OnboardingScreen: React.FC = () => {
   const [locationGranted, setLocationGranted] = useState(false);
   const [locationPermissionAttempted, setLocationPermissionAttempted] =
     useState(false);
+  const [permissionsAttempted, setPermissionsAttempted] = useState(false);
   const [locationPermissionSuccess, setLocationPermissionSuccess] =
     useState(false);
   const [specialPlacesCompleted, setSpecialPlacesCompleted] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
-  const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState<
-    SubscriptionPlan | undefined
-  >(undefined);
-  const [subscriptionPurchaseSuccess, setSubscriptionPurchaseSuccess] =
-    useState(false);
   const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
     'easy',
   );
@@ -158,6 +160,15 @@ const OnboardingScreen: React.FC = () => {
     if (onboardingSteps[currentStep].id === 'login' && user) {
       setIsLoggedIn(true);
       setLoginAttempted(true);
+      getCredentials().then(credentials => {
+        if (credentials?.accessToken) {
+          setItem('token', credentials?.accessToken);
+        } else {
+          clearSession();
+          setItem('loggedIn', '0');
+          setItem('username', '');
+        }
+      });
     }
   }, [user, currentStep]);
 
@@ -167,6 +178,8 @@ const OnboardingScreen: React.FC = () => {
       return userSub.replace('auth0|', '');
     } else if (userSub.startsWith('google-oauth2|')) {
       return userSub.replace('google-oauth2|', '');
+    } else if (userSub.startsWith('apple|')) {
+      return userSub.replace('apple|', '');
     }
     return userSub;
   };
@@ -185,13 +198,23 @@ const OnboardingScreen: React.FC = () => {
       if (response && response.assistantId) {
         await setItem('assistantId', response.assistantId);
       } else {
-        console.log('No assistant ID returned from API');
+        await makeAssistantId(userId);
       }
     } catch (error) {
       console.log('Error getting assistant ID:', error);
     }
   };
 
+  const makeAssistantId = async (userId: string) => {
+    const response = await fetchHelper(
+      'makeAssistantId',
+      {},
+      {kidname: heroName, userId: userId},
+    );
+    if (response && response.assistantId) {
+      await setItem('assistantId', response.assistantId);
+    }
+  };
   const handleLogin = async () => {
     try {
       const result = await authorize({
@@ -241,16 +264,17 @@ const OnboardingScreen: React.FC = () => {
 
       // Save user data when login is successful
       if (user) {
-        const userId = user.sub ? extractUserId(user.sub) : '';
+        const userId = user.sub?.toString() || '';
+
         await setItem('auth0Id', userId);
         await setItem('loggedIn', '1');
         await setItem('username', user.name || '');
-
-        // Get and store the assistant ID for this user
-        await getAssistantId(userId);
       }
     }
 
+    if (onboardingSteps[currentStep].id === 'name') {
+      await getAssistantId(user?.sub?.toString() || '');
+    }
     // Skip family members step if in easy mode
     const shouldSkipFamilyMembers =
       conversationMode === 'easy' &&
@@ -292,19 +316,13 @@ const OnboardingScreen: React.FC = () => {
       if (selectedGender) {
         await setItem('gender', selectedGender);
       }
-      if (selectedSubscriptionPlan) {
-        // TODO: Save subscription plan to preferences when type is updated
-        console.log('Selected subscription plan:', selectedSubscriptionPlan);
+      if (permissionsDenied || permissionsPermanentlyDenied) {
+        setCurrentStep(currentStep + 1);
       }
 
       // Use the context to complete onboarding
       completeOnboarding();
     }
-  };
-
-  const toggleRecording = () => {
-    // In a real app, this would start/stop voice recording
-    setIsRecording(!isRecording);
   };
 
   const renderAdditionalComponents = () => {
@@ -350,14 +368,24 @@ const OnboardingScreen: React.FC = () => {
           <View style={styles.loginContainer}>
             <View style={styles.loginContent}>
               {!isLoggedIn ? (
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={handleLogin}
-                  disabled={authLoading}>
-                  <Text style={styles.loginButtonText}>
-                    {authLoading ? 'Signing In...' : 'Sign In with Auth0'}
+                <>
+                  <TouchableOpacity
+                    style={styles.loginButton}
+                    onPress={handleLogin}
+                    disabled={authLoading}>
+                    <Text style={styles.loginButtonText}>
+                      {authLoading ? 'Signing In...' : 'Sign In'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.permissionsExplanation,
+                      {width: '80%', marginTop: 4, fontStyle: 'italic'},
+                    ]}>
+                    In order to use the app you must login. The next button will
+                    be disabled until you are logged in.
                   </Text>
-                </TouchableOpacity>
+                </>
               ) : (
                 <View style={styles.loggedInContainer}>
                   <Text style={styles.loggedInText}>
@@ -404,84 +432,75 @@ const OnboardingScreen: React.FC = () => {
             />
           </View>
         );
-      case 'subscription-selection':
-        return (
-          <ScrollView
-            style={{width: '100%', paddingHorizontal: 20, marginVertical: 20}}
-            contentContainerStyle={{
-              alignItems: 'center',
-              paddingBottom: 40,
-            }}
-            showsVerticalScrollIndicator={false}>
-            <Subscription
-              onPlanSelect={handleSubscriptionPlanSelect}
-              selectedPlan={selectedSubscriptionPlan}
-              onPurchaseSuccess={handleSubscriptionPurchaseSuccess}
-              onPurchaseError={handleSubscriptionPurchaseError}
-            />
-          </ScrollView>
-        );
       case 'gender-selection':
         return (
-          <View style={styles.genderContainer}>
-            <TouchableOpacity
-              style={[
-                styles.genderOption,
-                selectedGender === 'boy' && styles.selectedGender,
-              ]}
-              onPress={() => setSelectedGender('boy')}>
-              <FastImage
-                source={require('../assets/boy.png')}
-                style={styles.genderImage}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-              <Text
-                style={[
-                  styles.genderText,
-                  selectedGender === 'boy' && styles.selectedGenderText,
-                ]}>
-                Boy
+          <>
+            <View>
+              <Text style={styles.permissionsSuccess}>
+                Gender selection is optional and is used for personalization Tap
+                Next to continue
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.genderOption,
-                selectedGender === 'girl' && styles.selectedGender,
-              ]}
-              onPress={() => setSelectedGender('girl')}>
-              <FastImage
-                source={require('../assets/girl.png')}
-                style={styles.genderImage}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-              <Text
+            </View>
+            <View style={styles.genderContainer}>
+              <TouchableOpacity
                 style={[
-                  styles.genderText,
-                  selectedGender === 'girl' && styles.selectedGenderText,
-                ]}>
-                Girl
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.genderOption,
-                selectedGender === 'other' && styles.selectedGender,
-              ]}
-              onPress={() => setSelectedGender('other')}>
-              <FastImage
-                source={require('../assets/person.png')}
-                style={styles.genderImage}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-              <Text
+                  styles.genderOption,
+                  selectedGender === 'boy' && styles.selectedGender,
+                ]}
+                onPress={() => setSelectedGender('boy')}>
+                <FastImage
+                  source={require('../assets/boy.png')}
+                  style={styles.genderImage}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+                <Text
+                  style={[
+                    styles.genderText,
+                    selectedGender === 'boy' && styles.selectedGenderText,
+                  ]}>
+                  Boy
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={[
-                  styles.genderText,
-                  selectedGender === 'other' && styles.selectedGenderText,
-                ]}>
-                Other
-              </Text>
-            </TouchableOpacity>
-          </View>
+                  styles.genderOption,
+                  selectedGender === 'girl' && styles.selectedGender,
+                ]}
+                onPress={() => setSelectedGender('girl')}>
+                <FastImage
+                  source={require('../assets/girl.png')}
+                  style={styles.genderImage}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+                <Text
+                  style={[
+                    styles.genderText,
+                    selectedGender === 'girl' && styles.selectedGenderText,
+                  ]}>
+                  Girl
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  selectedGender === 'other' && styles.selectedGender,
+                ]}
+                onPress={() => setSelectedGender('other')}>
+                <FastImage
+                  source={require('../assets/person.png')}
+                  style={styles.genderImage}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+                <Text
+                  style={[
+                    styles.genderText,
+                    selectedGender === 'other' && styles.selectedGenderText,
+                  ]}>
+                  Other
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
         );
       case 'admin-code-input':
         return (
@@ -500,7 +519,7 @@ const OnboardingScreen: React.FC = () => {
                     setAdminCode(numericText);
                   }
                 }}
-                keyboardType="numeric"
+                keyboardType={isTablet ? 'numeric' : 'default'}
                 maxLength={4}
                 secureTextEntry={true}
               />
@@ -582,11 +601,8 @@ const OnboardingScreen: React.FC = () => {
                       Hey Verbi
                     </Text>
                     <Text style={styles.permissionsExplanation}>
-                      Storage to save your app configurations.
-                    </Text>
-                    <Text style={styles.permissionsExplanation}>
                       These permissions are essential for the app to function
-                      properly.
+                      properly and for you to use the app fully.
                     </Text>
                   </>
                 ) : (
@@ -603,9 +619,15 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {color: '#FF6B6B'},
                       ]}>
-                      Please enable microphone and storage permissions manually
-                      in your device settings to continue using Ma-Talk AI.
+                      Please enable microphone manually in your device settings
+                      to continue using Ma-Talk AI fully or tap next and do this
+                      via the settings later
                     </Text>
+                    <TouchableOpacity
+                      style={styles.settingsButton}
+                      onPress={openSettings}>
+                      <Text style={styles.buttonText}>Open Settings</Text>
+                    </TouchableOpacity>
                   </>
                 )}
 
@@ -635,13 +657,6 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        {color: '#FF6B6B', marginBottom: 10},
-                      ]}>
-                      • Save your preferences and settings
-                    </Text>
-                    <Text
-                      style={[
-                        styles.permissionsExplanation,
                         {color: '#FF6B6B', marginBottom: 20},
                       ]}>
                       • Provide the full Matalk experience
@@ -649,20 +664,16 @@ const OnboardingScreen: React.FC = () => {
                   </>
                 )}
 
-                {!permissionsGranted && (
+                {!permissionsAttempted && (
                   <TouchableOpacity
                     style={styles.button}
-                    onPress={
-                      permissionsPermanentlyDenied
-                        ? openSettings
-                        : requestPermission
-                    }>
+                    onPress={requestPermission}>
                     <Text style={styles.buttonText}>
                       {permissionsPermanentlyDenied
-                        ? 'Open Settings'
+                        ? 'Continue'
                         : permissionsDenied
                         ? 'Try Again'
-                        : 'Grant Permissions'}
+                        : 'Continue'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -687,11 +698,13 @@ const OnboardingScreen: React.FC = () => {
                 <Text style={styles.permissionsExplanation}>
                   Location to help Matalk know where you are.
                 </Text>
-                <TouchableOpacity
-                  style={styles.button}
-                  onPress={requestLocationPermission}>
-                  <Text style={styles.buttonText}>Enable Location</Text>
-                </TouchableOpacity>
+                {!locationPermissionAttempted && (
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={requestLocationPermission}>
+                    <Text style={styles.buttonText}>Continue</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -732,21 +745,22 @@ const OnboardingScreen: React.FC = () => {
     setTermsAgreed(agreed);
   };
 
-  const handleSubscriptionPlanSelect = (plan: SubscriptionPlan) => {
-    setSelectedSubscriptionPlan(plan);
-  };
+  // const handleSubscriptionPlanSelect = (plan: SubscriptionPlan) => {
+  //   setSelectedSubscriptionPlan(plan);
+  // };
 
-  const handleSubscriptionPurchaseSuccess = () => {
-    setSubscriptionPurchaseSuccess(true);
-  };
+  // const handleSubscriptionPurchaseSuccess = () => {
+  //   setSubscriptionPurchaseSuccess(true);
+  // };
 
-  const handleSubscriptionPurchaseError = () => {
-    setSubscriptionPurchaseSuccess(false);
-  };
+  // const handleSubscriptionPurchaseError = () => {
+  //   setSubscriptionPurchaseSuccess(false);
+  // };
 
   const currentStepData = onboardingSteps[currentStep];
 
   const requestPermission = async () => {
+    setPermissionsAttempted(true);
     if (Platform.OS === 'android') {
       try {
         // First check current permission status
@@ -851,6 +865,8 @@ const OnboardingScreen: React.FC = () => {
         setLocationPermissionSuccess(isGranted);
         if (isGranted) {
           setItem('wasLocationOnboarded', '1');
+        } else {
+          setLocationPermissionSuccess(false);
         }
       } catch (err) {
         console.warn('Location permission error:', err);
@@ -912,7 +928,7 @@ const OnboardingScreen: React.FC = () => {
           <View style={styles.content}>
             <View style={styles.contentSection}>
               <View style={styles.questionContainer}>
-                {currentStepData.id === 'Special Places' ? (
+                {currentStepData?.id === 'Special Places' ? (
                   <View style={styles.specialPlacesHeader}>
                     <Text style={styles.question}>
                       {currentStepData.question}
@@ -939,10 +955,9 @@ const OnboardingScreen: React.FC = () => {
                 styles.button,
                 // Hide the done button if on permissions step and permissions not granted
                 ((currentStepData.id === 'Permissions' &&
-                  !permissionsGranted) ||
+                  !permissionsAttempted) ||
                   (currentStepData.id === 'Optional Permissions' &&
-                    !locationPermissionAttempted &&
-                    !locationPermissionSuccess)) &&
+                    !locationPermissionAttempted)) &&
                   styles.hiddenButton,
               ]}
               onPress={handleNext}
@@ -950,16 +965,10 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'login' && !isLoggedIn) ||
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
-                (currentStepData.id === 'subscription' &&
-                  (!selectedSubscriptionPlan ||
-                    !subscriptionPurchaseSuccess)) ||
-                (currentStepData.id === 'admin-code' &&
-                  adminCode.length !== 4) ||
-                (currentStepData.id === 'gender' && !selectedGender) ||
-                (currentStepData.id === 'Permissions' && !permissionsGranted) ||
-                (currentStepData.id === 'Optional Permissions' &&
-                  !locationPermissionAttempted &&
-                  !locationPermissionSuccess)
+                // (currentStepData.id === 'subscription' &&
+                //   (!selectedSubscriptionPlan ||
+                //     !subscriptionPurchaseSuccess)) ||
+                (currentStepData.id === 'admin-code' && adminCode.length !== 4)
               }>
               <Text style={styles.buttonText}>
                 {currentStepData.buttonText}
@@ -1127,6 +1136,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
     width: width * 0.8,
+    alignItems: 'center',
+    alignSelf: 'center',
+  },
+  settingsButton: {
+    backgroundColor: 'red',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    marginTop: 10,
+    marginBottom: 10,
+    width: width * 0.2,
     alignItems: 'center',
     alignSelf: 'center',
   },

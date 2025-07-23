@@ -2,7 +2,7 @@ import React from 'react';
 import {View, StyleSheet, Text, Dimensions} from 'react-native';
 import ImageCard from './ImageCard';
 import {useAdmin} from '../contexts/adminContext';
-
+import TTSService from '../utils/TTSService';
 const {height, width} = Dimensions.get('window');
 
 interface ImageGalleryProps {
@@ -13,6 +13,7 @@ interface ImageGalleryProps {
   retryCount?: number;
   maxRetries?: number;
   onAnswerSelected?: (answer: string) => void;
+  ttsService: typeof TTSService;
 }
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({
@@ -23,6 +24,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   retryCount = 0,
   maxRetries = 3,
   onAnswerSelected,
+  ttsService,
 }) => {
   const {isTablet} = useAdmin();
 
@@ -99,6 +101,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           retryCount={retryCount}
           maxRetries={maxRetries}
           onAnswerSelected={onAnswerSelected}
+          ttsService={ttsService}
         />
       </View>
 
@@ -119,6 +122,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           retryCount={retryCount}
           maxRetries={maxRetries}
           onAnswerSelected={onAnswerSelected}
+          ttsService={ttsService}
         />
       </View>
     </View>

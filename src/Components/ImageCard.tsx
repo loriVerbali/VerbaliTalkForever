@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Config from '../utils/config';
-import Tts from 'react-native-tts';
 import {useAppSettings} from '../utils/persistance';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import {useAdmin} from '../contexts/adminContext';
+import TTSService from '../utils/TTSService';
 
 // Add interface for error event
 interface ImageErrorEvent {
@@ -31,6 +31,7 @@ export interface ImageCardProps {
   retryCount?: number;
   maxRetries?: number;
   onAnswerSelected?: (answer: string) => void;
+  ttsService: typeof TTSService;
 }
 const {width} = Dimensions.get('window');
 
@@ -42,6 +43,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
   retryCount = 0,
   maxRetries = 3,
   onAnswerSelected,
+  ttsService,
 }) => {
   const {preferences} = useAppSettings();
   const navigation = useNavigation();
@@ -79,41 +81,17 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   const sayAnswer = (prompt: string) => {
-    Tts.speak(prompt, {
-      iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
-      rate: 0.46,
-      androidParams: {
-        KEY_PARAM_PAN: 0,
-        KEY_PARAM_VOLUME: 1,
-        KEY_PARAM_STREAM: 'STREAM_MUSIC',
-      },
-    });
+    ttsService.speak(prompt, true);
   };
 
   const handleRefresh = () => {
     if (retryCount >= maxRetries) {
       // Navigate to shortcuts view when max retries reached
-      Tts.speak('Let me show you some shortcuts instead', {
-        iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
-        rate: 0.46,
-        androidParams: {
-          KEY_PARAM_PAN: 0,
-          KEY_PARAM_VOLUME: 1,
-          KEY_PARAM_STREAM: 'STREAM_MUSIC',
-        },
-      });
+      ttsService.speak('Let me show you some shortcuts instead', true);
       navigation.navigate(views.SHORTCUTS as never);
     } else if (onRefresh) {
       // Provide audio feedback to the user
-      Tts.speak('Getting more answers for you', {
-        iosVoiceId: 'com.apple.voice.compact.en-US.Samantha',
-        rate: 0.46,
-        androidParams: {
-          KEY_PARAM_PAN: 0,
-          KEY_PARAM_VOLUME: 1,
-          KEY_PARAM_STREAM: 'STREAM_MUSIC',
-        },
-      });
+      ttsService.speak('Getting more answers for you', true);
       onRefresh();
     } else {
       console.log('Refreshing content...');
