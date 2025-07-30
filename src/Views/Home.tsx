@@ -220,6 +220,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       playSound();
     }
     if (stateof === 'Keyboard') {
+      const wakeWordService = WakeWordService.getInstance();
+      wakeWordService.stopListening();
     }
   }, []);
 
@@ -765,22 +767,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
-        <View
-          style={[
-            styles.microphoneButton,
-            {
-              top: responsiveValues.microphoneButtonTop,
-              left: responsiveValues.microphoneButtonLeft,
-              width: responsiveValues.microphoneButtonSize,
-              height: responsiveValues.microphoneButtonSize,
-            },
-          ]}>
-          <FastImage
-            source={require('../assets/michrophone.gif')}
-            style={[styles.iconSize, responsiveValues.microphoneSize]}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </View>
+        {stateof === 'Keyboard' ? null : (
+          <View
+            style={[
+              styles.microphoneButton,
+              {
+                top: responsiveValues.microphoneButtonTop,
+                left: responsiveValues.microphoneButtonLeft,
+                width: responsiveValues.microphoneButtonSize,
+                height: responsiveValues.microphoneButtonSize,
+              },
+            ]}>
+            <FastImage
+              source={require('../assets/michrophone.gif')}
+              style={[styles.iconSize, responsiveValues.microphoneSize]}
+              resizeMode={FastImage.resizeMode.contain}
+            />
+          </View>
+        )}
 
         {/* Home Button */}
         <HomeButton

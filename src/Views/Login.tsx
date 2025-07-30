@@ -138,7 +138,9 @@ const Login: React.FC = () => {
         await setItem('token', result.accessToken);
       }
 
-      console.log('Authorization result:', result);
+      if (result?.refreshToken) {
+        await setItem('refreshToken', result.refreshToken);
+      }
     } catch (e) {
       console.log('Authorization error:', e);
     }

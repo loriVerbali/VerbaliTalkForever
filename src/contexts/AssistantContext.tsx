@@ -638,10 +638,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
             assistantId = response.assistantId;
             // Store the assistant ID for future use
             await setItem('assistantId', response.assistantId);
-            console.log(
-              'Assistant ID retrieved and stored:',
-              response.assistantId,
-            );
           } else {
             throw new Error('No assistant ID returned from API');
           }

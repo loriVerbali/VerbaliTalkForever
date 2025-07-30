@@ -282,8 +282,6 @@ class VoiceService {
       this.lastResultTimestamp > 0 &&
       Date.now() - this.lastResultTimestamp < 3000
     ) {
-      // Just log the error but don't consider it fatal if we had recent results
-      console.log('Ignoring non-fatal error as we had recent results');
       return;
     }
 

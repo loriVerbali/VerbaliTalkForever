@@ -1,5 +1,13 @@
-import React, {createContext, useContext, useState, ReactNode, FC} from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  FC,
+  useEffect,
+} from 'react';
 import DefaultPreference from 'react-native-default-preference';
+import {validateReceiptOnLaunch} from './recieptValidation';
 
 interface Preferences {
   loggedIn: string;
@@ -31,6 +39,8 @@ interface Preferences {
   conversationMode: string;
   gobackAfterSelection: string;
   wasDeleted: string;
+  isIOSActive: string;
+  refreshToken: string;
 }
 
 const initEnum = {
@@ -75,6 +85,8 @@ const initialPreferences: Preferences = {
   conversationMode: 'easy',
   gobackAfterSelection: initEnum.true,
   wasDeleted: initEnum.false,
+  isIOSActive: initEnum.false,
+  refreshToken: initEnum.notSet,
 };
 
 interface AppSettingsContextProps {
@@ -167,6 +179,22 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       throw error;
     }
   };
+
+  // Validate receipt on app launch (runs once after preferences are initialized)
+  useEffect(() => {
+    const validateReceiptOnAppLaunch = async () => {
+      try {
+        const isActive = await validateReceiptOnLaunch();
+        await setItem('isIOSActive', isActive ? '1' : '0');
+      } catch (error) {
+        console.error('Error validating receipt on app launch:', error);
+        // Set default to inactive if validation fails
+        await setItem('isIOSActive', '0');
+      }
+    };
+
+    validateReceiptOnAppLaunch();
+  }, []); // Empty dependency array ensures this runs only once on app launch
 
   return (
     <AppSettingsContext.Provider

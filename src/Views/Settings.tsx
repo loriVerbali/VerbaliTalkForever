@@ -26,6 +26,7 @@ import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import {Mixpanel} from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
+import Subscription from '../Components/Subscription';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -210,6 +211,14 @@ const SettingsScreen: React.FC = () => {
   const [heroNameError, setHeroNameError] = useState('');
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
+  // Easter egg: tap version 5 times to show assistant ID
+  const [aboutTapCount, setAboutTapCount] = useState(0);
+  const [showAssistantId, setShowAssistantId] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<
+    'active' | 'needs_attention'
+  >('needs_attention');
+
   useEffect(() => {
     mixpanel.track('Settings', {
       Opened: 'Settings',
@@ -243,7 +252,18 @@ const SettingsScreen: React.FC = () => {
     };
 
     loadSettings();
-  }, []);
+    // Set subscription status based on preferences.isIOSActive
+    if (preferences.isIOSActive === '1') {
+      setSubscriptionStatus('active');
+    } else {
+      setSubscriptionStatus('needs_attention');
+    }
+    // Reset tap count and assistant id visibility on unmount
+    return () => {
+      setAboutTapCount(0);
+      setShowAssistantId(false);
+    };
+  }, [preferences.isIOSActive]);
 
   const handleLogout = async () => {
     try {
@@ -554,6 +574,36 @@ const SettingsScreen: React.FC = () => {
             </View>
           </View>
 
+          {/* Subscription Status */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 10,
+            }}>
+            <Text
+              style={{
+                fontSize: 16,
+                color: '#333',
+                fontWeight: '500',
+                marginRight: 10,
+              }}>
+              Subscription Status:
+            </Text>
+            <Text
+              style={{
+                fontSize: 16,
+                color: subscriptionStatus === 'active' ? '#34c759' : '#f44336',
+                fontWeight: 'bold',
+              }}>
+              {subscriptionStatus === 'active' ? 'Active' : 'Needs Attention'}
+            </Text>
+          </View>
+          {(subscriptionStatus !== 'active' || showSubscription) && (
+            <View style={{flex: 1, backgroundColor: '#fff', padding: 10}}>
+              <Subscription setGotSubscription={setShowSubscription} />
+            </View>
+          )}
           <Pressable style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutText}>Log Out</Text>
           </Pressable>
@@ -630,32 +680,32 @@ const SettingsScreen: React.FC = () => {
 
           <View style={styles.sliderGrid}>
             {/* <View style={styles.sliderRow}>
-              <MessagesSlider
-                value={returnedMessages}
-                onChange={handleMessagesChange}
-              />
-              <RangeSlider
-                label="Amount of Topics"
-                value={topicsCount}
-                onChange={handleTopicsChange}
-                description="Determines the number of conversation topics available. More topics provide variety but may make selection more complex. 4-6 topics are recommended for focused conversations, 7-8 for broader discussions."
-              />
-            </View> */}
+                <MessagesSlider
+                  value={returnedMessages}
+                  onChange={handleMessagesChange}
+                />
+                <RangeSlider
+                  label="Amount of Topics"
+                  value={topicsCount}
+                  onChange={handleTopicsChange}
+                  description="Determines the number of conversation topics available. More topics provide variety but may make selection more complex. 4-6 topics are recommended for focused conversations, 7-8 for broader discussions."
+                />
+              </View> */}
 
             {/* <View style={styles.sliderRow}>
-              <RangeSlider
-                label="Amount of Actions"
-                value={actionsCount}
-                onChange={handleActionsChange}
-                description="Sets the number of available actions in conversations. More actions offer flexibility but may increase complexity. 4-6 actions work well for most conversations, 7-8 for more detailed interactions."
-              />
-              <RangeSlider
-                label="Amount of Objects"
-                value={objectsCount}
-                onChange={handleObjectsChange}
-                description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
-              />
-            </View> */}
+                <RangeSlider
+                  label="Amount of Actions"
+                  value={actionsCount}
+                  onChange={handleActionsChange}
+                  description="Sets the number of available actions in conversations. More actions offer flexibility but may increase complexity. 4-6 actions work well for most conversations, 7-8 for more detailed interactions."
+                />
+                <RangeSlider
+                  label="Amount of Objects"
+                  value={objectsCount}
+                  onChange={handleObjectsChange}
+                  description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
+                />
+              </View> */}
 
             <View style={styles.genderSection}>
               <View style={styles.genderHeader}>
@@ -981,7 +1031,43 @@ const SettingsScreen: React.FC = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.aboutText}>Ma-Talk AI v1.0.0</Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              if (showAssistantId) return; // Don't increment if already showing
+              setAboutTapCount(prev => {
+                const next = prev + 1;
+                if (next >= 5) {
+                  setShowAssistantId(true);
+                }
+                return next;
+              });
+            }}>
+            <Text style={styles.aboutText}>Ma-Talk AI v1.0.0</Text>
+          </TouchableOpacity>
+          {preferences.assistantId && showAssistantId && (
+            <Text style={styles.aboutText}>
+              Assistant ID: {preferences.assistantId}
+            </Text>
+          )}
+          {showAssistantId && (
+            <>
+              <Text style={styles.aboutText}>
+                Refresh Token: {preferences.refreshToken}
+              </Text>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#f44336',
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: 5,
+                  alignItems: 'center',
+                }}
+                onPress={() => setItem('refreshToken', 'EXPIRED')}>
+                <Text style={styles.aboutText}>EXPIRED</Text>
+              </TouchableOpacity>
+            </>
+          )}
           <Text style={styles.aboutDescription}>
             Ma-Talk AI is a communication tool designed to help users interact
             more effectively.
@@ -989,7 +1075,7 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 Ma-Talk AI</Text>
+          <Text style={styles.footerText}>© 2025 Verbali Inc. Ma-Talk AI</Text>
         </View>
 
         <InfoModal

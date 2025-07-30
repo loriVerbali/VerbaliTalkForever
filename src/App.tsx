@@ -28,7 +28,7 @@ const App = () => {
   const appState = useRef(AppState.currentState);
 
   // Lock to landscape orientation as early as possible
-  Orientation.lockToLandscapeLeft();
+  // Orientation.lockToLandscapeLeft();
 
   const trackAutomaticEvents = false;
   const mixpanelToken = 'b5c43b5eeefef8db948f6bf391e5ce39';

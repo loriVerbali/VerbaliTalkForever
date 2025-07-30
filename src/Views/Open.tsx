@@ -27,6 +27,7 @@ import ContextInfo from '../Components/ContextInfo';
 import {Mixpanel} from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';
 import {useAdmin} from '../contexts/adminContext';
+import TTSService from '../utils/TTSService';
 
 type RootStackParamList = {
   LOGIN: undefined;
@@ -65,6 +66,13 @@ const OpenScreen: React.FC = () => {
     setConnectionState(isConnected); // Force local state update
   }, [isConnected]);
 
+  const askForAdultHelp = () => {
+    TTSService.speak(
+      'There seems to be a problem , please ask an adult for help',
+    );
+    handleSettingsPress();
+  };
+
   useEffect(() => {
     mixpanel.track('MainScreen', {
       Opened: 'MainScreen',
@@ -79,9 +87,11 @@ const OpenScreen: React.FC = () => {
     // Set up callback for when wake word is detected
     wakeWordService.setCallback((phrase: string) => {
       // Handle wake word detection
-      navigation.navigate(views.HOME as never, {
-        stateof: 'Attention',
-      });
+      preferences?.isIOSActive === '0'
+        ? askForAdultHelp()
+        : navigation.navigate(views.HOME as never, {
+            stateof: 'Attention',
+          });
     });
 
     // Start listening
@@ -96,6 +106,10 @@ const OpenScreen: React.FC = () => {
   }, []);
 
   const startListening = () => {
+    if (preferences?.isIOSActive === '0') {
+      askForAdultHelp();
+      return;
+    }
     navigation.navigate(views.HOME as never, {
       stateof: 'Attention',
     });
@@ -120,6 +134,10 @@ const OpenScreen: React.FC = () => {
   }, [modalVisible]);
 
   const handleNavigation = (state: string) => {
+    if (preferences?.isIOSActive === '0') {
+      askForAdultHelp();
+      return;
+    }
     // Start fade out before navigation
     Animated.timing(fadeAnim, {
       toValue: 0,
@@ -135,7 +153,10 @@ const OpenScreen: React.FC = () => {
   };
 
   const handKeyboard = async () => {
-    // Use our optimized TTS service instead
+    if (preferences?.isIOSActive === '0') {
+      askForAdultHelp();
+      return;
+    }
     navigation.navigate(views.HOME as never, {
       stateof: 'Keyboard',
     });
@@ -283,6 +304,10 @@ const OpenScreen: React.FC = () => {
                 <Pressable
                   style={styles.tileWrapper}
                   onPress={() => {
+                    if (preferences?.isIOSActive === '0') {
+                      askForAdultHelp();
+                      return;
+                    }
                     Animated.timing(fadeAnim, {
                       toValue: 0,
                       duration: 500,
@@ -311,6 +336,10 @@ const OpenScreen: React.FC = () => {
                 <Pressable
                   style={styles.tileWrapper}
                   onPress={() => {
+                    if (preferences?.isIOSActive === '0') {
+                      askForAdultHelp();
+                      return;
+                    }
                     Animated.timing(fadeAnim, {
                       toValue: 0,
                       duration: 500,
