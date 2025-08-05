@@ -10,6 +10,7 @@ import {
   Image,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -1639,6 +1640,11 @@ const Convo = () => {
                     ? 'Making magic'
                     : null}
                 </Text>
+                {sentence.speaker !== '' &&
+                sentence.sentenceType !== '' &&
+                sentence.audience !== '' ? (
+                  <ActivityIndicator size="small" color="#0000ff" />
+                ) : null}
               </View>
             </>
           ) : (

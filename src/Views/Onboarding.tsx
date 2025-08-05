@@ -15,6 +15,7 @@ import {
   Permission,
   Linking,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {useAppSettings} from '../utils/persistance';
@@ -26,11 +27,12 @@ import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import TermsAndConditions from '../Components/TermsAndConditions';
-//import Subscription, {SubscriptionPlan} from '../Components/Subscription';
+import Subscription, {SubscriptionPlan} from '../Components/Subscription';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
 import auth0, {useAuth0} from 'react-native-auth0';
 import fetchHelper from '../utils/fetcher';
+import TTSService from '../utils/TTSService';
 
 const {width, height} = Dimensions.get('window');
 
@@ -60,12 +62,12 @@ const onboardingSteps = [
     additionalComponents: 'name-input',
     buttonText: 'Next',
   },
-  // {
-  //   id: 'subscription',
-  //   question: 'Choose Your Plan',
-  //   additionalComponents: 'subscription-selection',
-  //   buttonText: 'Next',
-  // },
+  {
+    id: 'subscription',
+    question: 'Choose Your Plan',
+    additionalComponents: 'subscription-selection',
+    buttonText: 'Next',
+  },
   {
     id: 'gender',
     question: 'Choose your gender (optional)',
@@ -138,8 +140,8 @@ const OnboardingScreen: React.FC = () => {
     'easy',
   );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loginAttempted, setLoginAttempted] = useState(false);
-
+  const [gotSubscription, setGotSubscription] = useState(false);
+  const [gotAssistant, setGotAssistant] = useState(false);
   // Load conversation mode setting
   useEffect(() => {
     const loadConversationMode = async () => {
@@ -159,10 +161,10 @@ const OnboardingScreen: React.FC = () => {
   useEffect(() => {
     if (onboardingSteps[currentStep].id === 'login' && user) {
       setIsLoggedIn(true);
-      setLoginAttempted(true);
       getCredentials().then(credentials => {
         if (credentials?.accessToken) {
           setItem('token', credentials?.accessToken);
+          setItem('refreshToken', credentials?.refreshToken || '');
         } else {
           clearSession();
           setItem('loggedIn', '0');
@@ -201,6 +203,7 @@ const OnboardingScreen: React.FC = () => {
         await makeAssistantId(userId);
       }
     } catch (error) {
+      setGotAssistant(true);
       console.log('Error getting assistant ID:', error);
     }
   };
@@ -224,6 +227,10 @@ const OnboardingScreen: React.FC = () => {
 
       if (result?.accessToken) {
         await setItem('token', result.accessToken);
+      }
+
+      if (result?.refreshToken) {
+        await setItem('refreshToken', result.refreshToken);
       }
 
       console.log('Authorization result:', result);
@@ -273,7 +280,9 @@ const OnboardingScreen: React.FC = () => {
     }
 
     if (onboardingSteps[currentStep].id === 'name') {
+      setGotAssistant(true);
       await getAssistantId(user?.sub?.toString() || '');
+      setGotAssistant(false);
     }
     // Skip family members step if in easy mode
     const shouldSkipFamilyMembers =
@@ -399,6 +408,66 @@ const OnboardingScreen: React.FC = () => {
             </View>
           </View>
         );
+      case 'subscription-selection':
+        return (
+          <>
+            {gotSubscription ? (
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  padding: 32,
+                  zIndex: 5000,
+                }}>
+                <Text
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 'bold',
+                    color: '#47B76F',
+                    marginBottom: 16,
+                    textAlign: 'center',
+                  }}>
+                  We are so happy you joined!
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 20,
+                    color: '#333',
+                    marginBottom: 24,
+                    textAlign: 'center',
+                  }}>
+                  Welcome to the Ma-Talk community.
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontStyle: 'italic',
+                    color: '#8E24AA',
+                    textAlign: 'center',
+                  }}>
+                  'Because the most meaningful conversation is a natural one'
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontStyle: 'italic',
+                    color: '#8E24AA',
+                    textAlign: 'center',
+                  }}>
+                  Shay Cohen Verbali CEO 2025
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.questionContainer}>
+                <Subscription
+                  key="onboarding-subscription"
+                  setGotSubscription={setGotSubscription}
+                />
+              </View>
+            )}
+          </>
+        );
       case 'terms-and-conditions':
         return (
           <View style={styles.termsContainer}>
@@ -407,30 +476,36 @@ const OnboardingScreen: React.FC = () => {
         );
       case 'name-input':
         return (
-          <View style={styles.nameContainer}>
-            <FastImage
-              source={require('../assets/boy.png')}
-              style={styles.sideImage}
-              resizeMode={FastImage.resizeMode.contain}
-            />
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={isTablet ? styles.input : styles.inputPhone}
-                placeholder="First name"
-                placeholderTextColor="#888"
-                value={heroName}
-                onChangeText={setHeroName}
-                autoCapitalize="words"
-                autoComplete="name-given"
-                maxLength={20}
-              />
-            </View>
-            <FastImage
-              source={require('../assets/girl.png')}
-              style={styles.sideImage}
-              resizeMode={FastImage.resizeMode.contain}
-            />
-          </View>
+          <>
+            {gotAssistant ? (
+              <ActivityIndicator size="large" color="#0000ff" />
+            ) : (
+              <View style={styles.nameContainer}>
+                <FastImage
+                  source={require('../assets/boy.png')}
+                  style={styles.sideImage}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={isTablet ? styles.input : styles.inputPhone}
+                    placeholder="First name"
+                    placeholderTextColor="#888"
+                    value={heroName}
+                    onChangeText={setHeroName}
+                    autoCapitalize="words"
+                    autoComplete="name-given"
+                    maxLength={20}
+                  />
+                </View>
+                <FastImage
+                  source={require('../assets/girl.png')}
+                  style={styles.sideImage}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              </View>
+            )}
+          </>
         );
       case 'gender-selection':
         return (
@@ -645,7 +720,7 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {color: '#FF6B6B'},
                       ]}>
-                      Without these permissions, Matalk won't be able to:
+                      Without these permissions, Ma-Talk won't be able to:
                     </Text>
                     <Text
                       style={[
@@ -659,7 +734,7 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {color: '#FF6B6B', marginBottom: 20},
                       ]}>
-                      • Provide the full Matalk experience
+                      • Provide the full Ma-Talk experience
                     </Text>
                   </>
                 )}
@@ -696,7 +771,7 @@ const OnboardingScreen: React.FC = () => {
             ) : (
               <>
                 <Text style={styles.permissionsExplanation}>
-                  Location to help Matalk know where you are.
+                  Location to help Ma-Talk know where you are.
                 </Text>
                 {!locationPermissionAttempted && (
                   <TouchableOpacity
@@ -744,18 +819,6 @@ const OnboardingScreen: React.FC = () => {
   const handleTermsAgreement = (agreed: boolean) => {
     setTermsAgreed(agreed);
   };
-
-  // const handleSubscriptionPlanSelect = (plan: SubscriptionPlan) => {
-  //   setSelectedSubscriptionPlan(plan);
-  // };
-
-  // const handleSubscriptionPurchaseSuccess = () => {
-  //   setSubscriptionPurchaseSuccess(true);
-  // };
-
-  // const handleSubscriptionPurchaseError = () => {
-  //   setSubscriptionPurchaseSuccess(false);
-  // };
 
   const currentStepData = onboardingSteps[currentStep];
 
@@ -956,6 +1019,8 @@ const OnboardingScreen: React.FC = () => {
                 // Hide the done button if on permissions step and permissions not granted
                 ((currentStepData.id === 'Permissions' &&
                   !permissionsAttempted) ||
+                  (currentStepData.id === 'name' && !heroName.trim().length) ||
+                  (currentStepData.id === 'subscription' && !gotSubscription) ||
                   (currentStepData.id === 'Optional Permissions' &&
                     !locationPermissionAttempted)) &&
                   styles.hiddenButton,
@@ -965,9 +1030,6 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'login' && !isLoggedIn) ||
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
-                // (currentStepData.id === 'subscription' &&
-                //   (!selectedSubscriptionPlan ||
-                //     !subscriptionPurchaseSuccess)) ||
                 (currentStepData.id === 'admin-code' && adminCode.length !== 4)
               }>
               <Text style={styles.buttonText}>

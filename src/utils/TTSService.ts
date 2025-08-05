@@ -23,11 +23,9 @@ class TTSService {
 
   private async initTTS() {
     const valid = await this.validateTTSFiles();
-    console.log('validateTTSFiles result:', valid);
     if (!valid) return;
     try {
       await TTSManager.initialize(JSON.stringify(this.ttsConfig));
-      console.log('TTS initialized');
     } catch (e) {
       console.error('TTS init failed', e);
     }

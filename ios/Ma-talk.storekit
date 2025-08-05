@@ -9,7 +9,7 @@
       }
     ]
   },
-  "identifier" : "85F8286F",
+  "identifier" : "A4A1D904",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -17,38 +17,54 @@
 
   ],
   "settings" : {
-    "_applicationInternalID" : "6747360571",
+    "_applicationInternalID" : "6747360381",
     "_compatibilityTimeRate" : {
-      "3" : 6
+      "3" : 5
     },
     "_developerTeamID" : "5H8P29SJNH",
+    "_disableDialogs" : true,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 773876949.14794803,
+    "_lastSynchronizedDate" : 774972876.78049302,
     "_locale" : "en_US",
     "_storefront" : "USA",
     "_storeKitErrors" : [
       {
-        "current" : null,
+        "current" : {
+          "index" : 2,
+          "type" : "generic"
+        },
         "enabled" : false,
         "name" : "Load Products"
       },
       {
-        "current" : null,
+        "current" : {
+          "index" : 1,
+          "type" : "purchase"
+        },
         "enabled" : false,
         "name" : "Purchase"
       },
       {
-        "current" : null,
+        "current" : {
+          "index" : 0,
+          "type" : "verification"
+        },
         "enabled" : false,
         "name" : "Verification"
       },
       {
-        "current" : null,
+        "current" : {
+          "index" : 2,
+          "type" : "generic"
+        },
         "enabled" : false,
         "name" : "App Store Sync"
       },
       {
-        "current" : null,
+        "current" : {
+          "index" : 2,
+          "type" : "generic"
+        },
         "enabled" : false,
         "name" : "Subscription Status"
       },
@@ -58,7 +74,10 @@
         "name" : "App Transaction"
       },
       {
-        "current" : null,
+        "current" : {
+          "index" : 3,
+          "type" : "generic"
+        },
         "enabled" : false,
         "name" : "Manage Subscriptions Sheet"
       },
@@ -73,11 +92,11 @@
         "name" : "Offer Code Redeem Sheet"
       }
     ],
-    "_timeRate" : 1002
+    "_timeRate" : 1000
   },
   "subscriptionGroups" : [
     {
-      "id" : "21727885",
+      "id" : "21739088",
       "localizations" : [
 
       ],
@@ -88,13 +107,29 @@
 
           ],
           "codeOffers" : [
-
+            {
+              "eligibility" : [
+                "new"
+              ],
+              "internalID" : "528F53F6",
+              "isStackable" : true,
+              "numberOfPeriods" : 1,
+              "paymentMode" : "free",
+              "referenceName" : "SLPs",
+              "subscriptionPeriod" : "P1Y"
+            }
           ],
           "displayPrice" : "29.99",
           "familyShareable" : false,
-          "groupNumber" : 2,
-          "internalID" : "6748365966",
-          "introductoryOffer" : null,
+          "groupNumber" : 1,
+          "internalID" : "6749002748",
+          "introductoryOffer" : {
+            "displayPrice" : "6.99",
+            "internalID" : "D2C001E1",
+            "numberOfPeriods" : 3,
+            "paymentMode" : "payAsYouGo",
+            "subscriptionPeriod" : "P1M"
+          },
           "localizations" : [
             {
               "description" : "Ma-Talk AI monthly subscription",
@@ -102,10 +137,10 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "verbali.matalkai.monthly",
+          "productID" : "matalkai.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "SimpeMonthly",
-          "subscriptionGroupID" : "21727885",
+          "subscriptionGroupID" : "21739088",
           "type" : "RecurringSubscription",
           "winbackOffers" : [
 
@@ -120,8 +155,8 @@
           ],
           "displayPrice" : "300.0",
           "familyShareable" : false,
-          "groupNumber" : 4,
-          "internalID" : "6748482446",
+          "groupNumber" : 2,
+          "internalID" : "6749002822",
           "introductoryOffer" : null,
           "localizations" : [
             {
@@ -130,38 +165,10 @@
               "locale" : "en_US"
             }
           ],
-          "productID" : "verbali.matalkai.oneyear",
+          "productID" : "matalkai.annual",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "SimpleAnnual",
-          "subscriptionGroupID" : "21727885",
-          "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
-        },
-        {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "89.99",
-          "familyShareable" : false,
-          "groupNumber" : 3,
-          "internalID" : "6748481007",
-          "introductoryOffer" : null,
-          "localizations" : [
-            {
-              "description" : "3 months for 90",
-              "displayName" : "Quarterly Plan",
-              "locale" : "en_US"
-            }
-          ],
-          "productID" : "verbali.matalkai.quarterly",
-          "recurringSubscriptionPeriod" : "P3M",
-          "referenceName" : "SimpleQuarterly",
-          "subscriptionGroupID" : "21727885",
+          "subscriptionGroupID" : "21739088",
           "type" : "RecurringSubscription",
           "winbackOffers" : [
 

@@ -18,15 +18,32 @@ export const setAuth0Instance = (instance: Auth0) => {
 // Function to refresh the token
 export const refreshToken = async (): Promise<string | null> => {
   try {
-    // For now, just try to get the existing token
-    // If it's invalid, the 401 handler will trigger a re-auth
-    const existingToken = await DefaultPreference.get('token');
-    if (existingToken && existingToken !== 'init.NotSet') {
-      return existingToken;
+    const refreshToken = await DefaultPreference.get('refreshToken');
+    if (!refreshToken || refreshToken === 'init.NotSet') {
+      console.warn('No refresh token available');
+      return null;
     }
+
+    if (!auth0Instance) {
+      throw new Error('Auth0 instance not initialized');
+    }
+
+    const newTokens = await auth0Instance.auth.refreshToken({refreshToken});
+
+    if (newTokens?.accessToken) {
+      await DefaultPreference.set('token', newTokens.accessToken);
+
+      // Optional: update refreshToken if new one is returned
+      if (newTokens.refreshToken) {
+        await DefaultPreference.set('refreshToken', newTokens.refreshToken);
+      }
+
+      return newTokens.accessToken;
+    }
+
     return null;
   } catch (error) {
-    console.error('Error accessing token:', error);
+    console.error('Token refresh failed:', error);
     return null;
   }
 };
@@ -38,8 +55,6 @@ export const handleTokenExpiration = async (): Promise<void> => {
     await DefaultPreference.set('token', '');
     await DefaultPreference.set('loggedIn', '0');
     await DefaultPreference.set('username', '');
-
-    console.log('Token invalidated - user needs to re-authenticate');
   } catch (error) {
     console.error('Error handling token expiration:', error);
   }
@@ -97,23 +112,21 @@ const fetchWithRetry = async (
       return Promise.reject('Server error');
     }
 
-    if (response.status === 401) {
-      // Handle 401 responses differently based on whether the method requires authentication
+    if (response.status === 401 && retries > 0) {
       const methodObject = AppConfig.methods[methodName];
       if (methodObject.isAuthenticated && !methodObject.openAi) {
-        console.log('Received 401 - token is invalid');
+        const newToken = await refreshToken();
 
-        // Clear the invalid token and trigger re-auth
+        if (newToken) {
+          request.headers = {
+            ...request.headers,
+            Authorization: 'Bearer ' + newToken,
+          };
+          return fetchWithRetry(url, methodName, request, retries - 1, delay);
+        }
+
         await handleTokenExpiration();
         return Promise.reject('Authentication failed - please log in again');
-      } else {
-        // For non-authenticated methods, a 401 indicates a server configuration issue
-        console.error(
-          `Received 401 for non-authenticated method: ${methodName}. Check backend configuration.`,
-        );
-        return Promise.reject(
-          `Server configuration error - endpoint ${methodObject.suffixUrl} should not require authentication`,
-        );
       }
     }
 

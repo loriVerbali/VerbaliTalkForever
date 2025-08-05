@@ -78,7 +78,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
                 value={inputText}
                 editable={false}
                 onChangeText={handleTextChange}
-                placeholder="Waiting for a sentence..."
+                placeholder="The recorded sentence will appear here. No editing"
                 placeholderTextColor="#999"
                 selectTextOnFocus={false}
               />

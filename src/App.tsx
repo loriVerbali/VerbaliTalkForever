@@ -28,7 +28,7 @@ const App = () => {
   const appState = useRef(AppState.currentState);
 
   // Lock to landscape orientation as early as possible
-  Orientation.lockToLandscapeLeft();
+  // Orientation.lockToLandscapeLeft();
 
   const trackAutomaticEvents = false;
   const mixpanelToken = 'b5c43b5eeefef8db948f6bf391e5ce39';
@@ -50,7 +50,6 @@ const App = () => {
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
     // Force landscape orientation immediately
-    Orientation.lockToLandscapeLeft();
 
     const initServices = async () => {
       // Initialize TTS service when the app starts

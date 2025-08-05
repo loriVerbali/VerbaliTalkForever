@@ -29,6 +29,7 @@ export interface ConfigType {
 
 const AppConfig: ConfigType = {
   baseUrl: 'https://matalkapi-production.up.railway.app',
+  //baseUrl: 'http://192.168.1.175:3000',
   //baseUrl: 'http://localhost:3000',
   openAiUrl: 'https://api.openai.com/v1',
   picsUrl: 'https://image.pollinations.ai/prompt',
@@ -326,6 +327,20 @@ const AppConfig: ConfigType = {
       sendDeviceKey: false,
       jsonMethod: true,
       suffixUrl: '/make-assistant',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    validateReceipt: {
+      description: 'validateReceipt',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/validate-receipt',
       mustStringify: true,
       isFlatResponse: false,
       openAi: false,
