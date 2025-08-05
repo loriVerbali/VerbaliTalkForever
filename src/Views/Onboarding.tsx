@@ -954,12 +954,6 @@ const OnboardingScreen: React.FC = () => {
     });
   }, [currentStep]);
 
-  useEffect(() => {
-    if (currentStep === 0) {
-      TTSService.speak('Welcome! We are so happy you decided to join us');
-    }
-  }, [currentStep]);
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />

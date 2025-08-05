@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
+  Modal,
 } from 'react-native';
 import ParentalGate from './ParentalGate';
 import {
@@ -34,6 +35,7 @@ export type SubscriptionPlan = 'monthly' | 'yearly';
 
 interface SubscriptionProps {
   setGotSubscription: (gotSubscription: boolean) => void;
+  context?: 'settings' | 'onboarding';
 }
 
 // Subscription product IDs for MaTalk subscription group
@@ -42,7 +44,10 @@ const SUBSCRIPTION_SKUS = Platform.select({
   android: [], // Not needed for iOS-only implementation
 }) as string[];
 
-const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
+const Subscription: React.FC<SubscriptionProps> = ({
+  setGotSubscription,
+  context = 'onboarding',
+}) => {
   const {isTablet} = useAdmin();
   const {showSuccess, showError} = useToast();
 
@@ -55,6 +60,7 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
   );
   const [showParentalGate, setShowParentalGate] = useState(true); // Start with parental gate shown
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
+  const [showModal, setShowModal] = useState(false);
   const {setItem} = useAppSettings();
 
   // Initialize IAP connection
@@ -194,7 +200,7 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
     try {
       setIsLoading(true);
 
-      const sku = plan === 'monthly' ? 'matalkai.monthly' : 'matalkai.oneyear';
+      const sku = plan === 'monthly' ? 'matalkai.monthly' : 'matalkai.annual';
 
       // Clear any pending transactions
       await clearTransactionIOS();
@@ -236,6 +242,22 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
     return '';
   };
 
+  const getRegularPrice = (plan: SubscriptionPlan): string => {
+    if (Platform.OS === 'ios' && subscriptions.length > 0) {
+      const sku = plan === 'monthly' ? 'matalkai.monthly' : 'matalkai.annual';
+
+      const subscription = subscriptions.find(sub => sub.productId === sku);
+
+      if (subscription) {
+        // Always return the regular price, not the introductory price
+        const finalPrice = subscription.localizedPrice || subscription.price;
+        return finalPrice;
+      }
+    }
+
+    return '';
+  };
+
   const getIntroductoryOfferText = (plan: SubscriptionPlan): string | null => {
     if (Platform.OS === 'ios' && subscriptions.length > 0) {
       const sku = plan === 'monthly' ? 'matalkai.monthly' : null;
@@ -244,8 +266,12 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
         const subscription = subscriptions.find(sub => sub.productId === sku);
 
         if (subscription?.introductoryPrice) {
+          // Use the actual introductory price from IAP
+          const introPrice = subscription.introductoryPrice;
           const offerText =
-            plan === 'monthly' ? ' after 3 months :  $29.99/month' : null;
+            plan === 'monthly'
+              ? `Intro offer: ${introPrice}/month for the first 3 months`
+              : null;
 
           if (offerText) {
             return offerText;
@@ -288,7 +314,7 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
         : ('space-around' as const),
       flexDirection: isSmallPhone ? ('column' as const) : ('row' as const),
       gap: isSmallPhone ? 15 : 25, // Smaller gap
-      marginTop: isTablet ? 0 : 32,
+      marginTop: isTablet ? 0 : 31,
     },
     planTitle: {
       ...styles.planTitle,
@@ -314,10 +340,6 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
       ...styles.selectText,
       fontSize: isSmallPhone ? 9 : isMediumPhone ? 10 : 11,
     },
-    popularBadge: {
-      ...styles.popularBadge,
-      fontSize: isSmallPhone ? 8 : isMediumPhone ? 9 : 10,
-    },
     savingsAmount: {
       ...styles.savingsAmount,
       fontSize: isSmallPhone ? 8 : isMediumPhone ? 9 : 10,
@@ -339,8 +361,8 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
     },
     cancelBadge: {
       position: 'absolute' as const,
-      right: isSmallPhone ? -6 : -10,
-      bottom: isSmallPhone ? 5 : 8,
+      right: isSmallPhone ? -20 : -30,
+      top: isSmallPhone ? -10 : -15,
       backgroundColor: '#FF6B35',
       borderRadius: isSmallPhone ? 12 : 15,
       paddingHorizontal: isSmallPhone ? 4 : 6,
@@ -355,7 +377,28 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
       shadowRadius: 4,
       elevation: 6,
       zIndex: 10,
-      transform: [{rotate: '10deg'}],
+      transform: [{rotate: '20deg'}],
+    },
+    plusButton: {
+      backgroundColor: 'rgba(0, 122, 255, 0.6)',
+      borderRadius: isSmallPhone ? 15 : 20,
+      width: isSmallPhone ? 30 : 40,
+      height: isSmallPhone ? 30 : 40,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+      shadowColor: '#007AFF',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 3,
+      zIndex: 10,
+      borderWidth: 1,
+      borderColor: 'rgba(0, 122, 255, 0.8)',
+    },
+    plusButtonText: {
+      color: 'white',
+      fontSize: isSmallPhone ? 18 : 24,
+      fontWeight: 'bold' as const,
     },
   };
 
@@ -363,7 +406,10 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
   if (showParentalGate) {
     return (
       <View style={styles.container}>
-        <ParentalGate onSuccess={handleParentalGateSuccess} />
+        <ParentalGate
+          onSuccess={handleParentalGateSuccess}
+          isSettingsContext={context === 'settings'}
+        />
       </View>
     );
   }
@@ -381,11 +427,6 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
             handlePlanSelection('yearly');
           }}
           disabled={isLoading}>
-          <View style={dynamicStyles.savingsBadge}>
-            <Text style={dynamicStyles.savingsAmount}>💰 SAVE</Text>
-            <Text style={dynamicStyles.savingsAmount}>$60!</Text>
-            <Text style={dynamicStyles.savingsDescription}>2 months FREE</Text>
-          </View>
           <View
             style={[
               styles.cardHeader,
@@ -393,15 +434,50 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
                 backgroundColor:
                   selectedPlan === 'yearly' ? '#E8F5E8' : '#FFE4E1',
               },
-            ]}>
-            <Text style={dynamicStyles.popularBadge}>Most Popular</Text>
+            ]}></View>
+          <View
+            style={{
+              backgroundColor: '#E8F5E8',
+              width: '100%',
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              alignItems: 'center',
+            }}>
+            <Text
+              style={[
+                dynamicStyles.planTitle,
+                {fontSize: 14, fontWeight: '600'},
+              ]}>
+              Annual Plan
+            </Text>
           </View>
           <View style={styles.cardContent}>
-            <Text style={dynamicStyles.planTitle}>Annual Plan</Text>
-            <Text style={dynamicStyles.planPrice}>
-              {getSubscriptionPrice('yearly')}
+            <Text
+              style={[
+                dynamicStyles.planPrice,
+                {fontSize: 20, fontWeight: 'bold', color: '#000'},
+              ]}>
+              {getRegularPrice('yearly')}/year
             </Text>
-            <Text style={dynamicStyles.planSubtitle}>per year</Text>
+            <Text
+              style={[
+                dynamicStyles.planSubtitle,
+                {fontSize: 12, fontStyle: 'italic', color: '#FF3B30'},
+              ]}>
+              Save $60 (2 months free)
+            </Text>
+            <Text
+              style={[
+                dynamicStyles.selectText,
+                {
+                  fontSize: isTablet ? 14 : 12,
+                  fontWeight: 'normal',
+                  color: '#666',
+                  textAlign: 'center',
+                },
+              ]}>
+              Billed yearly. Auto-Renews annually
+            </Text>
             <Text
               style={[
                 dynamicStyles.selectText,
@@ -411,7 +487,7 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
                 ? 'Processing...'
                 : selectedPlan === 'yearly'
                 ? 'Selected'
-                : 'Select Plan'}
+                : ''}
             </Text>
           </View>
         </TouchableOpacity>
@@ -429,9 +505,9 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
             <Text
               style={[
                 dynamicStyles.savingsAmount,
-                {fontSize: isSmallPhone ? 6 : isMediumPhone ? 7 : 8},
+                {fontSize: isSmallPhone ? 6 : isMediumPhone ? 7 : 12},
               ]}>
-              {'Cancel anytime'}
+              {'Intro offer 75% \n off the first 3 months'}
             </Text>
           </View>
           <View
@@ -441,21 +517,61 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
                 backgroundColor:
                   selectedPlan === 'monthly' ? '#E8F5E8' : '#FFE4E1',
               },
-            ]}>
-            <Text style={dynamicStyles.planTitle}>Monthly Plan</Text>
+            ]}></View>
+          <View
+            style={{
+              backgroundColor: 'lightblue',
+              width: '100%',
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              alignItems: 'center',
+            }}>
+            <Text
+              style={[
+                dynamicStyles.planTitle,
+                {fontSize: 14, fontWeight: '600'},
+              ]}>
+              Monthly Plan
+            </Text>
           </View>
           <View style={styles.cardContent}>
-            <Text style={dynamicStyles.planPrice}>
-              {getIntroductoryOfferText('monthly')
-                ? `${getSubscriptionPrice('monthly')} per month for 3 months`
-                : `${getSubscriptionPrice('monthly')} per month`}
+            <Text
+              style={[
+                dynamicStyles.planPrice,
+                {fontSize: 20, fontWeight: 'bold', color: '#FF9500'},
+              ]}>
+              {getRegularPrice('monthly')}/month
+            </Text>
+            <Text
+              style={[
+                dynamicStyles.selectText,
+                {
+                  fontSize: isTablet ? 14 : 12,
+                  fontWeight: 'normal',
+                  color: '#666',
+                  textAlign: 'center',
+                  marginBottom: 10,
+                },
+              ]}>
+              Billed monthly. Auto-Renews monthly
             </Text>
 
             {getIntroductoryOfferText('monthly') && (
-              <Text style={dynamicStyles.introOfferText}>
+              <Text
+                style={[
+                  dynamicStyles.introOfferText,
+                  {fontSize: 12, fontWeight: 'normal', color: 'black'},
+                ]}>
                 {getIntroductoryOfferText('monthly')}
               </Text>
             )}
+            <Text
+              style={[
+                dynamicStyles.planSubtitle,
+                {fontSize: 12, fontWeight: 'normal', color: '#000'},
+              ]}>
+              Then {getRegularPrice('monthly')}/month thereafter
+            </Text>
             <Text
               style={[
                 dynamicStyles.selectText,
@@ -465,10 +581,50 @@ const Subscription: React.FC<SubscriptionProps> = ({setGotSubscription}) => {
                 ? 'Processing...'
                 : selectedPlan === 'monthly'
                 ? 'Selected'
-                : 'Select Plan'}
+                : ''}
             </Text>
           </View>
         </TouchableOpacity>
+      </View>
+      <View style={{marginTop: 1, alignItems: 'center', flexDirection: 'row'}}>
+        <Text
+          style={[
+            styles.modalFeature,
+            {fontSize: isTablet ? 14 : 12, fontWeight: 'bold'},
+          ]}>
+          Both plans include:
+        </Text>
+        <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
+          <Text style={{color: 'purple'}}>✓</Text> Full access to all features
+        </Text>
+        <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
+          <Text style={{color: 'purple'}}>✓</Text> AI-powered AAC creation
+        </Text>
+        <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
+          <Text style={{color: 'purple'}}>✓</Text> Customer support
+        </Text>
+      </View>
+
+      <View style={{marginTop: 1, alignItems: 'center'}}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <Text
+            style={{
+              fontSize: isTablet ? 14 : 11,
+              fontWeight: 'normal',
+              color: '#666',
+              textAlign: 'center',
+              paddingHorizontal: 20,
+            }}>
+            Subscription automatically renews unless canceled at least 24 hours
+            before the end of the current period.All subscriptions can be
+            managed in your App Store account settings.
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -478,7 +634,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     alignItems: 'center',
-    paddingVertical: 20,
+    flex: 1,
   },
   title: {
     fontSize: 24,
@@ -503,8 +659,6 @@ const styles = StyleSheet.create({
     elevation: 8,
     backgroundColor: 'white',
     marginBottom: height * 0.02,
-    width: width * 0.28,
-    position: 'relative',
   },
   selectedCard: {
     shadowColor: '#47B76F',
@@ -515,7 +669,6 @@ const styles = StyleSheet.create({
     width: '100%',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    paddingVertical: 6,
     alignItems: 'center',
   },
   cardContent: {
@@ -523,15 +676,10 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 8,
     paddingHorizontal: 6,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+    borderRadius: 16,
     alignItems: 'center',
   },
-  popularBadge: {
-    color: '#8E24AA',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+
   planTitle: {
     fontWeight: 'bold',
     fontSize: 16,
@@ -610,6 +758,50 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    margin: 20,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'purple',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalFeatures: {
+    marginBottom: 20,
+  },
+  modalFeature: {
+    color: '#333',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  modalCloseButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

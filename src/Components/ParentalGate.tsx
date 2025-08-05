@@ -14,9 +14,13 @@ const {width, height} = Dimensions.get('window');
 
 interface ParentalGateProps {
   onSuccess: () => void;
+  isSettingsContext?: boolean;
 }
 
-const ParentalGate: React.FC<ParentalGateProps> = ({onSuccess}) => {
+const ParentalGate: React.FC<ParentalGateProps> = ({
+  onSuccess,
+  isSettingsContext = false,
+}) => {
   const {isTablet} = useAdmin();
   const [currentSequence, setCurrentSequence] = useState<string[]>([]);
   const [userInput, setUserInput] = useState<string[]>([]);
@@ -136,7 +140,7 @@ const ParentalGate: React.FC<ParentalGateProps> = ({onSuccess}) => {
   };
 
   return (
-    <View style={styles.overlay}>
+    <View style={isSettingsContext ? styles.settingsOverlay : styles.overlay}>
       <View style={styles.simpleContainer}>
         {/* Simple Message Row */}
         <View style={styles.messageRow}>
@@ -217,6 +221,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  settingsOverlay: {
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',

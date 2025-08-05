@@ -600,8 +600,12 @@ const SettingsScreen: React.FC = () => {
             </Text>
           </View>
           {(subscriptionStatus !== 'active' || showSubscription) && (
-            <View style={{flex: 1, backgroundColor: '#fff', padding: 10}}>
-              <Subscription setGotSubscription={setShowSubscription} />
+            <View
+              style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
+              <Subscription
+                setGotSubscription={setShowSubscription}
+                context="settings"
+              />
             </View>
           )}
           <Pressable style={styles.logoutButton} onPress={handleLogout}>
@@ -1043,7 +1047,7 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>Ma-Talk AI v1.0.0</Text>
+            <Text style={styles.aboutText}>Ma-Talk AI v1.2.0</Text>
           </TouchableOpacity>
           {preferences.assistantId && showAssistantId && (
             <Text style={styles.aboutText}>
