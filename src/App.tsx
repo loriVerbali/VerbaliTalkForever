@@ -7,22 +7,22 @@
  */
 import 'react-native-gesture-handler';
 import React, {useEffect, useRef} from 'react';
-import {StyleSheet, Linking, AppState, AppStateStatus} from 'react-native';
+import {StyleSheet, AppState, AppStateStatus} from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
-import {ConnectionProvider} from './utils/connection';
 import {AdminProvider} from './contexts/adminContext';
 import {ChatContextProvider} from './contexts/ChatContextProvider';
-import TTSService from './utils/TTSService';
 import {SoundProvider} from './contexts/soundContext';
+import {ConnectionProvider} from './utils/connection';
+import {ToastProvider} from './contexts/ToastContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {Auth0Provider} from 'react-native-auth0';
-import WakeWordService from './utils/wakewordService';
-import {Mixpanel} from 'mixpanel-react-native';
-import Orientation from 'react-native-orientation-locker';
-import fetchHelper, {setAuth0Instance} from './utils/fetcher';
-import {ToastProvider} from './contexts/ToastContext';
+import {setAuth0Instance} from './utils/fetcher';
 import Auth0 from 'react-native-auth0';
+import {Mixpanel} from 'mixpanel-react-native';
+import TTSService from './utils/TTSService';
+import WakeWordService from './utils/wakewordService';
+import fetchHelper from './utils/fetcher';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
@@ -45,6 +45,30 @@ const App = () => {
       clientId: '9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX',
     });
     setAuth0Instance(auth0);
+  }, []);
+
+  // Refresh token when app becomes active (Auth0 credential manager handles automatic refresh)
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        try {
+          const {ensureFreshToken} = await import('./utils/fetcher');
+          await ensureFreshToken();
+        } catch (error) {
+          console.error('App state change token refresh failed:', error);
+        }
+      }
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+    return () => subscription?.remove();
   }, []);
 
   // Initialize voice and TTS services at app level for better performance

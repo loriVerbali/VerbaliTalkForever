@@ -137,10 +137,7 @@ const Login: React.FC = () => {
       if (result?.accessToken) {
         await setItem('token', result.accessToken);
       }
-
-      if (result?.refreshToken) {
-        await setItem('refreshToken', result.refreshToken);
-      }
+      // Stop persisting refresh tokens; Auth0 Credentials Manager handles rotation
     } catch (e) {
       console.log('Authorization error:', e);
     }
@@ -239,9 +236,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: 'red',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    padding: 10,
-    borderRadius: 5,
   },
 });
 

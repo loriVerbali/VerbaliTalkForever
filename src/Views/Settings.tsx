@@ -24,6 +24,7 @@ import {stacks, views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
+import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import {Mixpanel} from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
 import Subscription from '../Components/Subscription';
@@ -407,6 +408,7 @@ const SettingsScreen: React.FC = () => {
           await setItem('gender', '');
           await setItem('familyPicsData', '');
           await setItem('specialPlaces', '');
+          await setItem('pepes', '');
           await setItem('homeAddress', '');
           await setItem('homeIsCurrentLocation', '0');
           await setItem('schoolAddress', '');
@@ -613,77 +615,79 @@ const SettingsScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Settings</Text>
+        {subscriptionStatus === 'active' && (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Account Settings</Text>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Hero Name</Text>
-            {/* Hero Name Edit UI */}
-            {isEditingHeroName ? (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  marginBottom: 10,
-                }}>
-                <TextInput
-                  style={[styles.codeInput, {flex: 1}]}
-                  value={newHeroName}
-                  onChangeText={setNewHeroName}
-                  placeholder="Name"
-                  maxLength={32}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleSaveHeroName}
-                  blurOnSubmit={true}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.adminButton,
-                    styles.submitButton,
-                    {marginLeft: 8},
-                  ]}
-                  onPress={handleSaveHeroName}>
-                  <Text style={styles.buttonText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.adminButton,
-                    styles.cancelButton,
-                    {marginLeft: 8},
-                  ]}
-                  onPress={handleCancelHeroNameEdit}>
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Hero Name</Text>
+                {/* Hero Name Edit UI */}
+                {isEditingHeroName ? (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginBottom: 10,
+                    }}>
+                    <TextInput
+                      style={[styles.codeInput, {flex: 1}]}
+                      value={newHeroName}
+                      onChangeText={setNewHeroName}
+                      placeholder="Name"
+                      maxLength={32}
+                      autoFocus
+                      returnKeyType="done"
+                      onSubmitEditing={handleSaveHeroName}
+                      blurOnSubmit={true}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.adminButton,
+                        styles.submitButton,
+                        {marginLeft: 8},
+                      ]}
+                      onPress={handleSaveHeroName}>
+                      <Text style={styles.buttonText}>Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.adminButton,
+                        styles.cancelButton,
+                        {marginLeft: 8},
+                      ]}
+                      onPress={handleCancelHeroNameEdit}>
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginBottom: 10,
+                    }}>
+                    <Text style={{fontSize: 16, color: '#333', flex: 1}}>
+                      {heroName}
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.adminButton,
+                        styles.submitButton,
+                        {marginLeft: 8},
+                      ]}
+                      onPress={handleEditHeroName}>
+                      <Text style={styles.buttonText}>Edit</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {heroNameError ? (
+                  <Text style={styles.errorText}>{heroNameError}</Text>
+                ) : null}
               </View>
-            ) : (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  marginBottom: 10,
-                }}>
-                <Text style={{fontSize: 16, color: '#333', flex: 1}}>
-                  {heroName}
-                </Text>
-                <TouchableOpacity
-                  style={[
-                    styles.adminButton,
-                    styles.submitButton,
-                    {marginLeft: 8},
-                  ]}
-                  onPress={handleEditHeroName}>
-                  <Text style={styles.buttonText}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            {heroNameError ? (
-              <Text style={styles.errorText}>{heroNameError}</Text>
-            ) : null}
-          </View>
 
-          <View style={styles.sliderGrid}>
-            {/* <View style={styles.sliderRow}>
+              <View style={styles.sliderGrid}>
+                {/* <View style={styles.sliderRow}>
                 <MessagesSlider
                   value={returnedMessages}
                   onChange={handleMessagesChange}
@@ -696,7 +700,7 @@ const SettingsScreen: React.FC = () => {
                 />
               </View> */}
 
-            {/* <View style={styles.sliderRow}>
+                {/* <View style={styles.sliderRow}>
                 <RangeSlider
                   label="Amount of Actions"
                   value={actionsCount}
@@ -711,287 +715,325 @@ const SettingsScreen: React.FC = () => {
                 />
               </View> */}
 
-            <View style={styles.genderSection}>
-              <View style={styles.genderHeader}>
-                <View style={styles.genderLabelContainer}>
-                  <Text style={styles.settingLabel}>Gender (optional)</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowGenderInfo(true)}
-                    style={styles.infoButton}>
-                    <Text style={styles.infoIcon}>?</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.noneCheckbox}
-                    onPress={() => setItem('gender', '')}>
-                    <View
-                      style={[
-                        styles.checkbox,
-                        (!preferences.gender || preferences.gender === '') &&
-                          styles.checkedBox,
-                      ]}>
-                      {(!preferences.gender || preferences.gender === '') && (
-                        <Text style={styles.checkmark}>✓</Text>
-                      )}
-                    </View>
-                    <Text style={styles.noneLabel}>None</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <View style={styles.genderContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.genderOption,
-                    preferences.gender === 'boy' && styles.selectedGender,
-                  ]}
-                  onPress={() => setItem('gender', 'boy')}>
-                  <FastImage
-                    source={require('../assets/boy.png')}
-                    style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <Text
-                    style={[
-                      styles.genderText,
-                      preferences.gender === 'boy' && styles.selectedGenderText,
-                    ]}>
-                    Boy
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.genderOption,
-                    preferences.gender === 'girl' && styles.selectedGender,
-                  ]}
-                  onPress={() => setItem('gender', 'girl')}>
-                  <FastImage
-                    source={require('../assets/girl.png')}
-                    style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <Text
-                    style={[
-                      styles.genderText,
-                      preferences.gender === 'girl' &&
-                        styles.selectedGenderText,
-                    ]}>
-                    Girl
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.genderOption,
-                    preferences.gender === 'other' && styles.selectedGender,
-                  ]}
-                  onPress={() => setItem('gender', 'other')}>
-                  <FastImage
-                    source={require('../assets/person.png')}
-                    style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <Text
-                    style={[
-                      styles.genderText,
-                      preferences.gender === 'other' &&
-                        styles.selectedGenderText,
-                    ]}>
-                    Other
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.familyPicsSection}>
-              <Text style={styles.settingLabel}>Family Members</Text>
-
-              {/* Conversation Mode Setting */}
-              <View style={styles.conversationModeRow}>
-                <View style={styles.switchLabel}>
-                  <Text style={styles.conversationModeLabel}>
-                    Conversation Mode
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowConversationModeInfo(true)}
-                    style={styles.infoButton}>
-                    <Text style={styles.infoIcon}>?</Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.conversationModeContainer}>
-                  <Text
-                    style={[
-                      styles.conversationModeText,
-                      conversationMode === 'easy' && styles.activeMode,
-                    ]}>
-                    Easy
-                  </Text>
-                  <Switch
-                    trackColor={{false: '#767577', true: '#8E24AA'}}
-                    thumbColor={
-                      conversationMode === 'advanced' ? '#fff' : '#f4f3f4'
-                    }
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={handleConversationModeToggle}
-                    value={conversationMode === 'advanced'}
-                  />
-                  <Text
-                    style={[
-                      styles.conversationModeText,
-                      conversationMode === 'advanced' && styles.activeMode,
-                    ]}>
-                    Advanced
-                  </Text>
-                </View>
-              </View>
-
-              {/* Only show family member management in Advanced mode */}
-              {conversationMode === 'advanced' && (
-                <>
-                  <Text style={styles.familyDescription}>
-                    Manage family member photos for conversations
-                  </Text>
-                  <FamilyPics onFamilyMemberSelect={handleFamilyMemberSelect} />
-                </>
-              )}
-            </View>
-
-            <View style={styles.specialPlacesSection}>
-              <Text style={styles.settingLabel}>Special Places</Text>
-              <Text style={styles.specialPlacesDescription}>
-                Set up your special places (Home, School, Therapy) to help
-                Ma-Talk AI provide better contextual responses
-              </Text>
-              <SpecialPlaces isSettingsMode={true} />
-            </View>
-
-            <View style={styles.adminSection}>
-              <View style={styles.adminCodeRow}>
-                <View style={styles.adminCodeInfo}>
-                  <Text style={styles.settingLabel}>Admin Code</Text>
-                  {isEditingAdminCode ? (
-                    <View style={styles.adminCodeEditContainer}>
-                      <TextInput
-                        style={[
-                          styles.codeInput,
-                          adminCodeError ? styles.errorInput : null,
-                        ]}
-                        value={newAdminCode}
-                        onChangeText={text => {
-                          const numericText = text.replace(/[^0-9]/g, '');
-                          if (numericText.length <= 4) {
-                            setNewAdminCode(numericText);
-                            setAdminCodeError('');
-                          }
-                        }}
-                        keyboardType="numeric"
-                        maxLength={4}
-                        placeholder="Enter new 4-digit code"
-                        secureTextEntry={false}
-                        editable={!isSaving}
-                        returnKeyType="done"
-                        onSubmitEditing={() => {
-                          if (newAdminCode.length === 4) {
-                            handleAdminCodeChange();
-                          }
-                        }}
-                        autoFocus
-                      />
-                      {adminCodeError ? (
-                        <Text style={styles.errorText}>{adminCodeError}</Text>
-                      ) : null}
-                      <View style={styles.adminCodeButtons}>
-                        <Pressable
-                          style={[styles.adminButton, styles.cancelButton]}
-                          onPress={cancelAdminCodeEdit}
-                          disabled={isSaving}>
-                          <Text style={styles.buttonText}>Cancel</Text>
-                        </Pressable>
-                        <Pressable
-                          style={[
-                            styles.adminButton,
-                            styles.submitButton,
-                            (newAdminCode.length !== 4 || isSaving) &&
-                              styles.disabledButton,
-                          ]}
-                          onPress={handleAdminCodeChange}
-                          disabled={newAdminCode.length !== 4 || isSaving}>
-                          <Text style={styles.buttonText}>
-                            {isSaving ? 'Saving...' : 'Save'}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={styles.adminCodeContainer}>
-                      <Text style={styles.adminCodeValue}>
-                        {isAdminCodeVisible
-                          ? adminCode
-                          : adminCode
-                          ? '••••'
-                          : 'Not set'}
-                      </Text>
+                <View style={styles.genderSection}>
+                  <View style={styles.genderHeader}>
+                    <View style={styles.genderLabelContainer}>
+                      <Text style={styles.settingLabel}>Gender (optional)</Text>
                       <TouchableOpacity
-                        style={styles.eyeButton}
-                        onPress={() =>
-                          setIsAdminCodeVisible(!isAdminCodeVisible)
-                        }>
-                        <FastImage
-                          source={require('../assets/eye.png')}
+                        onPress={() => setShowGenderInfo(true)}
+                        style={styles.infoButton}>
+                        <Text style={styles.infoIcon}>?</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.noneCheckbox}
+                        onPress={() => setItem('gender', '')}>
+                        <View
                           style={[
-                            styles.eyeIcon,
-                            !isAdminCodeVisible && styles.eyeIconHidden,
-                          ]}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
+                            styles.checkbox,
+                            (!preferences.gender ||
+                              preferences.gender === '') &&
+                              styles.checkedBox,
+                          ]}>
+                          {(!preferences.gender ||
+                            preferences.gender === '') && (
+                            <Text style={styles.checkmark}>✓</Text>
+                          )}
+                        </View>
+                        <Text style={styles.noneLabel}>None</Text>
                       </TouchableOpacity>
                     </View>
+                  </View>
+                  <View style={styles.genderContainer}>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        preferences.gender === 'boy' && styles.selectedGender,
+                      ]}
+                      onPress={() => setItem('gender', 'boy')}>
+                      <FastImage
+                        source={require('../assets/boy.png')}
+                        style={styles.genderImage}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
+                      <Text
+                        style={[
+                          styles.genderText,
+                          preferences.gender === 'boy' &&
+                            styles.selectedGenderText,
+                        ]}>
+                        Boy
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        preferences.gender === 'girl' && styles.selectedGender,
+                      ]}
+                      onPress={() => setItem('gender', 'girl')}>
+                      <FastImage
+                        source={require('../assets/girl.png')}
+                        style={styles.genderImage}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
+                      <Text
+                        style={[
+                          styles.genderText,
+                          preferences.gender === 'girl' &&
+                            styles.selectedGenderText,
+                        ]}>
+                        Girl
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        preferences.gender === 'other' && styles.selectedGender,
+                      ]}
+                      onPress={() => setItem('gender', 'other')}>
+                      <FastImage
+                        source={require('../assets/person.png')}
+                        style={styles.genderImage}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
+                      <Text
+                        style={[
+                          styles.genderText,
+                          preferences.gender === 'other' &&
+                            styles.selectedGenderText,
+                        ]}>
+                        Other
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.familyPicsSection}>
+                  <Text style={styles.settingLabel}>Family Members</Text>
+
+                  {/* Conversation Mode Setting */}
+                  <View style={styles.conversationModeRow}>
+                    <View style={styles.switchLabel}>
+                      <Text style={styles.conversationModeLabel}>
+                        Conversation Mode
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setShowConversationModeInfo(true)}
+                        style={styles.infoButton}>
+                        <Text style={styles.infoIcon}>?</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.conversationModeContainer}>
+                      <Text
+                        style={[
+                          styles.conversationModeText,
+                          conversationMode === 'easy' && styles.activeMode,
+                        ]}>
+                        Easy
+                      </Text>
+                      <Switch
+                        trackColor={{false: '#767577', true: '#8E24AA'}}
+                        thumbColor={
+                          conversationMode === 'advanced' ? '#fff' : '#f4f3f4'
+                        }
+                        ios_backgroundColor="#3e3e3e"
+                        onValueChange={handleConversationModeToggle}
+                        value={conversationMode === 'advanced'}
+                      />
+                      <Text
+                        style={[
+                          styles.conversationModeText,
+                          conversationMode === 'advanced' && styles.activeMode,
+                        ]}>
+                        Advanced
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Only show family member management in Advanced mode */}
+                  {conversationMode === 'advanced' && (
+                    <>
+                      <Text style={styles.familyDescription}>
+                        Manage family member photos for conversations
+                      </Text>
+                      <FamilyPics
+                        onFamilyMemberSelect={handleFamilyMemberSelect}
+                      />
+                    </>
                   )}
                 </View>
-                {!isEditingAdminCode && (
-                  <Pressable
-                    style={styles.changeButton}
-                    onPress={() => setIsEditingAdminCode(true)}>
-                    <Text style={styles.changeButtonText}>Change</Text>
-                  </Pressable>
-                )}
+
+                <View style={styles.specialPlacesSection}>
+                  <Text style={styles.settingLabel}>Special Places</Text>
+                  <Text style={styles.specialPlacesDescription}>
+                    Set up your special places (Home, School, Therapy) to help
+                    Ma-Talk AI provide better contextual responses
+                  </Text>
+                  <SpecialPlaces isSettingsMode={true} />
+                </View>
+
+                <View style={styles.myPepesSection}>
+                  <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
+                    My People & Stuff
+                  </Text>
+                  <Text style={styles.myPepesDescription}>
+                    Your people, stuff, food, drinks, places, and tv shows with
+                    images, names, and aliases for better conversation context.
+                    <Text style={{fontWeight: '800', color: '#666'}}>
+                      All Images are kept on your device only.
+                    </Text>
+                  </Text>
+                  <MyPepesAndStuff />
+                </View>
+
+                <View style={styles.adminSection}>
+                  <View style={styles.adminCodeRow}>
+                    <View style={styles.adminCodeInfo}>
+                      <Text style={styles.settingLabel}>Admin Code</Text>
+                      {isEditingAdminCode ? (
+                        <View style={styles.adminCodeEditContainer}>
+                          <TextInput
+                            style={[
+                              styles.codeInput,
+                              adminCodeError ? styles.errorInput : null,
+                            ]}
+                            value={newAdminCode}
+                            onChangeText={text => {
+                              const numericText = text.replace(/[^0-9]/g, '');
+                              if (numericText.length <= 4) {
+                                setNewAdminCode(numericText);
+                                setAdminCodeError('');
+                              }
+                            }}
+                            keyboardType="numeric"
+                            maxLength={4}
+                            placeholder="Enter new 4-digit code"
+                            secureTextEntry={false}
+                            editable={!isSaving}
+                            returnKeyType="done"
+                            onSubmitEditing={() => {
+                              if (newAdminCode.length === 4) {
+                                handleAdminCodeChange();
+                              }
+                            }}
+                            autoFocus
+                          />
+                          {adminCodeError ? (
+                            <Text style={styles.errorText}>
+                              {adminCodeError}
+                            </Text>
+                          ) : null}
+                          <View style={styles.adminCodeButtons}>
+                            <Pressable
+                              style={[styles.adminButton, styles.cancelButton]}
+                              onPress={cancelAdminCodeEdit}
+                              disabled={isSaving}>
+                              <Text style={styles.buttonText}>Cancel</Text>
+                            </Pressable>
+                            <Pressable
+                              style={[
+                                styles.adminButton,
+                                styles.submitButton,
+                                (newAdminCode.length !== 4 || isSaving) &&
+                                  styles.disabledButton,
+                              ]}
+                              onPress={handleAdminCodeChange}
+                              disabled={newAdminCode.length !== 4 || isSaving}>
+                              <Text style={styles.buttonText}>
+                                {isSaving ? 'Saving...' : 'Save'}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={styles.adminCodeContainer}>
+                          <Text style={styles.adminCodeValue}>
+                            {isAdminCodeVisible
+                              ? adminCode
+                              : adminCode
+                              ? '••••'
+                              : 'Not set'}
+                          </Text>
+                          <TouchableOpacity
+                            style={styles.eyeButton}
+                            onPress={() =>
+                              setIsAdminCodeVisible(!isAdminCodeVisible)
+                            }>
+                            <FastImage
+                              source={require('../assets/eye.png')}
+                              style={[
+                                styles.eyeIcon,
+                                !isAdminCodeVisible && styles.eyeIconHidden,
+                              ]}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                    {!isEditingAdminCode && (
+                      <Pressable
+                        style={styles.changeButton}
+                        onPress={() => setIsEditingAdminCode(true)}>
+                        <Text style={styles.changeButtonText}>Change</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={styles.switchLabel}>
+                    <Text style={styles.settingLabel}>Show Onboarding</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowOnboardingInfo(true)}
+                      style={styles.infoButton}>
+                      <Text style={styles.infoIcon}>?</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Switch
+                    trackColor={{false: '#767577', true: '#8E24AA'}}
+                    thumbColor={showOnboardingEnabled ? '#fff' : '#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                    onValueChange={handleOnboardingToggle}
+                    value={showOnboardingEnabled}
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={styles.switchLabel}>
+                    <Text style={styles.settingLabel}>
+                      Go Back After Selection
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowGobackAfterSelectionInfo(true)}
+                      style={styles.infoButton}>
+                      <Text style={styles.infoIcon}>?</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Switch
+                    trackColor={{false: '#767577', true: '#8E24AA'}}
+                    thumbColor={gobackAfterSelection ? '#fff' : '#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                    onValueChange={handleGobackAfterSelectionToggle}
+                    value={gobackAfterSelection}
+                  />
+                </View>
               </View>
             </View>
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabel}>
-                <Text style={styles.settingLabel}>Show Onboarding</Text>
-                <TouchableOpacity
-                  onPress={() => setShowOnboardingInfo(true)}
-                  style={styles.infoButton}>
-                  <Text style={styles.infoIcon}>?</Text>
-                </TouchableOpacity>
-              </View>
-              <Switch
-                trackColor={{false: '#767577', true: '#8E24AA'}}
-                thumbColor={showOnboardingEnabled ? '#fff' : '#f4f3f4'}
-                ios_backgroundColor="#3e3e3e"
-                onValueChange={handleOnboardingToggle}
-                value={showOnboardingEnabled}
-              />
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Delete My Account</Text>
+              <Text style={styles.aboutDescription}>
+                Delete your account and all your data. This action is
+                irreversible.
+              </Text>
+              <TouchableOpacity
+                style={styles.deleteAccountButton}
+                onPress={handleDeleteAccount}>
+                <Text style={styles.logoutText}>Delete Account</Text>
+              </TouchableOpacity>
             </View>
-
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabel}>
-                <Text style={styles.settingLabel}>Go Back After Selection</Text>
-                <TouchableOpacity
-                  onPress={() => setShowGobackAfterSelectionInfo(true)}
-                  style={styles.infoButton}>
-                  <Text style={styles.infoIcon}>?</Text>
-                </TouchableOpacity>
-              </View>
-              <Switch
-                trackColor={{false: '#767577', true: '#8E24AA'}}
-                thumbColor={gobackAfterSelection ? '#fff' : '#f4f3f4'}
-                ios_backgroundColor="#3e3e3e"
-                onValueChange={handleGobackAfterSelectionToggle}
-                value={gobackAfterSelection}
-              />
-            </View>
-          </View>
-        </View>
+          </>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Legal</Text>
@@ -1022,18 +1064,6 @@ const SettingsScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Delete My Account</Text>
-          <Text style={styles.aboutDescription}>
-            Delete your account and all your data. This action is irreversible.
-          </Text>
-          <TouchableOpacity
-            style={styles.deleteAccountButton}
-            onPress={handleDeleteAccount}>
-            <Text style={styles.logoutText}>Delete Account</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -1054,24 +1084,21 @@ const SettingsScreen: React.FC = () => {
               Assistant ID: {preferences.assistantId}
             </Text>
           )}
-          {showAssistantId && (
-            <>
-              <Text style={styles.aboutText}>
-                Refresh Token: {preferences.refreshToken}
-              </Text>
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#f44336',
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: 5,
-                  alignItems: 'center',
-                }}
-                onPress={() => setItem('refreshToken', 'EXPIRED')}>
-                <Text style={styles.aboutText}>EXPIRED</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          {showAssistantId &&
+            (user?.email === 'lori@verbali.io' ||
+              user?.email === 'shay@verbali.io') && (
+              <>
+                <Text style={styles.aboutText}>
+                  Thread ID: {preferences.threadId}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    setItem('isIOSActive', '1');
+                  }}>
+                  <Text style={styles.aboutText}>Reset isIOSActive</Text>
+                </TouchableOpacity>
+              </>
+            )}
           <Text style={styles.aboutDescription}>
             Ma-Talk AI is a communication tool designed to help users interact
             more effectively.
@@ -1499,6 +1526,20 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   specialPlacesDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  myPepesSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
+  },
+  myPepesDescription: {
     fontSize: 14,
     color: '#666',
     marginTop: 5,

@@ -1,7 +1,6 @@
 import Config from 'react-native-config';
 import DefaultPreference from 'react-native-default-preference';
 import Auth0 from 'react-native-auth0';
-import {Platform} from 'react-native';
 import _ from 'lodash';
 import AppConfig, {MethodObject} from './config';
 
@@ -15,38 +14,23 @@ export const setAuth0Instance = (instance: Auth0) => {
   auth0Instance = instance;
 };
 
-// Function to refresh the token
-export const refreshToken = async (): Promise<string | null> => {
+// Function to get fresh credentials from Auth0 credential manager
+const getFreshCredentials = async (): Promise<{accessToken: string} | null> => {
   try {
-    const refreshToken = await DefaultPreference.get('refreshToken');
-    if (!refreshToken || refreshToken === 'init.NotSet') {
-      console.warn('No refresh token available');
-      return null;
-    }
-
     if (!auth0Instance) {
       throw new Error('Auth0 instance not initialized');
     }
 
-    const newTokens = await auth0Instance.auth.refreshToken({refreshToken});
-
-    if (newTokens?.accessToken) {
-      await DefaultPreference.set('token', newTokens.accessToken);
-
-      // Optional: update refreshToken if new one is returned
-      if (newTokens.refreshToken) {
-        await DefaultPreference.set('refreshToken', newTokens.refreshToken);
-      }
-
-      return newTokens.accessToken;
-    }
-
-    return null;
+    const credentials = await auth0Instance.credentialsManager.getCredentials();
+    return credentials as unknown as {accessToken: string} | null;
   } catch (error) {
-    console.error('Token refresh failed:', error);
+    console.error('Error getting fresh credentials:', error);
     return null;
   }
 };
+
+// Single-flight guard for token refresh to avoid concurrent refreshes
+let refreshInFlight: Promise<string | null> | null = null;
 
 // Function to handle token expiration/invalidation
 export const handleTokenExpiration = async (): Promise<void> => {
@@ -63,14 +47,28 @@ export const handleTokenExpiration = async (): Promise<void> => {
 // Public utility function to ensure we have a fresh token
 export const ensureFreshToken = async (): Promise<string | null> => {
   try {
-    const currentToken = await DefaultPreference.get('token');
-    if (currentToken && currentToken !== 'init.NotSet') {
-      // Check if we can refresh the token to ensure it's valid
-      const freshToken = await refreshToken();
-      return freshToken || currentToken;
+    if (refreshInFlight) {
+      return await refreshInFlight;
     }
-    // If no current token, try to get one
-    return await refreshToken();
+
+    refreshInFlight = (async () => {
+      const credentials = await getFreshCredentials();
+      if (credentials?.accessToken) {
+        // Update stored token for backward compatibility only
+        await DefaultPreference.set('token', credentials.accessToken);
+        return credentials.accessToken;
+      }
+      return null;
+    })()
+      .catch(error => {
+        console.error('Error ensuring fresh token:', error);
+        return null;
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
+
+    return await refreshInFlight;
   } catch (error) {
     console.error('Error ensuring fresh token:', error);
     return null;
@@ -115,7 +113,8 @@ const fetchWithRetry = async (
     if (response.status === 401 && retries > 0) {
       const methodObject = AppConfig.methods[methodName];
       if (methodObject.isAuthenticated && !methodObject.openAi) {
-        const newToken = await refreshToken();
+        // Use credentials manager single-flight to refresh
+        const newToken = await ensureFreshToken();
 
         if (newToken) {
           request.headers = {
@@ -160,10 +159,10 @@ const fetchHelper = async (
     if (methodObject.openAi) {
       headers['Authorization'] = 'Bearer ' + (Config.OPENAI_API_KEY || '');
     } else {
-      // For backend API calls, get the Auth0 token
-      const token = await DefaultPreference.get('token');
-      if (token && token !== 'init.NotSet') {
-        headers['Authorization'] = 'Bearer ' + token;
+      // For backend API calls, ensure we have a fresh token before making the request
+      const freshToken = await ensureFreshToken();
+      if (freshToken) {
+        headers['Authorization'] = 'Bearer ' + freshToken;
       } else {
         console.warn(
           `No valid token found for authenticated method: ${methodName}`,

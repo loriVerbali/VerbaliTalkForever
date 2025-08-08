@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, useMemo} from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,9 @@ import fetchHelper from '../utils/fetcher';
 import matalkImg from '../assets/matalk.png';
 import welcomeImg from '../assets/welcome.png';
 import allTopicsImg from '../assets/topics/all_topics_topiccats_other.jpg';
+// Using require for GIF to avoid type and bundler issues
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const outputGif = require('../assets/movie/output.gif');
 
 // Topic images from Topics.tsx
 import beachImg from '../assets/topics/beach_topic_other.jpg';
@@ -199,7 +202,7 @@ const Convo = () => {
   const {weather, location} = useChatContext();
 
   // Get app settings for family pics data
-  const {getItem} = useAppSettings();
+  const {getItem, preferences} = useAppSettings();
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
     'easy',
@@ -296,6 +299,12 @@ const Convo = () => {
     ImageGenerated[]
   >([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [fetchingMode, setFetchingMode] = useState<
+    | 'list_possible_topics'
+    | 'list_possible_actions'
+    | 'list_possible_objects'
+    | null
+  >(null);
 
   // Slider state
   const [sliderPosition, setSliderPosition] = useState(0); // 0: topics, 1: actions, 2: objects
@@ -396,6 +405,97 @@ const Convo = () => {
     }
   };
 
+  // Build pepes lookup tables from saved preferences (names/aliases and types)
+  const pepesLookups = useMemo(() => {
+    const nameLookup: {[key: string]: string} = {};
+    const typeLookup: {[key: string]: {favorite?: string; fallback?: string}} =
+      {};
+    try {
+      const pepesString = preferences?.pepes;
+      if (pepesString && pepesString.trim().length > 0) {
+        const pepesJson = JSON.parse(pepesString);
+        if (pepesJson && typeof pepesJson === 'object') {
+          Object.values(pepesJson).forEach((categoryItems: any) => {
+            if (Array.isArray(categoryItems)) {
+              categoryItems.forEach((item: any) => {
+                const imageUri = item?.imageUri;
+                if (!imageUri) return;
+                const nameKey = String(item?.name || '')
+                  .trim()
+                  .toLowerCase();
+                if (nameKey) {
+                  nameLookup[nameKey] = imageUri;
+                }
+                const aliases: any[] = Array.isArray(item?.aliases)
+                  ? item.aliases
+                  : [];
+                aliases.forEach(alias => {
+                  const aliasKey = String(alias || '')
+                    .trim()
+                    .toLowerCase();
+                  if (aliasKey) {
+                    nameLookup[aliasKey] = imageUri;
+                  }
+                });
+                const typeKey = String(item?.type || '')
+                  .trim()
+                  .toLowerCase();
+                if (typeKey) {
+                  if (!typeLookup[typeKey]) {
+                    typeLookup[typeKey] = {};
+                  }
+                  if (item?.isFavorite && !typeLookup[typeKey].favorite) {
+                    typeLookup[typeKey].favorite = imageUri;
+                  }
+                  if (!typeLookup[typeKey].fallback) {
+                    typeLookup[typeKey].fallback = imageUri;
+                  }
+                }
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors – just fallback to server images
+    }
+    return {nameLookup, typeLookup};
+  }, [preferences?.pepes]);
+
+  // Resolve a local pepes image for a given text if available; otherwise return the fallback URL
+  const resolvePepesImage = (rawText: string, fallbackUrl?: string) => {
+    const normalized = String(rawText || '')
+      .trim()
+      .toLowerCase();
+    if (!normalized) return fallbackUrl || '';
+
+    // Priority 1: exact match on name/alias
+    if (pepesLookups.nameLookup[normalized]) {
+      return pepesLookups.nameLookup[normalized];
+    }
+
+    // Priority 2: match on type, considering simple pluralization variants
+    const variants = [normalized];
+    if (normalized.endsWith('es')) {
+      variants.push(normalized.slice(0, -2));
+    }
+    if (normalized.endsWith('s')) {
+      variants.push(normalized.slice(0, -1));
+    } else {
+      variants.push(normalized + 's');
+      variants.push(normalized + 'es');
+    }
+
+    for (const v of variants) {
+      const entry = pepesLookups.typeLookup[v];
+      if (entry) {
+        return entry.favorite || entry.fallback || fallbackUrl || '';
+      }
+    }
+
+    return fallbackUrl || '';
+  };
+
   // Helper function to use the Assistant API
   const callAssistant = async (mode: string, prompt: string) => {
     // Prevent duplicate calls
@@ -411,6 +511,15 @@ const Convo = () => {
     try {
       activeCallsRef.current.add(mode);
       setIsLoading(true);
+      if (
+        mode === 'list_possible_topics' ||
+        mode === 'list_possible_actions' ||
+        mode === 'list_possible_objects'
+      ) {
+        setFetchingMode(mode as any);
+      } else {
+        setFetchingMode(null);
+      }
 
       // Prepare the message with the mode and content
       // Format the message to clearly indicate the mode for the assistant
@@ -436,6 +545,7 @@ const Convo = () => {
       setTimeout(() => {
         if (isLoading) {
           setIsLoading(false);
+          setFetchingMode(null);
           activeCallsRef.current.delete(mode);
         }
       }, 8000); // 8 seconds, shorter than the main timeout
@@ -444,6 +554,7 @@ const Convo = () => {
     } catch (error) {
       console.error(`❌ Error calling assistant in ${mode} mode:`, error);
       setIsLoading(false);
+      setFetchingMode(null);
       activeCallsRef.current.delete(mode);
       return false;
     }
@@ -490,7 +601,7 @@ const Convo = () => {
             topic: topic,
             object: object,
             action: action,
-            text: answer.text || answer, // Handle both object and string formats
+            text: (answer as any).text || (answer as any) || '', // Handle both object and string formats
           };
 
           // Call the process_images API with single item
@@ -508,17 +619,26 @@ const Convo = () => {
             Array.isArray(responseImages.results) &&
             responseImages.results.length > 0
           ) {
+            const serverText = String(
+              responseImages.results[0].text || item.text,
+            );
+            const serverUrl = responseImages.results[0].url as
+              | string
+              | undefined;
+            const finalUrl = resolvePepesImage(serverText, serverUrl);
             images.push({
-              url: responseImages.results[0].url,
-              text: responseImages.results[0].text,
+              url: finalUrl,
+              text: serverText,
             });
           } else {
             // Add fallback if no result
             images.push({
               text:
                 typeof answer === 'string'
-                  ? answer
-                  : answer.text || answer.image_prompt || 'Unknown',
+                  ? (answer as any)
+                  : (answer as any).text ||
+                    (answer as any).image_prompt ||
+                    'Unknown',
               url: '',
             });
           }
@@ -528,8 +648,10 @@ const Convo = () => {
           images.push({
             text:
               typeof answer === 'string'
-                ? answer
-                : answer.text || answer.image_prompt || 'Unknown',
+                ? (answer as any)
+                : (answer as any).text ||
+                  (answer as any).image_prompt ||
+                  'Unknown',
             url: '',
           });
         }
@@ -556,8 +678,8 @@ const Convo = () => {
       const fallbackImages = array.map(item => ({
         text:
           typeof item === 'string'
-            ? item
-            : item.text || item.image_prompt || 'Unknown',
+            ? (item as any)
+            : (item as any).text || (item as any).image_prompt || 'Unknown',
         url: '',
       }));
 
@@ -602,6 +724,8 @@ const Convo = () => {
             !sentence.audience ||
             !sentence.sentenceType
           ) {
+            setIsLoading(false);
+            activeCallsRef.current.clear();
             return;
           }
 
@@ -628,6 +752,8 @@ const Convo = () => {
             }
           } catch (error) {
             console.error('❌ Error parsing topics:', error);
+            setIsLoading(false);
+            activeCallsRef.current.clear();
           }
         } else if (response.modeType === 'list_possible_actions') {
           // Guard clause: Don't process actions if basic requirements aren't met
@@ -638,6 +764,8 @@ const Convo = () => {
             !topic ||
             topic === 'NA'
           ) {
+            setIsLoading(false);
+            activeCallsRef.current.clear();
             return;
           }
 
@@ -665,6 +793,7 @@ const Convo = () => {
           } catch (error) {
             console.error('❌ Error parsing actions:', error);
             setIsLoading(false);
+            activeCallsRef.current.clear();
           }
         } else if (response.modeType === 'list_possible_objects') {
           // Guard clause: Don't process objects if basic requirements aren't met
@@ -677,6 +806,8 @@ const Convo = () => {
             !action ||
             action === 'NA'
           ) {
+            setIsLoading(false);
+            activeCallsRef.current.clear();
             return;
           }
 
@@ -704,6 +835,7 @@ const Convo = () => {
           } catch (error) {
             console.error('❌ Error parsing objects:', error);
             setIsLoading(false);
+            activeCallsRef.current.clear();
           }
         } else if (response.modeType === 'sentence') {
           try {
@@ -715,10 +847,14 @@ const Convo = () => {
             }
           } catch (error) {
             console.error('Error parsing sentence:', error);
+            setIsLoading(false);
+            activeCallsRef.current.clear();
           }
         }
       } catch (error) {
         console.error('❌ Error processing assistant response:', error);
+        setIsLoading(false);
+        activeCallsRef.current.clear();
       } finally {
         // Always reset loading state, regardless of success or failure
         setIsLoading(false);
@@ -733,6 +869,7 @@ const Convo = () => {
     if (isLoading) {
       const timeout = setTimeout(() => {
         setIsLoading(false);
+        setFetchingMode(null);
       }, 10000); // 10 second timeout for faster debugging
 
       return () => clearTimeout(timeout);
@@ -1619,11 +1756,21 @@ const Convo = () => {
                   justifyContent: 'center',
                   alignItems: 'center',
                 }}>
-                <Image
-                  source={require('../assets/talk.png')}
-                  style={{width: '50%', height: '50%', zIndex: 39}}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
+                {sentence.speaker !== '' &&
+                sentence.sentenceType !== '' &&
+                sentence.audience !== '' ? (
+                  <FastImage
+                    source={outputGif}
+                    style={{width: '70%', height: '70%', zIndex: 39}}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                ) : (
+                  <Image
+                    source={require('../assets/talk.png')}
+                    style={{width: '50%', height: '50%', zIndex: 39}}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                )}
                 <Text style={{color: 'black', fontWeight: 600}}>
                   {sentence.speaker === '' ? 'Choose a speaker' : null}
                   {sentence.speaker !== '' && sentence.sentenceType === ''
@@ -1664,23 +1811,50 @@ const Convo = () => {
                     ]}>
                     Choose the topic:
                   </Text>
-                  <View style={styles.cardWrapper}>
-                    <ConvoCarousel<Topic | ImageGenerated>
-                      carouselRef={topicCarouselRef}
-                      currentIndex={topicIndex}
-                      setCurrentIndex={setTopicIndex}
-                      sentence={sentence}
-                      setSentence={setSentence}
-                      data={
-                        generatedTopicImages.length > 0
-                          ? generatedTopicImages
-                          : []
-                      }
-                      handleItemSelect={handleTopicSelect}
-                      fieldName="list_possible_topics"
-                      selectedTopic={topic}
-                      responsiveValues={responsiveValues}
-                    />
+                  <View
+                    style={[
+                      styles.cardWrapper,
+                      (isLoading ||
+                        status === 'queued' ||
+                        status === 'in_progress') &&
+                        generatedTopicImages.length === 0 &&
+                        fetchingMode === 'list_possible_topics' && {
+                          backgroundColor: 'transparent',
+                          shadowOpacity: 0,
+                          elevation: 0,
+                        },
+                    ]}>
+                    {(isLoading ||
+                      status === 'queued' ||
+                      status === 'in_progress') &&
+                    generatedTopicImages.length === 0 &&
+                    fetchingMode === 'list_possible_topics' ? (
+                      <FastImage
+                        source={outputGif}
+                        style={{
+                          width: '100%',
+                          height: responsiveValues.gridImageHeight * 3,
+                        }}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
+                    ) : (
+                      <ConvoCarousel<Topic | ImageGenerated>
+                        carouselRef={topicCarouselRef}
+                        currentIndex={topicIndex}
+                        setCurrentIndex={setTopicIndex}
+                        sentence={sentence}
+                        setSentence={setSentence}
+                        data={
+                          generatedTopicImages.length > 0
+                            ? generatedTopicImages
+                            : []
+                        }
+                        handleItemSelect={handleTopicSelect}
+                        fieldName="list_possible_topics"
+                        selectedTopic={topic}
+                        responsiveValues={responsiveValues}
+                      />
+                    )}
                   </View>
                 </View>
               </View>
@@ -1696,23 +1870,50 @@ const Convo = () => {
                       ]}>
                       Choose the action:
                     </Text>
-                    <View style={styles.cardWrapper}>
-                      <ConvoCarousel<Action | ImageGenerated>
-                        carouselRef={actionCarouselRef}
-                        currentIndex={actionIndex}
-                        setCurrentIndex={setActionIndex}
-                        sentence={sentence}
-                        setSentence={setSentence}
-                        data={
-                          generatedActionImages.length > 0
-                            ? generatedActionImages
-                            : []
-                        }
-                        handleItemSelect={handleActionSelect}
-                        fieldName="list_possible_actions"
-                        selectedAction={action}
-                        responsiveValues={responsiveValues}
-                      />
+                    <View
+                      style={[
+                        styles.cardWrapper,
+                        (isLoading ||
+                          status === 'queued' ||
+                          status === 'in_progress') &&
+                          generatedActionImages.length === 0 &&
+                          fetchingMode === 'list_possible_actions' && {
+                            backgroundColor: 'transparent',
+                            shadowOpacity: 0,
+                            elevation: 0,
+                          },
+                      ]}>
+                      {(isLoading ||
+                        status === 'queued' ||
+                        status === 'in_progress') &&
+                      generatedActionImages.length === 0 &&
+                      fetchingMode === 'list_possible_actions' ? (
+                        <FastImage
+                          source={outputGif}
+                          style={{
+                            width: '100%',
+                            height: responsiveValues.gridImageHeight * 3,
+                          }}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      ) : (
+                        <ConvoCarousel<Action | ImageGenerated>
+                          carouselRef={actionCarouselRef}
+                          currentIndex={actionIndex}
+                          setCurrentIndex={setActionIndex}
+                          sentence={sentence}
+                          setSentence={setSentence}
+                          data={
+                            generatedActionImages.length > 0
+                              ? generatedActionImages
+                              : []
+                          }
+                          handleItemSelect={handleActionSelect}
+                          fieldName="list_possible_actions"
+                          selectedAction={action}
+                          responsiveValues={responsiveValues}
+                        />
+                      )}
                     </View>
                   </View>
                 )}
@@ -1729,23 +1930,50 @@ const Convo = () => {
                       ]}>
                       Choose the object:
                     </Text>
-                    <View style={styles.cardWrapper}>
-                      <ConvoCarousel<Object | ImageGenerated>
-                        carouselRef={objectCarouselRef}
-                        currentIndex={objectIndex}
-                        setCurrentIndex={setObjectIndex}
-                        sentence={sentence}
-                        setSentence={setSentence}
-                        data={
-                          generatedObjectImages.length > 0
-                            ? generatedObjectImages
-                            : []
-                        }
-                        handleItemSelect={handleObjectSelect}
-                        fieldName="list_possible_objects"
-                        selectedObject={object}
-                        responsiveValues={responsiveValues}
-                      />
+                    <View
+                      style={[
+                        styles.cardWrapper,
+                        (isLoading ||
+                          status === 'queued' ||
+                          status === 'in_progress') &&
+                          generatedObjectImages.length === 0 &&
+                          fetchingMode === 'list_possible_objects' && {
+                            backgroundColor: 'transparent',
+                            shadowOpacity: 0,
+                            elevation: 0,
+                          },
+                      ]}>
+                      {(isLoading ||
+                        status === 'queued' ||
+                        status === 'in_progress') &&
+                      generatedObjectImages.length === 0 &&
+                      fetchingMode === 'list_possible_objects' ? (
+                        <FastImage
+                          source={outputGif}
+                          style={{
+                            width: '100%',
+                            height: responsiveValues.gridImageHeight * 3,
+                          }}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      ) : (
+                        <ConvoCarousel<Object | ImageGenerated>
+                          carouselRef={objectCarouselRef}
+                          currentIndex={objectIndex}
+                          setCurrentIndex={setObjectIndex}
+                          sentence={sentence}
+                          setSentence={setSentence}
+                          data={
+                            generatedObjectImages.length > 0
+                              ? generatedObjectImages
+                              : []
+                          }
+                          handleItemSelect={handleObjectSelect}
+                          fieldName="list_possible_objects"
+                          selectedObject={object}
+                          responsiveValues={responsiveValues}
+                        />
+                      )}
                     </View>
                   </View>
                 )}
