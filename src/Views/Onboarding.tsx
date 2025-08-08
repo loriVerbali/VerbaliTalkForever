@@ -577,14 +577,18 @@ const OnboardingScreen: React.FC = () => {
         );
       case 'admin-code-input':
         return (
-          <View style={styles.adminCodeContainer}>
+          <ScrollView
+            style={{width: '100%'}}
+            contentContainerStyle={styles.adminCodeContainer}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}>
             <View style={styles.inputContainer}>
               <TextInput
                 style={isTablet ? styles.input : styles.inputPhone}
                 placeholder="Set a 4 digit code"
                 placeholderTextColor="#888"
                 value={adminCode}
-                inputMode="numeric"
+                inputMode={isTablet ? 'numeric' : 'text'}
                 onChangeText={text => {
                   // Only allow numbers and limit to 4 digits
                   const numericText = text.replace(/[^0-9]/g, '');
@@ -597,7 +601,7 @@ const OnboardingScreen: React.FC = () => {
                 secureTextEntry={true}
               />
             </View>
-          </View>
+          </ScrollView>
         );
       case 'family-members':
         return isTablet ? (
@@ -1306,7 +1310,8 @@ const styles = StyleSheet.create({
     height: Math.min(width * 0.22, 100),
   },
   adminCodeContainer: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
     width: '100%',
     maxHeight: height * 0.4,
     flexDirection: 'row',
