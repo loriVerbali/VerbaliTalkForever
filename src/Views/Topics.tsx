@@ -72,6 +72,7 @@ import weatherNatureImg from '../assets/topics/weathe_nature_topiccats_other.jpg
 import eventsSpecialImg from '../assets/topics/event_special_topiccats_other.jpg';
 
 const {width, height} = Dimensions.get('window');
+const isLandscape = width > height;
 
 // Top category data with placeholder images
 const topCategories = [
@@ -210,21 +211,25 @@ const Topics: React.FC<TopicsProps> = ({onSelectTopic}) => {
   // Calculate proper sizing based on available space
   const gridPadding = 40; // Total horizontal padding (20px each side)
   const cardSpacing = 10; // Space between cards
-  const cardsPerRow = 4; // Number of cards per row (consistent for all devices)
+  const cardsPerRow = isTablet ? 5 : isLandscape ? 5 : 3; // Fewer cards per row on phones to make them larger
 
-  // Calculate card width as numeric value (simpler approach)
-  const calculatedCardWidth = Math.floor((width * 0.75) / cardsPerRow);
+  // Calculate card width based on modal content width and spacing
+  const modalContentWidth = width * 0.9; // Matches modal container width in Convo
+  const calculatedCardWidth = Math.floor(
+    (modalContentWidth - gridPadding - cardSpacing * (cardsPerRow - 1)) /
+      cardsPerRow,
+  );
 
   const responsiveValues = {
-    topRowHeight: isTablet ? height * 0.14 : height * 0.12,
+    topRowHeight: isTablet ? height * 0.168 : height * 0.168, // +20%
     topItemWidth: isTablet ? width * 0.1 : width * 0.105,
-    topItemHeight: isTablet ? height * 0.125 : height * 0.1,
+    topItemHeight: isTablet ? height * 0.15 : height * 0.144, // +20%
     topRowGap: isTablet ? width * 0.012 : width * 0.01,
     scrollContentWidth: width,
     gridWidth: calculatedCardWidth, // Calculated based on actual modal space
-    gridImageHeight: isTablet ? height * 0.15 : height * 0.09,
+    gridImageHeight: calculatedCardWidth * (isTablet ? 0.56 : 0.576), // -20%
     labelTopFontSize: isTablet ? width * 0.008 : width * 0.009,
-    labelGridFontSize: isTablet ? 10 : 9,
+    labelGridFontSize: isTablet ? 12 : 12,
     marginTop: isTablet ? height * 0.02 : height * 0.008,
     marginBottom: isTablet ? height * 0.02 : height * 0.01,
     gridItemMarginBottom: isTablet ? 15 : 10,

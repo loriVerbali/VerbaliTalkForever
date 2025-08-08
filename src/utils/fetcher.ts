@@ -4,7 +4,7 @@ import Auth0 from 'react-native-auth0';
 import _ from 'lodash';
 import AppConfig, {MethodObject} from './config';
 
-const METHODTODEBUG = 'transcribeAudio';
+const METHODTODEBUG = 'processImagesConvo';
 
 // Global reference to Auth0 instance for token refresh
 let auth0Instance: Auth0 | null = null;
@@ -98,6 +98,7 @@ const fetchWithRetry = async (
     const response = await fetch(url, request);
 
     // Handle successful responses
+    console.log('response', response);
     if (response.status >= 200 && response.status < 300) {
       if (response.status === 204) return response;
       if (response.status === 200 && AppConfig.methods[methodName].isPicsUrl)
@@ -216,9 +217,9 @@ const fetchHelper = async (
   }
 
   if (methodName === METHODTODEBUG) {
-    // console.log({url});
-    // console.log({methodName});
-    // console.log({request});
+    console.log({url});
+    console.log({methodName});
+    console.log({request});
   }
 
   // Use fetchWithRetry for the request

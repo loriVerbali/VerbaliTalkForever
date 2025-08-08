@@ -128,6 +128,7 @@ const TOPIC_IMAGE_MAPPING: {[key: string]: any} = {
 };
 
 const {width, height} = Dimensions.get('window');
+const isLandscape = width > height;
 
 type Topic = 'NA' | 'Talk' | 'Play' | 'All topics' | string;
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
@@ -238,8 +239,12 @@ const Convo = () => {
     personContainerSize: isTablet ? width * 0.08 : width * 0.04,
     personImageSize: isTablet ? width * 0.05 : width * 0.04,
     talkContainerSize: isTablet ? width * 0.1 : width * 0.05,
-    gridImageHeight: isTablet ? SCREEN_HEIGHT * 0.2 : SCREEN_HEIGHT * 0.13,
-    gridItemMarginBottom: isTablet ? 15 : 10,
+    gridImageHeight: isTablet
+      ? SCREEN_HEIGHT * 0.2
+      : isLandscape
+      ? SCREEN_HEIGHT * 0.22
+      : SCREEN_HEIGHT * 0.18,
+    gridItemMarginBottom: isTablet ? 15 : 8,
     labelGridFontSize: isTablet ? 16 : 12,
     sliderMarginTop: isTablet ? height * 0.04 : 0.01,
     playButtonWidth: isTablet ? width * 0.2 : width * 0.15,
@@ -254,6 +259,8 @@ const Convo = () => {
     shadowOffset: isTablet ? {width: 0, height: 2} : {width: 0, height: 1},
     elevation: isTablet ? 5 : 3,
     carouselWindowSize: isTablet ? 3 : 2,
+    // Reduce list height on phones so there is less white area
+    listHeightMultiplier: isTablet ? 3 : 2.5,
   };
 
   const speakerCarouselRef = useRef<ICarouselInstance>(null);
@@ -726,11 +733,20 @@ const Convo = () => {
           ) {
             setIsLoading(false);
             activeCallsRef.current.clear();
+            console.warn(
+              '[Convo] Skipping topics processing: missing prerequisites',
+              {
+                speaker: sentence.speaker,
+                audience: sentence.audience,
+                sentenceType: sentence.sentenceType,
+              },
+            );
             return;
           }
 
           try {
             const topicsArray = JSON.parse(response.response);
+            console.log('[Convo] Parsed topics payload:', topicsArray);
 
             if (
               Array.isArray(topicsArray.topics) &&
@@ -741,6 +757,8 @@ const Convo = () => {
                 .map((item: {text: any}) => item.text) as Topic[];
 
               setAvailableTopics(topics);
+              console.log('[Convo] Possible topics:', topics);
+              console.log('[Convo] Raw topics payload:', topicsArray);
 
               generateImage(topicsArray.topics, 'topic').catch(error => {
                 console.error(
@@ -766,11 +784,21 @@ const Convo = () => {
           ) {
             setIsLoading(false);
             activeCallsRef.current.clear();
+            console.warn(
+              '[Convo] Skipping actions processing: missing prerequisites',
+              {
+                speaker: sentence.speaker,
+                audience: sentence.audience,
+                sentenceType: sentence.sentenceType,
+                topic,
+              },
+            );
             return;
           }
 
           try {
             const actionsData = JSON.parse(response.response);
+            console.log('[Convo] Parsed actions payload:', actionsData);
 
             if (
               actionsData &&
@@ -779,6 +807,8 @@ const Convo = () => {
             ) {
               const actions = actionsData.verbs.slice(0, 4) as Action[];
               setAvailableActions(actions);
+              console.log('[Convo] Possible actions:', actions);
+              console.log('[Convo] Raw actions payload:', actionsData);
 
               generateImage(actionsData.verbs, 'list_possible_actions').catch(
                 error => {
@@ -808,11 +838,22 @@ const Convo = () => {
           ) {
             setIsLoading(false);
             activeCallsRef.current.clear();
+            console.warn(
+              '[Convo] Skipping objects processing: missing prerequisites',
+              {
+                speaker: sentence.speaker,
+                audience: sentence.audience,
+                sentenceType: sentence.sentenceType,
+                topic,
+                action,
+              },
+            );
             return;
           }
 
           try {
             const objectsData = JSON.parse(response.response);
+            console.log('[Convo] Parsed objects payload:', objectsData);
 
             if (
               objectsData &&
@@ -821,6 +862,8 @@ const Convo = () => {
             ) {
               const objects = objectsData.objects.slice(0, 4) as Object[];
               setAvailableObjects(objects);
+              console.log('[Convo] Possible objects:', objects);
+              console.log('[Convo] Raw objects payload:', objectsData);
 
               generateImage(objectsData.objects, 'list_possible_objects').catch(
                 error => {
@@ -2378,7 +2421,7 @@ const styles = StyleSheet.create({
   },
   gridLabelContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
   },
@@ -2641,11 +2684,13 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
         style={{
           width: '100%',
           maxHeight: responsiveValues
-            ? responsiveValues.gridImageHeight * 4
-            : SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
+            ? responsiveValues.gridImageHeight *
+              (responsiveValues.listHeightMultiplier || 3)
+            : SCREEN_HEIGHT * 0.6,
           minHeight: responsiveValues
-            ? responsiveValues.gridImageHeight * 4
-            : SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
+            ? responsiveValues.gridImageHeight *
+              (responsiveValues.listHeightMultiplier || 3)
+            : SCREEN_HEIGHT * 0.6, // Adjusted to better fit mobile
         }}>
         {data.map((item, index) => (
           <Pressable
