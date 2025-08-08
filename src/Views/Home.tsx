@@ -15,7 +15,7 @@ import AudioRecorderPlayer, {
   AVEncoderAudioQualityIOSType,
   AVEncodingOption,
 } from 'react-native-audio-recorder-player';
-
+import {NativeModules} from 'react-native';
 // Add imports for the components
 import Inputs, {InputsRef} from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
@@ -253,9 +253,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     lastSoundTimeRef.current = 0;
     metering.current = -100;
 
+    NativeModules.AudioSession?.enableVoiceProcessingSession?.();
+
     // Add a minimum recording time variable
-    const minRecordingTime = 3000; // 3 seconds minimum recording time
-    const recordingStartTime = Date.now();
 
     try {
       const path = Platform.select({

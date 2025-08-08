@@ -2,6 +2,7 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
+import AVFoundation
 
 @main
 class AppDelegate: RCTAppDelegate {
@@ -37,4 +38,17 @@ class AppDelegate: RCTAppDelegate {
   override func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
     return UIInterfaceOrientationMask.landscape
   }
+  
+  private func enableVoiceProcessingSession() {
+      let session = AVAudioSession.sharedInstance()
+      do {
+        try session.setCategory(.playAndRecord,
+                                mode: .voiceChat, // enables NS/AEC/AGC
+                                options: [.defaultToSpeaker, .allowBluetooth])
+        try session.setActive(true)
+      } catch {
+        print("AVAudioSession setup failed: \(error)")
+      }
+    }
+  
 }
