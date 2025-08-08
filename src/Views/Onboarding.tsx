@@ -164,7 +164,7 @@ const OnboardingScreen: React.FC = () => {
       getCredentials().then(credentials => {
         if (credentials?.accessToken) {
           setItem('token', credentials?.accessToken);
-          setItem('refreshToken', credentials?.refreshToken || '');
+          // Stop persisting refresh tokens; let the Auth0 Credentials Manager manage rotation
         } else {
           clearSession();
           setItem('loggedIn', '0');
@@ -229,9 +229,7 @@ const OnboardingScreen: React.FC = () => {
         await setItem('token', result.accessToken);
       }
 
-      if (result?.refreshToken) {
-        await setItem('refreshToken', result.refreshToken);
-      }
+      // Do not persist refresh tokens; rely on Auth0 Credentials Manager
 
       console.log('Authorization result:', result);
     } catch (e) {

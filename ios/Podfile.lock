@@ -35,7 +35,7 @@ PODS:
   - libwebp/webp (1.5.0):
     - libwebp/sharpyuv
   - lottie-ios (4.5.0)
-  - lottie-react-native (7.2.4):
+  - lottie-react-native (7.3.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1298,9 +1298,9 @@ PODS:
     - React-jsiexecutor
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
-  - react-native-config (1.5.5):
-    - react-native-config/App (= 1.5.5)
-  - react-native-config/App (1.5.5):
+  - react-native-config (1.5.6):
+    - react-native-config/App (= 1.5.6)
+  - react-native-config/App (1.5.6):
     - React-Core
   - react-native-geolocation (3.4.0):
     - DoubleConversion
@@ -1972,7 +1972,7 @@ PODS:
     - RNSound/Core (= 0.11.2)
   - RNSound/Core (0.11.2):
     - React-Core
-  - RNSVG (15.12.0):
+  - RNSVG (15.12.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1992,9 +1992,9 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNSVG/common (= 15.12.0)
+    - RNSVG/common (= 15.12.1)
     - Yoga
-  - RNSVG/common (15.12.0):
+  - RNSVG/common (15.12.1):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2342,7 +2342,7 @@ SPEC CHECKSUMS:
   KeyWordRNBridge: 7a57dec07b16fde95153af940e30c4cf676dc43d
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
-  lottie-react-native: 385f08c1cb93d4ffa75c01e6dcacf4c828cc739a
+  lottie-react-native: 72c7520e36924b1cc16f5c7a89183708b0c14eba
   Mixpanel-swift: 7b26468fc0e2e521104e51d65c4bbf7cab8162f8
   MixpanelReactNative: cdcfe933b8ce89aadd183f17aad3c8529daccb94
   onnxruntime-c: 07cfff40dda7e1c54a4350bb2ad226c63150fce3
@@ -2377,7 +2377,7 @@ SPEC CHECKSUMS:
   React-logger: 018826bfd51b9f18e87f67db1590bc510ad20664
   React-Mapbuffer: 3c11cee7737609275c7b66bd0b1de475f094cedf
   React-microtasksnativemodule: 843f352b32aacbe13a9c750190d34df44c3e6c2c
-  react-native-config: 644074ab88db883fcfaa584f03520ec29589d7df
+  react-native-config: f1dde39f8468ad922fc7e8bd4308c8e6223d5ee8
   react-native-geolocation: 66ddfd59066bb9365d0899967adc0a2cf2d0e6b2
   react-native-image-picker: 84b261e109faa7312bca59f1f65c8f2b22865496
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
@@ -2425,7 +2425,7 @@ SPEC CHECKSUMS:
   RNPermissions: 5e35879bccc46050caa5470ad9db962677e5cf52
   RNReanimated: e023bfbfba9b0b4b85db6a64d2fa8e4996d6839b
   RNSound: 314cc5226453ef4a3314a196c65e8a65e5106a7b
-  RNSVG: 4aaeac3fdc7c5bc88ca801e228f62fb469be37e9
+  RNSVG: 8ad5c94593e5e4a6e133e6934e2188e3c688d27a
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SimpleKeychain: 768cf43ae778b1c21816e94dddf01bb8ee96a075

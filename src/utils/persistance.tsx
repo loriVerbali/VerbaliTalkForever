@@ -40,7 +40,7 @@ interface Preferences {
   gobackAfterSelection: string;
   wasDeleted: string;
   isIOSActive: string;
-  refreshToken: string;
+  pepes: string;
 }
 
 const initEnum = {
@@ -86,7 +86,7 @@ const initialPreferences: Preferences = {
   gobackAfterSelection: initEnum.true,
   wasDeleted: initEnum.false,
   isIOSActive: initEnum.false,
-  refreshToken: initEnum.notSet,
+  pepes: '',
 };
 
 interface AppSettingsContextProps {
@@ -136,65 +136,56 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
   const removeItem = async (key: keyof Preferences): Promise<void> => {
     try {
-      await DefaultPreference.clear(key);
-      setPreferences(prevPreferences => ({
-        ...prevPreferences,
-        [key]: initialPreferences[key],
-      }));
+      await DefaultPreference.set(key, initEnum.notSet);
+      setPreferences(prevPreferences => ({...prevPreferences, [key]: ''}));
     } catch (error) {
       console.error('Error removing item from DefaultPreference', error);
     }
   };
 
+  const initializePreferences = async (): Promise<Preferences> => {
+    try {
+      const getKeys = Object.keys(initialPreferences) as (keyof Preferences)[];
+      const loaded: Partial<Preferences> = {};
+
+      for (const key of getKeys) {
+        const found = await DefaultPreference.get(key);
+        loaded[key] = (found ?? initialPreferences[key]) as any;
+      }
+
+      setPreferences(
+        prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
+      );
+
+      // validate purchase on launch
+      setTimeout(async () => {
+        try {
+          await validateReceiptOnLaunch();
+        } catch (error) {}
+      }, 3000);
+
+      return loaded as Preferences;
+    } catch (error) {
+      console.error('Error initializing preferences', error);
+      return initialPreferences;
+    }
+  };
+
+  useEffect(() => {
+    initializePreferences();
+  }, []);
+
   const clear = async (): Promise<void> => {
     try {
-      await DefaultPreference.clearAll();
+      const getKeys = Object.keys(initialPreferences) as (keyof Preferences)[];
+      for (const key of getKeys) {
+        await DefaultPreference.set(key, initialPreferences[key]);
+      }
       setPreferences(initialPreferences);
     } catch (error) {
       console.error('Error clearing DefaultPreference', error);
     }
   };
-
-  const initializePreferences = async (): Promise<Preferences> => {
-    try {
-      const newPreferences = await Object.keys(initialPreferences).reduce<
-        Promise<Preferences>
-      >(async (accPromise, key) => {
-        const acc = await accPromise;
-        const typedKey = key as keyof Preferences;
-        let defaultPreferenceValue = await DefaultPreference.get(typedKey);
-
-        const preferenceValue =
-          defaultPreferenceValue ?? initialPreferences[typedKey];
-        return {...acc, [typedKey]: preferenceValue};
-      }, Promise.resolve({} as Preferences));
-
-      setPreferences(prevPreferences => ({
-        ...prevPreferences,
-        ...newPreferences,
-      }));
-      return newPreferences;
-    } catch (error) {
-      console.error('Error initializing preferences', error);
-      throw error;
-    }
-  };
-
-  // Validate receipt on app launch (runs once after preferences are initialized)
-  useEffect(() => {
-    const validateReceiptOnAppLaunch = async () => {
-      try {
-        const isActive = await validateReceiptOnLaunch();
-        await setItem('isIOSActive', isActive ? '1' : '0');
-      } catch (error) {
-        console.error('Error validating receipt on app launch:', error);
-        // Set default to inactive if validation fails
-        await setItem('isIOSActive', '0');
-      }
-    };
-
-    validateReceiptOnAppLaunch();
-  }, []); // Empty dependency array ensures this runs only once on app launch
 
   return (
     <AppSettingsContext.Provider
@@ -203,20 +194,19 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         setItem,
         getItem,
         removeItem,
-        clear,
         initializePreferences,
+        clear,
       }}>
       {children}
     </AppSettingsContext.Provider>
   );
 };
 
-export const useAppSettings = (): AppSettingsContextProps => {
+export const useAppSettings = () => {
   const context = useContext(AppSettingsContext);
-  if (context === undefined) {
-    throw new Error(
-      'useAppSettings must be used within an AppSettingsProvider',
-    );
+  if (!context) {
+    throw new Error('useAppSettings must be used within AppSettingsProvider');
   }
+
   return context;
 };

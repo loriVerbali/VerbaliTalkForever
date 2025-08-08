@@ -299,46 +299,45 @@ const Subscription: React.FC<SubscriptionProps> = ({
       width: isTablet
         ? width * 0.35
         : isSmallPhone
-        ? width * 0.75
+        ? width * 0.4
         : isMediumPhone
         ? width * 0.38
-        : width * 0.35,
-      height: isSmallPhone ? 120 : isMediumPhone ? 140 : 150, // Much smaller height
+        : width * 0.36,
+      height: isSmallPhone ? 110 : isMediumPhone ? 125 : 135, // Even smaller height
       overflow: 'visible' as const,
     },
     cardsContainer: {
       ...styles.cardsContainer,
       width: isTablet ? ('90%' as const) : ('95%' as const),
-      justifyContent: isSmallPhone
-        ? ('center' as const)
-        : ('space-around' as const),
-      flexDirection: isSmallPhone ? ('column' as const) : ('row' as const),
-      gap: isSmallPhone ? 15 : 25, // Smaller gap
-      marginTop: isTablet ? 0 : 31,
+      justifyContent: 'space-around' as const,
+      flexDirection: 'row' as const, // Always row for better layout
+      flexWrap: 'nowrap' as const, // Prevent wrapping
+      gap: isSmallPhone ? 8 : 12, // Much smaller gap
+      marginTop: isTablet ? 0 : 20,
     },
     planTitle: {
       ...styles.planTitle,
-      fontSize: isSmallPhone ? 12 : isMediumPhone ? 13 : 14,
-      marginBottom: isSmallPhone ? 4 : 6,
+      fontSize: isSmallPhone ? 11 : isMediumPhone ? 12 : 13,
+      marginBottom: isSmallPhone ? 2 : 4,
     },
     planPrice: {
       ...styles.planPrice,
-      fontSize: isSmallPhone ? 14 : isMediumPhone ? 16 : 18,
-      marginBottom: isSmallPhone ? 2 : 3,
+      fontSize: isSmallPhone ? 12 : isMediumPhone ? 14 : 16,
+      marginBottom: isSmallPhone ? 1 : 2,
     },
     planSubtitle: {
       ...styles.planSubtitle,
-      fontSize: isSmallPhone ? 10 : isMediumPhone ? 11 : 12,
-      marginBottom: isSmallPhone ? 4 : 6,
+      fontSize: isSmallPhone ? 8 : isMediumPhone ? 9 : 10,
+      marginBottom: isSmallPhone ? 2 : 3,
     },
     introOfferText: {
       ...styles.introOfferText,
-      fontSize: isSmallPhone ? 11 : isMediumPhone ? 12 : 13,
-      marginBottom: isSmallPhone ? 4 : 6,
+      fontSize: isSmallPhone ? 9 : isMediumPhone ? 10 : 11,
+      marginBottom: isSmallPhone ? 2 : 3,
     },
     selectText: {
       ...styles.selectText,
-      fontSize: isSmallPhone ? 9 : isMediumPhone ? 10 : 11,
+      fontSize: isSmallPhone ? 8 : isMediumPhone ? 9 : 10,
     },
     savingsAmount: {
       ...styles.savingsAmount,
@@ -351,24 +350,24 @@ const Subscription: React.FC<SubscriptionProps> = ({
     },
     savingsBadge: {
       ...styles.savingsBadge,
-      left: isSmallPhone ? -6 : -10,
-      top: isSmallPhone ? 10 : 15,
-      minWidth: isSmallPhone ? 50 : 60,
-      minHeight: isSmallPhone ? 50 : 60,
-      paddingHorizontal: isSmallPhone ? 6 : 8,
-      paddingVertical: isSmallPhone ? 6 : 8,
-      borderRadius: isSmallPhone ? 15 : 20,
+      left: isSmallPhone ? -4 : -8,
+      top: isSmallPhone ? 8 : 12,
+      minWidth: isSmallPhone ? 40 : 50,
+      minHeight: isSmallPhone ? 40 : 50,
+      paddingHorizontal: isSmallPhone ? 4 : 6,
+      paddingVertical: isSmallPhone ? 4 : 6,
+      borderRadius: isSmallPhone ? 12 : 16,
     },
     cancelBadge: {
       position: 'absolute' as const,
-      right: isSmallPhone ? -20 : -30,
-      top: isSmallPhone ? -10 : -15,
+      right: isSmallPhone ? -8 : -12,
+      top: isSmallPhone ? -6 : -8,
       backgroundColor: '#FF6B35',
-      borderRadius: isSmallPhone ? 12 : 15,
-      paddingHorizontal: isSmallPhone ? 4 : 6,
-      paddingVertical: isSmallPhone ? 4 : 6,
-      minWidth: isSmallPhone ? 40 : 50,
-      minHeight: isSmallPhone ? 35 : 45,
+      borderRadius: isSmallPhone ? 8 : 10,
+      paddingHorizontal: isSmallPhone ? 2 : 3,
+      paddingVertical: isSmallPhone ? 2 : 3,
+      minWidth: isSmallPhone ? 30 : 35,
+      minHeight: isSmallPhone ? 25 : 30,
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
       shadowColor: '#FF6B35',
@@ -377,7 +376,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
       shadowRadius: 4,
       elevation: 6,
       zIndex: 10,
-      transform: [{rotate: '20deg'}],
+      transform: [{rotate: '15deg'}],
     },
     plusButton: {
       backgroundColor: 'rgba(0, 122, 255, 0.6)',
@@ -431,8 +430,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
             style={[
               styles.cardHeader,
               {
-                backgroundColor:
-                  selectedPlan === 'yearly' ? '#E8F5E8' : '#FFE4E1',
+                backgroundColor: '#E8F5E8',
               },
             ]}></View>
           <View
@@ -446,7 +444,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
             <Text
               style={[
                 dynamicStyles.planTitle,
-                {fontSize: 14, fontWeight: '600'},
+                {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
               ]}>
               Annual Plan
             </Text>
@@ -455,14 +453,22 @@ const Subscription: React.FC<SubscriptionProps> = ({
             <Text
               style={[
                 dynamicStyles.planPrice,
-                {fontSize: 20, fontWeight: 'bold', color: '#000'},
+                {
+                  fontSize: isSmallPhone ? 16 : 18,
+                  fontWeight: 'bold',
+                  color: '#000',
+                },
               ]}>
               {getRegularPrice('yearly')}/year
             </Text>
             <Text
               style={[
                 dynamicStyles.planSubtitle,
-                {fontSize: 12, fontStyle: 'italic', color: '#FF3B30'},
+                {
+                  fontSize: isSmallPhone ? 10 : 11,
+                  fontStyle: 'italic',
+                  color: '#FF3B30',
+                },
               ]}>
               Save $60 (2 months free)
             </Text>
@@ -470,7 +476,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
               style={[
                 dynamicStyles.selectText,
                 {
-                  fontSize: isTablet ? 14 : 12,
+                  fontSize: isSmallPhone ? 9 : 10,
                   fontWeight: 'normal',
                   color: '#666',
                   textAlign: 'center',
@@ -505,7 +511,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
             <Text
               style={[
                 dynamicStyles.savingsAmount,
-                {fontSize: isSmallPhone ? 6 : isMediumPhone ? 7 : 12},
+                {fontSize: isSmallPhone ? 6 : isMediumPhone ? 6 : 6},
               ]}>
               {'Intro offer 75% \n off the first 3 months'}
             </Text>
@@ -514,13 +520,12 @@ const Subscription: React.FC<SubscriptionProps> = ({
             style={[
               styles.cardHeader,
               {
-                backgroundColor:
-                  selectedPlan === 'monthly' ? '#E8F5E8' : '#FFE4E1',
+                backgroundColor: '#E8F5E8',
               },
             ]}></View>
           <View
             style={{
-              backgroundColor: 'lightblue',
+              backgroundColor: '#E8F5E8',
               width: '100%',
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
@@ -529,7 +534,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
             <Text
               style={[
                 dynamicStyles.planTitle,
-                {fontSize: 14, fontWeight: '600'},
+                {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
               ]}>
               Monthly Plan
             </Text>
@@ -538,7 +543,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
             <Text
               style={[
                 dynamicStyles.planPrice,
-                {fontSize: 20, fontWeight: 'bold', color: '#FF9500'},
+                {
+                  fontSize: isSmallPhone ? 16 : 18,
+                  fontWeight: 'bold',
+                  color: '#FF9500',
+                },
               ]}>
               {getRegularPrice('monthly')}/month
             </Text>
@@ -546,11 +555,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
               style={[
                 dynamicStyles.selectText,
                 {
-                  fontSize: isTablet ? 14 : 12,
+                  fontSize: isSmallPhone ? 9 : 10,
                   fontWeight: 'normal',
                   color: '#666',
                   textAlign: 'center',
-                  marginBottom: 10,
+                  marginBottom: 8,
                 },
               ]}>
               Billed monthly. Auto-Renews monthly
@@ -560,7 +569,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
               <Text
                 style={[
                   dynamicStyles.introOfferText,
-                  {fontSize: 12, fontWeight: 'normal', color: 'black'},
+                  {
+                    fontSize: isSmallPhone ? 10 : 11,
+                    fontWeight: 'normal',
+                    color: 'black',
+                  },
                 ]}>
                 {getIntroductoryOfferText('monthly')}
               </Text>
@@ -568,7 +581,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
             <Text
               style={[
                 dynamicStyles.planSubtitle,
-                {fontSize: 12, fontWeight: 'normal', color: '#000'},
+                {
+                  fontSize: isSmallPhone ? 10 : 11,
+                  fontWeight: 'normal',
+                  color: '#000',
+                },
               ]}>
               Then {getRegularPrice('monthly')}/month thereafter
             </Text>
@@ -635,6 +652,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     flex: 1,
+    backgroundColor: '#FFF8E7',
   },
   title: {
     fontSize: 24,
@@ -647,7 +665,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '90%',
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexWrap: 'nowrap',
   },
   card: {
     borderRadius: 16,
@@ -674,8 +692,8 @@ const styles = StyleSheet.create({
   cardContent: {
     backgroundColor: '#FFFFFF',
     width: '100%',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
     borderRadius: 16,
     alignItems: 'center',
   },

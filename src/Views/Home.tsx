@@ -373,7 +373,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         if (
           transcribedText.length > 0 &&
           transcribedText !== 'null' &&
-          transcribedText !== 'Thank you for watching!'
+          transcribedText !== 'Thank you for watching!' &&
+          transcribedText !== 'Thank you for watching.' &&
+          transcribedText !== '. .' &&
+          transcribedText !== '.'
         ) {
           setFinishedTranscribing(true);
           setTranscribedText(transcribedText);
@@ -389,7 +392,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           threadId &&
           transcribedText.length > 0 &&
           transcribedText !== 'null' &&
-          transcribedText !== 'Thank you for watching!'
+          transcribedText !== 'Thank you for watching!' &&
+          transcribedText !== 'Thank you for watching.' &&
+          transcribedText !== '. .' &&
+          transcribedText !== '.'
         ) {
           // OPTIMIZATION 2: Create optimized context message
           // Use simpler context to reduce message size and processing time
@@ -431,6 +437,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             );
           }
         }
+        if (
+          transcribedText.length === 0 ||
+          transcribedText === 'Thank you for watching!' ||
+          transcribedText === 'Thank you for watching.' ||
+          transcribedText === '. .' ||
+          transcribedText === '.'
+        ) {
+          resetLocalStates();
+          TTSService.speak(
+            "I couldn't hear anything press Home to retry",
+            true,
+          );
+        }
       } else {
         TTSService.speak('No speech detected. Please try again.', true);
       }
@@ -463,6 +482,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       }
     }
   }, [imageUrls, status]);
+
+  // Handle assistant failure status
+  useEffect(() => {
+    if (status === 'failed') {
+      setIsProcessingAnswer(false);
+      setIsRetrying(false);
+      setShowImages(false);
+      TTSService.speak(
+        'We had a problem processing that. Please try again.',
+        true,
+      );
+    }
+  }, [status]);
 
   // Reset function for local states
   const resetLocalStates = () => {
@@ -1084,6 +1116,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             resizeMode={FastImage.resizeMode.contain}
                           />
                         ) : null}
+                        {status === 'failed' && (
+                          <Text
+                            style={[
+                              styles.retryText,
+                              {
+                                fontSize: responsiveValues.retryFontSize,
+                                marginTop: 10,
+                              },
+                            ]}>
+                            Something went wrong. Please press Home to retry.
+                          </Text>
+                        )}
                         {isRetrying && (
                           <Text
                             style={[

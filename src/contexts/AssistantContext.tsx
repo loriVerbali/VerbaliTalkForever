@@ -6,9 +6,6 @@ import React, {
   useEffect,
 } from 'react';
 import fetchHelper from '../utils/fetcher';
-import {useAdmin} from './adminContext';
-import {GoogleGenAI, Modality} from '@google/genai';
-import AppConfig from '../utils/config';
 import {useAppSettings} from '../utils/persistance';
 
 //const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
@@ -63,7 +60,6 @@ interface AssistantContextType {
   resetHistory: () => void;
   resetAssistant: () => void;
   generateImage: (prompt: string) => Promise<{url: string}>;
-  geminiGenerateImage: (prompt: string) => Promise<string>;
   imageUrls: Array<{url: string; prompt: string}>;
   isThreadFresh: boolean;
 }
@@ -86,32 +82,24 @@ const useAssistantResponse = (threadId: string, runId: string) => {
   const [questionContext, setQuestionContext] = useState<string>('');
   const [questionTopic, setQuestionTopic] = useState<string>('');
   const [identifiedQuestion, setIdentifiedQuestion] = useState<string>('');
-  const [convoTopic, setConvoTopic] = useState<string>('');
-  const [convoObject, setConvoObject] = useState<string>('');
-  const [convoAction, setConvoAction] = useState<string>('');
-  const [convoSentence, setConvoSentence] = useState<string>('');
   const [modeType, setModeType] = useState<string>('');
 
   const getTopicFromResponse = (response: string) => {
-    setConvoTopic(response);
     setModeType('list_possible_topics');
     setResponse({response: response, modeType: 'list_possible_topics'});
   };
 
   const getObjectFromResponse = (response: string) => {
-    setConvoObject(response);
     setModeType('list_possible_objects');
     setResponse({response: response, modeType: 'list_possible_objects'});
   };
 
   const getActionFromResponse = (response: string) => {
-    setConvoAction(response);
     setModeType('list_possible_actions');
     setResponse({response: response, modeType: 'list_possible_actions'});
   };
 
   const getSentenceFromResponse = (response: string) => {
-    setConvoSentence(response);
     setResponse({response: response, modeType: 'sentence'});
   };
 
@@ -142,7 +130,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               },
               {},
             );
-            data = await statusResponse;
+            data = statusResponse;
           } catch (apiError) {
             console.error('❌ Error checking run status:', apiError);
             // Use exponential backoff on API errors
@@ -172,8 +160,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
               },
               {},
             );
-            const messageType = messagesResponse.data[1].metadata.mode;
-
+            const messageType = messagesResponse.data[1]?.metadata?.mode;
             // Skip processing for learning feedback messages
             if (messageType === 'learning_feedback') {
               break;
@@ -265,8 +252,8 @@ const useAssistantResponse = (threadId: string, runId: string) => {
 
           if (['failed', 'cancelled', 'expired'].includes(data.status)) {
             console.error(`❌ Run ${data.status}`);
+            setStatus('failed');
             setError(`Run ${data.status}`);
-            setStatus(data.status as any);
             break;
           }
 
@@ -314,10 +301,6 @@ const useAssistantResponse = (threadId: string, runId: string) => {
     questionContext,
     questionTopic,
     identifiedQuestion,
-    convoTopic,
-    convoObject,
-    convoAction,
-    convoSentence,
     modeType,
   };
 };
@@ -359,6 +342,8 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
 
           if (now.getTime() - createdAt.getTime() < THREAD_EXPIRATION_MS) {
             setIsThreadFresh(true);
+            // NEW: Also send pepes data on app start for existing fresh thread
+            sendPepesIfAvailableForThread(savedThreadId);
           } else {
             setIsThreadFresh(false);
             createThreadIfNeeded();
@@ -380,6 +365,42 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     setLocalError(null);
   };
 
+  // Helper: validate and send pepes content to a specific thread (fire-and-forget)
+  const sendPepesIfAvailableForThread = (newThreadId: string) => {
+    try {
+      const pepesString = preferences?.pepes;
+      if (!pepesString || pepesString.trim().length === 0) {
+        return;
+      }
+
+      let pepesJson: any;
+      try {
+        pepesJson = JSON.parse(pepesString);
+      } catch (e) {
+        return; // invalid JSON, skip
+      }
+
+      const hasAnyItems = (() => {
+        if (!pepesJson || typeof pepesJson !== 'object') return false;
+        return Object.values(pepesJson).some((val: any) =>
+          Array.isArray(val) ? val.length > 0 : false,
+        );
+      })();
+
+      if (!hasAnyItems) {
+        return;
+      }
+
+      const content = `pepes data:\n${pepesString}`;
+      // learning_feedback so it won't trigger normal response handling
+      sendMessage(content, newThreadId, 'learning_feedback').catch(err => {
+        console.warn('Failed to send pepes data message:', err);
+      });
+    } catch (err) {
+      console.warn('Error preparing pepes data message:', err);
+    }
+  };
+
   const createThreadIfNeeded = async () => {
     try {
       // Otherwise create a new thread
@@ -393,6 +414,9 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       await setItem('threadId', data.id);
       await setItem('threadCreatedAt', now);
       setIsThreadFresh(true);
+
+      // Send pepes data once when a new thread is created
+      sendPepesIfAvailableForThread(data.id);
 
       return data.id;
     } catch (error) {
@@ -497,32 +521,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     }
   };
 
-  const geminiGenerateImage = async (prompt: string) => {
-    // Debug mode: return hardcoded welcome.png reference
-    if (DEBUGWITHOUTIMAGEGENERATION) {
-      return 'welcome.png';
-    }
-
-    const ai = new GoogleGenAI({apiKey: AppConfig.geminiAPIKey});
-
-    const imagePrompt =
-      'Create a realistic image as an answer to this question or statement ' +
-      prompt;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp-image-generation',
-      contents: imagePrompt,
-      config: {
-        responseModalities: [Modality.IMAGE],
-      },
-    });
-    if (response?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-      return response.candidates[0].content.parts[0].inlineData.data;
-    } else {
-      return 'noImage';
-    }
-  };
-
   const {
     status,
     response,
@@ -531,10 +529,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     questionContext,
     questionTopic,
     identifiedQuestion,
-    convoTopic,
-    convoObject,
-    convoAction,
-    convoSentence,
     modeType,
   } = useAssistantResponse(threadId, runId);
 
@@ -569,10 +563,100 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
             responseImages?.results &&
             Array.isArray(responseImages.results)
           ) {
+            // Build a lookup from pepes (names and aliases) to local image URIs
+            const pepesLookup: {[key: string]: string} = {};
+            // Also build a type lookup (e.g., "dolls" → some local doll image)
+            const typeLookup: {
+              [key: string]: {favorite?: string; fallback?: string};
+            } = {};
+            try {
+              const pepesString = preferences?.pepes;
+              if (pepesString && pepesString.trim().length > 0) {
+                const pepesJson = JSON.parse(pepesString);
+                if (pepesJson && typeof pepesJson === 'object') {
+                  Object.values(pepesJson).forEach((categoryItems: any) => {
+                    if (Array.isArray(categoryItems)) {
+                      categoryItems.forEach((item: any) => {
+                        const imageUri = item?.imageUri;
+                        if (!imageUri) return;
+                        const nameKey = String(item?.name || '')
+                          .trim()
+                          .toLowerCase();
+                        if (nameKey) {
+                          pepesLookup[nameKey] = imageUri;
+                        }
+                        const aliases: any[] = Array.isArray(item?.aliases)
+                          ? item.aliases
+                          : [];
+                        aliases.forEach(alias => {
+                          const aliasKey = String(alias || '')
+                            .trim()
+                            .toLowerCase();
+                          if (aliasKey) {
+                            pepesLookup[aliasKey] = imageUri;
+                          }
+                        });
+                        const typeKey = String(item?.type || '')
+                          .trim()
+                          .toLowerCase();
+                        if (typeKey) {
+                          if (!typeLookup[typeKey]) {
+                            typeLookup[typeKey] = {};
+                          }
+                          // If item is favorite, record as favorite candidate
+                          if (
+                            item?.isFavorite &&
+                            !typeLookup[typeKey].favorite
+                          ) {
+                            typeLookup[typeKey].favorite = imageUri;
+                          }
+                          // Always record a first fallback if not set
+                          if (!typeLookup[typeKey].fallback) {
+                            typeLookup[typeKey].fallback = imageUri;
+                          }
+                        }
+                      });
+                    }
+                  });
+                }
+              }
+            } catch (e) {
+              // If parsing or structure fails, silently ignore and fallback to server images
+            }
+
             const newImageUrls = responseImages.results.map(
               (imageData: any) => ({
-                url: imageData.imageUrl,
-                prompt: imageData.word,
+                url: (() => {
+                  const raw = String(imageData?.word || '');
+                  const normalized = raw.trim().toLowerCase();
+                  // Priority 1: exact match on name/alias
+                  if (pepesLookup[normalized]) {
+                    return pepesLookup[normalized];
+                  }
+                  // Generate simple plural/singular variants for matching types
+                  const variants = [normalized];
+                  if (normalized.endsWith('es')) {
+                    variants.push(normalized.slice(0, -2));
+                  }
+                  if (normalized.endsWith('s')) {
+                    variants.push(normalized.slice(0, -1));
+                  } else {
+                    variants.push(normalized + 's');
+                    variants.push(normalized + 'es');
+                  }
+                  // Priority 2: match on type, prefer favorite if exists
+                  for (const v of variants) {
+                    const entry = typeLookup[v];
+                    if (entry) {
+                      return (
+                        entry.favorite || entry.fallback || imageData.imageUrl
+                      );
+                    }
+                  }
+                  // Fallback: server image
+                  return imageData.imageUrl;
+                })(),
+                prompt: String(imageData?.word || ''),
               }),
             );
             // Clear previous images first
@@ -615,8 +699,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       let assistantId = preferences.assistantId;
 
       if (!assistantId || assistantId === '') {
-        console.log('No assistant ID found, attempting to fetch it...');
-
         // Get the user ID from preferences
         const userId = preferences.auth0Id;
         if (!userId || userId === '') {
@@ -691,7 +773,6 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         resetHistory,
         resetAssistant,
         generateImage,
-        geminiGenerateImage,
         imageUrls,
         isThreadFresh,
       }}>
