@@ -93,8 +93,6 @@ const ImageCard: React.FC<ImageCardProps> = ({
       // Provide audio feedback to the user
       ttsService.speak('Getting more answers for you', true);
       onRefresh();
-    } else {
-      console.log('Refreshing content...');
     }
   };
 

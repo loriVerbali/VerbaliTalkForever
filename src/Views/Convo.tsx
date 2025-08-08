@@ -746,7 +746,6 @@ const Convo = () => {
 
           try {
             const topicsArray = JSON.parse(response.response);
-            console.log('[Convo] Parsed topics payload:', topicsArray);
 
             if (
               Array.isArray(topicsArray.topics) &&
@@ -757,8 +756,6 @@ const Convo = () => {
                 .map((item: {text: any}) => item.text) as Topic[];
 
               setAvailableTopics(topics);
-              console.log('[Convo] Possible topics:', topics);
-              console.log('[Convo] Raw topics payload:', topicsArray);
 
               generateImage(topicsArray.topics, 'topic').catch(error => {
                 console.error(
@@ -798,7 +795,6 @@ const Convo = () => {
 
           try {
             const actionsData = JSON.parse(response.response);
-            console.log('[Convo] Parsed actions payload:', actionsData);
 
             if (
               actionsData &&
@@ -807,8 +803,6 @@ const Convo = () => {
             ) {
               const actions = actionsData.verbs.slice(0, 4) as Action[];
               setAvailableActions(actions);
-              console.log('[Convo] Possible actions:', actions);
-              console.log('[Convo] Raw actions payload:', actionsData);
 
               generateImage(actionsData.verbs, 'list_possible_actions').catch(
                 error => {
@@ -853,7 +847,6 @@ const Convo = () => {
 
           try {
             const objectsData = JSON.parse(response.response);
-            console.log('[Convo] Parsed objects payload:', objectsData);
 
             if (
               objectsData &&
@@ -862,8 +855,6 @@ const Convo = () => {
             ) {
               const objects = objectsData.objects.slice(0, 4) as Object[];
               setAvailableObjects(objects);
-              console.log('[Convo] Possible objects:', objects);
-              console.log('[Convo] Raw objects payload:', objectsData);
 
               generateImage(objectsData.objects, 'list_possible_objects').catch(
                 error => {

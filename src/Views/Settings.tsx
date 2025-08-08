@@ -328,7 +328,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
-    console.log('Selected family member:', member);
+    // console.log('Selected family member:', member);
     // You can add additional logic here if needed
   };
 
