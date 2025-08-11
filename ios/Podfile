@@ -15,7 +15,9 @@ def permission_setup
   setup_permissions([
     'Microphone',
     'SpeechRecognition',
-    'LocationWhenInUse'
+    'LocationWhenInUse',  
+    'Camera',
+    'PhotoLibrary'
   ])
 end
 

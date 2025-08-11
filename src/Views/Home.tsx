@@ -15,7 +15,7 @@ import AudioRecorderPlayer, {
   AVEncoderAudioQualityIOSType,
   AVEncodingOption,
 } from 'react-native-audio-recorder-player';
-
+import {NativeModules} from 'react-native';
 // Add imports for the components
 import Inputs, {InputsRef} from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
@@ -253,9 +253,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     lastSoundTimeRef.current = 0;
     metering.current = -100;
 
+    NativeModules.AudioSession?.enableVoiceProcessingSession?.();
+
     // Add a minimum recording time variable
-    const minRecordingTime = 3000; // 3 seconds minimum recording time
-    const recordingStartTime = Date.now();
 
     try {
       const path = Platform.select({
@@ -363,7 +363,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       if (!DEBUGWITHOUTTRANSCRIPTION) {
         transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
       } else {
-        transcribeResponse = {text: 'Whats your favourite food?'};
+        transcribeResponse = {text: 'what is your sister nam'};
       }
 
       if (transcribeResponse?.text) {
@@ -484,17 +484,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   }, [imageUrls, status]);
 
   // Handle assistant failure status
-  useEffect(() => {
-    if (status === 'failed') {
-      setIsProcessingAnswer(false);
-      setIsRetrying(false);
-      setShowImages(false);
-      TTSService.speak(
-        'We had a problem processing that. Please try again.',
-        true,
-      );
-    }
-  }, [status]);
+  // useEffect(() => {
+  //   if (status === 'failed') {
+  //     setIsProcessingAnswer(false);
+  //     setIsRetrying(false);
+  //     setShowImages(false);
+  //     TTSService.speak(
+  //       'We had a problem processing that. Please try again.',
+  //       true,
+  //     );
+  //   }
+  // }, [status]);
 
   // Reset function for local states
   const resetLocalStates = () => {

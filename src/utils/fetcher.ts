@@ -3,8 +3,10 @@ import DefaultPreference from 'react-native-default-preference';
 import Auth0 from 'react-native-auth0';
 import _ from 'lodash';
 import AppConfig, {MethodObject} from './config';
+import {navigate} from './navigation';
+import {views} from './constants';
 
-const METHODTODEBUG = 'transcribeAudio';
+const METHODTODEBUG = 'processImagesConvo';
 
 // Global reference to Auth0 instance for token refresh
 let auth0Instance: Auth0 | null = null;
@@ -39,6 +41,8 @@ export const handleTokenExpiration = async (): Promise<void> => {
     await DefaultPreference.set('token', '');
     await DefaultPreference.set('loggedIn', '0');
     await DefaultPreference.set('username', '');
+    // Navigate user to login screen
+    navigate(views.LOGIN);
   } catch (error) {
     console.error('Error handling token expiration:', error);
   }
@@ -58,6 +62,8 @@ export const ensureFreshToken = async (): Promise<string | null> => {
         await DefaultPreference.set('token', credentials.accessToken);
         return credentials.accessToken;
       }
+      // No credentials available – force re-auth flow
+      await handleTokenExpiration();
       return null;
     })()
       .catch(error => {
@@ -167,6 +173,7 @@ const fetchHelper = async (
         console.warn(
           `No valid token found for authenticated method: ${methodName}`,
         );
+        await handleTokenExpiration();
         return Promise.reject('No valid authentication token');
       }
     }
@@ -222,6 +229,23 @@ const fetchHelper = async (
   }
 
   // Use fetchWithRetry for the request
+  // Apply a 20s timeout only for Whisper transcription (OpenAI) requests
+  if (methodName === 'transcribeAudio') {
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, 20000);
+
+    // Attach abort signal to this request
+    (request as RequestInit).signal = abortController.signal;
+
+    try {
+      return await fetchWithRetry(url, methodName, request);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   return fetchWithRetry(url, methodName, request);
 };
 

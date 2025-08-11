@@ -4,12 +4,11 @@ import React, {
   useState,
   ReactNode,
   useEffect,
+  useRef,
 } from 'react';
 import fetchHelper from '../utils/fetcher';
 import {useAppSettings} from '../utils/persistance';
 
-//const ASSISTANT_ID_LORI = 'asst_4IsFZTiNNEqtZECNCWCyGHwz';
-//const ASSISTANT_ID_MATAN = 'asst_flU36FyuLnpincfu1FxkF3L2';
 // Thread expiration time in milliseconds (12 hours)
 const THREAD_EXPIRATION_MS = 12 * 60 * 60 * 1000;
 
@@ -23,6 +22,12 @@ interface HistoryItem {
   timestamp: Date;
   isUserInput?: boolean;
   imageUrl?: string;
+}
+
+// New type for possible answers from assistant
+interface PossibleAnswerItem {
+  word: string;
+  type?: string;
 }
 
 interface AssistantContextType {
@@ -78,11 +83,14 @@ const useAssistantResponse = (threadId: string, runId: string) => {
     modeType: string;
   }>({response: '', modeType: ''});
   const [error, setError] = useState<string | null>(null);
-  const [possibleAnswers, setPossibleAnswers] = useState<string[] | null>(null);
+  const [possibleAnswers, setPossibleAnswers] = useState<
+    PossibleAnswerItem[] | null
+  >(null);
   const [questionContext, setQuestionContext] = useState<string>('');
   const [questionTopic, setQuestionTopic] = useState<string>('');
   const [identifiedQuestion, setIdentifiedQuestion] = useState<string>('');
   const [modeType, setModeType] = useState<string>('');
+  const [summarizedWord, setSummarizedWord] = useState<string>('');
 
   const getTopicFromResponse = (response: string) => {
     setModeType('list_possible_topics');
@@ -227,17 +235,38 @@ const useAssistantResponse = (threadId: string, runId: string) => {
                   // Parse the JSON response
                   const responseData = JSON.parse(responseText);
                   // Extract possible answers from the JSON
-                  const answers = responseData['Possible answers'];
+                  const answersRaw = responseData['Possible answers'];
 
-                  if (answers) {
+                  if (answersRaw) {
                     setQuestionContext(responseData['context'] || '');
+                    // Support both new and legacy field names for topic
                     setQuestionTopic(
-                      responseData['list_possible_topics'] || '',
+                      responseData['topic'] ||
+                        responseData['list_possible_topics'] ||
+                        '',
                     );
                     setIdentifiedQuestion(
                       responseData['Identified Question'] || '',
                     );
-                    setPossibleAnswers(answers);
+                    setSummarizedWord(responseData['summarized_word'] || '');
+
+                    // Normalize answers into {word, type}
+                    const normalized: PossibleAnswerItem[] = Array.isArray(
+                      answersRaw,
+                    )
+                      ? answersRaw.map((a: any) => {
+                          if (a && typeof a === 'object') {
+                            return {
+                              word: String(a.word || a.text || ''),
+                              type: a.type ? String(a.type) : undefined,
+                            };
+                          }
+                          // legacy string answer
+                          return {word: String(a || ''), type: undefined};
+                        })
+                      : [];
+
+                    setPossibleAnswers(normalized);
                   }
                 } catch (parseError) {
                   console.error(
@@ -254,6 +283,7 @@ const useAssistantResponse = (threadId: string, runId: string) => {
             console.error(`❌ Run ${data.status}`);
             setStatus('failed');
             setError(`Run ${data.status}`);
+
             break;
           }
 
@@ -325,6 +355,21 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     Array<{url: string; prompt: string}>
   >([]);
   const [isThreadFresh, setIsThreadFresh] = useState<boolean>(false);
+
+  // Track last message to enable retry-on-failure
+  const lastMessageContentRef = useRef<string | null>(null);
+  const lastMessageModeRef = useRef<
+    | 'list_possible_topics'
+    | 'list_possible_objects'
+    | 'list_possible_actions'
+    | 'generate_answers'
+    | 'sentence'
+    | 'generate_more_answers'
+    | 'learning_feedback'
+    | undefined
+  >(undefined);
+  const retryCountRef = useRef<number>(0);
+  const MAX_RETRIES_ON_FAILURE = 1;
 
   // Initialize thread on app load
   useEffect(() => {
@@ -440,6 +485,10 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     let idToUse = threadIdOverride || threadId;
 
     try {
+      // Persist last message for potential retry
+      lastMessageContentRef.current = content;
+      lastMessageModeRef.current = mode;
+
       // Add user message to history
 
       const response = await fetchHelper(
@@ -532,6 +581,13 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     modeType,
   } = useAssistantResponse(threadId, runId);
 
+  // Reset retry counter on success
+  useEffect(() => {
+    if (status === 'completed') {
+      retryCountRef.current = 0;
+    }
+  }, [status]);
+
   // Effect for generating images when status is completed
   useEffect(() => {
     let isMounted = true;
@@ -545,55 +601,55 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         try {
           isProcessing = true;
 
-          // Call the process_images API with all answers in one request
-          const responseImages = await fetchHelper(
-            'processImages',
-            {},
-            {
-              possibleAnswers: possibleAnswers,
-              questionContext: questionContext,
-              identifiedQuestion: identifiedQuestion,
-              questionTopic: questionTopic,
-            },
-          );
-
-          // Only update state if the component is still mounted and we have valid results
-          if (
-            isMounted &&
-            responseImages?.results &&
-            Array.isArray(responseImages.results)
-          ) {
-            // Build a lookup from pepes (names and aliases) to local image URIs
-            const pepesLookup: {[key: string]: string} = {};
-            // Also build a type lookup (e.g., "dolls" → some local doll image)
-            const typeLookup: {
-              [key: string]: {favorite?: string; fallback?: string};
-            } = {};
-            try {
-              const pepesString = preferences?.pepes;
-              if (pepesString && pepesString.trim().length > 0) {
-                const pepesJson = JSON.parse(pepesString);
-                if (pepesJson && typeof pepesJson === 'object') {
-                  Object.values(pepesJson).forEach((categoryItems: any) => {
+          // Build a lookup from pepes (names and aliases) to local image URIs
+          const pepesLookup: {[key: string]: string} = {};
+          // Also build a type lookup (e.g., "dolls" → some local doll image)
+          const typeLookup: {
+            [key: string]: {favorite?: string; fallback?: string};
+          } = {};
+          // Capture People and Pets for category-aware logic
+          const peopleItems: Array<{
+            name: string;
+            nameLower: string;
+            url: string;
+            aliasesLower: string[];
+            typeLower?: string;
+            relationshipLower?: string;
+          }> = [];
+          const petsItems: Array<{
+            name: string;
+            nameLower: string;
+            url: string;
+            aliasesLower: string[];
+            typeLower?: string;
+          }> = [];
+          try {
+            const pepesString = preferences?.pepes;
+            if (pepesString && pepesString.trim().length > 0) {
+              const pepesJson = JSON.parse(pepesString);
+              if (pepesJson && typeof pepesJson === 'object') {
+                Object.entries(pepesJson).forEach(
+                  ([categoryKey, categoryItems]: [string, any]) => {
                     if (Array.isArray(categoryItems)) {
                       categoryItems.forEach((item: any) => {
                         const imageUri = item?.imageUri;
                         if (!imageUri) return;
-                        const nameKey = String(item?.name || '')
-                          .trim()
-                          .toLowerCase();
+                        const originalName = String(item?.name || '').trim();
+                        const nameKey = originalName.toLowerCase();
                         if (nameKey) {
                           pepesLookup[nameKey] = imageUri;
                         }
                         const aliases: any[] = Array.isArray(item?.aliases)
                           ? item.aliases
                           : [];
+                        const aliasesLower: string[] = [];
                         aliases.forEach(alias => {
                           const aliasKey = String(alias || '')
                             .trim()
                             .toLowerCase();
                           if (aliasKey) {
                             pepesLookup[aliasKey] = imageUri;
+                            aliasesLower.push(aliasKey);
                           }
                         });
                         const typeKey = String(item?.type || '')
@@ -603,70 +659,271 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
                           if (!typeLookup[typeKey]) {
                             typeLookup[typeKey] = {};
                           }
-                          // If item is favorite, record as favorite candidate
                           if (
                             item?.isFavorite &&
                             !typeLookup[typeKey].favorite
                           ) {
                             typeLookup[typeKey].favorite = imageUri;
                           }
-                          // Always record a first fallback if not set
                           if (!typeLookup[typeKey].fallback) {
                             typeLookup[typeKey].fallback = imageUri;
                           }
                         }
+
+                        // Capture People / Pets records for expansion
+                        if (categoryKey === 'People') {
+                          const relationshipLower = String(
+                            item?.relationship || '',
+                          )
+                            .trim()
+                            .toLowerCase();
+                          peopleItems.push({
+                            name: originalName,
+                            nameLower: nameKey,
+                            url: imageUri,
+                            aliasesLower,
+                            typeLower: typeKey || undefined,
+                            relationshipLower: relationshipLower || undefined,
+                          });
+                        } else if (categoryKey === 'Pets') {
+                          petsItems.push({
+                            name: originalName,
+                            nameLower: nameKey,
+                            url: imageUri,
+                            aliasesLower,
+                            typeLower: typeKey || undefined,
+                          });
+                        }
                       });
                     }
-                  });
-                }
+                  },
+                );
               }
-            } catch (e) {
-              // If parsing or structure fails, silently ignore and fallback to server images
+            }
+          } catch (e) {
+            // Ignore parse errors – we'll just fall back to server images when needed
+          }
+
+          // Helper to resolve a local pepes image for a given word/type
+          const resolveLocalPepeUrl = (wordRaw: string, typeRaw?: string) => {
+            const normalized = String(wordRaw || '')
+              .trim()
+              .toLowerCase();
+            if (!normalized) return '';
+            // Priority 1: exact match on name/alias
+            if (pepesLookup[normalized]) {
+              return pepesLookup[normalized];
+            }
+            // Priority 2: type match using explicit type
+            const typeNorm = String(typeRaw || '')
+              .trim()
+              .toLowerCase();
+            if (typeNorm && typeLookup[typeNorm]) {
+              const entry = typeLookup[typeNorm];
+              return entry.favorite || entry.fallback || '';
+            }
+            // Priority 3: type match using plural/singular variants of word
+            const variants: string[] = [normalized];
+            if (normalized.endsWith('es'))
+              variants.push(normalized.slice(0, -2));
+            if (normalized.endsWith('s'))
+              variants.push(normalized.slice(0, -1));
+            else {
+              variants.push(normalized + 's');
+              variants.push(normalized + 'es');
+            }
+            for (const v of variants) {
+              const entry = typeLookup[v];
+              if (entry) return entry.favorite || entry.fallback || '';
+            }
+            return '';
+          };
+
+          // Helper: build plural/singular variants
+          const buildVariants = (w: string) => {
+            const normalized = w.trim().toLowerCase();
+            const variants = [normalized];
+            if (normalized.endsWith('es'))
+              variants.push(normalized.slice(0, -2));
+            if (normalized.endsWith('s'))
+              variants.push(normalized.slice(0, -1));
+            else {
+              variants.push(normalized + 's');
+              variants.push(normalized + 'es');
+            }
+            return variants;
+          };
+
+          // Expand People / Pets group words into multiple local items
+          const expandPeoplePets = (word: string) => {
+            const w = String(word || '')
+              .trim()
+              .toLowerCase();
+            if (!w) return [] as Array<{name: string; url: string}>;
+
+            // People relationship mapping / group words
+            const peopleRelMap: {
+              [key: string]: (rel?: string, type?: string) => boolean;
+            } = {
+              sister: rel => rel === 'sister',
+              sisters: rel => rel === 'sister',
+              brother: rel => rel === 'brother',
+              brothers: rel => rel === 'brother',
+              mom: rel => rel === 'mom' || rel === 'mother',
+              mother: rel => rel === 'mother' || rel === 'mom',
+              dad: rel => rel === 'dad' || rel === 'father',
+              father: rel => rel === 'father' || rel === 'dad',
+              parent: rel =>
+                ['mom', 'mother', 'dad', 'father'].includes(rel || ''),
+              parents: rel =>
+                ['mom', 'mother', 'dad', 'father'].includes(rel || ''),
+              grandma: rel => rel === 'grandma' || rel === 'grandmother',
+              grandmother: rel => rel === 'grandmother' || rel === 'grandma',
+              grandpa: rel => rel === 'grandpa' || rel === 'grandfather',
+              grandfather: rel => rel === 'grandfather' || rel === 'grandpa',
+              aunt: rel => rel === 'aunt',
+              uncle: rel => rel === 'uncle',
+              cousin: rel => rel === 'cousin',
+              friend: (rel, type) => rel === 'friend' || type === 'friends',
+              friends: (rel, type) => rel === 'friend' || type === 'friends',
+              people: () => true,
+              family: () => true,
+              teacher: (rel, type) =>
+                rel === 'teacher' || type === 'professionals',
+              teachers: (rel, type) =>
+                rel === 'teacher' || type === 'professionals',
+            };
+
+            if (peopleRelMap[w]) {
+              const matches = peopleItems.filter(pi =>
+                peopleRelMap[w](pi.relationshipLower, pi.typeLower),
+              );
+              if (matches.length > 0) {
+                return matches.map(m => ({name: m.name, url: m.url}));
+              }
             }
 
-            const newImageUrls = responseImages.results.map(
-              (imageData: any) => ({
-                url: (() => {
-                  const raw = String(imageData?.word || '');
-                  const normalized = raw.trim().toLowerCase();
-                  // Priority 1: exact match on name/alias
-                  if (pepesLookup[normalized]) {
-                    return pepesLookup[normalized];
-                  }
-                  // Generate simple plural/singular variants for matching types
-                  const variants = [normalized];
-                  if (normalized.endsWith('es')) {
-                    variants.push(normalized.slice(0, -2));
-                  }
-                  if (normalized.endsWith('s')) {
-                    variants.push(normalized.slice(0, -1));
-                  } else {
-                    variants.push(normalized + 's');
-                    variants.push(normalized + 'es');
-                  }
-                  // Priority 2: match on type, prefer favorite if exists
-                  for (const v of variants) {
-                    const entry = typeLookup[v];
-                    if (entry) {
-                      return (
-                        entry.favorite || entry.fallback || imageData.imageUrl
-                      );
-                    }
-                  }
-                  // Fallback: server image
-                  return imageData.imageUrl;
-                })(),
-                prompt: String(imageData?.word || ''),
-              }),
+            // Pets group/type mapping. Match by type or generic 'pets'
+            const petTypeVariants = new Set(buildVariants(w));
+            const petMatches = petsItems.filter(
+              p =>
+                (p.typeLower && petTypeVariants.has(p.typeLower)) ||
+                petTypeVariants.has('pets'),
             );
-            // Clear previous images first
-            setImageUrls([]);
-            // Set new images in next tick to ensure clean update
-            setTimeout(() => {
-              if (isMounted) {
-                setImageUrls(newImageUrls);
-              }
-            }, 0);
+            if (petMatches.length > 0) {
+              return petMatches.map(m => ({name: m.name, url: m.url}));
+            }
+            return [] as Array<{name: string; url: string}>;
+          };
+
+          // Decide which answers can be fulfilled by pepes locally
+          type IndexedAnswer = {index: number; word: string; type?: string};
+          const allAnswers: IndexedAnswer[] = possibleAnswers.map((a, idx) => ({
+            index: idx,
+            word: String(a.word || ''),
+            type: a.type,
+          }));
+
+          const localResults: Array<{
+            index: number;
+            url: string;
+            prompt: string;
+          }> = [];
+          const toFetch: IndexedAnswer[] = [];
+          allAnswers.forEach(item => {
+            // First: Try to expand to People/Pets category matches
+            const expanded = expandPeoplePets(item.word);
+            if (expanded.length > 0) {
+              expanded.forEach(e =>
+                localResults.push({
+                  index: item.index,
+                  url: e.url,
+                  prompt: e.name,
+                }),
+              );
+              return; // Do not go to server for this word
+            }
+
+            // Second: Try to resolve single local match
+            const localUrl = resolveLocalPepeUrl(item.word, item.type);
+            if (localUrl) {
+              localResults.push({
+                index: item.index,
+                url: localUrl,
+                prompt: item.word,
+              });
+              return;
+            }
+
+            // Otherwise, fetch from server
+            toFetch.push(item);
+          });
+
+          let fetchedResults: Array<{
+            index: number;
+            url: string;
+            prompt: string;
+          }> = [];
+
+          if (toFetch.length > 0) {
+            // Call the process_images API ONLY for the items not present in pepes
+            const responseImages = await fetchHelper(
+              'processImages',
+              {},
+              {
+                possibleAnswers: toFetch.map(itm => ({
+                  word: itm.word,
+                  type: itm.type,
+                })),
+                questionContext: questionContext,
+                identifiedQuestion: identifiedQuestion,
+                questionTopic: questionTopic,
+                gender:
+                  preferences?.gender && preferences.gender.trim() !== ''
+                    ? preferences.gender
+                    : 'other',
+              },
+            );
+
+            if (
+              responseImages?.results &&
+              Array.isArray(responseImages.results)
+            ) {
+              // Map results back to their original indices
+              // We rely on server returning results in the same order for provided words
+              fetchedResults = responseImages.results.map(
+                (imageData: any, i: number) => {
+                  const original = toFetch[i];
+                  // No need to try pepes again here; these are items that had no local match
+                  return {
+                    index: original.index,
+                    url: String(imageData?.imageUrl || ''),
+                    prompt: String(imageData?.word || original.word || ''),
+                  };
+                },
+              );
+            }
+          }
+
+          // Combine and sort by original order
+          const combined = [...localResults, ...fetchedResults]
+            .sort((a, b) => a.index - b.index)
+            .map(item => ({url: item.url, prompt: item.prompt}));
+
+          // Deduplicate by image URL so the same image is not shown multiple times
+          const seenUrls = new Set<string>();
+          const deduped = combined.filter(item => {
+            const key = String(item.url || '').trim();
+            if (!key || seenUrls.has(key)) {
+              return false;
+            }
+            seenUrls.add(key);
+            return true;
+          });
+
+          // Set images in a single update to avoid UI flicker
+          if (isMounted) {
+            setImageUrls(deduped);
           }
         } catch (err) {
           console.error('Failed to process images:', err);
@@ -744,6 +1001,42 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       throw error;
     }
   };
+
+  // Retry logic: if a run fails/cancels/expires, automatically re-send last message and re-run once
+  useEffect(() => {
+    const attemptRetry = async () => {
+      // Only retry when marked failed by the polling hook
+      if (status !== 'failed') return;
+
+      // Skip if no message to retry or if last mode was learning feedback
+      if (!lastMessageContentRef.current) return;
+      if (lastMessageModeRef.current === 'learning_feedback') return;
+
+      // Respect retry limit
+      if (retryCountRef.current >= MAX_RETRIES_ON_FAILURE) return;
+
+      try {
+        // Small backoff before retry
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
+
+        // Re-send last message and re-run assistant on the same thread
+        await sendMessage(
+          lastMessageContentRef.current!,
+          threadId,
+          lastMessageModeRef.current,
+        );
+        await runAssistant(threadId);
+
+        retryCountRef.current += 1;
+        // Clear transient error so UI doesn't get stuck
+        setLocalError(null);
+        setLocalStatus('queued');
+      } catch (retryErr) {
+        console.error('Automatic retry failed:', retryErr);
+      }
+    };
+    attemptRetry();
+  }, [status, threadId, sendMessage, runAssistant]);
 
   const resetAssistant = () => {
     // Reset all state except threadId

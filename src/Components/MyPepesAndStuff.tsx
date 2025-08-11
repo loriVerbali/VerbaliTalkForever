@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,32 @@ import {
   ScrollView,
   TouchableOpacity,
   useWindowDimensions,
+  Platform,
+  PermissionsAndroid,
+  Linking,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
+import ParentalGate from './ParentalGate';
 import {
   launchImageLibrary,
+  launchCamera,
   ImagePickerResponse,
   MediaType,
 } from 'react-native-image-picker';
+import Geolocation from '@react-native-community/geolocation';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useAppSettings} from '../utils/persistance';
+import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
+
+interface AddressDetails {
+  address: string;
+  address2: string;
+  city: string;
+  state: string;
+  zipcode: string;
+  country: 'USA' | 'Canada' | 'Other';
+}
 
 interface PepeItem {
   id: string;
@@ -28,6 +45,9 @@ interface PepeItem {
   type?: string;
   relationship?: string;
   isFavorite?: boolean;
+  // Places-only fields
+  addressDetails?: AddressDetails;
+  isCurrentLocation?: boolean;
 }
 
 interface PepesData {
@@ -39,6 +59,75 @@ interface PepesData {
   Drinks: PepeItem[];
   Places: PepeItem[];
 }
+
+const US_STATES = [
+  'Alabama',
+  'Alaska',
+  'Arizona',
+  'Arkansas',
+  'California',
+  'Colorado',
+  'Connecticut',
+  'Delaware',
+  'Florida',
+  'Georgia',
+  'Hawaii',
+  'Idaho',
+  'Illinois',
+  'Indiana',
+  'Iowa',
+  'Kansas',
+  'Kentucky',
+  'Louisiana',
+  'Maine',
+  'Maryland',
+  'Massachusetts',
+  'Michigan',
+  'Minnesota',
+  'Mississippi',
+  'Missouri',
+  'Montana',
+  'Nebraska',
+  'Nevada',
+  'New Hampshire',
+  'New Jersey',
+  'New Mexico',
+  'New York',
+  'North Carolina',
+  'North Dakota',
+  'Ohio',
+  'Oklahoma',
+  'Oregon',
+  'Pennsylvania',
+  'Rhode Island',
+  'South Carolina',
+  'South Dakota',
+  'Tennessee',
+  'Texas',
+  'Utah',
+  'Vermont',
+  'Virginia',
+  'Washington',
+  'West Virginia',
+  'Wisconsin',
+  'Wyoming',
+];
+
+const CANADIAN_PROVINCES = [
+  'Alberta',
+  'British Columbia',
+  'Manitoba',
+  'New Brunswick',
+  'Newfoundland and Labrador',
+  'Northwest Territories',
+  'Nova Scotia',
+  'Nunavut',
+  'Ontario',
+  'Prince Edward Island',
+  'Quebec',
+  'Saskatchewan',
+  'Yukon',
+];
 
 const MyPepesAndStuff: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<
@@ -66,9 +155,30 @@ const MyPepesAndStuff: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [itemIsFavorite, setItemIsFavorite] = useState<boolean>(false);
 
+  // Places-specific form state
+  const [placeAddress, setPlaceAddress] = useState<AddressDetails>({
+    address: '',
+    address2: '',
+    city: '',
+    state: '',
+    zipcode: '',
+    country: 'USA',
+  });
+  const [placeIsCurrentLocation, setPlaceIsCurrentLocation] = useState(false);
+  const [showStatePicker, setShowStatePicker] = useState(false);
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const geocodeTimerRef = useRef<any>(null);
+  const lastGeocodeQueryRef = useRef<string>('');
+  const [showAddGate, setShowAddGate] = useState(false);
+  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
+  const [adminCodeInput, setAdminCodeInput] = useState('');
+  const [isAdminCodeError, setIsAdminCodeError] = useState(false);
+
   const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
   const {width, height} = useWindowDimensions();
+  const {threadId, sendMessage} = useAssistant();
 
   // Type and relationship options
   const typeOptions = {
@@ -251,7 +361,7 @@ const MyPepesAndStuff: React.FC = () => {
           Food: parsedData.Food || [],
           Drinks: parsedData.Drinks || [],
           Places: parsedData.Places || [],
-        };
+        } as PepesData;
         setPepesData(completeData);
       }
     } catch (error) {
@@ -268,28 +378,166 @@ const MyPepesAndStuff: React.FC = () => {
     }
   };
 
-  const selectImage = () => {
+  const ensureCameraPermission = async (): Promise<boolean> => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        // iOS: check first so we only prompt once
+        const currentStatus = await check(PERMISSIONS.IOS.CAMERA);
+        if (currentStatus === RESULTS.GRANTED) {
+          return true;
+        }
+
+        if (currentStatus === RESULTS.BLOCKED) {
+          Linking.openURL('app-settings:');
+          return false;
+        }
+
+        // Not granted yet (e.g., denied/not-determined) → request once
+        const res = await request(PERMISSIONS.IOS.CAMERA);
+        if (res === RESULTS.BLOCKED) {
+          Linking.openURL('app-settings:');
+          return false;
+        }
+        return res === RESULTS.GRANTED;
+      }
+    } catch (e) {
+      console.warn('Camera permission error:', e);
+      return false;
+    }
+  };
+
+  const ensurePhotoLibraryPermission = async (): Promise<boolean> => {
+    try {
+      if (Platform.OS === 'android') {
+        const sdkInt = (Platform as any).Version as number;
+        if (sdkInt >= 33) {
+          const granted = await PermissionsAndroid.request(
+            // @ts-ignore Android 13+ images permission
+            (PermissionsAndroid as any).PERMISSIONS.READ_MEDIA_IMAGES,
+          );
+          return granted === PermissionsAndroid.RESULTS.GRANTED;
+        }
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        const res = await request(PERMISSIONS.IOS.PHOTO_LIBRARY);
+        if (res === RESULTS.BLOCKED) {
+          Linking.openURL('app-settings:');
+        }
+        return res === RESULTS.GRANTED;
+      }
+    } catch (e) {
+      console.warn('Photo library permission error:', e);
+      return false;
+    }
+  };
+
+  const requestMediaPermissionsAfterGate = async (): Promise<void> => {
+    try {
+      await ensureCameraPermission();
+      await ensurePhotoLibraryPermission();
+    } catch (_) {
+      // no-op
+    }
+  };
+
+  const handleAdminCodeSubmit = async () => {
+    try {
+      const stored = await getItem('adminCode');
+      if (stored && adminCodeInput === stored) {
+        setShowAdminCodeModal(false);
+        setAdminCodeInput('');
+        setIsAdminCodeError(false);
+        await requestMediaPermissionsAfterGate();
+        openAddModal();
+      } else {
+        setIsAdminCodeError(true);
+        setTimeout(() => {
+          setIsAdminCodeError(false);
+          setAdminCodeInput('');
+        }, 1000);
+      }
+    } catch (_) {
+      setIsAdminCodeError(true);
+    }
+  };
+
+  const handlePickerResponse = (response: ImagePickerResponse) => {
+    if (response.didCancel || response.errorMessage) {
+      return;
+    }
+    if (response.assets && response.assets[0]) {
+      const imageUri = response.assets[0].uri;
+      if (imageUri) {
+        setItemImageUri(imageUri);
+        if (errorMessage) setErrorMessage('');
+      }
+    }
+  };
+
+  const openLibrary = () => {
     const options = {
       mediaType: 'photo' as MediaType,
       includeBase64: false,
       maxHeight: 2000,
       maxWidth: 2000,
       quality: 0.8 as const,
+      selectionLimit: 1 as const,
     };
+    launchImageLibrary(options, handlePickerResponse);
+  };
 
-    launchImageLibrary(options, (response: ImagePickerResponse) => {
-      if (response.didCancel || response.errorMessage) {
-        return;
-      }
+  const openCamera = async () => {
+    const hasPermission = await ensureCameraPermission();
+    if (!hasPermission) {
+      Alert.alert(
+        'Camera Permission',
+        'Please enable camera access in Settings to take a photo.',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
+            },
+          },
+        ],
+      );
+      return;
+    }
+    const options = {
+      mediaType: 'photo' as MediaType,
+      includeBase64: false,
+      maxHeight: 2000,
+      maxWidth: 2000,
+      quality: 0.8 as const,
+      saveToPhotos: true,
+    };
+    launchCamera(options, handlePickerResponse);
+  };
 
-      if (response.assets && response.assets[0]) {
-        const imageUri = response.assets[0].uri;
-        if (imageUri) {
-          setItemImageUri(imageUri);
-          if (errorMessage) setErrorMessage('');
-        }
-      }
-    });
+  const selectImage = () => {
+    Alert.alert(
+      'Add Photo',
+      'Choose image source',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {text: 'Camera', onPress: openCamera},
+        {text: 'Photo Library', onPress: openLibrary},
+      ],
+      {cancelable: true},
+    );
   };
 
   const openAddModal = () => {
@@ -301,6 +549,16 @@ const MyPepesAndStuff: React.FC = () => {
     setItemRelationship('');
     setErrorMessage('');
     setItemIsFavorite(false);
+    // reset places fields
+    setPlaceAddress({
+      address: '',
+      address2: '',
+      city: '',
+      state: '',
+      zipcode: '',
+      country: 'USA',
+    });
+    setPlaceIsCurrentLocation(false);
     setShowModal(true);
   };
 
@@ -313,6 +571,21 @@ const MyPepesAndStuff: React.FC = () => {
     setItemRelationship(item.relationship || '');
     setErrorMessage('');
     setItemIsFavorite(!!item.isFavorite);
+
+    if (selectedCategory === 'Places') {
+      setPlaceAddress(
+        item.addressDetails || {
+          address: '',
+          address2: '',
+          city: '',
+          state: '',
+          zipcode: '',
+          country: 'USA',
+        },
+      );
+      setPlaceIsCurrentLocation(!!item.isCurrentLocation);
+    }
+
     setShowModal(true);
   };
 
@@ -326,6 +599,15 @@ const MyPepesAndStuff: React.FC = () => {
     setItemRelationship('');
     setErrorMessage('');
     setItemIsFavorite(false);
+    setPlaceAddress({
+      address: '',
+      address2: '',
+      city: '',
+      state: '',
+      zipcode: '',
+      country: 'USA',
+    });
+    setPlaceIsCurrentLocation(false);
   };
 
   const isFormValid = () => {
@@ -384,6 +666,12 @@ const MyPepesAndStuff: React.FC = () => {
       type: itemType,
       relationship: itemRelationship,
       isFavorite: itemIsFavorite,
+      ...(selectedCategory === 'Places'
+        ? {
+            addressDetails: placeAddress,
+            isCurrentLocation: placeIsCurrentLocation,
+          }
+        : {}),
     };
 
     const updatedData = {...pepesData};
@@ -406,6 +694,20 @@ const MyPepesAndStuff: React.FC = () => {
     }
 
     savePepesData(updatedData);
+    // Send updated pepes to the current thread as learning feedback
+    try {
+      if (threadId) {
+        const content = `pepes data:\n${JSON.stringify(updatedData)}`;
+        // Fire-and-forget to avoid blocking UI
+        sendMessage(content, threadId, 'learning_feedback').catch(() => {});
+      }
+    } catch (_) {
+      // ignore send errors
+    }
+    // Sync SpecialPlaces persistence when relevant
+    if (selectedCategory === 'Places') {
+      syncSpecialPlacesFromItem(newItem);
+    }
     closeModal();
   };
 
@@ -426,6 +728,18 @@ const MyPepesAndStuff: React.FC = () => {
     ]);
   };
 
+  const clearPlaceAddress = () => {
+    setPlaceAddress({
+      address: '',
+      address2: '',
+      city: '',
+      state: '',
+      zipcode: '',
+      country: 'USA',
+    });
+    setPlaceIsCurrentLocation(false);
+  };
+
   const toggleFavorite = (itemId: string) => {
     const updatedData = {...pepesData};
     updatedData[selectedCategory] = updatedData[selectedCategory].map(item =>
@@ -433,6 +747,352 @@ const MyPepesAndStuff: React.FC = () => {
     );
     savePepesData(updatedData);
   };
+
+  const formatAddressToString = (addressDetails?: AddressDetails): string => {
+    if (!addressDetails) return '';
+    const parts = [
+      addressDetails.address,
+      addressDetails.address2,
+      addressDetails.city,
+      addressDetails.state,
+      addressDetails.zipcode,
+      addressDetails.country,
+    ].filter(part => part.trim() !== '');
+
+    return parts.join(', ');
+  };
+
+  const toSpecialType = (t?: string): 'home' | 'school' | 'therapy' | null => {
+    if (!t) return null;
+    const v = t.trim().toLowerCase();
+    if (v === 'home') return 'home';
+    if (v === 'school') return 'school';
+    if (v === 'therapy') return 'therapy';
+    return null;
+  };
+
+  const emptyAddress: AddressDetails = {
+    address: '',
+    address2: '',
+    city: '',
+    state: '',
+    zipcode: '',
+    country: 'USA',
+  };
+
+  const ensureSpecialPlacesArray = (
+    input: any,
+  ): Array<{
+    type: 'home' | 'school' | 'therapy';
+    addressDetails: AddressDetails;
+    isCurrentLocation: boolean;
+  }> => {
+    const base = [
+      {
+        type: 'home' as const,
+        addressDetails: emptyAddress,
+        isCurrentLocation: false,
+      },
+      {
+        type: 'school' as const,
+        addressDetails: emptyAddress,
+        isCurrentLocation: false,
+      },
+      {
+        type: 'therapy' as const,
+        addressDetails: emptyAddress,
+        isCurrentLocation: false,
+      },
+    ];
+    if (!Array.isArray(input)) return base;
+    // Merge keeping existing if present
+    const out = [...base];
+    input.forEach((p: any) => {
+      if (p?.type === 'home' || p?.type === 'school' || p?.type === 'therapy') {
+        const idx = out.findIndex(x => x.type === p.type);
+        if (idx >= 0) {
+          out[idx] = {
+            type: p.type,
+            addressDetails: {
+              address: p.addressDetails?.address || '',
+              address2: p.addressDetails?.address2 || '',
+              city: p.addressDetails?.city || '',
+              state: p.addressDetails?.state || '',
+              zipcode: p.addressDetails?.zipcode || '',
+              country:
+                p.addressDetails?.country === 'Canada'
+                  ? 'Canada'
+                  : p.addressDetails?.country === 'USA'
+                  ? 'USA'
+                  : 'USA',
+            },
+            isCurrentLocation: !!p.isCurrentLocation,
+          };
+        }
+      }
+    });
+    return out;
+  };
+
+  const syncSpecialPlacesFromItem = async (item: PepeItem) => {
+    const sType = toSpecialType(item.type);
+    if (!sType) return; // Only sync Home/School/Therapy
+
+    try {
+      const current = await getItem('specialPlaces');
+      const parsed = current ? JSON.parse(current) : [];
+      const list = ensureSpecialPlacesArray(parsed);
+      const idx = list.findIndex(p => p.type === sType);
+
+      const details = item.addressDetails || emptyAddress;
+      const isCurr = !!item.isCurrentLocation;
+
+      list[idx] = {
+        type: sType,
+        addressDetails: details,
+        isCurrentLocation: isCurr,
+      };
+
+      await setItem('specialPlaces', JSON.stringify(list));
+      const formatted = formatAddressToString(details);
+      await setItem(`${sType}Address`, formatted);
+      await setItem(`${sType}IsCurrentLocation`, isCurr.toString());
+    } catch (e) {
+      console.warn('Failed syncing special places:', e);
+    }
+  };
+
+  const parseLocationToAddressDetails = (
+    locationString: string,
+  ): AddressDetails => {
+    const parts = locationString.split(', ');
+
+    let address = '';
+    let city = '';
+    let state = '';
+    let zipcode = '';
+    let country: 'USA' | 'Canada' | 'Other' = 'USA';
+
+    if (parts.length >= 8) {
+      address = `${parts[1]} ${parts[2]}`.trim();
+      city = parts[4] || '';
+      state = parts[6] || '';
+      zipcode = parts[7] || '';
+      country =
+        parts[8] === 'United States'
+          ? 'USA'
+          : parts[8] === 'Canada'
+          ? 'Canada'
+          : 'USA';
+    } else if (parts.length >= 5) {
+      address = `${parts[0]} ${parts[1]}`.trim();
+      city = parts[2] || '';
+      state = parts[3] || '';
+      country = parts[4] === 'Canada' ? 'Canada' : 'USA';
+    } else if (parts.length === 4) {
+      address = parts[0] || '';
+      city = parts[1] || '';
+      state = parts[2] || '';
+      country = parts[3] === 'Canada' ? 'Canada' : 'USA';
+    } else if (parts.length === 3) {
+      address = parts[0] || '';
+      city = parts[1] || '';
+      state = parts[2] || '';
+    } else if (parts.length === 2) {
+      address = parts[0] || '';
+      city = parts[1] || '';
+    } else {
+      address = parts[0] || '';
+    }
+
+    const validStates = country === 'Canada' ? CANADIAN_PROVINCES : US_STATES;
+    const normalizedState = state.trim();
+    // we keep parsed state even if not in list
+
+    return {
+      address: address.trim(),
+      address2: '',
+      city: city.trim(),
+      state: normalizedState,
+      zipcode: zipcode.trim(),
+      country,
+    };
+  };
+
+  const reverseGeocode = async (lat: number, lon: number) => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (response.ok && data) {
+        return {
+          display_name: data.display_name as string,
+        };
+      }
+    } catch (err) {
+      console.warn('Reverse geocoding failed:', err);
+    }
+    return null;
+  };
+
+  const countryLabelForQuery = (country: 'USA' | 'Canada' | 'Other') => {
+    if (country === 'USA') return 'United States';
+    if (country === 'Canada') return 'Canada';
+    return '';
+  };
+
+  const buildAddressQuery = (details: AddressDetails) => {
+    const parts = [
+      details.address,
+      details.city,
+      details.state,
+      details.zipcode,
+      countryLabelForQuery(details.country),
+    ].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  const forwardGeocodeAndNormalize = async (details: AddressDetails) => {
+    const query = buildAddressQuery(details);
+    if (!query || query === lastGeocodeQueryRef.current) return;
+    lastGeocodeQueryRef.current = query;
+    setIsGeocoding(true);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+        query,
+      )}`;
+      const resp = await fetch(url);
+      const results = await resp.json();
+      if (Array.isArray(results) && results.length > 0) {
+        const best = results[0];
+        if (best?.display_name) {
+          const parsed = parseLocationToAddressDetails(best.display_name);
+          // Preserve address2 and country preference normalization (USA/Canada)
+          setPlaceAddress(prev => ({
+            ...parsed,
+            address2: prev.address2,
+            country:
+              parsed.country === 'Canada'
+                ? 'Canada'
+                : parsed.country === 'USA'
+                ? 'USA'
+                : prev.country,
+          }));
+        }
+      }
+    } catch (e) {
+      // silent fail; keep user-entered values
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const ensureLocationPermission = async (): Promise<boolean> => {
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        const status = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        return status === RESULTS.GRANTED;
+      }
+    } catch (e) {
+      console.warn('Location permission error:', e);
+      return false;
+    }
+  };
+
+  const useCurrentLocationForPlace = async () => {
+    const hasPermission = await ensureLocationPermission();
+    if (!hasPermission) {
+      Alert.alert(
+        'Location Permission',
+        'Please enable location permissions in Settings to use current location.',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    Geolocation.getCurrentPosition(
+      async (position: any) => {
+        try {
+          const {latitude, longitude} = position.coords;
+          const rg = await reverseGeocode(latitude, longitude);
+          if (rg?.display_name) {
+            const parsed = parseLocationToAddressDetails(rg.display_name);
+            setPlaceAddress(parsed);
+            setPlaceIsCurrentLocation(true);
+          } else {
+            Alert.alert('Location Error', 'Unable to resolve your location.');
+          }
+        } catch (e) {
+          Alert.alert('Location Error', 'Unable to get your location.');
+        }
+      },
+      (error: any) => {
+        console.warn('Location error:', error);
+        Alert.alert('Location Error', 'Unable to get your location.');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 7000,
+        maximumAge: 10000,
+      },
+    );
+  };
+
+  const getStatesForCountry = (country: 'USA' | 'Canada' | 'Other') => {
+    switch (country) {
+      case 'USA':
+        return US_STATES;
+      case 'Canada':
+        return CANADIAN_PROVINCES;
+      default:
+        return [];
+    }
+  };
+
+  // Auto-geocode manual address edits for Places (debounced)
+  useEffect(() => {
+    if (selectedCategory !== 'Places') return;
+    if (placeIsCurrentLocation) return; // skip when bound to current location
+
+    // Require minimum fields to reduce bad geocoding
+    if (!placeAddress.address.trim() || !placeAddress.city.trim()) return;
+
+    if (geocodeTimerRef.current) {
+      clearTimeout(geocodeTimerRef.current);
+    }
+    geocodeTimerRef.current = setTimeout(() => {
+      forwardGeocodeAndNormalize(placeAddress);
+    }, 800);
+
+    return () => {
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+    };
+  }, [
+    selectedCategory,
+    placeIsCurrentLocation,
+    placeAddress.address,
+    placeAddress.city,
+    placeAddress.state,
+    placeAddress.zipcode,
+    placeAddress.country,
+  ]);
 
   const renderItem = (item: PepeItem) => (
     <View
@@ -532,7 +1192,7 @@ const MyPepesAndStuff: React.FC = () => {
             {item.aliases.join(', ')}
           </Text>
         )}
-        {item.type && (
+        {item.type && selectedCategory !== 'Places' && (
           <Text
             style={[
               styles.gridItemType,
@@ -540,6 +1200,16 @@ const MyPepesAndStuff: React.FC = () => {
             ]}
             numberOfLines={1}>
             {selectedCategory === 'People' ? item.type : `Type: ${item.type}`}
+          </Text>
+        )}
+        {selectedCategory === 'Places' && item.addressDetails && (
+          <Text
+            style={[
+              styles.gridItemType,
+              {fontSize: responsiveValues.gridItemAliasesFontSize},
+            ]}
+            numberOfLines={1}>
+            {formatAddressToString(item.addressDetails)}
           </Text>
         )}
         {item.relationship && selectedCategory === 'People' && (
@@ -562,6 +1232,33 @@ const MyPepesAndStuff: React.FC = () => {
   // console.log('Selected category:', selectedCategory);
   // console.log('Current items:', currentItems);
   // console.log('Current items length:', currentItems?.length);
+
+  const getCategoryLabel = (
+    c: 'People' | 'Toys' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places',
+  ) => (c === 'TVShows' ? 'TV Shows' : c);
+
+  const getSingularLabel = (
+    c: 'People' | 'Toys' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places',
+  ): string => {
+    switch (c) {
+      case 'People':
+        return 'Person';
+      case 'Toys':
+        return 'Toy';
+      case 'Pets':
+        return 'Pet';
+      case 'TVShows':
+        return 'TV Show';
+      case 'Food':
+        return 'Food';
+      case 'Drinks':
+        return 'Drink';
+      case 'Places':
+        return 'Place';
+      default:
+        return 'Item';
+    }
+  };
 
   const categories: Array<
     'People' | 'Toys' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places'
@@ -607,7 +1304,7 @@ const MyPepesAndStuff: React.FC = () => {
                 styles.dropdownText,
                 {fontSize: responsiveValues.dropdownFontSize},
               ]}>
-              {selectedCategory}
+              {getCategoryLabel(selectedCategory)}
             </Text>
             <Text
               style={[
@@ -626,7 +1323,7 @@ const MyPepesAndStuff: React.FC = () => {
               paddingVertical: responsiveValues.addButtonPaddingVertical,
             },
           ]}
-          onPress={openAddModal}>
+          onPress={() => setShowAddGate(true)}>
           <Text
             style={[
               styles.addButtonText,
@@ -668,7 +1365,7 @@ const MyPepesAndStuff: React.FC = () => {
                   selectedCategory === category &&
                     styles.selectedDropdownOptionText,
                 ]}>
-                {category}
+                {getCategoryLabel(category)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -704,7 +1401,7 @@ const MyPepesAndStuff: React.FC = () => {
                     responsiveValues.emptyAddButtonPaddingVertical,
                 },
               ]}
-              onPress={openAddModal}>
+              onPress={() => setShowAddGate(true)}>
               <Text
                 style={[
                   styles.emptyAddButtonText,
@@ -749,10 +1446,7 @@ const MyPepesAndStuff: React.FC = () => {
                 ]}>
                 {editingItem
                   ? 'Edit Item'
-                  : 'Add New ' +
-                    (selectedCategory === 'TVShows'
-                      ? 'TV Show'
-                      : selectedCategory.slice(0, -1))}
+                  : 'Add New ' + getSingularLabel(selectedCategory)}
               </Text>
               <TouchableOpacity onPress={closeModal}>
                 <Text
@@ -769,7 +1463,12 @@ const MyPepesAndStuff: React.FC = () => {
               style={[
                 styles.modalBody,
                 {padding: responsiveValues.modalBodyPadding},
-              ]}>
+              ]}
+              contentContainerStyle={{
+                paddingBottom:
+                  responsiveValues.modalBodyPadding + (isTablet ? 160 : 240),
+              }}
+              keyboardShouldPersistTaps="handled">
               {/* Image Upload Section */}
               <View style={styles.imageSection}>
                 <View style={styles.imageHeaderContainer}>
@@ -1052,6 +1751,122 @@ const MyPepesAndStuff: React.FC = () => {
                     </TouchableOpacity>
                   </View>
                 )}
+
+              {/* Places: address section */}
+              {selectedCategory === 'Places' && (
+                <View>
+                  <View style={styles.inputSection}>
+                    <Text
+                      style={[
+                        styles.sectionLabel,
+                        {fontSize: responsiveValues.sectionLabelFontSize},
+                      ]}>
+                      Location
+                    </Text>
+                    <View style={{flexDirection: 'row', gap: 10}}>
+                      <TouchableOpacity
+                        style={[
+                          styles.currentLocationButton,
+                          placeIsCurrentLocation &&
+                            styles.currentLocationButtonActive,
+                        ]}
+                        onPress={useCurrentLocationForPlace}>
+                        <Text
+                          style={[
+                            styles.currentLocationText,
+                            placeIsCurrentLocation &&
+                              styles.currentLocationTextActive,
+                          ]}>
+                          {placeIsCurrentLocation
+                            ? '✓ Current Location'
+                            : 'Use Current Location'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={clearPlaceAddress}>
+                        <Text style={styles.deleteButtonText}>
+                          Clear Address
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={styles.inputSection}>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Address"
+                      placeholderTextColor="#888"
+                      value={placeAddress.address}
+                      onChangeText={text => {
+                        setPlaceAddress(prev => ({...prev, address: text}));
+                        setPlaceIsCurrentLocation(false);
+                      }}
+                    />
+                    <TextInput
+                      style={[styles.textInput, {marginTop: 10}]}
+                      placeholder="Address 2 (Optional)"
+                      placeholderTextColor="#888"
+                      value={placeAddress.address2}
+                      onChangeText={text => {
+                        setPlaceAddress(prev => ({...prev, address2: text}));
+                        setPlaceIsCurrentLocation(false);
+                      }}
+                    />
+                    <TextInput
+                      style={[styles.textInput, {marginTop: 10}]}
+                      placeholder="City"
+                      placeholderTextColor="#888"
+                      value={placeAddress.city}
+                      onChangeText={text => {
+                        setPlaceAddress(prev => ({...prev, city: text}));
+                        setPlaceIsCurrentLocation(false);
+                      }}
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.dropdown, {marginTop: 10}]}
+                      onPress={() => setShowCountryPicker(true)}>
+                      <Text style={styles.dropdownText}>
+                        {placeAddress.country === 'Other'
+                          ? 'Other'
+                          : placeAddress.country}
+                      </Text>
+                      <Text style={styles.dropdownArrow}>▼</Text>
+                    </TouchableOpacity>
+
+                    {placeAddress.country !== 'Other' && (
+                      <TouchableOpacity
+                        style={[styles.dropdown, {marginTop: 10}]}
+                        onPress={() => setShowStatePicker(true)}>
+                        <Text
+                          style={[
+                            styles.dropdownText,
+                            !placeAddress.state && styles.placeholder,
+                          ]}>
+                          {placeAddress.state || 'State/Province'}
+                        </Text>
+                        <Text style={styles.dropdownArrow}>▼</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TextInput
+                      style={[styles.textInput, {marginTop: 10}]}
+                      placeholder={
+                        placeAddress.country === 'Canada'
+                          ? 'Postal Code'
+                          : 'ZIP Code'
+                      }
+                      placeholderTextColor="#888"
+                      value={placeAddress.zipcode}
+                      onChangeText={text => {
+                        setPlaceAddress(prev => ({...prev, zipcode: text}));
+                        setPlaceIsCurrentLocation(false);
+                      }}
+                    />
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
             {/* Modal Actions */}
@@ -1096,6 +1911,157 @@ const MyPepesAndStuff: React.FC = () => {
                   Save
                 </Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* State picker modal */}
+      <Modal
+        visible={showStatePicker}
+        transparent
+        animationType="slide"
+        supportedOrientations={['landscape-left', 'landscape-right']}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                Select{' '}
+                {placeAddress.country === 'Canada' ? 'Province' : 'State'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowStatePicker(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {(getStatesForCountry(placeAddress.country) || []).map(item => (
+                <TouchableOpacity
+                  key={item}
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setPlaceAddress(prev => ({...prev, state: item}));
+                    setShowStatePicker(false);
+                  }}>
+                  <Text style={styles.modalItemText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Country picker modal */}
+      <Modal
+        visible={showCountryPicker}
+        transparent
+        animationType="slide"
+        supportedOrientations={['landscape-left', 'landscape-right']}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Country</Text>
+              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {(['USA', 'Canada', 'Other'] as const).map(country => (
+              <TouchableOpacity
+                key={country}
+                style={styles.modalItem}
+                onPress={() => {
+                  setPlaceAddress(prev => ({...prev, country, state: ''}));
+                  setShowCountryPicker(false);
+                }}>
+                <Text style={styles.modalItemText}>
+                  {country === 'Other' ? 'Other' : country}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
+      {showAddGate && (
+        <ParentalGate
+          onSuccess={async () => {
+            setShowAddGate(false);
+            setShowAdminCodeModal(true);
+          }}
+          isSettingsContext={false}
+          message="Making sure you are an adult as there is camera usage . All images stay local"
+        />
+      )}
+
+      {/* Admin Code Modal (second gate) */}
+      <Modal
+        visible={showAdminCodeModal}
+        animationType="fade"
+        transparent
+        supportedOrientations={['landscape-left', 'landscape-right']}
+        onRequestClose={() => {
+          setShowAdminCodeModal(false);
+          setAdminCodeInput('');
+          setIsAdminCodeError(false);
+        }}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Enter Admin Code</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowAdminCodeModal(false);
+                  setAdminCodeInput('');
+                  setIsAdminCodeError(false);
+                }}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.modalBody, {paddingBottom: 20}]}>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  isAdminCodeError && {
+                    borderColor: '#ff3b30',
+                    backgroundColor: '#fff0f0',
+                  },
+                ]}
+                value={adminCodeInput}
+                onChangeText={text => {
+                  const numeric = text.replace(/[^0-9]/g, '');
+                  if (numeric.length <= 4) setAdminCodeInput(numeric);
+                }}
+                placeholder="4-digit code"
+                placeholderTextColor="#888"
+                keyboardType="numeric"
+                maxLength={4}
+                secureTextEntry
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  if (adminCodeInput.length === 4) handleAdminCodeSubmit();
+                }}
+                autoFocus
+              />
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, {paddingVertical: 12}]}
+                  onPress={() => {
+                    setShowAdminCodeModal(false);
+                    setAdminCodeInput('');
+                    setIsAdminCodeError(false);
+                  }}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    {paddingVertical: 12},
+                    adminCodeInput.length !== 4 && styles.saveButtonDisabled,
+                  ]}
+                  onPress={handleAdminCodeSubmit}
+                  disabled={adminCodeInput.length !== 4}>
+                  <Text style={styles.saveButtonText}>Submit</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -1365,10 +2331,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   deleteButton: {
-    padding: 8,
+    backgroundColor: '#FF5757',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginTop: 0,
   },
   deleteButtonText: {
-    fontSize: 18,
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,
@@ -1513,6 +2486,38 @@ const styles = StyleSheet.create({
     color: '#d32f2f',
     fontWeight: '600',
     textAlign: 'center',
+  },
+  currentLocationButton: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#2196F3',
+    alignSelf: 'flex-start',
+  },
+  currentLocationButtonActive: {
+    backgroundColor: '#2196F3',
+  },
+  currentLocationText: {
+    fontSize: 12,
+    color: '#2196F3',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  currentLocationTextActive: {
+    color: '#FFF',
+  },
+  modalItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  placeholder: {
+    color: '#888',
   },
 });
 

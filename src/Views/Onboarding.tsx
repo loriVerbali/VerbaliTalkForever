@@ -28,6 +28,7 @@ import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import Subscription, {SubscriptionPlan} from '../Components/Subscription';
+import ShowAndTell from '../Components/ShowAndTell';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
 import auth0, {useAuth0} from 'react-native-auth0';
@@ -63,6 +64,12 @@ const onboardingSteps = [
     buttonText: 'Next',
   },
   {
+    id: 'ShowAndTell',
+    question: 'Getting started with Matalk-AI',
+    additionalComponents: 'show-and-tell',
+    buttonText: 'Next',
+  },
+  {
     id: 'subscription',
     question: 'Choose Your Plan',
     additionalComponents: 'subscription-selection',
@@ -70,14 +77,8 @@ const onboardingSteps = [
   },
   {
     id: 'gender',
-    question: 'Choose your gender (optional)',
+    question: "Choose your Hero's Avatar or Skip (optional)",
     additionalComponents: 'gender-selection',
-    buttonText: 'Next',
-  },
-  {
-    id: 'Family Members',
-    question: 'Family Members',
-    additionalComponents: 'family-members',
     buttonText: 'Next',
   },
   {
@@ -97,12 +98,6 @@ const onboardingSteps = [
     question: 'Optional Permissions',
     additionalComponents: 'optional-permissions',
     buttonText: 'Next',
-  },
-  {
-    id: 'Special Places',
-    question: 'Special Places',
-    additionalComponents: 'special-places',
-    buttonText: 'Done',
   },
 ];
 
@@ -142,6 +137,13 @@ const OnboardingScreen: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [gotSubscription, setGotSubscription] = useState(false);
   const [gotAssistant, setGotAssistant] = useState(false);
+  const genderWrapperStyle = [
+    styles.genderImageWrapper,
+    {transform: [{scale: isTablet ? 0.68 : 0.6}]},
+  ];
+  const isSmallPhone = height <= 400;
+  const tileWidth = isTablet ? '33.33%' : isSmallPhone ? '16.66%' : '33.33%';
+  const containerFlexWrap = isSmallPhone ? 'nowrap' : 'wrap';
   // Load conversation mode setting
   useEffect(() => {
     const loadConversationMode = async () => {
@@ -466,6 +468,12 @@ const OnboardingScreen: React.FC = () => {
             )}
           </>
         );
+      case 'show-and-tell':
+        return (
+          <View style={{width: '100%', alignItems: 'center'}}>
+            <ShowAndTell />
+          </View>
+        );
       case 'terms-and-conditions':
         return (
           <View style={styles.termsContainer}>
@@ -509,82 +517,165 @@ const OnboardingScreen: React.FC = () => {
         return (
           <>
             <View>
-              <Text style={styles.permissionsSuccess}>
-                Gender selection is optional and is used for personalization Tap
-                Next to continue
+              <Text style={styles.genderExplanation}>
+                Pick the picture that looks most like your hero. You can skip
+                this step now and change it later. This is for a more
+                personalized experience -{' '}
+                <Text style={{color: '#8E24AA', fontWeight: '600'}}>
+                  Totally optional
+                </Text>
               </Text>
             </View>
-            <View style={styles.genderContainer}>
+            <ScrollView
+              horizontal={isSmallPhone}
+              showsHorizontalScrollIndicator={false}
+              style={{width: '100%'}}
+              contentContainerStyle={[
+                styles.genderContainer,
+                {flexWrap: containerFlexWrap as any},
+              ]}>
               <TouchableOpacity
                 style={[
                   styles.genderOption,
-                  selectedGender === 'boy' && styles.selectedGender,
+                  {
+                    width: isTablet ? '33.33%' : (tileWidth as any),
+                  },
+                  selectedGender === 'white boy' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('boy')}>
-                <FastImage
-                  source={require('../assets/boy.png')}
-                  style={styles.genderImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <Text
-                  style={[
-                    styles.genderText,
-                    selectedGender === 'boy' && styles.selectedGenderText,
-                  ]}>
-                  Boy
-                </Text>
+                onPress={() => setSelectedGender('white boy')}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'white boy' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/wboy.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                </View>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[
                   styles.genderOption,
-                  selectedGender === 'girl' && styles.selectedGender,
+                  {
+                    width: isTablet ? '33.33%' : (tileWidth as any),
+                  },
+                  selectedGender === 'black boy' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('girl')}>
-                <FastImage
-                  source={require('../assets/girl.png')}
-                  style={styles.genderImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <Text
-                  style={[
-                    styles.genderText,
-                    selectedGender === 'girl' && styles.selectedGenderText,
-                  ]}>
-                  Girl
-                </Text>
+                onPress={() => setSelectedGender('black boy')}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'black boy' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/bboy.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                </View>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[
                   styles.genderOption,
-                  selectedGender === 'other' && styles.selectedGender,
+                  {
+                    width: isTablet ? '33.33%' : (tileWidth as any),
+                  },
+                  selectedGender === 'asian boy' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('other')}>
-                <FastImage
-                  source={require('../assets/person.png')}
-                  style={styles.genderImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <Text
-                  style={[
-                    styles.genderText,
-                    selectedGender === 'other' && styles.selectedGenderText,
-                  ]}>
-                  Other
-                </Text>
+                onPress={() => setSelectedGender('asian boy')}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'asian boy' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/aboy.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                </View>
               </TouchableOpacity>
-            </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '33.33%' : (tileWidth as any),
+                  },
+                  selectedGender === 'white girl' && styles.selectedGender,
+                ]}
+                onPress={() => setSelectedGender('white girl')}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'white girl' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/wgirl.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '33.33%' : (tileWidth as any),
+                  },
+                  selectedGender === 'black girl' && styles.selectedGender,
+                ]}
+                onPress={() => setSelectedGender('black girl')}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'black girl' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/bgirl.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '33.33%' : (tileWidth as any),
+                  },
+                  selectedGender === 'asian girl' && styles.selectedGender,
+                ]}
+                onPress={() => setSelectedGender('asian girl')}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'asian girl' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/agirl.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
           </>
         );
       case 'admin-code-input':
         return (
-          <View style={styles.adminCodeContainer}>
+          <ScrollView
+            style={{width: '100%'}}
+            contentContainerStyle={styles.adminCodeContainer}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}>
             <View style={styles.inputContainer}>
               <TextInput
                 style={isTablet ? styles.input : styles.inputPhone}
                 placeholder="Set a 4 digit code"
                 placeholderTextColor="#888"
                 value={adminCode}
-                inputMode="numeric"
+                inputMode={isTablet ? 'numeric' : 'text'}
                 onChangeText={text => {
                   // Only allow numbers and limit to 4 digits
                   const numericText = text.replace(/[^0-9]/g, '');
@@ -597,7 +688,7 @@ const OnboardingScreen: React.FC = () => {
                 secureTextEntry={true}
               />
             </View>
-          </View>
+          </ScrollView>
         );
       case 'family-members':
         return isTablet ? (
@@ -781,14 +872,6 @@ const OnboardingScreen: React.FC = () => {
               </>
             )}
           </View>
-        );
-      case 'special-places':
-        return (
-          <ScrollView
-            style={styles.specialPlacesContainer}
-            contentContainerStyle={styles.specialPlacesScrollView}>
-            <SpecialPlaces onComplete={() => setSpecialPlacesCompleted(true)} />
-          </ScrollView>
         );
       default:
         return null;
@@ -1217,39 +1300,58 @@ const styles = StyleSheet.create({
   },
   genderContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     width: '100%',
     marginVertical: 20,
     flexWrap: 'wrap',
   },
   genderOption: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 15,
-    padding: 15,
-    width: width * 0.25,
-    minWidth: 100,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    marginBottom: 10,
+    backgroundColor: 'transparent',
+    borderRadius: 16,
+    padding: 0,
+    width: '33.33%',
+    marginBottom: 6,
+  },
+  genderImageWrapper: {
+    width: '100%',
+    aspectRatio: 1.43,
+    borderRadius: 16,
+    overflow: 'visible',
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 4,
   },
   selectedGender: {
-    borderColor: 'rgba(47, 183, 111, 0.25)',
-    backgroundColor: 'rgba(47, 183, 111, 0.25)',
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
   genderImage: {
-    width: Math.min(60, width * 0.15),
-    height: Math.min(60, width * 0.15),
-    marginBottom: 10,
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  heartOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    zIndex: 10,
+    fontSize: Math.min(26.4, width * 0.048),
+    color: '#FF3B30',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+    pointerEvents: 'none',
   },
   genderText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    display: 'none',
   },
   selectedGenderText: {
-    color: 'black',
-    fontWeight: '900',
+    display: 'none',
   },
   permissionsContainer: {
     width: '90%',
@@ -1273,7 +1375,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#4CAF50',
     textAlign: 'center',
-    marginTop: 20,
+    marginTop: 2,
+    fontWeight: 'bold',
+  },
+  genderExplanation: {
+    fontSize: Math.min(18, height * 0.03),
+    color: '#4CAF50',
+    textAlign: 'center',
+    marginTop: 2,
     fontWeight: 'bold',
   },
   hiddenButton: {
@@ -1306,7 +1415,8 @@ const styles = StyleSheet.create({
     height: Math.min(width * 0.22, 100),
   },
   adminCodeContainer: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
     width: '100%',
     maxHeight: height * 0.4,
     flexDirection: 'row',

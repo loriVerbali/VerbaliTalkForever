@@ -20,6 +20,7 @@ import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import {useAuth0} from 'react-native-auth0';
+import {useAdmin} from '../contexts/adminContext';
 import {stacks, views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
@@ -184,6 +185,7 @@ const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const {preferences, setItem, getItem, clear} = useAppSettings();
   const {user, clearSession} = useAuth0();
+  const {isTablet} = useAdmin();
 
   const [returnedMessages, setReturnedMessages] = useState(5);
   const [topicsCount, setTopicsCount] = useState(4);
@@ -219,6 +221,11 @@ const SettingsScreen: React.FC = () => {
   const [subscriptionStatus, setSubscriptionStatus] = useState<
     'active' | 'needs_attention'
   >('needs_attention');
+
+  const genderWrapperStyle = [
+    styles.genderImageWrapper,
+    {transform: [{scale: 0.7}]},
+  ];
 
   useEffect(() => {
     mixpanel.track('Settings', {
@@ -328,7 +335,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
-    console.log('Selected family member:', member);
+    // console.log('Selected family member:', member);
     // You can add additional logic here if needed
   };
 
@@ -717,8 +724,14 @@ const SettingsScreen: React.FC = () => {
 
                 <View style={styles.genderSection}>
                   <View style={styles.genderHeader}>
-                    <View style={styles.genderLabelContainer}>
-                      <Text style={styles.settingLabel}>Gender (optional)</Text>
+                    <View
+                      style={[
+                        styles.genderLabelContainer,
+                        {alignItems: 'center'},
+                      ]}>
+                      <Text style={styles.settingLabel}>
+                        Your Hero's Avatar(optional)
+                      </Text>
                       <TouchableOpacity
                         onPress={() => setShowGenderInfo(true)}
                         style={styles.infoButton}>
@@ -726,20 +739,17 @@ const SettingsScreen: React.FC = () => {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.noneCheckbox}
-                        onPress={() => setItem('gender', '')}>
+                        onPress={() => setItem('gender', 'other')}>
                         <View
                           style={[
                             styles.checkbox,
-                            (!preferences.gender ||
-                              preferences.gender === '') &&
-                              styles.checkedBox,
+                            preferences.gender === 'other' && styles.checkedBox,
                           ]}>
-                          {(!preferences.gender ||
-                            preferences.gender === '') && (
+                          {preferences.gender === 'other' && (
                             <Text style={styles.checkmark}>✓</Text>
                           )}
                         </View>
-                        <Text style={styles.noneLabel}>None</Text>
+                        <Text style={styles.noneLabel}>Other</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -747,62 +757,114 @@ const SettingsScreen: React.FC = () => {
                     <TouchableOpacity
                       style={[
                         styles.genderOption,
-                        preferences.gender === 'boy' && styles.selectedGender,
+                        (preferences.gender === 'white boy' ||
+                          preferences.gender === 'boy') &&
+                          styles.selectedGender,
                       ]}
-                      onPress={() => setItem('gender', 'boy')}>
-                      <FastImage
-                        source={require('../assets/boy.png')}
-                        style={styles.genderImage}
-                        resizeMode={FastImage.resizeMode.contain}
-                      />
-                      <Text
-                        style={[
-                          styles.genderText,
-                          preferences.gender === 'boy' &&
-                            styles.selectedGenderText,
-                        ]}>
-                        Boy
-                      </Text>
+                      onPress={() => setItem('gender', 'white boy')}>
+                      <View style={genderWrapperStyle}>
+                        {(preferences.gender === 'white boy' ||
+                          preferences.gender === 'boy') && (
+                          <Text style={styles.heartOverlay}>♥</Text>
+                        )}
+                        <FastImage
+                          source={require('../assets/gender/wboy.jpg')}
+                          style={styles.genderImage}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
                         styles.genderOption,
-                        preferences.gender === 'girl' && styles.selectedGender,
+                        (preferences.gender === 'black boy' ||
+                          preferences.gender === 'boy') &&
+                          styles.selectedGender,
                       ]}
-                      onPress={() => setItem('gender', 'girl')}>
-                      <FastImage
-                        source={require('../assets/girl.png')}
-                        style={styles.genderImage}
-                        resizeMode={FastImage.resizeMode.contain}
-                      />
-                      <Text
-                        style={[
-                          styles.genderText,
-                          preferences.gender === 'girl' &&
-                            styles.selectedGenderText,
-                        ]}>
-                        Girl
-                      </Text>
+                      onPress={() => setItem('gender', 'black boy')}>
+                      <View style={genderWrapperStyle}>
+                        {(preferences.gender === 'black boy' ||
+                          preferences.gender === 'boy') && (
+                          <Text style={styles.heartOverlay}>♥</Text>
+                        )}
+                        <FastImage
+                          source={require('../assets/gender/bboy.jpg')}
+                          style={styles.genderImage}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[
                         styles.genderOption,
-                        preferences.gender === 'other' && styles.selectedGender,
+                        preferences.gender === 'asian boy' &&
+                          styles.selectedGender,
                       ]}
-                      onPress={() => setItem('gender', 'other')}>
-                      <FastImage
-                        source={require('../assets/person.png')}
-                        style={styles.genderImage}
-                        resizeMode={FastImage.resizeMode.contain}
-                      />
-                      <Text
-                        style={[
-                          styles.genderText,
-                          preferences.gender === 'other' &&
-                            styles.selectedGenderText,
-                        ]}>
-                        Other
-                      </Text>
+                      onPress={() => setItem('gender', 'asian boy')}>
+                      <View style={genderWrapperStyle}>
+                        {preferences.gender === 'asian boy' && (
+                          <Text style={styles.heartOverlay}>♥</Text>
+                        )}
+                        <FastImage
+                          source={require('../assets/gender/aboy.jpg')}
+                          style={styles.genderImage}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        preferences.gender === 'white girl' &&
+                          styles.selectedGender,
+                      ]}
+                      onPress={() => setItem('gender', 'white girl')}>
+                      <View style={genderWrapperStyle}>
+                        {preferences.gender === 'white girl' && (
+                          <Text style={styles.heartOverlay}>♥</Text>
+                        )}
+                        <FastImage
+                          source={require('../assets/gender/wgirl.jpg')}
+                          style={styles.genderImage}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        preferences.gender === 'black girl' &&
+                          styles.selectedGender,
+                      ]}
+                      onPress={() => setItem('gender', 'black girl')}>
+                      <View style={genderWrapperStyle}>
+                        {preferences.gender === 'black girl' && (
+                          <Text style={styles.heartOverlay}>♥</Text>
+                        )}
+                        <FastImage
+                          source={require('../assets/gender/bgirl.jpg')}
+                          style={styles.genderImage}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        preferences.gender === 'asian girl' &&
+                          styles.selectedGender,
+                      ]}
+                      onPress={() => setItem('gender', 'asian girl')}>
+                      <View style={genderWrapperStyle}>
+                        {preferences.gender === 'asian girl' && (
+                          <Text style={styles.heartOverlay}>♥</Text>
+                        )}
+                        <FastImage
+                          source={require('../assets/gender/agirl.jpg')}
+                          style={styles.genderImage}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -860,15 +922,6 @@ const SettingsScreen: React.FC = () => {
                       />
                     </>
                   )}
-                </View>
-
-                <View style={styles.specialPlacesSection}>
-                  <Text style={styles.settingLabel}>Special Places</Text>
-                  <Text style={styles.specialPlacesDescription}>
-                    Set up your special places (Home, School, Therapy) to help
-                    Ma-Talk AI provide better contextual responses
-                  </Text>
-                  <SpecialPlaces isSettingsMode={true} />
                 </View>
 
                 <View style={styles.myPepesSection}>
@@ -1079,15 +1132,17 @@ const SettingsScreen: React.FC = () => {
             }}>
             <Text style={styles.aboutText}>Ma-Talk AI v1.2.0</Text>
           </TouchableOpacity>
-          {preferences.assistantId && showAssistantId && (
-            <Text style={styles.aboutText}>
-              Assistant ID: {preferences.assistantId}
-            </Text>
-          )}
+
           {showAssistantId &&
             (user?.email === 'lori@verbali.io' ||
-              user?.email === 'shay@verbali.io') && (
+              user?.email === 'shay@verbali.io' ||
+              user?.email === 'loria33@gmail.com') && (
               <>
+                {preferences.assistantId && showAssistantId && (
+                  <Text style={styles.aboutText}>
+                    Assistant ID: {preferences.assistantId}
+                  </Text>
+                )}
                 <Text style={styles.aboutText}>
                   Thread ID: {preferences.threadId}
                 </Text>
@@ -1474,36 +1529,65 @@ const styles = StyleSheet.create({
   },
   genderContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     width: '100%',
     marginTop: 12,
+    flexWrap: 'wrap',
   },
   genderOption: {
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 16,
-    width: SCREEN_WIDTH * 0.25,
-    borderWidth: 2,
+    backgroundColor: 'transparent',
+    borderRadius: 16,
+    padding: 0,
+    width: '33.33%',
+    borderWidth: 0,
     borderColor: 'transparent',
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 4,
   },
   selectedGender: {
-    borderColor: '#8E24AA',
-    backgroundColor: 'rgba(142, 36, 170, 0.1)',
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  genderImageWrapper: {
+    width: '80%',
+    aspectRatio: 1.43,
+    borderRadius: 16,
+    overflow: 'visible',
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 4,
   },
   genderImage: {
-    width: 48,
-    height: 48,
-    marginBottom: 8,
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  heartOverlay: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    zIndex: 10,
+    fontSize: 21.6,
+    color: '#FF3B30',
+    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+    pointerEvents: 'none',
   },
   genderText: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
+    display: 'none',
   },
   selectedGenderText: {
-    color: '#8E24AA',
-    fontWeight: 'bold',
+    display: 'none',
   },
   familyPicsSection: {
     paddingHorizontal: 10,

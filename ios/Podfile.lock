@@ -1478,6 +1478,71 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-video (6.4.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - react-native-video/Video (= 6.4.1)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - react-native-video/Fabric (6.4.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - react-native-video/Video (6.4.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - react-native-video/Fabric
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-voice (3.2.4):
     - React-Core
   - react-native-webview (13.15.0):
@@ -2080,6 +2145,7 @@ DEPENDENCIES:
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-sherpa-onnx-offline-tts (from `../node_modules/react-native-sherpa-onnx-offline-tts`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
+  - react-native-video (from `../node_modules/react-native-video`)
   - "react-native-voice (from `../node_modules/@react-native-voice/voice`)"
   - react-native-webview (from `../node_modules/react-native-webview`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -2240,6 +2306,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-sherpa-onnx-offline-tts"
   react-native-slider:
     :path: "../node_modules/@react-native-community/slider"
+  react-native-video:
+    :path: "../node_modules/react-native-video"
   react-native-voice:
     :path: "../node_modules/@react-native-voice/voice"
   react-native-webview:
@@ -2385,6 +2453,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: 072f0334ce3c7e3ee4ae81871564eacad45c8ac5
   react-native-sherpa-onnx-offline-tts: dc92f88677e2e791515523beb424c311f82eb8e2
   react-native-slider: 310d3f89edd6ca8344a974bfe83a29a3fbb60e5a
+  react-native-video: 76ff0e033ef7fd36c18f37ffdb54798dd1b95458
   react-native-voice: 908a0eba96c8c3d643e4f98b7232c6557d0a6f9c
   react-native-webview: 80ef603d1df42e24fdde765686fbb9b8a6ecd554
   React-NativeModulesApple: 88433b6946778bea9c153e27b671de15411bf225
@@ -2422,7 +2491,7 @@ SPEC CHECKSUMS:
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
   RNGestureHandler: bb8e7019e9d33e099f5408a566485ceef0323070
   RNIap: d73cedfb73b396cad75f90f4ed7d64352d6381cf
-  RNPermissions: 5e35879bccc46050caa5470ad9db962677e5cf52
+  RNPermissions: dc2bdb571aa7213e059a9ded95b4f9d8da2d7c66
   RNReanimated: e023bfbfba9b0b4b85db6a64d2fa8e4996d6839b
   RNSound: 314cc5226453ef4a3314a196c65e8a65e5106a7b
   RNSVG: 8ad5c94593e5e4a6e133e6934e2188e3c688d27a
@@ -2433,6 +2502,6 @@ SPEC CHECKSUMS:
   TextToSpeech: 89b239221ec378d213af422d14789a729705360b
   Yoga: afd04ff05ebe0121a00c468a8a3c8080221cb14c
 
-PODFILE CHECKSUM: 78764753248a9884446a285cf029c38bc2621e0e
+PODFILE CHECKSUM: 0f358082e41f106ee7d30624eb98029a27eec30b
 
 COCOAPODS: 1.16.2

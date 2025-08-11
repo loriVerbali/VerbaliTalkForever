@@ -8,7 +8,8 @@ import {stacks} from '../utils/constants';
 import {useConnection} from '../utils/connection';
 import {View, Text, Dimensions, StatusBar} from 'react-native';
 import FastImage from 'react-native-fast-image';
-import NoInternetConnection from '../components/NoInternetConnection';
+import NoInternetConnection from '../Components/NoInternetConnection';
+import {navigationRef} from '../utils/navigation';
 
 const {width, height} = Dimensions.get('window');
 // Create a context to set onboarding state
@@ -23,8 +24,7 @@ const RootStack = createStackNavigator();
 const RootStackScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
-  const {preferences, initializePreferences, getItem} = useAppSettings();
-  const {isConnected} = useConnection();
+  const {initializePreferences, getItem} = useAppSettings();
 
   // Function to complete onboarding from children
   const completeOnboarding = useCallback(() => {
@@ -72,7 +72,7 @@ const RootStackScreen: React.FC = () => {
 const RootControllerView: React.FC = () => {
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <RootStackScreen />
       </NavigationContainer>
     </Suspense>
@@ -81,8 +81,25 @@ const RootControllerView: React.FC = () => {
 
 const LoadingScreen = () => {
   return (
-    <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-      <Text>Loading...</Text>
+    <View
+      style={{
+        position: 'absolute',
+        width: width,
+        height: height,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+      }}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f0f0f0" />
+      <FastImage
+        source={require('../assets/matalk.png')}
+        style={{width: width * 0.6, height: width * 0.3}}
+        resizeMode={FastImage.resizeMode.contain}
+      />
+      <NoInternetConnection />
+      <Text style={{fontSize: 16, color: '#333', marginTop: 10}}>
+        Loading...
+      </Text>
     </View>
   );
 };

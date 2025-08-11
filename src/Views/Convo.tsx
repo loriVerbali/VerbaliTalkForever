@@ -128,6 +128,7 @@ const TOPIC_IMAGE_MAPPING: {[key: string]: any} = {
 };
 
 const {width, height} = Dimensions.get('window');
+const isLandscape = width > height;
 
 type Topic = 'NA' | 'Talk' | 'Play' | 'All topics' | string;
 type Action = 'NA' | 'say' | 'ask' | 'tell' | 'run' | 'jump' | 'dance';
@@ -154,6 +155,7 @@ const COLUMN_WIDTH = SCREEN_WIDTH / 4;
 interface ImagePrompt {
   image_prompt: string;
   text: string;
+  type?: string;
 }
 
 interface ImageGenerated {
@@ -238,8 +240,12 @@ const Convo = () => {
     personContainerSize: isTablet ? width * 0.08 : width * 0.04,
     personImageSize: isTablet ? width * 0.05 : width * 0.04,
     talkContainerSize: isTablet ? width * 0.1 : width * 0.05,
-    gridImageHeight: isTablet ? SCREEN_HEIGHT * 0.2 : SCREEN_HEIGHT * 0.13,
-    gridItemMarginBottom: isTablet ? 15 : 10,
+    gridImageHeight: isTablet
+      ? SCREEN_HEIGHT * 0.2
+      : isLandscape
+      ? SCREEN_HEIGHT * 0.22
+      : SCREEN_HEIGHT * 0.18,
+    gridItemMarginBottom: isTablet ? 15 : 8,
     labelGridFontSize: isTablet ? 16 : 12,
     sliderMarginTop: isTablet ? height * 0.04 : 0.01,
     playButtonWidth: isTablet ? width * 0.2 : width * 0.15,
@@ -254,6 +260,8 @@ const Convo = () => {
     shadowOffset: isTablet ? {width: 0, height: 2} : {width: 0, height: 1},
     elevation: isTablet ? 5 : 3,
     carouselWindowSize: isTablet ? 3 : 2,
+    // Reduce list height on phones so there is less white area
+    listHeightMultiplier: isTablet ? 3 : 2.5,
   };
 
   const speakerCarouselRef = useRef<ICarouselInstance>(null);
@@ -583,78 +591,78 @@ const Convo = () => {
   };
 
   const generateImage = async (array: ImagePrompt[], mode: string) => {
+    console.log('[Convo] generateImage called', {
+      mode,
+      arrayLength: Array.isArray(array) ? array.length : 'invalid',
+    });
     try {
       // Validate input data
       if (!array || !Array.isArray(array) || array.length === 0) {
         return;
       }
+      // First, try to resolve each item to a local pepes image.
+      const localResolved = array.map(ans => {
+        const text = (ans as any).text || (ans as any).image_prompt || ans;
+        const type = (ans as any).type || undefined;
+        const localUrl = resolvePepesImage(String(text || ''), undefined);
+        return {text: String(text || ''), url: localUrl, type};
+      });
 
-      // Process each item individually
-      const images = [];
-      for (const answer of array) {
-        try {
-          // Create single item with all context information
-          const item = {
-            speaker: sentence.speaker,
-            audience: sentence.audience,
-            sentenceType: sentence.sentenceType,
-            topic: topic,
-            object: object,
-            action: action,
-            text: (answer as any).text || (answer as any) || '', // Handle both object and string formats
-          };
+      // Determine which items still need server images
+      const needServer = localResolved
+        .map((item, idx) => ({idx, item}))
+        .filter(({item}) => !item.url || item.url.trim() === '');
 
-          // Call the process_images API with single item
-          const responseImages = await fetchHelper(
-            'processImagesConvo',
-            {},
-            {
-              items: [item],
-            },
-          );
+      const images: {text: string; url: string}[] = [];
+      if (needServer.length > 0) {
+        // Build items payload for only the unresolved ones
+        const itemsPayload = needServer.map(({item}) => ({
+          speaker: conversationMode === 'easy' ? 'I' : sentence.speaker,
+          audience: conversationMode === 'easy' ? 'anyone' : sentence.audience,
+          sentenceType: sentence.sentenceType,
+          topic: topic,
+          object: object,
+          action: action,
+          text: item.text,
+          type: item.type,
+        }));
 
-          // Process the response and add to images array
-          if (
-            responseImages &&
-            Array.isArray(responseImages.results) &&
-            responseImages.results.length > 0
-          ) {
-            const serverText = String(
-              responseImages.results[0].text || item.text,
-            );
-            const serverUrl = responseImages.results[0].url as
-              | string
-              | undefined;
-            const finalUrl = resolvePepesImage(serverText, serverUrl);
-            images.push({
-              url: finalUrl,
+        const responseImages = await fetchHelper(
+          'processImagesConvo',
+          {},
+          {
+            items: itemsPayload,
+            gender:
+              preferences?.gender && preferences.gender.trim() !== ''
+                ? preferences.gender
+                : 'other',
+          },
+        );
+
+        // Recombine: fill server urls back into their corresponding indices
+        let serverIdx = 0;
+        const filled = localResolved.map((lr, i) => {
+          if (!lr.url || lr.url.trim() === '') {
+            const res =
+              responseImages &&
+              Array.isArray(responseImages.results) &&
+              responseImages.results[serverIdx]
+                ? responseImages.results[serverIdx]
+                : undefined;
+            serverIdx += 1;
+            const serverText = String(res?.text || lr.text);
+            const serverUrl = String(res?.url || '');
+            return {
               text: serverText,
-            });
-          } else {
-            // Add fallback if no result
-            images.push({
-              text:
-                typeof answer === 'string'
-                  ? (answer as any)
-                  : (answer as any).text ||
-                    (answer as any).image_prompt ||
-                    'Unknown',
-              url: '',
-            });
+              url: resolvePepesImage(serverText, serverUrl),
+            };
           }
-        } catch (itemError) {
-          console.error('❌ Failed to process individual image:', itemError);
-          // Add fallback for this item
-          images.push({
-            text:
-              typeof answer === 'string'
-                ? (answer as any)
-                : (answer as any).text ||
-                  (answer as any).image_prompt ||
-                  'Unknown',
-            url: '',
-          });
-        }
+          return {text: lr.text, url: lr.url};
+        });
+        images.push(...filled);
+      } else {
+        // All items resolved locally
+        images.push(...localResolved.map(lr => ({text: lr.text, url: lr.url})));
       }
 
       if (mode === 'topic') {
@@ -726,6 +734,14 @@ const Convo = () => {
           ) {
             setIsLoading(false);
             activeCallsRef.current.clear();
+            console.warn(
+              '[Convo] Skipping topics processing: missing prerequisites',
+              {
+                speaker: sentence.speaker,
+                audience: sentence.audience,
+                sentenceType: sentence.sentenceType,
+              },
+            );
             return;
           }
 
@@ -766,6 +782,15 @@ const Convo = () => {
           ) {
             setIsLoading(false);
             activeCallsRef.current.clear();
+            console.warn(
+              '[Convo] Skipping actions processing: missing prerequisites',
+              {
+                speaker: sentence.speaker,
+                audience: sentence.audience,
+                sentenceType: sentence.sentenceType,
+                topic,
+              },
+            );
             return;
           }
 
@@ -808,6 +833,16 @@ const Convo = () => {
           ) {
             setIsLoading(false);
             activeCallsRef.current.clear();
+            console.warn(
+              '[Convo] Skipping objects processing: missing prerequisites',
+              {
+                speaker: sentence.speaker,
+                audience: sentence.audience,
+                sentenceType: sentence.sentenceType,
+                topic,
+                action,
+              },
+            );
             return;
           }
 
@@ -839,11 +874,33 @@ const Convo = () => {
           }
         } else if (response.modeType === 'sentence') {
           try {
-            const sentenceData = response?.response;
+            const raw = response?.response;
 
-            if (sentenceData) {
-              setGeneratedSentence(sentenceData);
-              setInputText(sentenceData);
+            if (raw) {
+              let extracted = '' as string;
+
+              // Try parsing as JSON and extract sentence field if available
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed.sentence === 'string') {
+                  extracted = parsed.sentence;
+                } else if (typeof parsed === 'string') {
+                  extracted = parsed;
+                }
+              } catch (_err) {
+                // Not JSON, use raw as-is
+                extracted = raw;
+              }
+
+              // Normalize quotes and whitespace
+              if (typeof extracted === 'string') {
+                extracted = extracted.replace(/^"|"$/g, '').trim();
+              }
+
+              if (extracted) {
+                setGeneratedSentence(extracted);
+                setInputText(extracted);
+              }
             }
           } catch (error) {
             console.error('Error parsing sentence:', error);
@@ -1090,6 +1147,12 @@ const Convo = () => {
     // Reset the assistant state (everything except threadId)
     resetAssistant();
 
+    // Clear any in-flight or previously processed response state
+    activeCallsRef.current.clear();
+    lastProcessedResponseRef.current = '';
+    setIsLoading(false);
+    setFetchingMode(null);
+
     // Reset all sentence fields completely
     if (conversationMode === 'easy') {
       setSentence({
@@ -1320,7 +1383,7 @@ const Convo = () => {
           console.error('Failed to send learning feedback:', error);
           // Don't block the user flow if learning feedback fails
         }
-
+        //{"sentence":"Can I play cards with you?"}
         await TTSService.speak(inputText);
 
         // Wait for 3 seconds before resetting
@@ -1403,6 +1466,10 @@ const Convo = () => {
   useFocusEffect(
     React.useCallback(() => {
       // Reset all state when Convo screen is focused
+      activeCallsRef.current.clear();
+      lastProcessedResponseRef.current = '';
+      setIsLoading(false);
+      setFetchingMode(null);
       if (conversationMode === 'easy') {
         setSentence({
           speaker: 'I',
@@ -2378,7 +2445,7 @@ const styles = StyleSheet.create({
   },
   gridLabelContainer: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
   },
@@ -2641,11 +2708,13 @@ const ConvoCarousel = <T extends string | ImageGenerated>({
         style={{
           width: '100%',
           maxHeight: responsiveValues
-            ? responsiveValues.gridImageHeight * 4
-            : SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
+            ? responsiveValues.gridImageHeight *
+              (responsiveValues.listHeightMultiplier || 3)
+            : SCREEN_HEIGHT * 0.6,
           minHeight: responsiveValues
-            ? responsiveValues.gridImageHeight * 4
-            : SCREEN_HEIGHT * 0.75, // Adjusted to fit within 40% column height
+            ? responsiveValues.gridImageHeight *
+              (responsiveValues.listHeightMultiplier || 3)
+            : SCREEN_HEIGHT * 0.6, // Adjusted to better fit mobile
         }}>
         {data.map((item, index) => (
           <Pressable
