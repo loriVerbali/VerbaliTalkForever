@@ -363,7 +363,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       if (!DEBUGWITHOUTTRANSCRIPTION) {
         transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
       } else {
-        transcribeResponse = {text: 'Whats your favourite food?'};
+        transcribeResponse = {text: 'what is your sister nam'};
       }
 
       if (transcribeResponse?.text) {
@@ -484,17 +484,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   }, [imageUrls, status]);
 
   // Handle assistant failure status
-  useEffect(() => {
-    if (status === 'failed') {
-      setIsProcessingAnswer(false);
-      setIsRetrying(false);
-      setShowImages(false);
-      TTSService.speak(
-        'We had a problem processing that. Please try again.',
-        true,
-      );
-    }
-  }, [status]);
+  // useEffect(() => {
+  //   if (status === 'failed') {
+  //     setIsProcessingAnswer(false);
+  //     setIsRetrying(false);
+  //     setShowImages(false);
+  //     TTSService.speak(
+  //       'We had a problem processing that. Please try again.',
+  //       true,
+  //     );
+  //   }
+  // }, [status]);
 
   // Reset function for local states
   const resetLocalStates = () => {

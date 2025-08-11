@@ -12,8 +12,8 @@ import {useAppSettings} from '../utils/persistance';
 // WeatherAPI.com API key
 const WEATHER_API_KEY = Config.WEATHER_API_KEY || '';
 
-// Cache duration: 3 hours in milliseconds
-const CACHE_DURATION = 3 * 60 * 60 * 1000;
+// Cache duration: 1 hour in milliseconds
+const CACHE_DURATION = 60 * 60 * 1000;
 
 interface WeatherData {
   temperature: number;
@@ -23,12 +23,6 @@ interface WeatherData {
   feelsLike: number;
   uvIndex: number;
   visibility: number;
-}
-
-interface SpecialPlace {
-  type: 'home' | 'school' | 'therapy';
-  address: string;
-  isCurrentLocation: boolean;
 }
 
 interface LocationData {
@@ -50,8 +44,9 @@ interface LocationData {
   };
   display_name?: string;
   specialPlace?: {
-    type: 'home' | 'school' | 'therapy';
-    name: string;
+    // Generic place from pepes Places
+    type: string; // e.g., Home, School, Park, etc.
+    name: string; // item name from pepes
   } | null;
 }
 
@@ -88,144 +83,227 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
     return now.getTime() - lastUpdated.getTime() > CACHE_DURATION;
   };
 
-  // Function to check if current location matches any special places
-  const checkSpecialPlaces = async (
+  const formatAddressToString = (addressDetails?: {
+    address?: string;
+    address2?: string;
+    city?: string;
+    state?: string;
+    zipcode?: string;
+    country?: string;
+  }): string => {
+    if (!addressDetails) return '';
+    const parts = [
+      addressDetails.address || '',
+      addressDetails.address2 || '',
+      addressDetails.city || '',
+      addressDetails.state || '',
+      addressDetails.zipcode || '',
+      addressDetails.country || '',
+    ].filter(part => part.trim() !== '');
+    return parts.join(', ');
+  };
+
+  // Function to check if current location matches any pepes Places
+  const checkPepesPlaces = async (
     currentAddress: string,
     currentLat?: number,
     currentLon?: number,
   ): Promise<{
-    type: 'home' | 'school' | 'therapy';
+    type: string;
     name: string;
   } | null> => {
     try {
-      // Get saved special places
-      const specialPlacesData = await getItem('specialPlaces');
-      if (!specialPlacesData) {
-        return null;
+      const pepes = await getItem('pepes');
+      if (!pepes) return null;
+      const parsed = JSON.parse(pepes);
+      const places: Array<{
+        id: string;
+        name: string;
+        type?: string;
+        aliases?: string[];
+        addressDetails?: {
+          address?: string;
+          address2?: string;
+          city?: string;
+          state?: string;
+          zipcode?: string;
+          country?: string;
+        };
+        isCurrentLocation?: boolean;
+      }> = parsed?.Places || [];
+      if (!Array.isArray(places) || places.length === 0) return null;
+
+      const currentLower = currentAddress.toLowerCase();
+      const normalize = (s: string) =>
+        s
+          .toLowerCase()
+          .trim()
+          .replace(/[^\w\s]/g, '');
+
+      // First pass: name/alias direct substring match
+      let bestMatch: {name: string; type: string; score: number} | null = null;
+
+      for (const item of places) {
+        const n = (item.name || '').toString();
+        const nl = normalize(n);
+        if (nl && normalize(currentLower).includes(nl)) {
+          const score = 1.0;
+
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = {
+              name: item.name,
+              type: (item.type || 'Place').toString(),
+              score,
+            };
+          }
+          continue;
+        }
+        const aliases = Array.isArray(item.aliases) ? item.aliases : [];
+        for (const a of aliases) {
+          const al = normalize(a);
+          if (al && normalize(currentLower).includes(al)) {
+            const score = 0.95;
+
+            if (!bestMatch || score > bestMatch.score) {
+              bestMatch = {
+                name: item.name,
+                type: (item.type || 'Place').toString(),
+                score,
+              };
+            }
+            break;
+          }
+        }
       }
 
-      const specialPlaces: SpecialPlace[] = JSON.parse(specialPlacesData);
+      if (bestMatch) {
+        return {name: bestMatch.name, type: bestMatch.type};
+      }
 
-      // Check each special place
-      for (const place of specialPlaces) {
-        if (place.address && place.address.trim()) {
-          let isMatch = false;
+      // Second pass: address substring match (loose)
+      for (const item of places) {
+        const formatted = formatAddressToString(item.addressDetails);
+        if (!formatted) continue;
+        const pl = normalize(formatted);
+        const cur = normalize(currentLower);
+        if ((pl && cur.includes(pl)) || (cur && pl.includes(cur))) {
+          const score = 0.9;
 
-          // If this place was set using current location, try to get its coordinates for comparison
-          if (place.isCurrentLocation && currentLat && currentLon) {
-            // For places set as "current location", we can try geocoding the saved address
-            // to get coordinates and compare distance
-            try {
-              const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-                place.address,
-              )}&limit=1`;
-              const geocodeResponse = await fetch(geocodeUrl);
-              const geocodeData = await geocodeResponse.json();
-
-              if (geocodeData && geocodeData.length > 0) {
-                const savedLat = parseFloat(geocodeData[0].lat);
-                const savedLon = parseFloat(geocodeData[0].lon);
-
-                // Calculate distance using Haversine formula (simplified)
-                const distance = calculateDistance(
-                  currentLat,
-                  currentLon,
-                  savedLat,
-                  savedLon,
-                );
-
-                // If within 100 meters, consider it a match
-                if (distance < 0.1) {
-                  isMatch = true;
-                }
-              }
-            } catch (error) {
-              console.warn('Error geocoding saved place:', error);
-            }
-          }
-
-          // If coordinate matching didn't work or wasn't applicable, fall back to address matching
-          if (!isMatch) {
-            // Enhanced address matching
-            const placeAddressLower = place.address.toLowerCase();
-            const currentAddressLower = currentAddress.toLowerCase();
-
-            // Remove common words that don't help with matching
-            const commonWords = [
-              'the',
-              'and',
-              'or',
-              'at',
-              'in',
-              'on',
-              'of',
-              'to',
-              'for',
-              'with',
-              'by',
-            ];
-
-            const cleanAddress = (addr: string) => {
-              return addr
-                .split(/[,\s]+/)
-                .filter(comp => comp.length > 2 && !commonWords.includes(comp))
-                .map(comp => comp.replace(/[^\w]/g, '')); // Remove punctuation
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = {
+              name: item.name,
+              type: (item.type || 'Place').toString(),
+              score,
             };
+          }
+        }
+      }
 
-            const placeComponents = cleanAddress(placeAddressLower);
-            const currentComponents = cleanAddress(currentAddressLower);
+      if (bestMatch) {
+        return {name: bestMatch.name, type: bestMatch.type};
+      }
 
-            // Count matching components with fuzzy matching
-            let matchCount = 0;
-            for (const placeComp of placeComponents) {
-              for (const currentComp of currentComponents) {
-                // Exact match or one contains the other
-                if (
-                  placeComp === currentComp ||
-                  placeComp.includes(currentComp) ||
-                  currentComp.includes(placeComp)
-                ) {
-                  matchCount++;
-                  break; // Don't count the same component multiple times
-                }
+      // Third pass: address string fuzzy component match
+      const commonWords = [
+        'the',
+        'and',
+        'or',
+        'at',
+        'in',
+        'on',
+        'of',
+        'to',
+        'for',
+        'with',
+        'by',
+      ];
+      const cleanAddress = (addr: string) => {
+        return addr
+          .split(/[\,\s]+/)
+          .filter(comp => comp.length > 2 && !commonWords.includes(comp))
+          .map(comp => comp.replace(/[^\w]/g, ''));
+      };
+      const currentComponents = cleanAddress(currentLower);
 
-                // Fuzzy matching for similar words (simple Levenshtein-like)
-                if (placeComp.length > 3 && currentComp.length > 3) {
-                  const similarity = calculateStringSimilarity(
-                    placeComp,
-                    currentComp,
-                  );
-                  if (similarity > 0.8) {
-                    matchCount += 0.5; // Partial match
-                    break;
-                  }
-                }
+      for (const item of places) {
+        const formatted = formatAddressToString(item.addressDetails);
+        if (!formatted) continue;
+        const placeComponents = cleanAddress(formatted.toLowerCase());
+
+        let matchCount = 0;
+        for (const pc of placeComponents) {
+          for (const cc of currentComponents) {
+            if (pc === cc || pc.includes(cc) || cc.includes(pc)) {
+              matchCount++;
+              break;
+            }
+            if (pc.length > 3 && cc.length > 3) {
+              const similarity = calculateStringSimilarity(pc, cc);
+              if (similarity > 0.8) {
+                matchCount += 0.5;
+                break;
               }
             }
-
-            // Determine if it's a match based on the ratio of matching components
-            const matchRatio = matchCount / Math.max(placeComponents.length, 1);
-            const minMatchRatio = placeComponents.length <= 2 ? 0.8 : 0.6; // Higher threshold for shorter addresses
-
-            if (matchRatio >= minMatchRatio && matchCount >= 1) {
-              isMatch = true;
-            }
           }
+        }
+        const matchRatio = matchCount / Math.max(placeComponents.length, 1);
+        const minMatchRatio = placeComponents.length <= 2 ? 0.8 : 0.6;
+        const isMatch = matchRatio >= minMatchRatio && matchCount >= 1;
+        const score = matchRatio;
 
-          if (isMatch) {
-            const placeName =
-              place.type.charAt(0).toUpperCase() + place.type.slice(1);
-            return {
-              type: place.type,
-              name: placeName,
+        if (isMatch) {
+          if (!bestMatch || score > bestMatch.score) {
+            bestMatch = {
+              name: item.name,
+              type: (item.type || 'Place').toString(),
+              score,
             };
+          }
+        }
+      }
+
+      if (bestMatch) {
+        return {name: bestMatch.name, type: bestMatch.type};
+      }
+
+      // Optional final pass: if any item flagged as current location, try geocoding distance compare
+      if (currentLat && currentLon) {
+        for (const item of places) {
+          if (!item.isCurrentLocation) continue;
+          const formatted = formatAddressToString(item.addressDetails);
+          if (!formatted) continue;
+          try {
+            const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+              formatted,
+            )}&limit=1`;
+            const geocodeResponse = await fetch(geocodeUrl);
+            const geocodeData = await geocodeResponse.json();
+            if (Array.isArray(geocodeData) && geocodeData.length > 0) {
+              const savedLat = parseFloat(geocodeData[0].lat);
+              const savedLon = parseFloat(geocodeData[0].lon);
+              const distance = calculateDistance(
+                currentLat,
+                currentLon,
+                savedLat,
+                savedLon,
+              );
+
+              if (distance < 0.1) {
+                return {
+                  name: item.name,
+                  type: (item.type || 'Place').toString(),
+                };
+              }
+            }
+          } catch (e) {
+            // ignore and continue
           }
         }
       }
 
       return null;
     } catch (error) {
-      console.error('Error checking special places:', error);
+      console.error('Error checking pepes places:', error);
       return null;
     }
   };
@@ -263,7 +341,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
 
   // Helper function to calculate Levenshtein distance
   const levenshteinDistance = (str1: string, str2: string): number => {
-    const matrix = [];
+    const matrix: number[][] = [];
 
     for (let i = 0; i <= str2.length; i++) {
       matrix[i] = [i];
@@ -359,11 +437,11 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
           visibility: Math.round(weatherData.current.vis_miles),
         };
 
-        // Check if current location matches any special places
+        // Check if current location matches any saved pepes Places
         const currentAddress =
           geocodeData?.display_name ||
           `${weatherData.location.name}, ${weatherData.location.region}`;
-        const specialPlace = await checkSpecialPlaces(currentAddress, lat, lon);
+        const specialPlace = await checkPepesPlaces(currentAddress, lat, lon);
 
         const locationData: LocationData = {
           name: weatherData.location.name,
@@ -491,17 +569,6 @@ export const getContextualInfo = (
   if (location) {
     if (location.specialPlace) {
       contextParts.push(`Location: ${location.specialPlace.name}`);
-
-      // Add context-specific information based on the special place
-      const placeContext = {
-        home: '(home environment)',
-        school: '(school environment)',
-        therapy: '(therapy environment)',
-      }[location.specialPlace.type];
-
-      if (placeContext) {
-        contextParts.push(placeContext);
-      }
     } else {
       contextParts.push(`Location: ${location.name}, ${location.region}`);
     }

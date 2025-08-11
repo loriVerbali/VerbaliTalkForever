@@ -9796,6 +9796,11 @@ react-native-tts@^4.1.1:
   resolved "https://registry.yarnpkg.com/react-native-tts/-/react-native-tts-4.1.1.tgz#a6caa23f3e955e913195d6342608cb4489dd8ed1"
   integrity sha512-VL0TgCwkUWggbbFGIXAPKC3rM1baluAYtgOdgnaTm7UYsWf/y8n5VgmVB0J2Wa8qt1dldZ1cSsdQY9iz3evcAg==
 
+react-native-video@6.4.1:
+  version "6.4.1"
+  resolved "https://registry.yarnpkg.com/react-native-video/-/react-native-video-6.4.1.tgz#f62ab7ca83859ff5e2fadd435cb3bb1fa7b6c734"
+  integrity sha512-tbjHMd66oJEEybnhL2jpTWZN1nQa/16Jz9Tu0dkwRkLp11XgAwJdhv5CO69zegkfVnLVQvG41XSgsQZD7dmZ9A==
+
 react-native-wakeword@^1.1.15:
   version "1.1.23"
   resolved "https://registry.yarnpkg.com/react-native-wakeword/-/react-native-wakeword-1.1.23.tgz#235bc28029bca1128eb1a58115082e49cb545854"

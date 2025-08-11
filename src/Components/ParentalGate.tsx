@@ -15,11 +15,13 @@ const {width, height} = Dimensions.get('window');
 interface ParentalGateProps {
   onSuccess: () => void;
   isSettingsContext?: boolean;
+  message?: string;
 }
 
 const ParentalGate: React.FC<ParentalGateProps> = ({
   onSuccess,
   isSettingsContext = false,
+  message,
 }) => {
   const {isTablet} = useAdmin();
   const [currentSequence, setCurrentSequence] = useState<string[]>([]);
@@ -128,14 +130,14 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
     soundButton: {
       ...styles.soundButton,
       marginLeft: isTablet ? 20 : 15,
-      padding: isTablet ? 16 : 12,
-      borderRadius: isTablet ? 30 : 25,
-      width: isTablet ? 70 : 50,
-      height: isTablet ? 70 : 50,
+      padding: isTablet ? 8 : 12,
+      borderRadius: isTablet ? 22 : 15,
+      width: isTablet ? 44 : 30,
+      height: isTablet ? 44 : 30,
     },
     soundIcon: {
       ...styles.soundIcon,
-      fontSize: isTablet ? 32 : 24,
+      fontSize: isTablet ? 22 : 15,
     },
   };
 
@@ -145,19 +147,27 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
         {/* Simple Message Row */}
         <View style={styles.messageRow}>
           <Text style={styles.messageText}>
-            Ask your parents to continue, tap:{' '}
-            {showSequence && currentSequence.join(', ')}
+            {message || 'Ask your parents to continue this a protected area:'}
           </Text>
-          <TouchableOpacity
-            style={dynamicStyles.soundButton}
-            onPress={() => {
-              TTSService.speak(
-                'Please ask your parents to help you with this next step',
-                true,
-              );
-            }}>
-            <Text style={dynamicStyles.soundIcon}>🔊</Text>
-          </TouchableOpacity>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <Text
+              style={[
+                styles.messageText,
+                {fontWeight: '900', color: 'red', marginBottom: width * 0.01},
+              ]}>
+              {`Tap: ${showSequence && currentSequence.join(', ')}`}
+            </Text>
+            <TouchableOpacity
+              style={dynamicStyles.soundButton}
+              onPress={() => {
+                TTSService.speak(
+                  'Please ask your parents to help you with this next step',
+                  true,
+                );
+              }}>
+              <Text style={dynamicStyles.soundIcon}>🔊</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Keypad */}
@@ -251,7 +261,7 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     marginBottom: 20,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -265,7 +275,7 @@ const styles = StyleSheet.create({
     marginLeft: 15,
     padding: 12,
     borderRadius: 25,
-    backgroundColor: '#146CF0',
+    backgroundColor: 'white',
     justifyContent: 'center',
     alignItems: 'center',
     width: 50,

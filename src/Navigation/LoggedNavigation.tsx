@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useRef} from 'react';
-import {createStackNavigator, TransitionSpecs} from '@react-navigation/stack';
+import {createStackNavigator} from '@react-navigation/stack';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {
   NavigationProp,
@@ -20,12 +20,6 @@ import {useAppSettings} from '../utils/persistance';
 import Login from '../Views/Login';
 
 const HomeStack = createStackNavigator();
-const Tabs = createBottomTabNavigator();
-
-type ResetHomeStackOnTabPressProps = {
-  navigation: NavigationProp<ParamListBase>;
-  route: RouteProp<ParamListBase, string>;
-};
 
 function LoggedNavigation() {
   const {getItem} = useAppSettings();

@@ -408,6 +408,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
         <ParentalGate
           onSuccess={handleParentalGateSuccess}
           isSettingsContext={context === 'settings'}
+          message="Choosing a plan is a protected area. Ask your parents to continue:"
         />
       </View>
     );

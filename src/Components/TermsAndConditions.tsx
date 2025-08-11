@@ -383,6 +383,32 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
 
         <Text
           style={[
+            styles.subSectionTitle,
+            {
+              fontSize: responsiveValues.subSectionTitleFontSize,
+              marginTop: responsiveValues.subSectionTitleMarginTop,
+              marginBottom: responsiveValues.subSectionTitleMarginBottom,
+            },
+          ]}>
+          E. Camera and Photos
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          With your consent, the App may use your device camera to take photos
+          of people and objects for use in communication cards and to
+          personalize answers. These images are stored on your device only and
+          are never uploaded to our servers or shared with third parties.
+        </Text>
+
+        <Text
+          style={[
             styles.sectionTitle,
             {
               fontSize: responsiveValues.sectionTitleFontSize,
@@ -680,6 +706,24 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
 
         <Text
           style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          <Text style={styles.bold}>Parental Controls for Photos:</Text> Tapping
+          Add in <Text style={styles.bold}>My People & Stuff</Text> every time
+          by a double parental gate: first admin code set by the parent during
+          onboarding and then a visual sequence gate, This prevents children
+          from adding photos without adult assistance. Images captured are used
+          only to create cards and personalize answers and remain on-device.
+          They are strictly optional and can be disabled or deleted at any time.
+        </Text>
+
+        <Text
+          style={[
             styles.sectionTitle,
             {
               fontSize: responsiveValues.sectionTitleFontSize,
@@ -751,6 +795,19 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
           securely and may only use it to deliver services to us. We do not
           allow them to use your data for their own purposes, including training
           AI models.
+        </Text>
+
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          For clarity, photos taken with the camera for cards are stored locally
+          on your device and are not uploaded to our or any third-party servers.
         </Text>
 
         <Text

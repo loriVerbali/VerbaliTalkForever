@@ -58,6 +58,10 @@
 	<string>We use your microphone so you can record speech to generate possible answers for a cargivers questions. For example you are asked what your name is we record it and transcribe.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>The App uses the photo library to personalize the conversation for instance a picture of dad or mom or a known relative </string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We save photos you take so you can use them in your conversations and personalize your experience.Images are private to your device. They are not uploaded anywhere.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We use the camera so you can take photos to personalize people, pets, toys and places.Images are private to your device. They are not uploaded anywhere.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>We use your microphone so you can record speech to communicate with others. For example, your speech is transcribed into text and read aloud.</string>
 	<key>UILaunchStoryboardName</key>
