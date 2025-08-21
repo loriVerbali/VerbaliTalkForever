@@ -11,31 +11,35 @@ import {
   StatusBar,
   SafeAreaView,
   ScrollView,
-  PermissionsAndroid,
-  Permission,
   Linking,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
 import {useAppSettings} from '../utils/persistance';
 import FastImage from 'react-native-fast-image';
 import {OnboardingContext} from '../Navigation/RootControllerView';
-import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import {
+  check,
+  request,
+  PERMISSIONS,
+  RESULTS,
+  requestMultiple,
+} from 'react-native-permissions';
 import matalkImg from '../assets/matalk.png';
 import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
-import SpecialPlaces from '../Components/SpecialPlaces';
 import TermsAndConditions from '../Components/TermsAndConditions';
-import Subscription, {SubscriptionPlan} from '../Components/Subscription';
+import Subscription from '../Components/Subscription';
 import ShowAndTell from '../Components/ShowAndTell';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
-import auth0, {useAuth0} from 'react-native-auth0';
+import {useAuth0} from 'react-native-auth0';
 import fetchHelper from '../utils/fetcher';
-import TTSService from '../utils/TTSService';
-
 const {width, height} = Dimensions.get('window');
+
+// Debug key to skip subscription during development
+const SUBSCRIPTIONSKIP = false;
 
 // Define onboarding steps
 const onboardingSteps = [
@@ -102,7 +106,6 @@ const onboardingSteps = [
 ];
 
 const OnboardingScreen: React.FC = () => {
-  const navigation = useNavigation();
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
@@ -117,7 +120,6 @@ const OnboardingScreen: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
   const [adminCode, setAdminCode] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
   const [selectedGender, setSelectedGender] = useState('');
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [permissionsDenied, setPermissionsDenied] = useState(false);
@@ -144,6 +146,7 @@ const OnboardingScreen: React.FC = () => {
   const isSmallPhone = height <= 400;
   const tileWidth = isTablet ? '33.33%' : isSmallPhone ? '16.66%' : '33.33%';
   const containerFlexWrap = isSmallPhone ? 'nowrap' : 'wrap';
+  const nextButtonTextFontSize = isTablet ? 20 : 14;
   // Load conversation mode setting
   useEffect(() => {
     const loadConversationMode = async () => {
@@ -382,7 +385,11 @@ const OnboardingScreen: React.FC = () => {
                     style={styles.loginButton}
                     onPress={handleLogin}
                     disabled={authLoading}>
-                    <Text style={styles.loginButtonText}>
+                    <Text
+                      style={[
+                        styles.loginButtonText,
+                        {fontSize: nextButtonTextFontSize},
+                      ]}>
                       {authLoading ? 'Signing In...' : 'Sign In'}
                     </Text>
                   </TouchableOpacity>
@@ -411,14 +418,13 @@ const OnboardingScreen: React.FC = () => {
       case 'subscription-selection':
         return (
           <>
-            {gotSubscription ? (
+            {gotSubscription || SUBSCRIPTIONSKIP ? (
               <View
                 style={{
                   alignItems: 'center',
                   justifyContent: 'center',
                   width: '100%',
                   padding: 32,
-                  zIndex: 5000,
                 }}>
                 <Text
                   style={{
@@ -428,7 +434,9 @@ const OnboardingScreen: React.FC = () => {
                     marginBottom: 16,
                     textAlign: 'center',
                   }}>
-                  We are so happy you joined!
+                  {SUBSCRIPTIONSKIP
+                    ? 'Debug Mode: Subscription Skipped'
+                    : 'We are so happy you joined!'}
                 </Text>
                 <Text
                   style={{
@@ -437,33 +445,37 @@ const OnboardingScreen: React.FC = () => {
                     marginBottom: 24,
                     textAlign: 'center',
                   }}>
-                  Welcome to the Ma-Talk community.
+                  {SUBSCRIPTIONSKIP
+                    ? 'Development mode active - continuing setup...'
+                    : 'Welcome to the Ma-Talk community.'}
                 </Text>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontStyle: 'italic',
-                    color: '#8E24AA',
-                    textAlign: 'center',
-                  }}>
-                  'Because the most meaningful conversation is a natural one'
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    fontStyle: 'italic',
-                    color: '#8E24AA',
-                    textAlign: 'center',
-                  }}>
-                  Shay Cohen Verbali CEO 2025
-                </Text>
+                {!SUBSCRIPTIONSKIP && (
+                  <>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontStyle: 'italic',
+                        color: '#8E24AA',
+                        textAlign: 'center',
+                      }}>
+                      'Because the most meaningful conversation is a natural
+                      one'
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontStyle: 'italic',
+                        color: '#8E24AA',
+                        textAlign: 'center',
+                      }}>
+                      Shay Cohen Verbali CEO 2025
+                    </Text>
+                  </>
+                )}
               </View>
             ) : (
               <View style={styles.questionContainer}>
-                <Subscription
-                  key="onboarding-subscription"
-                  setGotSubscription={setGotSubscription}
-                />
+                <Subscription setGotSubscription={setGotSubscription} />
               </View>
             )}
           </>
@@ -790,7 +802,13 @@ const OnboardingScreen: React.FC = () => {
                     <TouchableOpacity
                       style={styles.settingsButton}
                       onPress={openSettings}>
-                      <Text style={styles.buttonText}>Open Settings</Text>
+                      <Text
+                        style={[
+                          styles.buttonText,
+                          {fontSize: nextButtonTextFontSize},
+                        ]}>
+                        Open Settings
+                      </Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -832,7 +850,11 @@ const OnboardingScreen: React.FC = () => {
                   <TouchableOpacity
                     style={styles.button}
                     onPress={requestPermission}>
-                    <Text style={styles.buttonText}>
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        {fontSize: nextButtonTextFontSize},
+                      ]}>
                       {permissionsPermanentlyDenied
                         ? 'Continue'
                         : permissionsDenied
@@ -866,7 +888,13 @@ const OnboardingScreen: React.FC = () => {
                   <TouchableOpacity
                     style={styles.button}
                     onPress={requestLocationPermission}>
-                    <Text style={styles.buttonText}>Continue</Text>
+                    <Text
+                      style={[
+                        styles.buttonText,
+                        {fontSize: nextButtonTextFontSize},
+                      ]}>
+                      Continue
+                    </Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -908,36 +936,35 @@ const OnboardingScreen: React.FC = () => {
     if (Platform.OS === 'android') {
       try {
         // First check current permission status
-        const micStatus = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        const micStatus = await check(PERMISSIONS.ANDROID.RECORD_AUDIO);
+        const writeStorageStatus = await check(
+          PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE,
         );
-        const storageStatus = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+        const readStorageStatus = await check(
+          PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
         );
 
-        if (micStatus && storageStatus) {
+        if (
+          micStatus === RESULTS.GRANTED &&
+          writeStorageStatus === RESULTS.GRANTED &&
+          readStorageStatus === RESULTS.GRANTED
+        ) {
           setPermissionsGranted(true);
           setPermissionsDenied(false);
           setPermissionsPermanentlyDenied(false);
           return true;
         }
 
-        const grants = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        const grants = await requestMultiple([
+          PERMISSIONS.ANDROID.RECORD_AUDIO,
+          PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE,
+          PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
         ]);
 
         const granted =
-          grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          grants['android.permission.RECORD_AUDIO'] ===
-            PermissionsAndroid.RESULTS.GRANTED;
-
+          grants['android.permission.RECORD_AUDIO'] === RESULTS.GRANTED;
         const permanentlyDenied =
-          grants['android.permission.WRITE_EXTERNAL_STORAGE'] ===
-            PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN ||
-          grants['android.permission.RECORD_AUDIO'] ===
-            PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN;
+          grants['android.permission.RECORD_AUDIO'] === RESULTS.BLOCKED;
 
         setPermissionsGranted(granted);
         setPermissionsDenied(!granted);
@@ -986,10 +1013,25 @@ const OnboardingScreen: React.FC = () => {
     setLocationPermissionAttempted(true);
     if (Platform.OS === 'android') {
       try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        const locationStatus = await check(
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
         );
-        const isGranted = granted === PermissionsAndroid.RESULTS.GRANTED;
+        if (locationStatus === RESULTS.GRANTED) {
+          setLocationGranted(true);
+          setLocationPermissionSuccess(true);
+          return true;
+        }
+
+        const granted = await requestMultiple([
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+          PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION,
+        ]);
+
+        const isGranted =
+          granted['android.permission.ACCESS_FINE_LOCATION'] ===
+            RESULTS.GRANTED &&
+          granted['android.permission.ACCESS_COARSE_LOCATION'] ===
+            RESULTS.GRANTED;
         setLocationGranted(isGranted);
         setLocationPermissionSuccess(isGranted);
         if (isGranted) {
@@ -1035,12 +1077,34 @@ const OnboardingScreen: React.FC = () => {
     });
   }, [currentStep]);
 
+  console.log(gotSubscription);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       {currentStep > 0 && (
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Text style={styles.backButtonText}>← Back</Text>
+        <TouchableOpacity
+          style={[
+            styles.backButton,
+            {
+              flexDirection: 'row-reverse',
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+          ]}
+          onPress={handleBack}>
+          <Text
+            style={[styles.backButtonText, {fontSize: nextButtonTextFontSize}]}>
+            Back
+          </Text>
+          <Image
+            source={require('../assets/leftArrow.png')}
+            style={{
+              width: nextButtonTextFontSize,
+              height: nextButtonTextFontSize,
+              marginRight: 4,
+            }}
+          />
         </TouchableOpacity>
       )}
       <View style={styles.matalkIcon}>
@@ -1101,19 +1165,24 @@ const OnboardingScreen: React.FC = () => {
                 ((currentStepData.id === 'Permissions' &&
                   !permissionsAttempted) ||
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
-                  (currentStepData.id === 'subscription' && !gotSubscription) ||
+                  (currentStepData.id === 'subscription' &&
+                    !gotSubscription &&
+                    !SUBSCRIPTIONSKIP) ||
                   (currentStepData.id === 'Optional Permissions' &&
                     !locationPermissionAttempted)) &&
                   styles.hiddenButton,
               ]}
-              onPress={handleNext}
+              onPress={() => {
+                handleNext();
+              }}
               disabled={
                 (currentStepData.id === 'login' && !isLoggedIn) ||
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
                 (currentStepData.id === 'admin-code' && adminCode.length !== 4)
               }>
-              <Text style={styles.buttonText}>
+              <Text
+                style={[styles.buttonText, {fontSize: nextButtonTextFontSize}]}>
                 {currentStepData.buttonText}
               </Text>
             </TouchableOpacity>
@@ -1214,6 +1283,7 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.18,
     width: '90%',
     marginBottom: 20,
+    zIndex: 1000,
   },
   question: {
     fontSize: Math.min(22, width * 0.05),
@@ -1295,7 +1365,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: 'white',
-    fontSize: 20,
     fontWeight: 'bold',
   },
   genderContainer: {
@@ -1439,19 +1508,28 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: 'rgba(20, 108, 240, 0.75)',
     borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    alignContent: 'center',
+    justifyContent: 'center',
+    ...(Platform.OS === 'ios'
+      ? {
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 5,
+        }
+      : {
+          elevation: 15,
+        }),
   },
   backButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: 'white',
+    justifyContent: 'center',
   },
   gridItem: {
     borderRadius: 16,

@@ -1,6 +1,6 @@
 {
   "extends": "@react-native/typescript-config/tsconfig.json",
 
-  "include": ["src/**/*", "src/types/svg.d.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules"]
 }

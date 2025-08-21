@@ -65,7 +65,7 @@
          referenceType = "1">
       </LocationScenarioReference>
       <StoreKitConfigurationFileReference
-         identifier = "../Ma-talk.storekit">
+         identifier = "../MaTalkStore.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction

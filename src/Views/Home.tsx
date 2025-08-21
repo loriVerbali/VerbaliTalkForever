@@ -6,6 +6,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import {useNavigation, RouteProp} from '@react-navigation/native';
 import RNFS from 'react-native-fs';
@@ -50,7 +51,10 @@ interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
 const DEBUGWITHOUTTRANSCRIPTION = false;
+const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
+const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const audioRecorderPlayer = new AudioRecorderPlayer();
+const DEBUGTRANSCRIPTION = 'How was school today?';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {
@@ -60,6 +64,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     imageUrls,
     status,
     resetAssistant,
+    clearImages,
+    createThreadIfNeeded,
   } = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
@@ -131,8 +137,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       : {width: 60, height: 60},
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? {width: 50, height: 50}
-      : {width: 40, height: 40},
+      ? {width: '100%', height: '100%'}
+      : {width: '100%', height: '100%'},
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
@@ -214,7 +220,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     mixpanel.track('Conversation', {
       Opened: 'Conversation',
     });
-
     if (stateof === 'Attention') {
       // wakeWord.stopListening();
       playSound();
@@ -236,18 +241,50 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   }, [waitingForNextConversation]);
 
   const playSound = async () => {
-    //console.log('playSound - Starting playSound function');
-
     // FORCE THE RECORDING INDICATOR ON
     setIsRecording(true);
     const res = await playAttention();
-    //console.log('playSound - playAttention result:', res);
     if (stateof === 'Attention' && res) {
       handleRecord();
     }
   };
 
+  const checkAudioPermission = async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: 'Audio Recording Permission',
+            message:
+              'This app needs access to your microphone to record audio.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (err) {
+        console.warn('Permission request error:', err);
+        return false;
+      }
+    }
+    return true; // iOS permissions are handled differently
+  };
+
   const handleRecord = async () => {
+    // Check for audio permission before recording
+    const hasPermission = await checkAudioPermission();
+    if (!hasPermission) {
+      console.log('Audio recording permission not granted');
+      return;
+    }
+
     const currentTime = Date.now();
 
     lastSoundTimeRef.current = 0;
@@ -344,37 +381,103 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   const transcribeAudio = async (audioPath: string) => {
     if (!audioPath) {
+      setFinishedTranscribing(true);
+      setTranscribedText(ISSUEMESSAGE);
+
+      TTSService.speak('I am having an issue, Tap Home to retry', true);
+      setIsRecording(false);
       return;
     }
 
     try {
       const formData = new FormData();
-      const audioUri = audioPath.replace('file://', '');
+      // Fix the file URI handling - ensure proper format for React Native FormData
+      let audioUri = audioPath;
 
-      formData.append('file', {
-        uri: audioUri,
-        type: Platform.OS === 'ios' ? 'audio/x-m4a' : 'audio/mp3',
-        name: Platform.OS === 'ios' ? 'recording.m4a' : 'recording.mp3',
-      });
+      // For Android, ensure the URI starts with 'file://' for FormData
+      if (Platform.OS === 'android') {
+        // Remove any existing file:// prefix first to avoid double prefixing
+        audioUri = audioPath;
+      } else {
+        // For iOS, the path should be used as-is from the recorder
+        audioUri = audioPath.replace('file://', '');
+      }
+
+      // Check if file exists before proceeding
+
+      const fileObj =
+        Platform.OS === 'android'
+          ? {
+              uri: audioUri,
+              type: 'audio/mp3',
+              name: 'sound.mp3',
+              filename: 'sound.mp3', // Add filename for Android
+            }
+          : {
+              uri: audioUri,
+              type: 'audio/x-m4a',
+              name: 'recording.m4a',
+            };
+
+      formData.append('file', fileObj);
       formData.append('model', 'whisper-1');
       formData.append('language', 'en');
 
+      // Debug: Check if OpenAI API key is available
+
       let transcribeResponse: any;
       if (!DEBUGWITHOUTTRANSCRIPTION) {
-        transcribeResponse = await fetchHelper('transcribeAudio', {}, formData);
+        try {
+          transcribeResponse = await fetchHelper(
+            'transcribeAudio',
+            {},
+            formData,
+          );
+        } catch (networkError) {
+          setFinishedTranscribing(true);
+          setTranscribedText(ISSUEMESSAGE);
+          console.log('transcribeAudio - Error:', networkError);
+          TTSService.speak('I am having an issue, Tap Home to retry', true);
+          setIsRecording(false);
+          return;
+        }
       } else {
-        transcribeResponse = {text: 'what is your sister nam'};
+        transcribeResponse = {text: DEBUGTRANSCRIPTION};
       }
 
-      if (transcribeResponse?.text) {
+      if (threadId.length < 1 && threadId === '') {
+        await createThreadIfNeeded();
+      }
+
+      if (transcribeResponse?.text && threadId.length > 1 && threadId !== '') {
         const transcribedText = transcribeResponse.text.trim();
 
-        // OPTIMIZATION 1: Show transcribed text immediately before API calls
         if (
+          transcribedText.length === 0 ||
+          transcribedText === 'Thank you for watching!' ||
+          transcribedText === 'Thank you for watching.' ||
+          transcribedText === 'Thanks for watching!' ||
+          transcribedText === 'Thanks for watching.' ||
+          transcribedText === '. .' ||
+          transcribedText === '.' ||
+          transcribeResponse?.usage?.seconds === 0 ||
+          transcribeResponse?.usage?.seconds === '0'
+        ) {
+          setFinishedTranscribing(true);
+          setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
+          TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+        }
+
+        if (
+          threadId.length > 1 &&
+          threadId !== '' &&
           transcribedText.length > 0 &&
           transcribedText !== 'null' &&
+          transcribedText !== 'Thank you.' &&
           transcribedText !== 'Thank you for watching!' &&
           transcribedText !== 'Thank you for watching.' &&
+          transcribedText !== 'Thanks for watching!' &&
+          transcribedText !== 'Thanks for watching.' &&
           transcribedText !== '. .' &&
           transcribedText !== '.'
         ) {
@@ -386,17 +489,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           if (inputsRef.current) {
             inputsRef.current.setInput(transcribedText);
           }
-        }
-
-        if (
-          threadId &&
-          transcribedText.length > 0 &&
-          transcribedText !== 'null' &&
-          transcribedText !== 'Thank you for watching!' &&
-          transcribedText !== 'Thank you for watching.' &&
-          transcribedText !== '. .' &&
-          transcribedText !== '.'
-        ) {
           // OPTIMIZATION 2: Create optimized context message
           // Use simpler context to reduce message size and processing time
           const contextInfo = getCachedContextInfo();
@@ -407,6 +499,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
           // OPTIMIZATION 3: Start both API calls and don't wait for sendMessage to complete
+
           try {
             const messagePromise = sendMessage(
               messageWithContext,
@@ -422,11 +515,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               runAssistant(threadId).catch(error => {
                 console.error('Failed to run assistant:', error);
                 setIsProcessingAnswer(false);
+                setIsRecording(false);
                 TTSService.speak(
                   'Failed to process your request. Please try again.',
                   true,
                 );
               });
+            } else {
+              setIsProcessingAnswer(false);
+              console.log('transcribeAudio - Error:', 'messageId', messageId);
+              TTSService.speak('I am having an issue, Tap Home to retry', true);
+              setIsRecording(false);
+              return;
             }
           } catch (error) {
             console.error('Failed to send message:', error);
@@ -437,25 +537,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             );
           }
         }
-        if (
-          transcribedText.length === 0 ||
-          transcribedText === 'Thank you for watching!' ||
-          transcribedText === 'Thank you for watching.' ||
-          transcribedText === '. .' ||
-          transcribedText === '.'
-        ) {
-          resetLocalStates();
-          TTSService.speak(
-            "I couldn't hear anything press Home to retry",
-            true,
-          );
-        }
+
+        setIsRecording(false);
       } else {
-        TTSService.speak('No speech detected. Please try again.', true);
+        setFinishedTranscribing(true);
+        setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
+        TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+        setIsRecording(false);
       }
     } catch (error) {
-      console.error('transcribeAudio - Processing failed:', error);
-      TTSService.speak('Failed to process audio. Please try again.', true);
+      setFinishedTranscribing(true);
+      setTranscribedText(ISSUEMESSAGE);
+      console.log('transcribeAudio - Error:', 'error');
+      TTSService.speak('I am having an issue, Tap Home to retry', true);
+      setIsRecording(false);
     }
   };
 
@@ -470,14 +565,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           return urlObj.url && urlObj.url !== 'placeholder';
         }).length || 0;
 
-      // Always reset retry and processing states when completed
-      setIsRetrying(false);
-      setIsProcessingAnswer(false);
-
       if (validImageCount > 0) {
-        setShowImages(true);
+        // Add a small delay to ensure gif is visible during retry operations
+        if (isRetrying) {
+          setTimeout(() => {
+            setIsRetrying(false);
+            setIsProcessingAnswer(false);
+            setShowImages(true);
+          }, 1000); // Show retry gif for at least 1 second
+        } else {
+          setIsRetrying(false);
+          setIsProcessingAnswer(false);
+          setShowImages(true);
+        }
       } else {
-        // No valid images returned - keep processing state false but don't show images
+        // No valid images returned - keep processing state but don't show images yet
+        // Don't reset isRetrying here in case we're in the middle of a retry
+        setIsProcessingAnswer(false);
         setShowImages(false);
       }
     }
@@ -548,6 +652,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       setIsRetrying(true);
       setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
+      clearImages(); // Clear old images immediately to prevent flickering
       setRetryCount(prev => prev + 1);
 
       // Get contextual information (time, weather, location, special places)
@@ -563,6 +668,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       );
 
       if (messageId) {
+        // Clear old images immediately to prevent flickering
         runAssistant(threadId).catch(error => {
           console.error('handleCantFindIt - Failed to retry:', error);
           setIsProcessingAnswer(false);
@@ -798,7 +904,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
+      <LinearGradient
+        colors={['#FFF8E7', '#FFFFFF']}
+        style={[
+          styles.container,
+          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
+        ]}>
         {stateof === 'Keyboard' ? null : (
           <View
             style={[
@@ -827,7 +938,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             isProcessingAnswer ||
             isRetrying ||
             isSubmittingKeyboard ||
-            (finishedTranscribing && !showImages)
+            !finishedTranscribing
           }
         />
 
@@ -936,9 +1047,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                               ]}>
                               <FastImage
                                 source={require('../assets/shortCuts.png')}
-                                style={
-                                  responsiveValues.navigationCardImageIconSize
-                                }
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                }}
                                 resizeMode={FastImage.resizeMode.contain}
                               />
                             </View>
@@ -985,9 +1097,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                               ]}>
                               <FastImage
                                 source={require('../assets/feelings.png')}
-                                style={
-                                  responsiveValues.navigationCardImageIconSize
-                                }
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                }}
                                 resizeMode={FastImage.resizeMode.contain}
                               />
                             </View>
@@ -1084,8 +1197,31 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           }}>
                           {`${transcribedText}`}
                         </Text>
+
                         {/* Show different loading states based on processing phase */}
-                        {isProcessingAnswer ? (
+                        {isRetrying ? (
+                          <View style={{alignItems: 'center'}}>
+                            <FastImage
+                              source={require('../assets/movie/output.gif')}
+                              style={[
+                                styles.iconSize,
+                                responsiveValues.fetchingSize,
+                              ]}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                            <Text
+                              style={[
+                                styles.retryText,
+                                {
+                                  fontSize: responsiveValues.retryFontSize,
+                                  marginTop: 10,
+                                },
+                              ]}>
+                              Getting more answers... (Attempt {retryCount}/
+                              {MAX_RETRIES})
+                            </Text>
+                          </View>
+                        ) : isProcessingAnswer ? (
                           <View style={{alignItems: 'center'}}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
@@ -1106,7 +1242,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                               Finding answers...
                             </Text>
                           </View>
-                        ) : transcribedText.length === 0 || isRetrying ? (
+                        ) : transcribedText.length === 0 ? (
                           <FastImage
                             source={require('../assets/movie/output.gif')}
                             style={[
@@ -1128,16 +1264,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             Something went wrong. Please press Home to retry.
                           </Text>
                         )}
-                        {isRetrying && (
-                          <Text
-                            style={[
-                              styles.retryText,
-                              {fontSize: responsiveValues.retryFontSize},
-                            ]}>
-                            Getting more answers... (Attempt {retryCount}/
-                            {MAX_RETRIES})
-                          </Text>
-                        )}
+                        {finishedTranscribing &&
+                        (transcribedText.length === 0 ||
+                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                          <HomeButton
+                            navigation={navigation}
+                            onReset={resetLocalStates}
+                            disabled={false}
+                            inScreen={true}
+                          />
+                        ) : null}
                       </View>
                     )}
                   </View>

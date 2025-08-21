@@ -5,7 +5,7 @@ import React, {
   useRef,
   useEffect,
 } from 'react';
-import {View, StyleSheet, TextInput, Dimensions} from 'react-native';
+import {View, StyleSheet, TextInput, Dimensions, Platform} from 'react-native';
 import AudioRecorderPlayer, {
   AudioEncoderAndroidType,
   AudioSourceAndroidType,
@@ -74,7 +74,14 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
               ]}
               pointerEvents="none">
               <TextInput
-                style={[styles.textInput, {fontSize: responsiveFontSize}]}
+                style={[
+                  styles.textInput,
+                  {fontSize: responsiveFontSize},
+                  Platform.OS === 'android' && {
+                    textAlignVertical: 'center',
+                    paddingVertical: 15,
+                  },
+                ]}
                 value={inputText}
                 editable={false}
                 onChangeText={handleTextChange}
@@ -93,7 +100,14 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
               ]}>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.textKBInput, {fontSize: responsiveFontSize}]}
+                  style={[
+                    styles.textKBInput,
+                    {fontSize: responsiveFontSize},
+                    Platform.OS === 'android' && {
+                      textAlignVertical: 'center',
+                      paddingHorizontal: 15,
+                    },
+                  ]}
                   value={inputText}
                   onChangeText={handleTextChange}
                   placeholder="Type your message here..."
@@ -148,6 +162,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     padding: 20,
     color: '#000',
+    minHeight: 40, // Ensure minimum height for proper text display
     // fontSize is now handled dynamically
   },
   textKBInput: {
@@ -163,7 +178,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     paddingTop: 10,
     paddingBottom: 10,
+    paddingHorizontal: 10, // Add default horizontal padding
     color: '#000',
+    minHeight: 40, // Ensure minimum height for proper text display
     // fontSize is now handled dynamically
   },
   iconSize: {

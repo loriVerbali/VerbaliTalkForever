@@ -234,7 +234,7 @@ const fetchHelper = async (
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => {
       abortController.abort();
-    }, 20000);
+    }, 8000);
 
     // Attach abort signal to this request
     (request as RequestInit).signal = abortController.signal;

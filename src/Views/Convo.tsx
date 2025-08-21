@@ -223,8 +223,16 @@ const Convo = () => {
       : Platform.OS === 'ios'
       ? SCREEN_HEIGHT * 0.05
       : SCREEN_HEIGHT * 0.03,
-    inputHeight: isTablet ? SCREEN_HEIGHT * 0.06 : SCREEN_HEIGHT * 0.055,
-    inputFontSize: isTablet ? SCREEN_HEIGHT * 0.02 : SCREEN_HEIGHT * 0.018,
+    inputHeight: isTablet
+      ? SCREEN_HEIGHT * 0.06
+      : Platform.OS === 'android'
+      ? SCREEN_HEIGHT * 0.12
+      : SCREEN_HEIGHT * 0.055,
+    inputFontSize: isTablet
+      ? SCREEN_HEIGHT * 0.02
+      : Platform.OS === 'android'
+      ? SCREEN_HEIGHT * 0.05
+      : SCREEN_HEIGHT * 0.018,
     inputMarginHorizontal: isTablet ? SCREEN_WIDTH * 0.03 : SCREEN_WIDTH * 0.02,
     inputMarginVertical: isTablet
       ? SCREEN_HEIGHT * 0.02
@@ -1559,6 +1567,10 @@ const Convo = () => {
               fontSize: responsiveValues.inputFontSize,
               marginHorizontal: responsiveValues.inputMarginHorizontal,
             },
+            Platform.OS === 'android' && {
+              textAlignVertical: 'center',
+              paddingVertical: 12,
+            },
           ]}
           placeholder="Waiting for input..."
           value={inputText}
@@ -2270,14 +2282,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 20,
+      },
+    }),
     // width, height, borderRadius, and marginLeft are now set dynamically via responsiveValues
   },
   smallNavIcon: {

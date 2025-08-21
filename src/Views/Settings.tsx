@@ -608,7 +608,7 @@ const SettingsScreen: React.FC = () => {
               {subscriptionStatus === 'active' ? 'Active' : 'Needs Attention'}
             </Text>
           </View>
-          {(subscriptionStatus !== 'active' || showSubscription) && (
+          {subscriptionStatus !== 'active' && (
             <View
               style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
               <Subscription
@@ -1130,7 +1130,7 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>Ma-Talk AI v1.2.0</Text>
+            <Text style={styles.aboutText}>Ma-Talk AI v1.4.0</Text>
           </TouchableOpacity>
 
           {showAssistantId &&

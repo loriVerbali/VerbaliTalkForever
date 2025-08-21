@@ -1,5 +1,6 @@
 import React, {createContext, useContext, useEffect, useRef} from 'react';
 import Sound from 'react-native-sound';
+import {Platform} from 'react-native';
 
 type SoundContextType = {
   playAttention: () => Promise<boolean>;
@@ -14,14 +15,37 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
   const soundRef = useRef<Sound | null>(null);
 
   useEffect(() => {
-    const sound = new Sound('snap.mp3', Sound.MAIN_BUNDLE, error => {
-      if (error) {
-        return;
+    // Enable sound playback in silence mode (iOS)
+    Sound.setCategory('Playback');
+
+    // Platform-specific sound loading
+    const loadSound = () => {
+      if (Platform.OS === 'android') {
+        // For Android, load from res/raw (without .mp3 extension)
+        const sound = new Sound('snap', Sound.MAIN_BUNDLE, error => {
+          if (error) {
+            console.log('Failed to load Android sound:', error);
+            return;
+          }
+          sound.setVolume(1.0);
+          sound.setNumberOfLoops(2);
+          soundRef.current = sound;
+        });
+      } else {
+        // For iOS, use the standard approach
+        const sound = new Sound('snap.mp3', Sound.MAIN_BUNDLE, error => {
+          if (error) {
+            console.log('Failed to load iOS sound:', error);
+            return;
+          }
+          sound.setVolume(1.0);
+          sound.setNumberOfLoops(2);
+          soundRef.current = sound;
+        });
       }
-      sound.setVolume(1.0);
-      sound.setNumberOfLoops(2);
-      soundRef.current = sound;
-    });
+    };
+
+    loadSound();
 
     return () => {
       soundRef.current?.release();
@@ -42,7 +66,6 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
 
             soundRef.current.play(success => {
               if (!success) {
-                // If play failed, resolve immediately
                 resolve(false);
                 return;
               }
@@ -50,7 +73,7 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
               // Wait for the full sound duration before resolving
               setTimeout(() => {
                 resolve(true);
-              }, Math.max(100, duration * 100)); // At least 1 second, convert to milliseconds
+              }, Math.max(100, duration * 1000)); // Convert to milliseconds
             });
           } else {
             resolve(false);

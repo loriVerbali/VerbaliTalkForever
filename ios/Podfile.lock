@@ -1478,7 +1478,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-video (6.4.1):
+  - react-native-video (6.16.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1491,7 +1491,7 @@ PODS:
     - React-featureflags
     - React-graphics
     - React-ImageManager
-    - react-native-video/Video (= 6.4.1)
+    - react-native-video/Video (= 6.16.0)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-rendererdebug
@@ -1500,7 +1500,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-video/Fabric (6.4.1):
+  - react-native-video/Fabric (6.16.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1521,7 +1521,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-video/Video (6.4.1):
+  - react-native-video/Video (6.16.0):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2037,49 +2037,6 @@ PODS:
     - RNSound/Core (= 0.11.2)
   - RNSound/Core (0.11.2):
     - React-Core
-  - RNSVG (15.12.1):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.11.18.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - RNSVG/common (= 15.12.1)
-    - Yoga
-  - RNSVG/common (15.12.1):
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.11.18.00)
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - Yoga
   - SDWebImage (5.11.1):
     - SDWebImage/Core (= 5.11.1)
   - SDWebImage/Core (5.11.1)
@@ -2186,7 +2143,6 @@ DEPENDENCIES:
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNSound (from `../node_modules/react-native-sound`)
-  - RNSVG (from `../node_modules/react-native-svg`)
   - TextToSpeech (from `../node_modules/react-native-tts`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -2388,8 +2344,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-reanimated"
   RNSound:
     :path: "../node_modules/react-native-sound"
-  RNSVG:
-    :path: "../node_modules/react-native-svg"
   TextToSpeech:
     :path: "../node_modules/react-native-tts"
   Yoga:
@@ -2453,7 +2407,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: 072f0334ce3c7e3ee4ae81871564eacad45c8ac5
   react-native-sherpa-onnx-offline-tts: dc92f88677e2e791515523beb424c311f82eb8e2
   react-native-slider: 310d3f89edd6ca8344a974bfe83a29a3fbb60e5a
-  react-native-video: 76ff0e033ef7fd36c18f37ffdb54798dd1b95458
+  react-native-video: 278ea57b2be2993535ba7291a146152ca9301143
   react-native-voice: 908a0eba96c8c3d643e4f98b7232c6557d0a6f9c
   react-native-webview: 80ef603d1df42e24fdde765686fbb9b8a6ecd554
   React-NativeModulesApple: 88433b6946778bea9c153e27b671de15411bf225
@@ -2494,7 +2448,6 @@ SPEC CHECKSUMS:
   RNPermissions: dc2bdb571aa7213e059a9ded95b4f9d8da2d7c66
   RNReanimated: e023bfbfba9b0b4b85db6a64d2fa8e4996d6839b
   RNSound: 314cc5226453ef4a3314a196c65e8a65e5106a7b
-  RNSVG: 8ad5c94593e5e4a6e133e6934e2188e3c688d27a
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SimpleKeychain: 768cf43ae778b1c21816e94dddf01bb8ee96a075

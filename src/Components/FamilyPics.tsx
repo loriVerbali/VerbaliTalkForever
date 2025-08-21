@@ -8,6 +8,7 @@ import {
   Alert,
   TextInput,
   ScrollView,
+  Platform,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import {
@@ -386,11 +387,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#ff4444',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {width: 0, height: 1},
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   deleteButtonText: {
     color: '#fff',
@@ -401,13 +409,20 @@ const styles = StyleSheet.create({
   gridItem: {
     borderRadius: 16,
     overflow: 'visible',
-    shadowColor: 'gray',
-    shadowOpacity: 0.8,
-    shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
     backgroundColor: 'white',
     position: 'relative',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: 'gray',
+        shadowOpacity: 0.8,
+        shadowRadius: 5,
+        shadowOffset: {width: 0, height: 8},
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   gridImageContainer: {
     borderTopLeftRadius: 16,

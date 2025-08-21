@@ -160,7 +160,11 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       // validate purchase on launch
       setTimeout(async () => {
         try {
-          await validateReceiptOnLaunch();
+          const purchaseValid = await validateReceiptOnLaunch();
+          if (!purchaseValid) {
+            console.log('purchaseValid', purchaseValid);
+            await setItem('isIOSActive', '1');
+          }
         } catch (error) {}
       }, 3000);
 
