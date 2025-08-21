@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, memo, useMemo} from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Pressable,
   Image,
   Animated,
+  Platform,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
@@ -63,7 +64,7 @@ const badBodyImg = require('../assets/feelings/badPhysical.jpg');
 const goodBodyImg = require('../assets/feelings/goodPhysical.jpg');
 const matalkImg = require('../assets/matalk.png');
 
-// Top category data with emoji representations (since we don't have the actual images)
+// Static data extracted outside component to prevent recreation on every render
 const topCategories = [
   {
     label: 'My Body Feels Good',
@@ -89,9 +90,9 @@ const topCategories = [
     backgroundColor: '#F44336',
     description: 'Feeling pain or discomfort',
   },
-];
+] as const;
 
-// Feeling grid data - using the same image for all cards as placeholder
+// Feeling grid data - static arrays extracted outside component
 const goodBody = [
   {label: 'Comfortable', image: comfortableImg, backgroundColor: '#FFFFFF'},
   {label: 'Relaxed', image: relaxedImg, backgroundColor: '#FFFFFF'},
@@ -99,7 +100,7 @@ const goodBody = [
   {label: 'Warm', image: warmImg, backgroundColor: '#FFFFFF'},
   {label: 'Strong', image: strongImg, backgroundColor: '#FFFFFF'},
   {label: 'Energetic', image: energeticImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
 
 const goodFeelings = [
   {label: 'Happy', image: happyImg, backgroundColor: '#FFFFFF'},
@@ -108,7 +109,7 @@ const goodFeelings = [
   {label: 'Calm', image: calmImg, backgroundColor: '#FFFFFF'},
   {label: 'Proud', image: proudImg, backgroundColor: '#FFFFFF'},
   {label: 'Silly', image: sillyImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
 
 const badFeelings = [
   {label: 'Sad', image: sadImg, backgroundColor: '#FFFFFF'},
@@ -117,7 +118,7 @@ const badFeelings = [
   {label: 'Worried', image: worriedImg, backgroundColor: '#FFFFFF'},
   {label: 'Embarrassed', image: embarrassedImg, backgroundColor: '#FFFFFF'},
   {label: 'Angry', image: angryImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
 
 const badBody = [
   {label: 'Cold', image: coldImg, backgroundColor: '#FFFFFF'},
@@ -126,7 +127,15 @@ const badBody = [
   {label: 'Tired', image: tiredImg, backgroundColor: '#FFFFFF'},
   {label: 'Dizzy', image: dizzyImg, backgroundColor: '#FFFFFF'},
   {label: 'Itchy', image: itchyImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
+
+// Static category mapping to prevent recreation
+const FEELINGS_DATA = {
+  goodBody,
+  goodFeelings,
+  badFeelings,
+  badBody,
+} as const;
 
 // Responsive values are now handled within the component
 
@@ -156,26 +165,29 @@ const Feelings = () => {
     badFeelings: new Animated.Value(0),
   }).current;
 
-  // Responsive values based on device type
-  const responsiveValues = {
-    iconSize: isTablet ? {width: 60, height: 60} : {width: 30, height: 30},
-    topRowHeight: isTablet ? height * 0.22 : height * 0.18,
-    topItemWidth: isTablet ? width * 0.16 : width * 0.2,
-    topRowGap: isTablet ? width * 0.03 : width * 0.02,
-    scrollContentWidth: isTablet ? width * 0.8 : width * 0.9,
-    gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4,
-    gridImageHeight: isTablet ? height * 0.25 : height * 0.15,
-    labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-    labelGridFontSize: isTablet ? 16 : 14,
-    marginTop: isTablet ? height * 0.02 : height * 0.01,
-    marginBottom: isTablet ? height * 0.05 : height * 0.03,
-    gridItemMarginBottom: isTablet ? 15 : 10,
-    gridLabelPadding: isTablet ? 8 : 6,
-    borderRadius: isTablet ? 16 : 12,
-    shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
-    elevation: isTablet ? 8 : 5,
-  };
+  // Memoize responsive values to prevent recalculation on every render
+  const responsiveValues = useMemo(
+    () => ({
+      iconSize: isTablet ? {width: 60, height: 60} : {width: 30, height: 30},
+      topRowHeight: isTablet ? height * 0.22 : height * 0.18,
+      topItemWidth: isTablet ? width * 0.16 : width * 0.2,
+      topRowGap: isTablet ? width * 0.03 : width * 0.02,
+      scrollContentWidth: isTablet ? width * 0.8 : width * 0.9,
+      gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4, // Back to 4 columns
+      gridImageHeight: isTablet ? height * 0.25 : height * 0.16, // Slight height increase
+      labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
+      labelGridFontSize: isTablet ? 16 : 14,
+      marginTop: isTablet ? height * 0.02 : height * 0.01,
+      marginBottom: isTablet ? height * 0.05 : height * 0.03,
+      gridItemMarginBottom: isTablet ? 15 : 10,
+      gridLabelPadding: isTablet ? 8 : 3, // Reduced padding on mobile to give more space to image
+      borderRadius: isTablet ? 16 : 12,
+      shadowRadius: isTablet ? 5 : 3,
+      shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
+      elevation: isTablet ? 8 : 5,
+    }),
+    [isTablet],
+  );
 
   useEffect(() => {
     // Initialize TTS when component mounts
@@ -258,28 +270,17 @@ const Feelings = () => {
     }
   };
 
-  // Determine which feeling cards to display based on selected category
-  const getFeelingsToDisplay = () => {
-    switch (selectedCategory) {
-      case 'goodBody':
-        return goodBody;
-      case 'goodFeelings':
-        return goodFeelings;
-      case 'badFeelings':
-        return badFeelings;
-      case 'badBody':
-        return badBody;
-      default:
-        return goodBody;
-    }
-  };
+  // Memoize the feelings data to display based on selected category
+  const feelingsToDisplay = useMemo(() => {
+    return FEELINGS_DATA[selectedCategory] || FEELINGS_DATA.goodBody;
+  }, [selectedCategory]);
 
   return (
     <GestureHandlerRootView style={styles.screen}>
       <View style={styles.screen}>
         {/* Microphone Button */}
         <View style={styles.micIcon}>
-          <FastImage
+          <Image
             source={
               connectionState
                 ? require('../assets/michrophone.gif')
@@ -290,7 +291,7 @@ const Feelings = () => {
         </View>
 
         <View style={styles.matalkIcon}>
-          <FastImage source={matalkImg} style={responsiveValues.iconSize} />
+          <Image source={matalkImg} style={responsiveValues.iconSize} />
         </View>
 
         {/* Home Button */}
@@ -346,17 +347,13 @@ const Feelings = () => {
                     styles.topImageContainer,
                     {borderRadius: responsiveValues.borderRadius},
                   ]}>
-                  <FastImage
+                  <Image
                     source={topCategories[0].image}
                     style={[
                       styles.imageTop,
                       {backgroundColor: topCategories[0].backgroundColor},
                     ]}
-                    resizeMode={
-                      isTablet
-                        ? FastImage.resizeMode.cover
-                        : FastImage.resizeMode.contain
-                    }
+                    resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
@@ -402,17 +399,13 @@ const Feelings = () => {
                     styles.topImageContainer,
                     {borderRadius: responsiveValues.borderRadius},
                   ]}>
-                  <FastImage
+                  <Image
                     source={topCategories[1].image}
                     style={[
                       styles.imageTop,
                       {backgroundColor: topCategories[1].backgroundColor},
                     ]}
-                    resizeMode={
-                      isTablet
-                        ? FastImage.resizeMode.cover
-                        : FastImage.resizeMode.contain
-                    }
+                    resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
@@ -458,17 +451,13 @@ const Feelings = () => {
                     styles.topImageContainer,
                     {borderRadius: responsiveValues.borderRadius},
                   ]}>
-                  <FastImage
+                  <Image
                     source={topCategories[3].image}
                     style={[
                       styles.imageTop,
                       {backgroundColor: topCategories[3].backgroundColor},
                     ]}
-                    resizeMode={
-                      isTablet
-                        ? FastImage.resizeMode.cover
-                        : FastImage.resizeMode.contain
-                    }
+                    resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
@@ -514,17 +503,13 @@ const Feelings = () => {
                     styles.topImageContainer,
                     {borderRadius: responsiveValues.borderRadius},
                   ]}>
-                  <FastImage
+                  <Image
                     source={topCategories[2].image}
                     style={[
                       styles.imageTop,
                       {backgroundColor: topCategories[2].backgroundColor},
                     ]}
-                    resizeMode={
-                      isTablet
-                        ? FastImage.resizeMode.cover
-                        : FastImage.resizeMode.contain
-                    }
+                    resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
@@ -542,7 +527,7 @@ const Feelings = () => {
         {/* Grid Items - Feelings with Gesture Handler */}
         <PanGestureHandler onHandlerStateChange={onPanGestureEvent}>
           <View style={styles.grid}>
-            {getFeelingsToDisplay().map((feeling, i) => (
+            {feelingsToDisplay.map((feeling, i) => (
               <Pressable
                 key={i}
                 style={({pressed}) => [
@@ -571,7 +556,7 @@ const Feelings = () => {
                   <Image
                     source={feeling.image}
                     style={styles.imageGrid}
-                    resizeMode={isTablet ? 'cover' : 'contain'}
+                    resizeMode="contain"
                   />
                 </View>
                 <View
@@ -697,14 +682,24 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 10,
-    width: '80%',
+    width: '80%', // Back to original width
   },
   gridItem: {
     // width, borderRadius, shadowRadius, shadowOffset, elevation, marginBottom are now handled dynamically
     overflow: 'visible',
-    shadowColor: 'gray',
-    shadowOpacity: 0.8,
     backgroundColor: 'white',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: 'gray',
+        shadowOpacity: 0.8,
+        shadowRadius: 5,
+        shadowOffset: {width: 0, height: 8},
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   gridImageContainer: {
     width: '100%',
@@ -738,20 +733,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     left: width * 0.03,
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
     position: 'absolute',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   matalkIcon: {
     bottom: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
     left: width * 0.03,
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
     position: 'absolute',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   buttonPressed: {
     opacity: 0.8,
@@ -759,4 +778,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Feelings;
+export default memo(Feelings);

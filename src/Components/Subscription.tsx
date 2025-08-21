@@ -39,9 +39,11 @@ interface SubscriptionProps {
 }
 
 // Subscription product IDs for MaTalk subscription group
+// Note: For Google Play Billing v6+, Android subscriptions require basePlanId and offerToken
+// These are automatically extracted from the subscription details when making purchases
 const SUBSCRIPTION_SKUS = Platform.select({
   ios: ['matalkai.monthly', 'matalkai.annual'],
-  android: [], // Not needed for iOS-only implementation
+  android: ['matalk.monthly', 'matalk.annual'], // Android SKUs - need to be configured in Google Play Console
 }) as string[];
 
 const Subscription: React.FC<SubscriptionProps> = ({
@@ -49,7 +51,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
   context = 'onboarding',
 }) => {
   const {isTablet} = useAdmin();
-  const {showSuccess, showError} = useToast();
+  const {showError} = useToast();
 
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -63,34 +65,35 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const [showModal, setShowModal] = useState(false);
   const {setItem} = useAppSettings();
 
-  // Initialize IAP connection
+  // Initialize IAP connection immediately to check existing subscription
   useEffect(() => {
-    if (Platform.OS === 'ios' && parentalGatePassed) {
-      !purchaseSuccess ? initializeIAP() : null;
+    if (!purchaseSuccess) {
+      initializeIAP();
     }
 
     return () => {
-      if (Platform.OS === 'ios') {
-        endConnection();
-      }
+      endConnection();
     };
-  }, [purchaseSuccess, parentalGatePassed]);
+  }, [purchaseSuccess]);
 
   const initializeIAP = async () => {
     try {
       const result = await initConnection();
-
+      debugger;
       if (result) {
         const purchases = await getAvailablePurchases();
 
-        const owned = purchases.some(
-          p =>
-            p.productId === 'matalkai.monthly' ||
-            p.productId === 'matalkai.annual',
+        const owned = purchases.some(p =>
+          Platform.OS === 'ios'
+            ? p.productId === 'matalkai.monthly' ||
+              p.productId === 'matalkai.annual'
+            : p.productId === 'matalk.monthly' ||
+              p.productId === 'matalk.annual',
         );
-
         setIsIAPInitialized(true);
+
         await loadSubscriptions();
+
         setupPurchaseListeners();
 
         if (owned) {
@@ -102,19 +105,29 @@ const Subscription: React.FC<SubscriptionProps> = ({
           );
 
           const latestPurchase = sorted[0];
+
           const latestReceipt = latestPurchase.transactionReceipt;
           const isActive = await validateSubscription(latestReceipt);
           await setItem('isIOSActive', isActive ? '1' : '0');
+
           if (isActive) {
             setGotSubscription(true);
+            setShowParentalGate(false);
+            setParentalGatePassed(true);
           } else {
             setGotSubscription(false);
           }
           return;
         }
+      } else {
+        console.log('initializeIAP: Connection failed');
       }
     } catch (error) {
-      console.error('💥 initializeIAP: IAP initialization failed:', error);
+      console.error('initializeIAP: IAP initialization failed:', error);
+      console.error(
+        'initializeIAP: Error details:',
+        JSON.stringify(error, null, 2),
+      );
     }
   };
 
@@ -123,9 +136,10 @@ const Subscription: React.FC<SubscriptionProps> = ({
       const products = await getSubscriptions({skus: SUBSCRIPTION_SKUS});
       setSubscriptions(products);
     } catch (error) {
+      console.error('💥 loadSubscriptions: Failed to load subscriptions');
       console.error(
-        '💥 loadSubscriptions: Failed to load subscriptions:',
-        error,
+        '💥 loadSubscriptions: Error details:',
+        JSON.stringify(error, null, 2),
       );
     }
   };
@@ -140,9 +154,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
     const purchaseErrorSubscription = purchaseErrorListener(
       (error: PurchaseError) => {
         setIsLoading(false);
-
         if (error) {
-          console.log('Purchase error', error);
+          console.log('Purchase error details:', error);
         } else {
           showError('Purchase was cancelled or failed. Please try again.');
         }
@@ -157,26 +170,25 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
   const handlePurchaseUpdate = async (purchase: Purchase) => {
     try {
-      console.log('🔄 handlePurchaseUpdate: Setting loading to false');
       setIsLoading(false);
 
       if (purchase.transactionReceipt) {
-        // Purchase successful
-
         // Finish the transaction
+
         const finishResult = await finishTransaction({purchase});
+
         const isActive = await validateSubscription(
           purchase.transactionReceipt,
         );
+
         if (isActive) {
           await setItem('isIOSActive', isActive ? '1' : '0');
+
           setGotSubscription(true);
           setPurchaseSuccess(true);
         }
 
         // Optionally, you can store purchase info if needed
-      } else {
-        console.log('⚠️ handlePurchaseUpdate: No transaction receipt found');
       }
     } catch (error) {
       console.error('💥 handlePurchaseUpdate: Error handling purchase:', error);
@@ -186,8 +198,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const handlePlanSelection = async (plan: SubscriptionPlan) => {
     // Directly proceed with purchase since parental gate was already passed
     setSelectedPlan(plan);
-    if (Platform.OS === 'ios' && isIAPInitialized) {
+
+    if (isIAPInitialized) {
       await purchaseSubscription(plan);
+    } else {
+      showError('In-app purchases are not available. Please try again later.');
     }
   };
 
@@ -200,18 +215,107 @@ const Subscription: React.FC<SubscriptionProps> = ({
     try {
       setIsLoading(true);
 
-      const sku = plan === 'monthly' ? 'matalkai.monthly' : 'matalkai.annual';
+      const sku =
+        plan === 'monthly'
+          ? Platform.OS === 'ios'
+            ? 'matalkai.monthly'
+            : 'matalk.monthly'
+          : Platform.OS === 'ios'
+          ? 'matalkai.annual'
+          : 'matalk.annual';
 
-      // Clear any pending transactions
-      await clearTransactionIOS();
-      // Request subscription with introductory offer support
-      const purchaseResult = await requestSubscription({sku});
-      if (purchaseResult) {
-        setPurchaseSuccess(true);
-        setGotSubscription(true);
+      if (Platform.OS === 'ios') {
+        // Clear any pending transactions
+        await clearTransactionIOS();
+
+        // iOS uses the traditional sku parameter
+        const purchaseResult = await requestSubscription({sku});
+
+        if (purchaseResult) {
+          setPurchaseSuccess(true);
+          setGotSubscription(true);
+        } else {
+          console.log('purchaseSubscription: iOS Purchase result was falsy');
+        }
+      } else {
+        // Android - Google Play Billing v6+ requires subscriptionOffers with offerToken
+
+        const subscription = subscriptions.find(sub => sub.productId === sku);
+        if (!subscription) {
+          console.error(
+            '💥 purchaseSubscription: Android - Subscription not found for SKU:',
+            sku,
+          );
+          throw new Error(`Subscription not found for SKU: ${sku}`);
+        }
+
+        // Extract offerToken from subscription details
+        let offerToken: string | undefined;
+        let basePlanId: string | undefined;
+
+        if (
+          subscription.subscriptionOfferDetails &&
+          subscription.subscriptionOfferDetails.length > 0
+        ) {
+          // Look for introductory offer first (if exists)
+          const introOffer = subscription.subscriptionOfferDetails.find(
+            (offer: any) => offer.offerId,
+          );
+
+          if (introOffer && introOffer.offerToken) {
+            offerToken = introOffer.offerToken;
+            basePlanId = introOffer.basePlanId;
+          } else {
+            // Fall back to base plan offer
+            const baseOffer =
+              subscription.subscriptionOfferDetails.find(
+                (offer: any) => !offer.offerId,
+              ) || subscription.subscriptionOfferDetails[0];
+
+            if (baseOffer && baseOffer.offerToken) {
+              offerToken = baseOffer.offerToken;
+              basePlanId = baseOffer.basePlanId;
+            }
+          }
+        }
+
+        if (!offerToken) {
+          console.error(
+            '💥 purchaseSubscription: Android - No offerToken found in subscription details',
+          );
+          console.error(
+            '💥 purchaseSubscription: Android - Available subscription offer details:',
+            JSON.stringify(subscription.subscriptionOfferDetails, null, 2),
+          );
+          throw new Error(
+            'No offerToken found for Android subscription. Please ensure your subscription is properly configured in Google Play Console.',
+          );
+        }
+
+        // Android uses subscriptionOffers parameter for Google Play Billing v6+
+        const subscriptionOffer: any = {
+          sku,
+          offerToken,
+        };
+        if (basePlanId) {
+          subscriptionOffer.basePlanId = basePlanId;
+        }
+
+        const purchaseResult = await requestSubscription({
+          subscriptionOffers: [subscriptionOffer],
+        });
+
+        if (purchaseResult) {
+          setPurchaseSuccess(true);
+          setGotSubscription(true);
+        }
       }
     } catch (error) {
       console.error('💥 purchaseSubscription: Purchase failed:', error);
+      console.error(
+        '💥 purchaseSubscription: Error details:',
+        JSON.stringify(error, null, 2),
+      );
       setIsLoading(false);
       showError(
         'Unable to complete your purchase. Please try again or contact support.',
@@ -220,61 +324,196 @@ const Subscription: React.FC<SubscriptionProps> = ({
   };
 
   const getSubscriptionPrice = (plan: SubscriptionPlan): string => {
-    if (Platform.OS === 'ios' && subscriptions.length > 0) {
-      const sku = plan === 'monthly' ? 'matalkai.monthly' : 'matalkai.annual';
+    if (subscriptions.length > 0) {
+      const sku =
+        plan === 'monthly'
+          ? Platform.OS === 'ios'
+            ? 'matalkai.monthly'
+            : 'matalk.monthly'
+          : Platform.OS === 'ios'
+          ? 'matalkai.annual'
+          : 'matalk.annual';
 
       const subscription = subscriptions.find(sub => sub.productId === sku);
 
       if (subscription) {
-        // Check for introductory offer
-        if (subscription.introductoryPrice) {
-          return subscription.introductoryPrice;
+        if (Platform.OS === 'android') {
+          // Android subscription structure
+          if (
+            subscription.subscriptionOfferDetails &&
+            subscription.subscriptionOfferDetails.length > 0
+          ) {
+            // Look for introductory offer first (offerId exists)
+            const introOffer = subscription.subscriptionOfferDetails.find(
+              (offer: any) => offer.offerId,
+            );
+            if (
+              introOffer &&
+              introOffer.pricingPhases &&
+              introOffer.pricingPhases.pricingPhaseList &&
+              introOffer.pricingPhases.pricingPhaseList.length > 0
+            ) {
+              const introPrice =
+                introOffer.pricingPhases.pricingPhaseList[0].formattedPrice;
+
+              return introPrice;
+            }
+
+            // Fall back to regular price
+            const regularOffer = subscription.subscriptionOfferDetails[0];
+            if (
+              regularOffer &&
+              regularOffer.pricingPhases &&
+              regularOffer.pricingPhases.pricingPhaseList &&
+              regularOffer.pricingPhases.pricingPhaseList.length > 0
+            ) {
+              const regularPrice =
+                regularOffer.pricingPhases.pricingPhaseList[
+                  regularOffer.pricingPhases.pricingPhaseList.length - 1
+                ].formattedPrice;
+
+              return regularPrice;
+            }
+          }
+        } else {
+          // iOS subscription structure
+          // Check for introductory offer
+          if (subscription.introductoryPrice) {
+            return subscription.introductoryPrice;
+          }
+
+          const finalPrice = subscription.localizedPrice || subscription.price;
+
+          return finalPrice;
         }
-
-        const finalPrice = subscription.localizedPrice || subscription.price;
-
-        return finalPrice;
+      } else {
+        console.warn(
+          `⚠️ getSubscriptionPrice: Subscription not found for SKU: ${sku}`,
+        );
+        console.warn(
+          `📋 getSubscriptionPrice: Available SKUs:`,
+          subscriptions.map(sub => sub.productId),
+        );
       }
+    } else {
+      console.warn(`⚠️ getSubscriptionPrice: No subscriptions loaded yet`);
     }
 
     // Fallback to hardcoded prices
-
     return '';
   };
 
   const getRegularPrice = (plan: SubscriptionPlan): string => {
-    if (Platform.OS === 'ios' && subscriptions.length > 0) {
-      const sku = plan === 'monthly' ? 'matalkai.monthly' : 'matalkai.annual';
+    if (subscriptions.length > 0) {
+      const sku =
+        plan === 'monthly'
+          ? Platform.OS === 'ios'
+            ? 'matalkai.monthly'
+            : 'matalk.monthly'
+          : Platform.OS === 'ios'
+          ? 'matalkai.annual'
+          : 'matalk.annual';
 
       const subscription = subscriptions.find(sub => sub.productId === sku);
 
       if (subscription) {
-        // Always return the regular price, not the introductory price
-        const finalPrice = subscription.localizedPrice || subscription.price;
-        return finalPrice;
+        if (Platform.OS === 'android') {
+          // Android subscription structure - always get the regular price (last pricing phase)
+          if (
+            subscription.subscriptionOfferDetails &&
+            subscription.subscriptionOfferDetails.length > 0
+          ) {
+            const regularOffer =
+              subscription.subscriptionOfferDetails.find(
+                (offer: any) => !offer.offerId,
+              ) || subscription.subscriptionOfferDetails[0];
+            if (
+              regularOffer &&
+              regularOffer.pricingPhases &&
+              regularOffer.pricingPhases.pricingPhaseList &&
+              regularOffer.pricingPhases.pricingPhaseList.length > 0
+            ) {
+              const regularPrice =
+                regularOffer.pricingPhases.pricingPhaseList[
+                  regularOffer.pricingPhases.pricingPhaseList.length - 1
+                ].formattedPrice;
+
+              return regularPrice;
+            }
+          }
+        } else {
+          // iOS subscription structure - always return the regular price, not the introductory price
+          const finalPrice = subscription.localizedPrice || subscription.price;
+
+          return finalPrice;
+        }
+      } else {
+        console.warn(
+          `⚠️ getRegularPrice: Subscription not found for SKU: ${sku}`,
+        );
       }
+    } else {
+      console.warn(`⚠️ getRegularPrice: No subscriptions loaded yet`);
     }
 
     return '';
   };
 
   const getIntroductoryOfferText = (plan: SubscriptionPlan): string | null => {
-    if (Platform.OS === 'ios' && subscriptions.length > 0) {
-      const sku = plan === 'monthly' ? 'matalkai.monthly' : null;
+    if (subscriptions.length > 0) {
+      const sku =
+        plan === 'monthly'
+          ? Platform.OS === 'ios'
+            ? 'matalkai.monthly'
+            : 'matalk.monthly'
+          : null;
 
       if (sku) {
         const subscription = subscriptions.find(sub => sub.productId === sku);
 
-        if (subscription?.introductoryPrice) {
-          // Use the actual introductory price from IAP
-          const introPrice = subscription.introductoryPrice;
-          const offerText =
-            plan === 'monthly'
-              ? `Intro offer: ${introPrice}/month for the first 3 months`
-              : null;
+        if (Platform.OS === 'android') {
+          // Android subscription structure
+          if (
+            subscription.subscriptionOfferDetails &&
+            subscription.subscriptionOfferDetails.length > 0
+          ) {
+            const introOffer = subscription.subscriptionOfferDetails.find(
+              (offer: any) => offer.offerId,
+            );
+            if (
+              introOffer &&
+              introOffer.pricingPhases &&
+              introOffer.pricingPhases.pricingPhaseList &&
+              introOffer.pricingPhases.pricingPhaseList.length > 1
+            ) {
+              const introPrice =
+                introOffer.pricingPhases.pricingPhaseList[0].formattedPrice;
+              const introCycles =
+                introOffer.pricingPhases.pricingPhaseList[0].billingCycleCount;
 
-          if (offerText) {
-            return offerText;
+              const offerText =
+                plan === 'monthly'
+                  ? `Intro offer: ${introPrice}/month for the first ${introCycles} months`
+                  : null;
+
+              if (offerText) {
+                return offerText;
+              }
+            }
+          }
+        } else {
+          // iOS subscription structure
+          if (subscription?.introductoryPrice) {
+            // Use the actual introductory price from IAP
+            const introPrice = subscription.introductoryPrice;
+            const offerText =
+              plan === 'monthly'
+                ? `Intro offer: ${introPrice}/month for the first 3 months`
+                : null;
+
+            if (offerText) {
+              return offerText;
+            }
           }
         }
       }
@@ -414,7 +653,6 @@ const Subscription: React.FC<SubscriptionProps> = ({
     );
   }
 
-  // Show subscription plans only after parental gate is passed
   return (
     <View style={styles.container}>
       <View style={dynamicStyles.cardsContainer}>
@@ -640,7 +878,9 @@ const Subscription: React.FC<SubscriptionProps> = ({
             }}>
             Subscription automatically renews unless canceled at least 24 hours
             before the end of the current period.All subscriptions can be
-            managed in your App Store account settings.
+            managed in your{' '}
+            {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account
+            settings.
           </Text>
         </View>
       </View>

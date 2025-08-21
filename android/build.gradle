@@ -1,15 +1,13 @@
 buildscript {
     ext {
         buildToolsVersion = "35.0.0"
-        minSdkVersion = 24
+        minSdkVersion = 31
         compileSdkVersion = 35
         targetSdkVersion = 35
         ndkVersion = "27.1.12297006"
         kotlinVersion = "2.0.21"
         androidXAnnotation = "1.1.0"
         androidXBrowser = "1.0.0"
-        minSdkVersion = 24
-
     }
     repositories {
         maven { url "${project(":react-native-wakeword").projectDir}/libs" }
@@ -19,10 +17,15 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
-
     }
 }
 
+allprojects {
+    repositories {
+        maven { url "${project(":react-native-wakeword").projectDir}/libs" }
+        google()
+        mavenCentral()
+    }
+}
 apply plugin: "com.facebook.react.rootproject"

@@ -64,6 +64,7 @@ interface AssistantContextType {
   setRunId: (id: string) => void;
   resetHistory: () => void;
   resetAssistant: () => void;
+  clearImages: () => void;
   generateImage: (prompt: string) => Promise<{url: string}>;
   imageUrls: Array<{url: string; prompt: string}>;
   isThreadFresh: boolean;
@@ -1038,6 +1039,10 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
     attemptRetry();
   }, [status, threadId, sendMessage, runAssistant]);
 
+  const clearImages = () => {
+    setImageUrls([]);
+  };
+
   const resetAssistant = () => {
     // Reset all state except threadId
     setImageUrls([]);
@@ -1065,6 +1070,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         setRunId,
         resetHistory,
         resetAssistant,
+        clearImages,
         generateImage,
         imageUrls,
         isThreadFresh,

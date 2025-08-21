@@ -6,6 +6,8 @@ import React, {
   ReactNode,
 } from 'react';
 import Geolocation from '@react-native-community/geolocation';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import {Platform, PermissionsAndroid} from 'react-native';
 import Config from 'react-native-config';
 import {useAppSettings} from '../utils/persistance';
 
@@ -368,28 +370,76 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
     return matrix[str2.length][str1.length];
   };
 
+  // Check location permission before getting location
+  const checkLocationPermission = async (): Promise<boolean> => {
+    try {
+      if (Platform.OS === 'android') {
+        // First check if permission is already granted
+        const fineLocationStatus = await check(
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+        );
+        const coarseLocationStatus = await check(
+          PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION,
+        );
+
+        if (
+          fineLocationStatus === RESULTS.GRANTED &&
+          coarseLocationStatus === RESULTS.GRANTED
+        ) {
+          return true;
+        }
+
+        // If not granted, try using PermissionsAndroid as fallback
+        const granted = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
+        return granted;
+      } else {
+        // iOS
+        const status = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        return status === RESULTS.GRANTED;
+      }
+    } catch (error) {
+      console.warn('Permission check error:', error);
+      return false;
+    }
+  };
+
   // Get current location
   const getCurrentLocation = (): Promise<{
     latitude: number;
     longitude: number;
   }> => {
-    return new Promise((resolve, reject) => {
-      Geolocation.getCurrentPosition(
-        (position: any) => {
-          const {latitude, longitude} = position.coords;
-          resolve({latitude, longitude});
-        },
-        (error: any) => {
-          console.warn('Location error:', error);
-          // Don't fallback to default location - reject the promise
-          reject(error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 10000,
-        },
-      );
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Check permissions first
+        const hasPermission = await checkLocationPermission();
+        if (!hasPermission) {
+          console.warn('Location permission not granted');
+          reject(new Error('Location permission not granted'));
+          return;
+        }
+
+        Geolocation.getCurrentPosition(
+          (position: any) => {
+            const {latitude, longitude} = position.coords;
+            resolve({latitude, longitude});
+          },
+          (error: any) => {
+            console.warn('Location error:', error);
+            // Don't fallback to default location - reject the promise
+            reject(error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000, // Increased timeout
+            maximumAge: 10000,
+          },
+        );
+      } catch (error) {
+        console.warn('getCurrentLocation error:', error);
+        reject(error);
+      }
     });
   };
 
@@ -481,9 +531,26 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
     try {
       const coords = await getCurrentLocation();
       await fetchWeatherData(coords.latitude, coords.longitude);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error getting location:', err);
-      setError('Location access required for weather data');
+
+      // Provide more specific error messages
+      if (err?.message?.includes('permission')) {
+        setError(
+          'Location permission required for weather data. Please enable location permissions in Settings.',
+        );
+      } else if (err?.code === 1) {
+        setError(
+          'Location permission denied. Please enable location permissions in Settings.',
+        );
+      } else if (err?.code === 2) {
+        setError('Location unavailable. Please check your GPS settings.');
+      } else if (err?.code === 3) {
+        setError('Location request timed out. Please try again.');
+      } else {
+        setError('Location access required for weather data');
+      }
+
       // Keep weather and location as null when location access fails
       setWeather(null);
       setLocation(null);

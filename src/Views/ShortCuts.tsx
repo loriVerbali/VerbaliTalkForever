@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, memo, useMemo} from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Pressable,
   Image,
   Animated,
+  Platform,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
@@ -77,7 +78,7 @@ const actionsImg = require('../assets/shortCuts/actions.jpg');
 const funImg = require('../assets/shortCuts/fun.jpg');
 const positionsImg = require('../assets/shortCuts/positions.jpg');
 
-// Top category data with emoji representations (since we don't have the actual images)
+// Static data extracted outside component to prevent recreation on every render
 const topCategories = [
   {
     label: 'Attention',
@@ -109,9 +110,9 @@ const topCategories = [
     backgroundColor: '#FFFFFF',
     description: 'Feeling pain or discomfort',
   },
-];
+] as const;
 
-// Feeling grid data - using the same image for all cards as placeholder
+// Shortcut grid data - static arrays extracted outside component
 const attention = [
   {label: 'Hi', image: hiImg, backgroundColor: '#FFFFFF'},
   {label: 'Look', image: lookImg, backgroundColor: '#FFFFFF'},
@@ -120,7 +121,7 @@ const attention = [
   {label: 'My Turn', image: myturnImg, backgroundColor: '#FFFFFF'},
   {label: 'Stop', image: stopImg, backgroundColor: '#FFFFFF'},
   {label: 'I have a question', image: questionImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
 
 const iWantNeed = [
   {label: 'Eat', image: eatImg, backgroundColor: '#FFFFFF'},
@@ -130,7 +131,7 @@ const iWantNeed = [
   {label: 'Help', image: helpImg, backgroundColor: '#FFFFFF'},
   {label: 'More', image: moreImg, backgroundColor: '#FFFFFF'},
   {label: 'All done', image: allDoneImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
 
 const fun = [
   {label: 'Play', image: playImg, backgroundColor: '#FFFFFF'},
@@ -139,7 +140,7 @@ const fun = [
   {label: 'Go', image: goImg, backgroundColor: '#FFFFFF'},
   {label: 'Game', image: gameImg, backgroundColor: '#FFFFFF'},
   {label: 'Book', image: bookImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
 
 const actions = [
   {label: 'Open', image: openImg, backgroundColor: '#FFFFFF'},
@@ -148,7 +149,7 @@ const actions = [
   {label: 'Turn Off', image: turnOffImg, backgroundColor: '#FFFFFF'},
   {label: 'Give', image: giveImg, backgroundColor: '#FFFFFF'},
   {label: 'Take', image: takeImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
 
 const positions = [
   {label: 'Up', image: upImg, backgroundColor: '#FFFFFF'},
@@ -157,7 +158,16 @@ const positions = [
   {label: 'Out', image: outImg, backgroundColor: '#FFFFFF'},
   {label: 'On', image: onImg, backgroundColor: '#FFFFFF'},
   {label: 'Under', image: underImg, backgroundColor: '#FFFFFF'},
-];
+] as const;
+
+// Static category mapping to prevent recreation
+const SHORTCUTS_DATA = {
+  attention,
+  iWantNeed,
+  fun,
+  actions,
+  positions,
+} as const;
 
 // Responsive values are now handled within the component
 
@@ -195,28 +205,31 @@ const ShortCuts = () => {
     positions: new Animated.Value(0),
   }).current;
 
-  // Responsive values based on device type
-  const responsiveValues = {
-    iconSize: isTablet ? {width: 60, height: 60} : {width: 40, height: 40},
-    topRowHeight: isTablet ? height * 0.22 : height * 0.22,
-    topItemWidth: isTablet ? width * 0.11 : width * 0.15,
-    topItemHeight: isTablet ? height * 0.22 * 0.8 : height * 0.22 * 0.8,
-    topRowGap: isTablet ? width * 0.03 : width * 0.02,
-    scrollContentWidth: isTablet ? width * 0.8 : width * 0.85,
-    gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
-    gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
-    labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-    labelGridFontSize: isTablet ? 16 : 14,
-    marginTop: isTablet ? height * 0.02 : height * 0.01,
-    marginBottom: isTablet ? height * 0.01 : height * 0.005,
-    gridItemMarginBottom: isTablet ? 15 : 10,
-    gridLabelPadding: isTablet ? 8 : 6,
-    borderRadius: isTablet ? 16 : 12,
-    shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
-    elevation: isTablet ? 8 : 5,
-    rowGap: isTablet ? 20 : 10,
-  };
+  // Memoize responsive values to prevent recalculation on every render
+  const responsiveValues = useMemo(
+    () => ({
+      iconSize: isTablet ? {width: 60, height: 60} : {width: 40, height: 40},
+      topRowHeight: isTablet ? height * 0.22 : height * 0.22,
+      topItemWidth: isTablet ? width * 0.11 : width * 0.15,
+      topItemHeight: isTablet ? height * 0.22 * 0.8 : height * 0.22 * 0.8,
+      topRowGap: isTablet ? width * 0.03 : width * 0.02,
+      scrollContentWidth: isTablet ? width * 0.8 : width * 0.85,
+      gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
+      gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
+      labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
+      labelGridFontSize: isTablet ? 16 : 14,
+      marginTop: isTablet ? height * 0.02 : height * 0.01,
+      marginBottom: isTablet ? height * 0.01 : height * 0.005,
+      gridItemMarginBottom: isTablet ? 15 : 10,
+      gridLabelPadding: isTablet ? 8 : 6,
+      borderRadius: isTablet ? 16 : 12,
+      shadowRadius: isTablet ? 5 : 3,
+      shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
+      elevation: isTablet ? 8 : 5,
+      rowGap: isTablet ? 20 : 10,
+    }),
+    [isTablet],
+  );
 
   useEffect(() => {
     // Initialize TTS when component mounts
@@ -299,36 +312,26 @@ const ShortCuts = () => {
     }
   };
 
-  // Determine which feeling cards to display based on selected category
-  const getFeelingsToDisplay = () => {
-    switch (selectedCategory) {
-      case 'attention':
-        return attention;
-      case 'iWantNeed':
-        return iWantNeed;
-      case 'fun':
-        return fun;
-      case 'actions':
-        return actions;
-      case 'positions':
-        return positions;
-      default:
-        return attention;
+  // Memoize the shortcuts data to display based on selected category
+  const feelingsToDisplay = useMemo(() => {
+    return SHORTCUTS_DATA[selectedCategory] || SHORTCUTS_DATA.attention;
+  }, [selectedCategory]);
+
+  // Memoize rows calculation to prevent recalculation on every render
+  const {rows, emptyPlaceholders} = useMemo(() => {
+    const calculatedRows = [];
+    for (let i = 0; i < feelingsToDisplay.length; i += 4) {
+      calculatedRows.push(feelingsToDisplay.slice(i, i + 4));
     }
-  };
 
-  // Get the feelings to display
-  const feelingsToDisplay = getFeelingsToDisplay();
+    const lastRow = calculatedRows[calculatedRows.length - 1];
+    const placeholders = lastRow?.length < 4 ? 4 - lastRow.length : 0;
 
-  // Split feelings into rows of 4
-  const rows = [];
-  for (let i = 0; i < feelingsToDisplay.length; i += 4) {
-    rows.push(feelingsToDisplay.slice(i, i + 4));
-  }
-
-  // Calculate how many empty placeholders we need to add for the last row
-  const lastRow = rows[rows.length - 1];
-  const emptyPlaceholders = lastRow.length < 4 ? 4 - lastRow.length : 0;
+    return {
+      rows: calculatedRows,
+      emptyPlaceholders: placeholders,
+    };
+  }, [feelingsToDisplay]);
 
   return (
     <GestureHandlerRootView style={styles.screen}>
@@ -851,9 +854,19 @@ const styles = StyleSheet.create({
   gridItem: {
     // width, borderRadius, shadowRadius, shadowOffset, elevation, marginBottom are now handled dynamically
     overflow: 'visible',
-    shadowColor: 'gray',
-    shadowOpacity: 0.8,
     backgroundColor: 'white',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: 'gray',
+        shadowOpacity: 0.8,
+        shadowRadius: 5,
+        shadowOffset: {width: 0, height: 8},
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   gridImageContainer: {
     width: '100%',
@@ -887,20 +900,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     left: width * 0.03,
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
     position: 'absolute',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   matalkIcon: {
     bottom: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
     left: width * 0.03,
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
     position: 'absolute',
+    // Platform-specific shadows
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   buttonPressed: {
     opacity: 0.8,
@@ -913,4 +950,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ShortCuts;
+export default memo(ShortCuts);

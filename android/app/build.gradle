@@ -26,7 +26,7 @@ react {
 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
-    // nodeExecutableAndArgs = ["node"]
+    nodeExecutableAndArgs = ["/usr/local/bin/node"]
     //
     //   The command to run when bundling. By default is 'bundle'
     // bundleCommand = "ram-bundle"
@@ -77,13 +77,13 @@ android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
-    namespace "com.matalk"
+    namespace "com.verbali.matalkai"
     defaultConfig {
-        applicationId "com.matalk"
+        applicationId "com.verbali.matalkai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 11
+        versionName "1.0.11"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
         missingDimensionStrategy "store", "play"
 
@@ -108,6 +108,23 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+    
+    packagingOptions {
+        // Handle AndroidX/Support library conflicts - pick the AndroidX versions
+        pickFirst "**/META-INF/androidx.*.version"
+        pickFirst "**/META-INF/com.android.support.*.version"
+        
+        // Exclude all legacy support library version files
+        exclude "**/META-INF/com.android.support.*"
+        exclude "**/META-INF/androidx.legacy.*"
+        
+        // Also exclude any other conflicting files
+        exclude "**/META-INF/DEPENDENCIES"
+        exclude "**/META-INF/LICENSE"
+        exclude "**/META-INF/LICENSE.txt"
+        exclude "**/META-INF/NOTICE"
+        exclude "**/META-INF/NOTICE.txt"
+    }
 }
 
 dependencies {
@@ -118,5 +135,26 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+    
+    // Force AndroidX libraries to resolve conflicts
+    implementation 'androidx.core:core:1.16.0'
+    implementation 'androidx.versionedparcelable:versionedparcelable:1.1.1'
+    
+    // Splash Screen API
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    
+    // Exclude legacy support libraries
+    configurations.all {
+        exclude group: 'com.android.support', module: 'support-compat'
+        exclude group: 'com.android.support', module: 'support-core-utils'
+        exclude group: 'com.android.support', module: 'support-core-ui'
+        exclude group: 'com.android.support', module: 'support-v4'
+        exclude group: 'com.android.support', module: 'animated-vector-drawable'
+        exclude group: 'com.android.support', module: 'support-vector-drawable'
+        exclude group: 'com.android.support', module: 'versionedparcelable'
+        exclude group: 'com.android.support', module: 'cursoradapter'
+        exclude group: 'com.android.support', module: 'appcompat-v7'
+        exclude group: 'com.android.support'
     }
 }

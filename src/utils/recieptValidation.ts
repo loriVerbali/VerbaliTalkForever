@@ -1,13 +1,13 @@
-import Config from 'react-native-config';
-import DefaultPreference from 'react-native-default-preference';
-import Auth0 from 'react-native-auth0';
 import {Platform} from 'react-native';
 import _ from 'lodash';
-import AppConfig, {MethodObject} from './config';
 import fetchHelper from './fetcher';
 import {initConnection, getReceiptIOS} from 'react-native-iap';
 
 const validateSubscription = async (receipt: string) => {
+  if (Platform.OS === 'android') {
+    return true;
+  }
+
   try {
     const res = await fetchHelper(
       'validateReceipt',
@@ -29,6 +29,10 @@ const validateSubscription = async (receipt: string) => {
 };
 
 const validateReceiptOnLaunch = async () => {
+  if (Platform.OS === 'android') {
+    return true;
+  }
+
   try {
     const connected = await initConnection();
     if (!connected) {

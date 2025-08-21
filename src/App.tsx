@@ -7,7 +7,7 @@
  */
 import 'react-native-gesture-handler';
 import React, {useEffect, useRef} from 'react';
-import {StyleSheet, AppState, AppStateStatus} from 'react-native';
+import {StyleSheet, AppState, AppStateStatus, StatusBar} from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
 import {AdminProvider} from './contexts/adminContext';
@@ -73,8 +73,6 @@ const App = () => {
 
   // Initialize voice and TTS services at app level for better performance
   useEffect(() => {
-    // Force landscape orientation immediately
-
     const initServices = async () => {
       // Initialize TTS service when the app starts
       await TTSService.initialize();
@@ -147,6 +145,8 @@ const App = () => {
     <Auth0Provider
       domain={'dev-64l2kpebzn1y4zm7.us.auth0.com'}
       clientId={'9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX'}>
+      {/* Hide status bar for immersive experience - handled by Android native code */}
+      <StatusBar hidden animated />
       <GestureHandlerRootView style={styles.container}>
         <ToastProvider>
           <ConnectionProvider>

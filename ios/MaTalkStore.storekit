@@ -9,7 +9,7 @@
       }
     ]
   },
-  "identifier" : "A4A1D904",
+  "identifier" : "2286CD02",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -18,53 +18,34 @@
   ],
   "settings" : {
     "_applicationInternalID" : "6747360381",
-    "_compatibilityTimeRate" : {
-      "3" : 3
-    },
     "_developerTeamID" : "5H8P29SJNH",
-    "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 774972876.78049302,
+    "_lastSynchronizedDate" : 777412211.62916398,
     "_locale" : "en_US",
     "_storefront" : "USA",
     "_storeKitErrors" : [
       {
-        "current" : {
-          "index" : 2,
-          "type" : "generic"
-        },
+        "current" : null,
         "enabled" : false,
         "name" : "Load Products"
       },
       {
-        "current" : {
-          "index" : 1,
-          "type" : "purchase"
-        },
+        "current" : null,
         "enabled" : false,
         "name" : "Purchase"
       },
       {
-        "current" : {
-          "index" : 0,
-          "type" : "verification"
-        },
+        "current" : null,
         "enabled" : false,
         "name" : "Verification"
       },
       {
-        "current" : {
-          "index" : 2,
-          "type" : "generic"
-        },
+        "current" : null,
         "enabled" : false,
         "name" : "App Store Sync"
       },
       {
-        "current" : {
-          "index" : 2,
-          "type" : "generic"
-        },
+        "current" : null,
         "enabled" : false,
         "name" : "Subscription Status"
       },
@@ -74,10 +55,7 @@
         "name" : "App Transaction"
       },
       {
-        "current" : {
-          "index" : 3,
-          "type" : "generic"
-        },
+        "current" : null,
         "enabled" : false,
         "name" : "Manage Subscriptions Sheet"
       },
@@ -91,8 +69,7 @@
         "enabled" : false,
         "name" : "Offer Code Redeem Sheet"
       }
-    ],
-    "_timeRate" : 10
+    ]
   },
   "subscriptionGroups" : [
     {
@@ -111,7 +88,7 @@
               "eligibility" : [
                 "new"
               ],
-              "internalID" : "528F53F6",
+              "internalID" : "D0E61D85",
               "isStackable" : true,
               "numberOfPeriods" : 1,
               "paymentMode" : "free",
@@ -125,7 +102,7 @@
           "internalID" : "6749002748",
           "introductoryOffer" : {
             "displayPrice" : "6.99",
-            "internalID" : "D2C001E1",
+            "internalID" : "32D465F3",
             "numberOfPeriods" : 3,
             "paymentMode" : "payAsYouGo",
             "subscriptionPeriod" : "P1M"

@@ -1,6 +1,26 @@
 import Voice, {SpeechResultsEvent} from '@react-native-voice/voice';
 import {Platform, PermissionsAndroid, NativeModules} from 'react-native';
 
+// ===== ANDROID speech tuning (no ducking) =====
+const ANDROID_START_DEBOUNCE_MS = 400; // avoid "Recognizer busy" after stop → start
+const ANDROID_DEFAULT_LOCALE = 'en-US';
+const ANDROID_SILENCE_AFTER_MS = 1200; // end-of-speech detection
+const ANDROID_POSSIBLY_SILENCE_MS = 800; // quicker finish
+const ANDROID_MIN_UTTERANCE_MS = 600; // min capture window
+
+function getAndroidRecognizerOptions() {
+  return {
+    EXTRA_LANGUAGE: ANDROID_DEFAULT_LOCALE,
+    EXTRA_MAX_RESULTS: 1,
+    EXTRA_PARTIAL_RESULTS: true,
+    EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
+    EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: ANDROID_SILENCE_AFTER_MS,
+    EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS:
+      ANDROID_POSSIBLY_SILENCE_MS,
+    EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: ANDROID_MIN_UTTERANCE_MS,
+  } as any;
+}
+
 type VoiceStatus =
   | 'started'
   | 'recognizing'
@@ -34,6 +54,7 @@ class VoiceService {
   private autoStopAfterSilenceMs: number = 2000;
   private errorCount: number = 0;
   private lastResultTimestamp: number = 0;
+  private lastStopAt: number = 0;
 
   private constructor() {
     // Private constructor for singleton
@@ -126,37 +147,49 @@ class VoiceService {
     autoStopAfterSilenceMs: number = 6000,
     maxDurationMs: number = 10000,
   ): Promise<boolean> {
-    if (this.isListening) {
-      return true;
+    if (this.isListening) return true;
+
+    // Debounce quick restarts on Android (prevents "Recognizer busy")
+    if (Platform.OS === 'android') {
+      const now = Date.now();
+      if (now - this.lastStopAt < ANDROID_START_DEBOUNCE_MS) {
+        await new Promise(resolve =>
+          setTimeout(() => resolve(undefined), ANDROID_START_DEBOUNCE_MS),
+        );
+      }
     }
 
     if (!this.initialized) {
-      const initialized = await this.initialize();
-      if (!initialized) return false;
+      const ok = await this.initialize();
+      if (!ok) return false;
     }
 
     try {
       this.clearTimers();
       this.errorCount = 0;
       this.lastResultTimestamp = Date.now();
+      this.autoStopAfterSilenceMs = autoStopAfterSilenceMs;
 
-      // Set up auto-stop after maxDuration
-      this.autoStopTimeout = setTimeout(function () {
+      // Hard cap: stop if it runs too long
+      this.autoStopTimeout = setTimeout(() => {
         // @ts-ignore
         VoiceService.getInstance().stopListening();
       }, maxDurationMs);
 
-      // Only set up silence detection on Android
-      // iOS has its own silence detection mechanism
+      // Silence detection on Android (iOS handles internally)
       if (Platform.OS !== 'ios') {
-        // Initialize silence detection with the provided timeout
         this.resetSilenceTimer(autoStopAfterSilenceMs);
       }
 
       const locale = 'en-US';
 
-      if (Platform.OS === 'ios') {
-        // For iOS, try to start without any special options
+      if (Platform.OS === 'android') {
+        await Voice.start(
+          ANDROID_DEFAULT_LOCALE,
+          getAndroidRecognizerOptions(),
+        );
+      } else {
+        // iOS path as-is, with your existing retry/reinit
         try {
           await Voice.start(locale);
         } catch (error) {
@@ -165,29 +198,20 @@ class VoiceService {
             error,
           );
           await Voice.destroy();
-          // Wait a moment for resources to be released
-          await new Promise(resolve => setTimeout(resolve, 500));
-          // Reinitialize
+          await new Promise(resolve =>
+            setTimeout(() => resolve(undefined), 500),
+          );
           await this.initialize();
-          // Try again with default options
           await Voice.start(locale);
         }
-      } else {
-        await Voice.start(locale);
       }
 
       this.isListening = true;
-
-      if (this.statusCallback) {
-        this.statusCallback('started');
-      }
-
+      this.statusCallback?.('started');
       return true;
     } catch (error) {
       console.error('Error starting voice recognition:', error);
-      if (this.statusCallback) {
-        this.statusCallback('error', 'Failed to start voice recognition');
-      }
+      this.statusCallback?.('error', 'Failed to start voice recognition');
       return false;
     }
   }
@@ -198,19 +222,14 @@ class VoiceService {
   }
 
   public async stopListening(): Promise<boolean> {
-    if (!this.isListening) {
-      return true;
-    }
+    if (!this.isListening) return true;
 
     try {
       this.clearTimers();
       await Voice.stop();
       this.isListening = false;
-
-      if (this.statusCallback) {
-        this.statusCallback('stopped');
-      }
-
+      this.lastStopAt = Date.now();
+      this.statusCallback?.('stopped');
       return true;
     } catch (error) {
       console.error('Error stopping voice recognition:', error);
@@ -273,10 +292,33 @@ class VoiceService {
 
   private handleSpeechError(error: any): void {
     this.errorCount++;
-    console.log(`Speech recognition error (count: ${this.errorCount}):`, error);
 
-    // On iOS, if we get an error but have received some results already,
-    // we can consider it partially successful
+    // Normalize Android error message/code
+    const raw =
+      (error?.error?.message ??
+        error?.error?.code ??
+        error?.message ??
+        error?.code ??
+        '') + '';
+    const msg = raw.toLowerCase();
+
+    // Android often throws "no match" (silence) or "recognizer busy"
+    if (
+      Platform.OS === 'android' &&
+      (msg.includes('no match') ||
+        msg.includes('no_speech') ||
+        msg.includes('no speech') ||
+        msg.includes('recognizer busy') ||
+        msg.includes('busy'))
+    ) {
+      this.isListening = false;
+      this.clearTimers();
+      this.statusCallback?.('stopped');
+      this.lastStopAt = Date.now();
+      return;
+    }
+
+    // iOS: if we got results recently, ignore transient errors
     if (
       Platform.OS === 'ios' &&
       this.lastResultTimestamp > 0 &&
@@ -285,7 +327,6 @@ class VoiceService {
       return;
     }
 
-    // Multiple errors in a row? Let's stop and destroy
     if (this.errorCount > 3) {
       console.log('Too many errors, destroying voice service');
       this.destroy();
@@ -294,13 +335,11 @@ class VoiceService {
 
     this.isListening = false;
     this.clearTimers();
-
-    if (this.statusCallback) {
-      this.statusCallback(
-        'error',
-        error.error?.message || 'Speech recognition error',
-      );
-    }
+    this.statusCallback?.(
+      'error',
+      error?.error?.message || 'Speech recognition error',
+    );
+    this.lastStopAt = Date.now();
   }
 
   private handleSpeechResults(event: SpeechResultsEvent): void {

@@ -1,7 +1,16 @@
 import {Platform} from 'react-native';
 import RNFS from 'react-native-fs';
-import TTSManager from 'react-native-sherpa-onnx-offline-tts';
 import {NativeEventEmitter, NativeModules} from 'react-native';
+
+// Platform-specific imports
+let TTSManager: any;
+let Tts: any;
+
+if (Platform.OS === 'ios') {
+  TTSManager = require('react-native-sherpa-onnx-offline-tts').default;
+} else {
+  Tts = require('react-native-tts').default;
+}
 
 // Class to handle all TTS operations in the app
 class TTSService {
@@ -22,12 +31,42 @@ class TTSService {
   }
 
   private async initTTS() {
-    const valid = await this.validateTTSFiles();
-    if (!valid) return;
-    try {
-      await TTSManager.initialize(JSON.stringify(this.ttsConfig));
-    } catch (e) {
-      console.error('TTS init failed', e);
+    if (Platform.OS === 'ios') {
+      const valid = await this.validateTTSFiles();
+      if (!valid) return;
+      try {
+        await TTSManager.initialize(JSON.stringify(this.ttsConfig));
+      } catch (e) {
+        console.error('TTS init failed', e);
+      }
+    } else {
+      // Android - using react-native-tts
+      try {
+        await Tts.setDefaultLanguage('en-US');
+        await Tts.setDefaultRate(0.5);
+        await Tts.setDefaultPitch(1.0);
+
+        // Set up event listeners for Android TTS
+        Tts.addEventListener('tts-start', () => {
+          this.isPlaying = true;
+        });
+
+        Tts.addEventListener('tts-finish', () => {
+          this.isPlaying = false;
+          this.processingQueue = false;
+          // Process next in queue if any
+          if (this.queue.length > 0) {
+            this.processQueue();
+          }
+        });
+
+        Tts.addEventListener('tts-cancel', () => {
+          this.isPlaying = false;
+          this.processingQueue = false;
+        });
+      } catch (e) {
+        console.error('Android TTS init failed', e);
+      }
     }
   }
 
@@ -40,10 +79,16 @@ class TTSService {
 
   private async speakText(text: string) {
     if (!text) return;
-    const speakerId = 0; // Piper uses 0 for single‑speaker models
-    const speed = 1.0; // 1 == default, < 1 slower, > 1 faster
+
     try {
-      await TTSManager.generateAndPlay(text, speakerId, speed);
+      if (Platform.OS === 'ios') {
+        const speakerId = 0; // Piper uses 0 for single‑speaker models
+        const speed = 1.0; // 1 == default, < 1 slower, > 1 faster
+        await TTSManager.generateAndPlay(text, speakerId, speed);
+      } else {
+        // Android - using react-native-tts
+        await Tts.speak(text);
+      }
     } catch (e) {
       console.error('TTS playback failed', e);
     }
@@ -112,10 +157,21 @@ class TTSService {
   }
 
   public async stop(): Promise<void> {
-    // For custom TTS, just clear the queue and reset state
-    this.isPlaying = false;
-    this.queue = [];
-    this.processingQueue = false;
+    try {
+      if (Platform.OS === 'android' && Tts) {
+        await Tts.stop();
+      }
+      // Clear the queue and reset state for both platforms
+      this.isPlaying = false;
+      this.queue = [];
+      this.processingQueue = false;
+    } catch (error) {
+      console.error('Error stopping TTS:', error);
+      // Reset state even if stop fails
+      this.isPlaying = false;
+      this.queue = [];
+      this.processingQueue = false;
+    }
   }
 
   public async shutdown(): Promise<void> {
@@ -127,6 +183,11 @@ class TTSService {
   }
 
   private async validateTTSFiles() {
+    // Only validate TTS files on iOS since Android uses system TTS
+    if (Platform.OS !== 'ios') {
+      return true;
+    }
+
     const basePath = RNFS.MainBundlePath;
     const modelPath = `${basePath}/en_US-amy-medium.onnx`;
     const tokensPath = `${basePath}/tokens.txt`;

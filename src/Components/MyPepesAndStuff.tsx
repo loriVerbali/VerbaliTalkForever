@@ -990,13 +990,44 @@ const MyPepesAndStuff: React.FC = () => {
   const ensureLocationPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
+        // First check if permission is already granted
+        const fineLocationStatus = await check(
+          PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
+        );
+        const coarseLocationStatus = await check(
+          PERMISSIONS.ANDROID.ACCESS_COARSE_LOCATION,
+        );
+
+        if (
+          fineLocationStatus === RESULTS.GRANTED &&
+          coarseLocationStatus === RESULTS.GRANTED
+        ) {
+          return true;
+        }
+
+        // If not granted, try using PermissionsAndroid as fallback
+        const granted = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
+
+        if (granted) {
+          return true;
+        }
+
+        // As last resort, request permission
+        const requestResult = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
+        return requestResult === PermissionsAndroid.RESULTS.GRANTED;
       } else {
-        const status = await request(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
-        return status === RESULTS.GRANTED;
+        const status = await check(PERMISSIONS.IOS.LOCATION_WHEN_IN_USE);
+        if (status === RESULTS.GRANTED) {
+          return true;
+        }
+        const requestStatus = await request(
+          PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
+        );
+        return requestStatus === RESULTS.GRANTED;
       }
     } catch (e) {
       console.warn('Location permission error:', e);
