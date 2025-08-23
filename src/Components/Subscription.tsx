@@ -79,7 +79,6 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const initializeIAP = async () => {
     try {
       const result = await initConnection();
-      debugger;
       if (result) {
         const purchases = await getAvailablePurchases();
 

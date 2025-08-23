@@ -599,10 +599,6 @@ const Convo = () => {
   };
 
   const generateImage = async (array: ImagePrompt[], mode: string) => {
-    console.log('[Convo] generateImage called', {
-      mode,
-      arrayLength: Array.isArray(array) ? array.length : 'invalid',
-    });
     try {
       // Validate input data
       if (!array || !Array.isArray(array) || array.length === 0) {

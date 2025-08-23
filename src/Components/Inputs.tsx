@@ -17,8 +17,8 @@ import {useAdmin} from '../contexts/adminContext';
 
 import FastImage from 'react-native-fast-image';
 
-// Create a singleton instance for better memory management and reuse
-const audioRecorderPlayer = new AudioRecorderPlayer();
+// Use the exported instance directly
+const audioRecorderPlayer = AudioRecorderPlayer;
 
 interface InputsProps {
   mode: string;

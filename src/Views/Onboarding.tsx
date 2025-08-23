@@ -32,10 +32,14 @@ import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import Subscription from '../Components/Subscription';
 import ShowAndTell from '../Components/ShowAndTell';
+import WhisperDownload from '../Components/WhisperDownload';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
 import {useAuth0} from 'react-native-auth0';
 import fetchHelper from '../utils/fetcher';
+import NetInfo from '@react-native-community/netinfo';
+import RNFS from 'react-native-fs';
+
 const {width, height} = Dimensions.get('window');
 
 // Debug key to skip subscription during development
@@ -89,6 +93,12 @@ const onboardingSteps = [
     id: 'admin-code',
     question: 'Set Admin Code',
     additionalComponents: 'admin-code-input',
+    buttonText: 'Next',
+  },
+  {
+    id: 'on-device-whisper',
+    question: 'Transcribe Audio on Device',
+    additionalComponents: 'on-device-whisper',
     buttonText: 'Next',
   },
   {
@@ -901,6 +911,57 @@ const OnboardingScreen: React.FC = () => {
             )}
           </View>
         );
+      case 'on-device-whisper':
+        return (
+          <View style={{width: '100%', flex: 1}}>
+            <WhisperDownload
+              onComplete={async () => {
+                // Check if model is available after download and adjust settings accordingly
+                try {
+                  const WhisperModelManager = await import(
+                    '../utils/WhisperModelManager'
+                  );
+                  await WhisperModelManager.default.checkModelAvailabilityAndAdjustSettings(
+                    setItem,
+                    getItem,
+                  );
+                } catch (error) {
+                  console.error(
+                    'Error checking Whisper model availability:',
+                    error,
+                  );
+                  // If there's an error, set useLocalWhisper to false to be safe
+                  await setItem('useLocalWhisper', '0');
+                }
+
+                // Auto-advance to next step when download completes
+                handleNext();
+              }}
+              onSkip={async () => {
+                // When skipping, check if model is available and adjust settings accordingly
+                try {
+                  const WhisperModelManager = await import(
+                    '../utils/WhisperModelManager'
+                  );
+                  await WhisperModelManager.default.checkModelAvailabilityAndAdjustSettings(
+                    setItem,
+                    getItem,
+                  );
+                } catch (error) {
+                  console.error(
+                    'Error checking Whisper model availability:',
+                    error,
+                  );
+                  // If there's an error, set useLocalWhisper to false to be safe
+                  await setItem('useLocalWhisper', '0');
+                }
+
+                // Allow skipping this step
+                handleNext();
+              }}
+            />
+          </View>
+        );
       default:
         return null;
     }
@@ -1183,7 +1244,9 @@ const OnboardingScreen: React.FC = () => {
               }>
               <Text
                 style={[styles.buttonText, {fontSize: nextButtonTextFontSize}]}>
-                {currentStepData.buttonText}
+                {currentStepData.id === 'on-device-whisper'
+                  ? 'Skip'
+                  : currentStepData.buttonText}
               </Text>
             </TouchableOpacity>
           </View>

@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
 import {validateReceiptOnLaunch} from './recieptValidation';
+import WhisperModelManager from './WhisperModelManager';
 
 interface Preferences {
   loggedIn: string;
@@ -41,6 +42,9 @@ interface Preferences {
   wasDeleted: string;
   isIOSActive: string;
   pepes: string;
+  whisperModelAvailable: string;
+  whisperModelLastChecked: string;
+  useLocalWhisper: string;
 }
 
 const initEnum = {
@@ -87,6 +91,9 @@ const initialPreferences: Preferences = {
   wasDeleted: initEnum.false,
   isIOSActive: initEnum.false,
   pepes: '',
+  whisperModelAvailable: initEnum.false,
+  whisperModelLastChecked: '0',
+  useLocalWhisper: initEnum.true,
 };
 
 interface AppSettingsContextProps {
@@ -167,6 +174,22 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
           }
         } catch (error) {}
       }, 3000);
+
+      // Check Whisper model availability on app startup and adjust settings accordingly
+      setTimeout(async () => {
+        try {
+          await WhisperModelManager.checkModelAvailabilityAndAdjustSettings<
+            keyof Preferences
+          >(setItem, getItem);
+        } catch (error) {
+          console.error(
+            'Error checking Whisper model availability on startup:',
+            error,
+          );
+          // If there's an error checking model availability, set useLocalWhisper to false to be safe
+          await setItem('useLocalWhisper', '0');
+        }
+      }, 1000); // Check after 1 second to avoid blocking app startup
 
       return loaded as Preferences;
     } catch (error) {

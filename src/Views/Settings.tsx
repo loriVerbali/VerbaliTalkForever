@@ -29,6 +29,7 @@ import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import {Mixpanel} from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
 import Subscription from '../Components/Subscription';
+import WhisperDownload from '../Components/WhisperDownload';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -212,6 +213,10 @@ const SettingsScreen: React.FC = () => {
   const [isEditingHeroName, setIsEditingHeroName] = useState(false);
   const [newHeroName, setNewHeroName] = useState('');
   const [heroNameError, setHeroNameError] = useState('');
+  // Whisper settings state
+  const [useLocalWhisper, setUseLocalWhisper] = useState(true);
+  const [showWhisperInfo, setShowWhisperInfo] = useState(false);
+  const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // Easter egg: tap version 5 times to show assistant ID
@@ -242,6 +247,7 @@ const SettingsScreen: React.FC = () => {
         const savedConversationMode = await getItem('conversationMode');
         const savedGobackAfterSelection = await getItem('gobackAfterSelection');
         const savedHeroName = await getItem('heroName');
+        const savedUseLocalWhisper = await getItem('useLocalWhisper');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
@@ -254,6 +260,8 @@ const SettingsScreen: React.FC = () => {
         setHeroName(
           savedHeroName && savedHeroName.trim() ? savedHeroName : 'Name',
         );
+        setUseLocalWhisper(savedUseLocalWhisper === '1');
+        setWhisperModelAvailable(preferences.whisperModelAvailable === '1');
       } catch (e) {
         console.log('Error loading settings:', e);
       }
@@ -332,6 +340,41 @@ const SettingsScreen: React.FC = () => {
   const handleGobackAfterSelectionToggle = async (value: boolean) => {
     setGobackAfterSelection(value);
     await setItem('gobackAfterSelection', value ? '1' : '0');
+  };
+
+  const handleUseLocalWhisperToggle = async (value: boolean) => {
+    // If trying to enable local Whisper but model is not available, show alert and prevent toggle
+    if (value && !whisperModelAvailable) {
+      Alert.alert(
+        'Whisper Model Required',
+        'Please download the Whisper model first before enabling local Whisper. You can download it in the section below.',
+        [{text: 'OK'}],
+      );
+      return;
+    }
+
+    setUseLocalWhisper(value);
+    await setItem('useLocalWhisper', value ? '1' : '0');
+  };
+
+  const handleWhisperDownloadComplete = async () => {
+    try {
+      const WhisperModelManager = await import('../utils/WhisperModelManager');
+      const modelStatus =
+        await WhisperModelManager.default.checkModelAvailabilityAndAdjustSettings(
+          setItem,
+          getItem,
+        );
+      setWhisperModelAvailable(modelStatus.available);
+    } catch (error) {
+      console.error(
+        'Error checking Whisper model availability after download:',
+        error,
+      );
+      setWhisperModelAvailable(false);
+      await setItem('whisperModelAvailable', '0');
+      await setItem('useLocalWhisper', '0');
+    }
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
@@ -1070,6 +1113,57 @@ const SettingsScreen: React.FC = () => {
                     value={gobackAfterSelection}
                   />
                 </View>
+
+                <View style={styles.switchRow}>
+                  <View style={styles.switchLabel}>
+                    <Text
+                      style={[
+                        styles.settingLabel,
+                        !whisperModelAvailable && styles.disabledText,
+                      ]}>
+                      Local Whisper (vs Cloud)
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowWhisperInfo(true)}
+                      style={styles.infoButton}>
+                      <Text style={styles.infoIcon}>?</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Switch
+                    trackColor={{false: '#767577', true: '#8E24AA'}}
+                    thumbColor={useLocalWhisper ? '#fff' : '#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                    onValueChange={handleUseLocalWhisperToggle}
+                    value={useLocalWhisper}
+                    disabled={!whisperModelAvailable}
+                  />
+                </View>
+
+                {/* Whisper Model Download Section */}
+                {(useLocalWhisper || !whisperModelAvailable) && (
+                  <View style={styles.whisperDownloadSection}>
+                    <Text style={styles.settingLabel}>Whisper Model</Text>
+                    {whisperModelAvailable ? (
+                      <View style={styles.whisperStatusContainer}>
+                        <Text style={styles.whisperStatusText}>
+                          ✅ Whisper model is downloaded and ready to use
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.whisperDownloadContainer}>
+                        <Text style={styles.whisperDownloadText}>
+                          {useLocalWhisper
+                            ? 'Download the Whisper model to enable local voice transcription'
+                            : 'Download the Whisper model to enable local voice transcription (required to use local Whisper)'}
+                        </Text>
+                        <WhisperDownload
+                          onComplete={handleWhisperDownloadComplete}
+                          onSkip={() => {}}
+                        />
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
             </View>
 
@@ -1190,6 +1284,13 @@ const SettingsScreen: React.FC = () => {
           onClose={() => setShowGenderInfo(false)}
           title="Gender Selection"
           description="Gender selection is completely optional and is used only for personalization purposes. You don't have to choose a gender if you prefer not to. This setting helps customize your experience but is not required for the app to function."
+        />
+
+        <InfoModal
+          visible={showWhisperInfo}
+          onClose={() => setShowWhisperInfo(false)}
+          title="Local Whisper vs Cloud"
+          description="When enabled, the app will use the downloaded Whisper model for voice transcription on your device. This provides faster transcription and keeps your audio on your device only. The Whisper model must be downloaded before you can enable local Whisper. If the model is not downloaded, the app will use cloud-based transcription."
         />
       </ScrollView>
     </LinearGradient>
@@ -1709,6 +1810,37 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'flex-start',
     width: '100%',
+  },
+  whisperDownloadSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
+  },
+  whisperStatusContainer: {
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  whisperStatusText: {
+    fontSize: 14,
+    color: '#28a745',
+    fontWeight: '500',
+  },
+  whisperDownloadContainer: {
+    marginTop: 8,
+  },
+  whisperDownloadText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  disabledText: {
+    opacity: 0.5,
+    color: '#999',
   },
 });
 
