@@ -89,6 +89,31 @@ class WakeWordService {
 
       this.isInitialized = true;
     } catch (error) {
+      // Check if the error is about instance already existing
+      if (
+        error instanceof Error &&
+        error.message.includes('Instance already exists')
+      ) {
+        console.warn(
+          'Wake word instance already exists, attempting to reuse...',
+        );
+        try {
+          // Try to get the existing instance
+          const config = instanceConfigs[0];
+          this.keywordInstance = await createKeyWordRNBridgeInstance(
+            config.id,
+            true, // Set to true to get existing instance
+          );
+
+          if (this.keywordInstance) {
+            this.isInitialized = true;
+            return;
+          }
+        } catch (reuseError) {
+          console.error('Failed to reuse existing instance:', reuseError);
+        }
+      }
+
       console.error('Error initializing Wake Word Service:', error);
       throw error;
     }
@@ -215,6 +240,28 @@ class WakeWordService {
   // Set custom license
   public setLicense(license: string): void {
     this.license = license;
+  }
+
+  // Force restart the service (useful for debugging and recovery)
+  public async forceRestart(): Promise<void> {
+    try {
+      await this.stopListening();
+      this.removeEventListener();
+      this.keywordInstance = null;
+      this.isInitialized = false;
+      this.wakeWordCallback = null;
+
+      // Small delay to ensure cleanup is complete
+      await new Promise<void>(resolve => setTimeout(resolve, 100));
+
+      // Re-initialize and start
+      await this.initialize();
+      await this.setupCallback();
+      await this.startListening();
+    } catch (error) {
+      console.error('Error during force restart:', error);
+      throw error;
+    }
   }
 }
 

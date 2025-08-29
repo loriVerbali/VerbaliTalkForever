@@ -7,6 +7,8 @@ import {
   Dimensions,
   Platform,
   Modal,
+  ActivityIndicator,
+  Switch,
 } from 'react-native';
 import ParentalGate from './ParentalGate';
 import {
@@ -28,10 +30,11 @@ import {useAdmin} from '../contexts/adminContext';
 import {useToast} from '../contexts/ToastContext';
 import {validateSubscription} from '../utils/recieptValidation';
 import {useAppSettings} from '../utils/persistance';
+import {shouldShowTrialCard} from '../utils/trialUtils';
 
 const {width, height} = Dimensions.get('window');
 
-export type SubscriptionPlan = 'monthly' | 'yearly';
+export type SubscriptionPlan = 'monthly' | 'yearly' | 'trial';
 
 interface SubscriptionProps {
   setGotSubscription: (gotSubscription: boolean) => void;
@@ -55,6 +58,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(false);
   const [isIAPInitialized, setIsIAPInitialized] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(
@@ -63,7 +67,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const [showParentalGate, setShowParentalGate] = useState(true); // Start with parental gate shown
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
   const [showModal, setShowModal] = useState(false);
-  const {setItem} = useAppSettings();
+  const [showYearlyPlan, setShowYearlyPlan] = useState(false); // Toggle between yearly and monthly
+  const {setItem, preferences} = useAppSettings();
 
   // Initialize IAP connection immediately to check existing subscription
   useEffect(() => {
@@ -130,16 +135,22 @@ const Subscription: React.FC<SubscriptionProps> = ({
     }
   };
 
-  const loadSubscriptions = async () => {
+  const loadSubscriptions = async (retryCount = 0) => {
+    const maxRetries = 2;
+
     try {
+      setIsLoadingSubscriptions(true);
       const products = await getSubscriptions({skus: SUBSCRIPTION_SKUS});
       setSubscriptions(products);
+      setIsLoadingSubscriptions(false);
     } catch (error) {
-      console.error('💥 loadSubscriptions: Failed to load subscriptions');
-      console.error(
-        '💥 loadSubscriptions: Error details:',
-        JSON.stringify(error, null, 2),
-      );
+      if (retryCount < maxRetries) {
+        setTimeout(() => {
+          loadSubscriptions(retryCount + 1);
+        }, 2000);
+      } else {
+        setIsLoadingSubscriptions(false);
+      }
     }
   };
 
@@ -182,7 +193,6 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
         if (isActive) {
           await setItem('isIOSActive', isActive ? '1' : '0');
-
           setGotSubscription(true);
           setPurchaseSuccess(true);
         }
@@ -202,6 +212,27 @@ const Subscription: React.FC<SubscriptionProps> = ({
       await purchaseSubscription(plan);
     } else {
       showError('In-app purchases are not available. Please try again later.');
+    }
+  };
+
+  const handleTrialSelection = async () => {
+    try {
+      setIsLoading(true);
+      setSelectedPlan('trial');
+
+      // Set trial status and grant access
+      await setItem('isInTrial', '1');
+
+      // Grant app access
+      setGotSubscription(true);
+      setPurchaseSuccess(true);
+
+      console.log('Trial started successfully');
+    } catch (error) {
+      console.error('Error starting trial:', error);
+      showError('Failed to start trial. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -547,7 +578,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
     cardsContainer: {
       ...styles.cardsContainer,
       width: isTablet ? ('90%' as const) : ('95%' as const),
-      justifyContent: 'space-around' as const,
+      justifyContent: 'center' as const,
       flexDirection: 'row' as const, // Always row for better layout
       flexWrap: 'nowrap' as const, // Prevent wrapping
       gap: isSmallPhone ? 8 : 12, // Much smaller gap
@@ -654,193 +685,328 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={dynamicStyles.cardsContainer}>
-        <TouchableOpacity
-          style={[
-            dynamicStyles.card,
-            selectedPlan === 'yearly' && styles.selectedCard,
-          ]}
-          onPress={() => {
-            handlePlanSelection('yearly');
-          }}
-          disabled={isLoading}>
-          <View
-            style={[
-              styles.cardHeader,
-              {
-                backgroundColor: '#E8F5E8',
-              },
-            ]}></View>
-          <View
-            style={{
-              backgroundColor: '#E8F5E8',
-              width: '100%',
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              alignItems: 'center',
-            }}>
-            <Text
-              style={[
-                dynamicStyles.planTitle,
-                {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
-              ]}>
-              Annual Plan
-            </Text>
-          </View>
-          <View style={styles.cardContent}>
-            <Text
-              style={[
-                dynamicStyles.planPrice,
-                {
-                  fontSize: isSmallPhone ? 16 : 18,
-                  fontWeight: 'bold',
-                  color: '#000',
-                },
-              ]}>
-              {getRegularPrice('yearly')}/year
-            </Text>
-            <Text
-              style={[
-                dynamicStyles.planSubtitle,
-                {
-                  fontSize: isSmallPhone ? 10 : 11,
-                  fontStyle: 'italic',
-                  color: '#FF3B30',
-                },
-              ]}>
-              Save $60 (2 months free)
-            </Text>
-            <Text
-              style={[
-                dynamicStyles.selectText,
-                {
-                  fontSize: isSmallPhone ? 9 : 10,
-                  fontWeight: 'normal',
-                  color: '#666',
-                  textAlign: 'center',
-                },
-              ]}>
-              Billed yearly. Auto-Renews annually
-            </Text>
-            <Text
-              style={[
-                dynamicStyles.selectText,
-                selectedPlan === 'yearly' && styles.selectedText,
-              ]}>
-              {isLoading && selectedPlan === 'yearly'
-                ? 'Processing...'
-                : selectedPlan === 'yearly'
-                ? 'Selected'
-                : ''}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            dynamicStyles.card,
-            selectedPlan === 'monthly' && styles.selectedCard,
-          ]}
-          onPress={() => {
-            handlePlanSelection('monthly');
-          }}
-          disabled={isLoading}>
-          <View style={dynamicStyles.cancelBadge}>
-            <Text
-              style={[
-                dynamicStyles.savingsAmount,
-                {fontSize: isSmallPhone ? 6 : isMediumPhone ? 6 : 6},
-              ]}>
-              {'Intro offer 75% \n off the first 3 months'}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.cardHeader,
-              {
-                backgroundColor: '#E8F5E8',
-              },
-            ]}></View>
-          <View
-            style={{
-              backgroundColor: '#E8F5E8',
-              width: '100%',
-              borderTopLeftRadius: 16,
-              borderTopRightRadius: 16,
-              alignItems: 'center',
-            }}>
-            <Text
-              style={[
-                dynamicStyles.planTitle,
-                {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
-              ]}>
-              Monthly Plan
-            </Text>
-          </View>
-          <View style={styles.cardContent}>
-            <Text
-              style={[
-                dynamicStyles.planPrice,
-                {
-                  fontSize: isSmallPhone ? 16 : 18,
-                  fontWeight: 'bold',
-                  color: '#FF9500',
-                },
-              ]}>
-              {getRegularPrice('monthly')}/month
-            </Text>
-            <Text
-              style={[
-                dynamicStyles.selectText,
-                {
-                  fontSize: isSmallPhone ? 9 : 10,
-                  fontWeight: 'normal',
-                  color: '#666',
-                  textAlign: 'center',
-                  marginBottom: 8,
-                },
-              ]}>
-              Billed monthly. Auto-Renews monthly
-            </Text>
-
-            {getIntroductoryOfferText('monthly') && (
-              <Text
+      {isLoadingSubscriptions ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading subscription plans...</Text>
+        </View>
+      ) : (
+        <>
+          {/* Toggle Switch for Yearly/Monthly when trial card is shown */}
+          {shouldShowTrialCard(
+            preferences.isIOSActive,
+            preferences.isInTrial,
+            preferences.trialInstallationDate,
+          ) && (
+            <View style={styles.toggleContainer}>
+              <Text style={styles.toggleLabel}>Monthly</Text>
+              <Switch
+                value={showYearlyPlan}
+                onValueChange={setShowYearlyPlan}
+                trackColor={{false: '#767577', true: '#34C759'}}
+                thumbColor={showYearlyPlan ? '#FFFFFF' : '#f4f3f4'}
+                ios_backgroundColor="#767577"
+              />
+              <Text style={styles.toggleLabel}>Yearly</Text>
+            </View>
+          )}
+          <View style={dynamicStyles.cardsContainer}>
+            {shouldShowTrialCard(
+              preferences.isIOSActive,
+              preferences.isInTrial,
+              preferences.trialInstallationDate,
+            ) && (
+              <TouchableOpacity
                 style={[
-                  dynamicStyles.introOfferText,
-                  {
-                    fontSize: isSmallPhone ? 10 : 11,
-                    fontWeight: 'normal',
-                    color: 'black',
-                  },
-                ]}>
-                {getIntroductoryOfferText('monthly')}
-              </Text>
+                  dynamicStyles.card,
+                  selectedPlan === 'trial' && styles.selectedCard,
+                ]}
+                onPress={() => {
+                  handleTrialSelection();
+                }}
+                disabled={isLoading}>
+                <View
+                  style={[
+                    styles.cardHeader,
+                    {
+                      backgroundColor: '#34C759',
+                    },
+                  ]}></View>
+                <View
+                  style={{
+                    backgroundColor: '#34C759',
+                    width: '100%',
+                    borderTopLeftRadius: 16,
+                    borderTopRightRadius: 16,
+                    alignItems: 'center',
+                  }}>
+                  <Text
+                    style={[
+                      dynamicStyles.planTitle,
+                      {
+                        fontSize: isSmallPhone ? 12 : 13,
+                        fontWeight: '600',
+                        color: '#FFFFFF',
+                      },
+                    ]}>
+                    Free Trial
+                  </Text>
+                </View>
+                <View style={styles.cardContent}>
+                  <Text
+                    style={[
+                      dynamicStyles.planPrice,
+                      {
+                        fontSize: isSmallPhone ? 16 : 18,
+                        fontWeight: 'bold',
+                        color: '#34C759',
+                      },
+                    ]}>
+                    FREE
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.planSubtitle,
+                      {
+                        fontSize: isSmallPhone ? 10 : 11,
+                        fontWeight: 'normal',
+                        color: '#666',
+                        textAlign: 'center',
+                      },
+                    ]}>
+                    7-Day Free Trial
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.selectText,
+                      {
+                        fontSize: isSmallPhone ? 9 : 10,
+                        fontWeight: 'normal',
+                        color: '#666',
+                        textAlign: 'center',
+                      },
+                    ]}>
+                    Full access to all features
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.selectText,
+                      selectedPlan === 'trial' && styles.selectedText,
+                    ]}>
+                    {isLoading && selectedPlan === 'trial'
+                      ? 'Processing...'
+                      : selectedPlan === 'trial'
+                      ? 'Selected'
+                      : 'Start Free Trial'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             )}
-            <Text
-              style={[
-                dynamicStyles.planSubtitle,
-                {
-                  fontSize: isSmallPhone ? 10 : 11,
-                  fontWeight: 'normal',
-                  color: '#000',
-                },
-              ]}>
-              Then {getRegularPrice('monthly')}/month thereafter
-            </Text>
-            <Text
-              style={[
-                dynamicStyles.selectText,
-                selectedPlan === 'monthly' && styles.selectedText,
-              ]}>
-              {isLoading && selectedPlan === 'monthly'
-                ? 'Processing...'
-                : selectedPlan === 'monthly'
-                ? 'Selected'
-                : ''}
-            </Text>
+
+            {/* Show yearly card only when showYearlyPlan is true or when no trial card is shown */}
+            {(showYearlyPlan ||
+              !shouldShowTrialCard(
+                preferences.isIOSActive,
+                preferences.isInTrial,
+                preferences.trialInstallationDate,
+              )) && (
+              <TouchableOpacity
+                style={[
+                  dynamicStyles.card,
+                  selectedPlan === 'yearly' && styles.selectedCard,
+                ]}
+                onPress={() => {
+                  handlePlanSelection('yearly');
+                }}
+                disabled={isLoading}>
+                <View
+                  style={[
+                    styles.cardHeader,
+                    {
+                      backgroundColor: '#E8F5E8',
+                    },
+                  ]}></View>
+                <View
+                  style={{
+                    backgroundColor: '#E8F5E8',
+                    width: '100%',
+                    borderTopLeftRadius: 16,
+                    borderTopRightRadius: 16,
+                    alignItems: 'center',
+                  }}>
+                  <Text
+                    style={[
+                      dynamicStyles.planTitle,
+                      {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
+                    ]}>
+                    Annual Plan
+                  </Text>
+                </View>
+                <View style={styles.cardContent}>
+                  <Text
+                    style={[
+                      dynamicStyles.planPrice,
+                      {
+                        fontSize: isSmallPhone ? 16 : 18,
+                        fontWeight: 'bold',
+                        color: '#000',
+                      },
+                    ]}>
+                    {getRegularPrice('yearly')}/year
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.planSubtitle,
+                      {
+                        fontSize: isSmallPhone ? 10 : 11,
+                        fontStyle: 'italic',
+                        color: '#FF3B30',
+                      },
+                    ]}>
+                    Save $60 (2 months free)
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.selectText,
+                      {
+                        fontSize: isSmallPhone ? 9 : 10,
+                        fontWeight: 'normal',
+                        color: '#666',
+                        textAlign: 'center',
+                      },
+                    ]}>
+                    Billed yearly. Auto-Renews annually
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.selectText,
+                      selectedPlan === 'yearly' && styles.selectedText,
+                    ]}>
+                    {isLoading && selectedPlan === 'yearly'
+                      ? 'Processing...'
+                      : selectedPlan === 'yearly'
+                      ? 'Selected'
+                      : ''}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* Show monthly card only when showYearlyPlan is false or when no trial card is shown */}
+            {(!showYearlyPlan ||
+              !shouldShowTrialCard(
+                preferences.isIOSActive,
+                preferences.isInTrial,
+                preferences.trialInstallationDate,
+              )) && (
+              <TouchableOpacity
+                style={[
+                  dynamicStyles.card,
+                  selectedPlan === 'monthly' && styles.selectedCard,
+                ]}
+                onPress={() => {
+                  handlePlanSelection('monthly');
+                }}
+                disabled={isLoading}>
+                <View style={dynamicStyles.cancelBadge}>
+                  <Text
+                    style={[
+                      dynamicStyles.savingsAmount,
+                      {fontSize: isSmallPhone ? 6 : isMediumPhone ? 6 : 6},
+                    ]}>
+                    {'Intro offer 75% \n off the first 3 months'}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.cardHeader,
+                    {
+                      backgroundColor: '#E8F5E8',
+                    },
+                  ]}></View>
+                <View
+                  style={{
+                    backgroundColor: '#E8F5E8',
+                    width: '100%',
+                    borderTopLeftRadius: 16,
+                    borderTopRightRadius: 16,
+                    alignItems: 'center',
+                  }}>
+                  <Text
+                    style={[
+                      dynamicStyles.planTitle,
+                      {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
+                    ]}>
+                    Monthly Plan
+                  </Text>
+                </View>
+                <View style={styles.cardContent}>
+                  <Text
+                    style={[
+                      dynamicStyles.planPrice,
+                      {
+                        fontSize: isSmallPhone ? 16 : 18,
+                        fontWeight: 'bold',
+                        color: '#FF9500',
+                      },
+                    ]}>
+                    {getRegularPrice('monthly')}/month
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.selectText,
+                      {
+                        fontSize: isSmallPhone ? 9 : 10,
+                        fontWeight: 'normal',
+                        color: '#666',
+                        textAlign: 'center',
+                        marginBottom: 8,
+                      },
+                    ]}>
+                    Billed monthly. Auto-Renews monthly
+                  </Text>
+
+                  {getIntroductoryOfferText('monthly') && (
+                    <Text
+                      style={[
+                        dynamicStyles.introOfferText,
+                        {
+                          fontSize: isSmallPhone ? 10 : 11,
+                          fontWeight: 'normal',
+                          color: 'black',
+                        },
+                      ]}>
+                      {getIntroductoryOfferText('monthly')}
+                    </Text>
+                  )}
+                  <Text
+                    style={[
+                      dynamicStyles.planSubtitle,
+                      {
+                        fontSize: isSmallPhone ? 10 : 11,
+                        fontWeight: 'normal',
+                        color: '#000',
+                      },
+                    ]}>
+                    Then {getRegularPrice('monthly')}/month thereafter
+                  </Text>
+                  <Text
+                    style={[
+                      dynamicStyles.selectText,
+                      selectedPlan === 'monthly' && styles.selectedText,
+                    ]}>
+                    {isLoading && selectedPlan === 'monthly'
+                      ? 'Processing...'
+                      : selectedPlan === 'monthly'
+                      ? 'Selected'
+                      : ''}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
-        </TouchableOpacity>
-      </View>
+        </>
+      )}
       <View style={{marginTop: 1, alignItems: 'center', flexDirection: 'row'}}>
         <Text
           style={[
@@ -901,7 +1067,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   cardsContainer: {
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     alignItems: 'center',
     width: '90%',
     flexDirection: 'row',
@@ -1060,6 +1226,31 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 5,
+    paddingHorizontal: 5,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginHorizontal: 10,
   },
 });
 

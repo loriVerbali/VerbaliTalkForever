@@ -25,6 +25,10 @@ class TTSService {
     tokensPath: `${this.ttsBasePath}/tokens.txt`,
     dataDirPath: `${this.ttsBasePath}/espeak-ng-data`,
   };
+  private iosTTSPlaybackTimeout: ReturnType<typeof setTimeout> | null = null;
+  private iosTTSPlaybackStartTime: number = 0;
+  private iosTTSEstimatedDuration: number = 0;
+
   private constructor() {
     // Private constructor for singleton
     TTSService.suppressVolumeWarning();
@@ -84,6 +88,19 @@ class TTSService {
       if (Platform.OS === 'ios') {
         const speakerId = 0; // Piper uses 0 for single‑speaker models
         const speed = 1.0; // 1 == default, < 1 slower, > 1 faster
+
+        // Estimate duration for iOS TTS (roughly 15 characters per second)
+        this.iosTTSEstimatedDuration = Math.max(
+          1000,
+          (text.length / 15) * 1000,
+        );
+        this.iosTTSPlaybackStartTime = Date.now();
+
+        // Set a timeout to mark playback as finished
+        this.iosTTSPlaybackTimeout = setTimeout(() => {
+          this.handleIOSPlaybackFinished();
+        }, this.iosTTSEstimatedDuration);
+
         await TTSManager.generateAndPlay(text, speakerId, speed);
       } else {
         // Android - using react-native-tts
@@ -91,6 +108,29 @@ class TTSService {
       }
     } catch (e) {
       console.error('TTS playback failed', e);
+      // Clear timeout on error
+      if (Platform.OS === 'ios') {
+        this.clearIOSPlaybackTimeout();
+        this.handleIOSPlaybackFinished();
+      }
+    }
+  }
+
+  private handleIOSPlaybackFinished() {
+    this.clearIOSPlaybackTimeout();
+    this.isPlaying = false;
+    this.processingQueue = false;
+
+    // Process next in queue if any
+    if (this.queue.length > 0) {
+      this.processQueue();
+    }
+  }
+
+  private clearIOSPlaybackTimeout() {
+    if (this.iosTTSPlaybackTimeout) {
+      clearTimeout(this.iosTTSPlaybackTimeout);
+      this.iosTTSPlaybackTimeout = null;
     }
   }
 
@@ -106,24 +146,33 @@ class TTSService {
   }
 
   public async speak(text: string, immediate: boolean = false): Promise<void> {
+    if (!text || text.trim().length === 0) {
+      console.warn('TTS: Attempted to speak empty text');
+      return;
+    }
+
     try {
       if (!this.initialized) {
-        await this.initialize();
-      }
-      if (immediate) {
-        await this.stop();
-        if (Platform.OS === 'ios') {
-          this.queue = [];
-          setTimeout(() => {
-            this.queue.push(text);
-            this.processQueue();
-          }, 50);
+        const initialized = await this.waitForInitialization();
+        if (!initialized) {
+          console.error('TTS: Failed to initialize, cannot speak');
           return;
         }
-        this.queue = [text];
+      }
+
+      if (immediate) {
+        await this.stop();
+        // For iOS, wait a bit longer to ensure previous playback is fully stopped
+        const stopDelay = Platform.OS === 'ios' ? 200 : 50;
+        setTimeout(() => {
+          this.queue = [text];
+          this.processQueue();
+        }, stopDelay);
+        return;
       } else {
         this.queue.push(text);
       }
+
       if (!this.isPlaying && !this.processingQueue) {
         this.processQueue();
       }
@@ -136,23 +185,29 @@ class TTSService {
     if (this.processingQueue || this.isPlaying || this.queue.length === 0) {
       return;
     }
+
     this.processingQueue = true;
     try {
       const nextText = this.queue.shift();
       if (nextText) {
         this.isPlaying = true;
         await this.speakText(nextText);
+
+        // For iOS, don't immediately set isPlaying to false
+        // Let the timeout handle it
+        if (Platform.OS !== 'ios') {
+          this.isPlaying = false;
+          this.processingQueue = false;
+          // Process next in queue if any
+          if (this.queue.length > 0) {
+            this.processQueue();
+          }
+        }
       }
     } catch (error) {
       console.error('Error processing TTS queue:', error);
       this.isPlaying = false;
-    } finally {
-      this.isPlaying = false;
       this.processingQueue = false;
-      // Automatically process next in queue if any
-      if (this.queue.length > 0) {
-        this.processQueue();
-      }
     }
   }
 
@@ -160,7 +215,11 @@ class TTSService {
     try {
       if (Platform.OS === 'android' && Tts) {
         await Tts.stop();
+      } else if (Platform.OS === 'ios') {
+        // For iOS, clear the timeout and reset state
+        this.clearIOSPlaybackTimeout();
       }
+
       // Clear the queue and reset state for both platforms
       this.isPlaying = false;
       this.queue = [];
@@ -177,8 +236,40 @@ class TTSService {
   public async shutdown(): Promise<void> {
     try {
       await this.stop();
+      this.initialized = false;
     } catch (error) {
       console.error('Error shutting down TTS:', error);
+      // Reset state even if shutdown fails
+      this.initialized = false;
+    }
+  }
+
+  public clearQueue(): void {
+    this.queue = [];
+    this.processingQueue = false;
+  }
+
+  public isCurrentlyPlaying(): boolean {
+    return this.isPlaying;
+  }
+
+  public getQueueLength(): number {
+    return this.queue.length;
+  }
+
+  public isAvailable(): boolean {
+    return this.initialized;
+  }
+
+  public async waitForInitialization(): Promise<boolean> {
+    if (this.initialized) return true;
+
+    try {
+      await this.initialize();
+      return this.initialized;
+    } catch (error) {
+      console.error('Failed to initialize TTS during wait:', error);
+      return false;
     }
   }
 

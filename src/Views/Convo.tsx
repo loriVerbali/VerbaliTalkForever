@@ -1570,6 +1570,8 @@ const Convo = () => {
           ]}
           placeholder="Waiting for input..."
           value={inputText}
+          editable={false}
+          pointerEvents="none"
           onChangeText={setInputText}
         />
         <View style={styles.inlineNavigationButtons}>

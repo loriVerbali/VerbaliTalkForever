@@ -14,12 +14,13 @@ import {
   Platform,
   BackHandler,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
+import {hasAppAccess} from '../utils/trialUtils';
 import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
 import MatalkIcon from '../Components/MatalkIcon';
@@ -84,29 +85,93 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
 
-    // Set up callback for when wake word is detected
-    wakeWordService.setCallback((phrase: string) => {
-      // Handle wake word detection
-      preferences?.isIOSActive === '0'
-        ? askForAdultHelp()
-        : navigation.navigate(views.HOME as never, {
-            stateof: 'Attention',
-          });
-    });
+    // Initialize wake word service with proper cleanup and restart
+    const initializeWakeWord = async () => {
+      try {
+        // Stop any existing wake word service to ensure clean state
+        await wakeWordService.stopListening();
 
-    // Start listening
-    wakeWordService.startListening();
+        // Small delay to ensure clean state transition
+        await new Promise<void>(resolve => setTimeout(resolve, 100));
+
+        // Set up callback for when wake word is detected
+        wakeWordService.setCallback((phrase: string) => {
+          // Handle wake word detection
+          !hasAppAccess(
+            preferences?.isIOSActive || '0',
+            preferences?.isInTrial || '0',
+            preferences?.trialInstallationDate || 'init.NotSet',
+          )
+            ? askForAdultHelp()
+            : navigation.navigate(views.HOME as never, {
+                stateof: 'Attention',
+              });
+        });
+
+        // Start listening
+        await wakeWordService.startListening();
+      } catch (error) {
+        console.error(
+          'Failed to initialize wake word service on Open screen:',
+          error,
+        );
+        // Retry once after a delay with force restart
+        setTimeout(async () => {
+          try {
+            await wakeWordService.forceRestart();
+          } catch (retryError) {
+            console.error(
+              'Wake word service force restart failed:',
+              retryError,
+            );
+          }
+        }, 500);
+      }
+    };
+
+    initializeWakeWord();
 
     // Clean up on unmount
     return () => {
       setRecognizedText('');
       // Properly stop wake word service to prevent memory leaks
-      wakeWordService.stopListening();
+      wakeWordService.stopListening().catch(error => {
+        console.error(
+          'Error stopping wake word service on Open screen unmount:',
+          error,
+        );
+      });
     };
   }, []);
 
+  // Ensure wake word service is properly initialized when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      const ensureWakeWordActive = async () => {
+        try {
+          // Check if wake word service is listening, if not, start it
+          if (!wakeWordService.isCurrentlyListening()) {
+            await wakeWordService.startListening();
+          }
+        } catch (error) {
+          console.error('Error ensuring wake word service is active:', error);
+        }
+      };
+
+      // Small delay to ensure navigation is complete
+      const timer = setTimeout(ensureWakeWordActive, 200);
+      return () => clearTimeout(timer);
+    }, []),
+  );
+
   const startListening = () => {
-    if (preferences?.isIOSActive === '0') {
+    if (
+      !hasAppAccess(
+        preferences?.isIOSActive || '0',
+        preferences?.isInTrial || '0',
+        preferences?.trialInstallationDate || 'init.NotSet',
+      )
+    ) {
       askForAdultHelp();
       return;
     }
@@ -134,7 +199,13 @@ const OpenScreen: React.FC = () => {
   }, [modalVisible]);
 
   const handleNavigation = (state: string) => {
-    if (preferences?.isIOSActive === '0') {
+    if (
+      !hasAppAccess(
+        preferences?.isIOSActive || '0',
+        preferences?.isInTrial || '0',
+        preferences?.trialInstallationDate || 'init.NotSet',
+      )
+    ) {
       askForAdultHelp();
       return;
     }
@@ -153,7 +224,13 @@ const OpenScreen: React.FC = () => {
   };
 
   const handKeyboard = async () => {
-    if (preferences?.isIOSActive === '0') {
+    if (
+      !hasAppAccess(
+        preferences?.isIOSActive || '0',
+        preferences?.isInTrial || '0',
+        preferences?.trialInstallationDate || 'init.NotSet',
+      )
+    ) {
       askForAdultHelp();
       return;
     }
@@ -304,7 +381,13 @@ const OpenScreen: React.FC = () => {
                 <Pressable
                   style={styles.tileWrapper}
                   onPress={() => {
-                    if (preferences?.isIOSActive === '0') {
+                    if (
+                      !hasAppAccess(
+                        preferences?.isIOSActive || '0',
+                        preferences?.isInTrial || '0',
+                        preferences?.trialInstallationDate || 'init.NotSet',
+                      )
+                    ) {
                       askForAdultHelp();
                       return;
                     }
@@ -336,7 +419,13 @@ const OpenScreen: React.FC = () => {
                 <Pressable
                   style={styles.tileWrapper}
                   onPress={() => {
-                    if (preferences?.isIOSActive === '0') {
+                    if (
+                      !hasAppAccess(
+                        preferences?.isIOSActive || '0',
+                        preferences?.isInTrial || '0',
+                        preferences?.trialInstallationDate || 'init.NotSet',
+                      )
+                    ) {
                       askForAdultHelp();
                       return;
                     }

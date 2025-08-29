@@ -41,6 +41,8 @@ interface Preferences {
   gobackAfterSelection: string;
   wasDeleted: string;
   isIOSActive: string;
+  isInTrial: string;
+  trialInstallationDate: string;
   pepes: string;
   whisperModelAvailable: string;
   whisperModelLastChecked: string;
@@ -90,6 +92,8 @@ const initialPreferences: Preferences = {
   gobackAfterSelection: initEnum.true,
   wasDeleted: initEnum.false,
   isIOSActive: initEnum.false,
+  isInTrial: initEnum.false,
+  trialInstallationDate: initEnum.notSet,
   pepes: '',
   whisperModelAvailable: initEnum.false,
   whisperModelLastChecked: '0',
@@ -164,12 +168,23 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
       );
 
+      // Set trial installation date on first app launch (never override)
+      if (loaded.trialInstallationDate === initEnum.notSet) {
+        const currentTimestamp = Date.now().toString();
+        await setItem('trialInstallationDate', currentTimestamp);
+        console.log(
+          'Trial started on:',
+          new Date(parseInt(currentTimestamp)).toISOString(),
+        );
+      }
+
       // validate purchase on launch
       setTimeout(async () => {
         try {
           const purchaseValid = await validateReceiptOnLaunch();
           if (!purchaseValid) {
-            console.log('purchaseValid', purchaseValid);
+            await setItem('isIOSActive', '0');
+          } else {
             await setItem('isIOSActive', '1');
           }
         } catch (error) {}

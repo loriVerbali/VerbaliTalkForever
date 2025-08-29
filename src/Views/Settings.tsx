@@ -19,6 +19,7 @@ import {useNavigation, CommonActions} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
+import {getSubscriptionStatus} from '../utils/trialUtils';
 import {useAuth0} from 'react-native-auth0';
 import {useAdmin} from '../contexts/adminContext';
 import {stacks, views} from '../utils/constants';
@@ -645,27 +646,51 @@ const SettingsScreen: React.FC = () => {
             <Text
               style={{
                 fontSize: 16,
-                color: subscriptionStatus === 'active' ? '#34c759' : '#f44336',
+                color: (() => {
+                  const status = getSubscriptionStatus(
+                    preferences.isIOSActive,
+                    preferences.isInTrial,
+                    preferences.trialInstallationDate,
+                  );
+                  return status.status === 'active'
+                    ? '#34c759'
+                    : status.status === 'trial'
+                    ? '#FF9500'
+                    : '#f44336';
+                })(),
                 fontWeight: 'bold',
               }}>
-              {subscriptionStatus === 'active' ? 'Active' : 'Needs Attention'}
+              {
+                getSubscriptionStatus(
+                  preferences.isIOSActive,
+                  preferences.isInTrial,
+                  preferences.trialInstallationDate,
+                ).text
+              }
             </Text>
           </View>
-          {subscriptionStatus !== 'active' && (
-            <View
-              style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
-              <Subscription
-                setGotSubscription={setShowSubscription}
-                context="settings"
-              />
-            </View>
-          )}
+          <View
+            style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
+            <Subscription
+              setGotSubscription={setShowSubscription}
+              context="settings"
+            />
+          </View>
           <Pressable style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutText}>Log Out</Text>
           </Pressable>
         </View>
 
-        {subscriptionStatus === 'active' && (
+        {(getSubscriptionStatus(
+          preferences.isIOSActive,
+          preferences.isInTrial,
+          preferences.trialInstallationDate,
+        ).status === 'active' ||
+          getSubscriptionStatus(
+            preferences.isIOSActive,
+            preferences.isInTrial,
+            preferences.trialInstallationDate,
+          ).status === 'trial') && (
           <>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Settings</Text>

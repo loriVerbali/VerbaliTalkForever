@@ -11,7 +11,8 @@
     "copyHermes": "./copy_hermes_dsym.sh Matalk DD-MM-2025, HH.MM.xcarchive",
     "cleanAndroid": "cd android && ./gradlew clean && cd ..",
     "buildAndroid": "cd android && ./gradlew assembleRelease && cd ..",
-    "openStudio": "open -a 'Android Studio' ."
+    "openStudio": "open -a 'Android Studio' .",
+    "runAndroid": "react-native run-android"
   },
   "dependencies": {
     "@google/genai": "^0.12.0",
@@ -32,7 +33,7 @@
     "react": "19.0.0",
     "react-native": "0.78.0",
     "react-native-audio-record": "^0.2.2",
-    "react-native-audio-recorder-player": "^4.2.0",
+    "react-native-audio-recorder-player": "^3.6.12",
     "react-native-auth0": "^4.6.0",
     "react-native-config": "^1.5.5",
     "react-native-default-preference": "^1.4.4",
@@ -43,7 +44,6 @@
     "react-native-iap": "12.16.2",
     "react-native-image-picker": "^8.2.1",
     "react-native-linear-gradient": "^2.8.3",
-    "react-native-nitro-modules": "^0.27.6",
     "react-native-orientation-locker": "^1.7.0",
     "react-native-permissions": "^5.4.0",
     "react-native-reanimated": "^3.17.5",

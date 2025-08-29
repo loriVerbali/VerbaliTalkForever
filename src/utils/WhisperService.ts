@@ -22,6 +22,7 @@ interface WhisperTranscriptionResult {
 class WhisperService {
   private static instance: WhisperService;
   private initialized: boolean = false;
+  private initializationChecked: boolean = false; // optimization 6
   private modelPath: string = '';
   private whisperContext: any = null;
 
@@ -69,7 +70,7 @@ class WhisperService {
       this.whisperContext = await initWhisper({
         filePath: this.modelPath,
         isBundleAsset: false,
-        useGpu: false,
+        useGpu: true,
       });
 
       if (!this.whisperContext) {
@@ -181,26 +182,16 @@ class WhisperService {
     audioPath: string,
   ): Promise<WhisperTranscriptionResult> {
     try {
-      if (!this.initialized) {
-        const initSuccess = await this.initialize();
-        if (!initSuccess) {
-          return {
-            text: '',
-            success: false,
-            error: 'Failed to initialize Whisper service',
-          };
+      // Combine validation checks with caching (optimization 4 & 6)
+      if (!this.initializationChecked) {
+        if (!this.initialized || !this.whisperContext) {
+          const initSuccess = await this.initialize();
+          if (!initSuccess || !this.whisperContext) {
+            return {text: '', success: false, error: 'Whisper not available'};
+          }
         }
+        this.initializationChecked = true;
       }
-
-      if (!this.whisperContext) {
-        return {
-          text: '',
-          success: false,
-          error: 'Whisper context not available',
-        };
-      }
-
-      const startTime = Date.now();
 
       // Use the original audio path directly since it works
       let transcriptionResult = null;
@@ -211,9 +202,6 @@ class WhisperService {
         processedAudioPath = processedAudioPath.slice(7);
       }
 
-      // Check if file exists
-      const fileExists = await RNFS.exists(processedAudioPath);
-
       // Use the transcription options that work
       const transcriptionOptions = {
         language: 'en',
@@ -222,10 +210,9 @@ class WhisperService {
         outputFormat: 'text',
         temperature: 0.0,
         bestOf: 1,
-        suppressBlank: false,
-        suppressNonSpeechTokens: false,
-        initialPrompt:
-          'These are questions or statements between a user and a virtual assistant.',
+        suppressBlank: true,
+        suppressNonSpeechTokens: true,
+        initialPrompt: '',
       };
 
       try {
@@ -251,26 +238,14 @@ class WhisperService {
         };
       }
 
-      const endTime = Date.now();
-      const duration = (endTime - startTime) / 1000;
-
-      // Extract text from result
+      // Extract text from result (optimization 5)
       let transcribedText = '';
       if (typeof transcriptionResult === 'string') {
         transcribedText = transcriptionResult.trim();
-      } else if (transcriptionResult.result) {
+      } else if (transcriptionResult?.result) {
         transcribedText = transcriptionResult.result.trim();
-      } else if (transcriptionResult.text) {
+      } else if (transcriptionResult?.text) {
         transcribedText = transcriptionResult.text.trim();
-      }
-
-      // Quick validation
-      if (transcribedText.length === 0) {
-        return {
-          text: '',
-          success: false,
-          error: 'Empty transcription result',
-        };
       }
 
       return {
@@ -313,55 +288,6 @@ class WhisperService {
       path: this.modelPath,
       available: this.initialized,
     };
-  }
-
-  /**
-   * Test if Whisper service is properly configured
-   */
-  public async testWhisperService(): Promise<{
-    success: boolean;
-    error?: string;
-  }> {
-    try {
-      // Check if module is loaded
-      if (!initWhisper) {
-        return {
-          success: false,
-          error: 'Whisper module not properly loaded',
-        };
-      }
-
-      // Check if model exists
-      const modelExists = await RNFS.exists(this.modelPath);
-      if (!modelExists) {
-        return {
-          success: false,
-          error: 'Whisper model file not found',
-        };
-      }
-
-      // Try to initialize (this will test the model)
-      const testContext = await initWhisper({
-        filePath: this.modelPath,
-        isBundleAsset: false,
-        useGpu: false,
-      });
-
-      if (testContext) {
-        await testContext.release();
-        return {success: true};
-      } else {
-        return {
-          success: false,
-          error: 'Failed to create test context',
-        };
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
   }
 
   /**
