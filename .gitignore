@@ -26,6 +26,7 @@ react-native-artifacts-*
 # Android/IntelliJ
 #
 build/
+.yalc
 .idea
 .gradle
 local.properties
