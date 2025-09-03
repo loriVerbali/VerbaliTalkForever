@@ -15,8 +15,9 @@ export const isTrialActive = (installationDate: string): boolean => {
   const installTime = parseInt(installationDate);
   const now = Date.now();
   const timeElapsed = now - installTime;
+  const isActive = timeElapsed < TRIAL_DURATION_MS;
 
-  return timeElapsed < TRIAL_DURATION_MS;
+  return isActive;
 };
 
 /**
@@ -81,17 +82,16 @@ export const shouldShowTrialCard = (
 ): boolean => {
   // Don't show if user has paid subscription
   if (isIOSActive === '1') {
-    console.log('has paid subscription');
     return false;
   }
+
   // Don't show if trial has expired
   if (installationDate !== 'init.NotSet' && !isTrialActive(installationDate)) {
-    console.log('trial has expired');
     return false;
   }
+
   // Don't show if user is already in trial
   if (isInTrial === '1') {
-    console.log('user is already in trial');
     return false;
   }
 

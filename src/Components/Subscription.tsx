@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Dimensions,
   Platform,
-  Modal,
   ActivityIndicator,
   Switch,
 } from 'react-native';
@@ -66,9 +65,31 @@ const Subscription: React.FC<SubscriptionProps> = ({
   );
   const [showParentalGate, setShowParentalGate] = useState(true); // Start with parental gate shown
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
-  const [showModal, setShowModal] = useState(false);
   const [showYearlyPlan, setShowYearlyPlan] = useState(false); // Toggle between yearly and monthly
   const {setItem, preferences} = useAppSettings();
+
+  // Log component mounting
+  useEffect(() => {}, []);
+
+  // Add logging for preferences state changes
+  useEffect(() => {}, [
+    preferences.isIOSActive,
+    preferences.isInTrial,
+    preferences.trialInstallationDate,
+  ]);
+
+  // Log when trial card should be rendered
+  useEffect(() => {
+    const shouldShow = shouldShowTrialCard(
+      preferences.isIOSActive,
+      preferences.isInTrial,
+      preferences.trialInstallationDate,
+    );
+  }, [
+    preferences.isIOSActive,
+    preferences.isInTrial,
+    preferences.trialInstallationDate,
+  ]);
 
   // Initialize IAP connection immediately to check existing subscription
   useEffect(() => {
@@ -123,8 +144,6 @@ const Subscription: React.FC<SubscriptionProps> = ({
           }
           return;
         }
-      } else {
-        console.log('initializeIAP: Connection failed');
       }
     } catch (error) {
       console.error('initializeIAP: IAP initialization failed:', error);
@@ -165,7 +184,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
       (error: PurchaseError) => {
         setIsLoading(false);
         if (error) {
-          console.log('Purchase error details:', error);
+          console.error('Purchase error details:', error);
         } else {
           showError('Purchase was cancelled or failed. Please try again.');
         }
@@ -181,6 +200,15 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const handlePurchaseUpdate = async (purchase: Purchase) => {
     try {
       setIsLoading(false);
+
+      if (Platform.OS === 'android') {
+        // For subscriptions, also log subscription-specific details
+        if (
+          purchase.productId.includes('monthly') ||
+          purchase.productId.includes('annual')
+        ) {
+        }
+      }
 
       if (purchase.transactionReceipt) {
         // Finish the transaction
@@ -226,10 +254,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
       // Grant app access
       setGotSubscription(true);
       setPurchaseSuccess(true);
-
-      console.log('Trial started successfully');
     } catch (error) {
-      console.error('Error starting trial:', error);
+      console.error('💥 Error starting trial:', error);
       showError('Failed to start trial. Please try again.');
     } finally {
       setIsLoading(false);
@@ -264,8 +290,6 @@ const Subscription: React.FC<SubscriptionProps> = ({
         if (purchaseResult) {
           setPurchaseSuccess(true);
           setGotSubscription(true);
-        } else {
-          console.log('purchaseSubscription: iOS Purchase result was falsy');
         }
       } else {
         // Android - Google Play Billing v6+ requires subscriptionOffers with offerToken

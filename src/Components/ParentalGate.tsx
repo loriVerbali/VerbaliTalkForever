@@ -131,13 +131,13 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
       ...styles.soundButton,
       marginLeft: isTablet ? 20 : 15,
       padding: isTablet ? 8 : 12,
-      borderRadius: isTablet ? 22 : 15,
-      width: isTablet ? 44 : 30,
-      height: isTablet ? 44 : 30,
+      borderRadius: isTablet ? 22 : 25,
+      width: isTablet ? 44 : 50,
+      height: isTablet ? 44 : 50,
     },
     soundIcon: {
       ...styles.soundIcon,
-      fontSize: isTablet ? 22 : 15,
+      fontSize: isTablet ? 22 : 24,
     },
   };
 
@@ -149,12 +149,15 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
           <Text style={styles.messageText}>
             {message || 'Ask your parents to continue this a protected area:'}
           </Text>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: 10,
+            }}>
             <Text
-              style={[
-                styles.messageText,
-                {fontWeight: '900', color: 'red', marginBottom: width * 0.01},
-              ]}>
+              style={[styles.messageText, {fontWeight: '900', color: 'red'}]}>
               {`Tap: ${showSequence && currentSequence.join(', ')}`}
             </Text>
             <TouchableOpacity

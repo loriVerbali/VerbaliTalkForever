@@ -17,7 +17,6 @@ import AudioRecorderPlayer, {
 } from 'react-native-audio-recorder-player';
 import AudioRecord from 'react-native-audio-record';
 
-import {NativeModules} from 'react-native';
 // Add imports for the components
 import Inputs, {InputsRef} from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
@@ -154,7 +153,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     waitingContainerPadding: isTablet ? 30 : 20,
     waitingLabelMarginBottom: isTablet ? 30 : 20,
   };
-
   // Add context caching to improve performance
   const [cachedContextInfo, setCachedContextInfo] = useState<string>('');
   const [lastContextUpdate, setLastContextUpdate] = useState<number>(0);
@@ -259,15 +257,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   };
 
   useEffect(() => {
-    // Send wakeup call to backend when entering Home screen
-    const sendWakeupCall = async () => {
-      try {
-        await fetchHelper('wakeup', {}, {});
-      } catch (error) {
-        console.error('Error sending wakeup call from Home screen:', error);
-      }
-    };
-
     // Load gobackAfterSelection setting
     const loadGobackAfterSelectionSetting = async () => {
       try {
@@ -282,9 +271,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     const setupAudioRecording = async () => {
       await initializeAudioRecording();
     };
-
-    // Send wakeup call
-    sendWakeupCall();
 
     // Load the setting
     loadGobackAfterSelectionSetting();
@@ -470,7 +456,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
-      TTSService.speak('Something went wrong, Tap Home to retry', true);
+      //TTSService.speak('Something went wrong, Tap Home to retry', true);
       setIsRecording(false);
     }
   };
@@ -521,14 +507,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   // Local Whisper transcription - no fallback to cloud
   const transcribeAudioWithWhisper = async (audioPath: string) => {
-    let audioUri = audioPath;
-    if (Platform.OS === 'android') {
-      // Add file:// prefix for Android FormData
-      audioUri = `file://${audioPath}`;
-    } else {
-      // For iOS, the path should be used as-is from the recorder
-      audioUri = audioPath.replace('file://', '');
-    }
+    const audioUri = `file://${audioPath}`;
 
     try {
       setIsUsingLocalWhisper(true);
@@ -998,15 +977,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             debounceTimer.current = null;
           }
 
-          // Activate wake word listening (safe - no current conflict)
+          // Activate wake word listening
           try {
             const wakeWordService = WakeWordService.getInstance();
-
-            // Stop any existing listening first to ensure clean state
-            await wakeWordService.stopListening();
-
-            // Small delay to ensure clean state
-            await new Promise<void>(resolve => setTimeout(resolve, 100));
 
             wakeWordService.setCallback((phrase: string) => {
               // When wake word detected, start new conversation

@@ -37,7 +37,7 @@ local.properties
 .kotlin/
 android/app/release/app-release.apk
 android/app/release/app-release.aab
-
+.yalc
 # node.js
 #
 node_modules/

@@ -202,6 +202,17 @@ class WhisperService {
         processedAudioPath = processedAudioPath.slice(7);
       }
 
+      // Check if the audio file exists before attempting transcription
+      const fileExists = await RNFS.exists(processedAudioPath);
+      if (!fileExists) {
+        console.error('❌ Audio file does not exist:', processedAudioPath);
+        return {
+          text: '',
+          success: false,
+          error: `Audio file not found: ${processedAudioPath}`,
+        };
+      }
+
       // Use the transcription options that work
       const transcriptionOptions = {
         language: 'en',
@@ -354,8 +365,6 @@ class WhisperService {
     testResult?: any;
   }> {
     try {
-      console.log('🔍 Testing audio file compatibility:', audioPath);
-
       // Check if file exists
       const fileExists = await RNFS.exists(audioPath);
       if (!fileExists) {
@@ -367,7 +376,6 @@ class WhisperService {
 
       // Get file info
       const fileInfo = await RNFS.stat(audioPath);
-      console.log('File info:', fileInfo);
 
       // Check file size
       if (fileInfo.size < 1024) {
@@ -405,7 +413,6 @@ class WhisperService {
         });
 
         const testResult = await transcribeJob.promise;
-        console.log('Test transcription result:', testResult);
 
         // Check if we got any result (even if empty)
         if (testResult !== null && testResult !== undefined) {

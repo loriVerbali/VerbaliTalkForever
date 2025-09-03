@@ -149,6 +149,7 @@ const OnboardingScreen: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [gotSubscription, setGotSubscription] = useState(false);
   const [gotAssistant, setGotAssistant] = useState(false);
+  const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
     {transform: [{scale: isTablet ? 0.68 : 0.6}]},
@@ -189,6 +190,15 @@ const OnboardingScreen: React.FC = () => {
     }
   }, [user, currentStep]);
 
+  // Log when subscription step is reached
+  useEffect(() => {
+    if (onboardingSteps[currentStep].id === 'subscription-selection') {
+      console.log('🎯 Reached subscription step in Onboarding');
+      console.log('  - Current step:', onboardingSteps[currentStep].id);
+      console.log('  - gotSubscription state:', gotSubscription);
+    }
+  }, [currentStep, gotSubscription]);
+
   // Helper function to extract user ID from Auth0 user.sub
   const extractUserId = (userSub: string): string => {
     if (userSub.startsWith('auth0|')) {
@@ -224,10 +234,43 @@ const OnboardingScreen: React.FC = () => {
   };
 
   const makeAssistantId = async (userId: string) => {
+    // Get trial installation date
+    let trialInstallationTimestamp = await getItem('trialInstallationDate');
+
+    // If trial installation date is not set, set it now
+    if (
+      !trialInstallationTimestamp ||
+      trialInstallationTimestamp === 'init.NotSet'
+    ) {
+      const currentTimestamp = Date.now().toString();
+      await setItem('trialInstallationDate', currentTimestamp);
+      trialInstallationTimestamp = currentTimestamp;
+    }
+
+    // Format the date for PostgreSQL timestamp format: YYYY-MM-DD HH:MM:SS.microseconds
+    let trialStartedDate = '';
+    if (trialInstallationTimestamp) {
+      const trialDate = new Date(parseInt(trialInstallationTimestamp));
+      // Format as PostgreSQL timestamp: 2025-08-08 16:36:19.060046
+      const year = trialDate.getFullYear();
+      const month = String(trialDate.getMonth() + 1).padStart(2, '0');
+      const day = String(trialDate.getDate()).padStart(2, '0');
+      const hours = String(trialDate.getHours()).padStart(2, '0');
+      const minutes = String(trialDate.getMinutes()).padStart(2, '0');
+      const seconds = String(trialDate.getSeconds()).padStart(2, '0');
+      const milliseconds = String(trialDate.getMilliseconds()).padStart(6, '0');
+
+      trialStartedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+    }
+
     const response = await fetchHelper(
       'makeAssistantId',
       {},
-      {kidname: heroName, userId: userId},
+      {
+        kidname: heroName,
+        userId: userId,
+        onAppInstall: trialStartedDate,
+      },
     );
     if (response && response.assistantId) {
       await setItem('assistantId', response.assistantId);
@@ -249,6 +292,19 @@ const OnboardingScreen: React.FC = () => {
       console.log('Authorization result:', result);
     } catch (e) {
       console.log('Authorization error:', e);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await clearSession();
+      await setItem('loggedIn', '0');
+      await setItem('username', '');
+      await setItem('token', '');
+      setIsLoggedIn(false);
+      console.log('User logged out during onboarding');
+    } catch (e) {
+      console.log('Log out cancelled during onboarding', e);
     }
   };
 
@@ -420,6 +476,11 @@ const OnboardingScreen: React.FC = () => {
                   <Text style={styles.loggedInSubtext}>
                     You're successfully signed in
                   </Text>
+                  <TouchableOpacity
+                    style={styles.logoutButton}
+                    onPress={handleLogout}>
+                    <Text style={styles.logoutButtonText}>Logout</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -508,30 +569,37 @@ const OnboardingScreen: React.FC = () => {
             {gotAssistant ? (
               <ActivityIndicator size="large" color="#0000ff" />
             ) : (
-              <View style={styles.nameContainer}>
-                <FastImage
-                  source={require('../assets/boy.png')}
-                  style={styles.sideImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={isTablet ? styles.input : styles.inputPhone}
-                    placeholder="First name"
-                    placeholderTextColor="#888"
-                    value={heroName}
-                    onChangeText={setHeroName}
-                    autoCapitalize="words"
-                    autoComplete="name-given"
-                    maxLength={20}
+              <ScrollView
+                style={{width: '100%'}}
+                contentContainerStyle={styles.nameScrollContainer}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
+                showsVerticalScrollIndicator={false}>
+                <View style={styles.nameContainer}>
+                  <FastImage
+                    source={require('../assets/boy.png')}
+                    style={styles.sideImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                  <View style={styles.inputContainer}>
+                    <TextInput
+                      style={isTablet ? styles.input : styles.inputPhone}
+                      placeholder="First name"
+                      placeholderTextColor="#888"
+                      value={heroName}
+                      onChangeText={setHeroName}
+                      autoCapitalize="words"
+                      autoComplete="name-given"
+                      maxLength={20}
+                    />
+                  </View>
+                  <FastImage
+                    source={require('../assets/girl.png')}
+                    style={styles.sideImage}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 </View>
-                <FastImage
-                  source={require('../assets/girl.png')}
-                  style={styles.sideImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              </View>
+              </ScrollView>
             )}
           </>
         );
@@ -748,13 +816,23 @@ const OnboardingScreen: React.FC = () => {
       case 'permissions':
         return (
           <ScrollView
+            ref={scrollViewRef}
             style={styles.permissionsContainer}
             contentContainerStyle={styles.permissionsScrollView}>
-            <FastImage
-              source={require('../assets/boyAsk.png')}
-              style={styles.permissionsImage}
-              resizeMode={FastImage.resizeMode.contain}
-            />
+            <View style={styles.permissionsImageContainer}>
+              <FastImage
+                source={require('../assets/boyAsk.png')}
+                style={styles.permissionsImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+              <TouchableOpacity
+                style={styles.scrollIndicatorContainer}
+                onPress={() => {
+                  scrollViewRef.current?.scrollToEnd({animated: true});
+                }}>
+                <Text style={styles.scrollIndicator}>⬇️</Text>
+              </TouchableOpacity>
+            </View>
             {permissionsGranted ? (
               <Text style={styles.permissionsSuccess}>
                 ✅ Permissions granted successfully!
@@ -1542,6 +1620,13 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 20,
   },
+  nameScrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 100, // Extra padding for keyboard
+    paddingTop: 20,
+  },
   sideImage: {
     width: Math.min(width * 0.22, 100),
     height: Math.min(width * 0.22, 100),
@@ -1562,6 +1647,20 @@ const styles = StyleSheet.create({
     width: Math.min(width * 0.2, 80),
     height: Math.min(width * 0.2, 80),
     marginBottom: 20,
+  },
+  permissionsImageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  scrollIndicator: {
+    fontSize: 24,
+    marginLeft: 10,
+    color: '#146CF0',
+  },
+  scrollIndicatorContainer: {
+    padding: 5,
   },
   backButton: {
     position: 'absolute',
@@ -1710,6 +1809,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  logoutButton: {
+    backgroundColor: '#e74c3c',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    marginTop: 15,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

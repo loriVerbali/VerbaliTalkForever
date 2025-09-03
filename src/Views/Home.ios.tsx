@@ -6,20 +6,16 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  PermissionsAndroid,
 } from 'react-native';
+
 import {useNavigation, RouteProp} from '@react-navigation/native';
-import RNFS from 'react-native-fs';
 import AudioRecorderPlayer, {
-  AudioEncoderAndroidType,
-  AudioSourceAndroidType,
-  OutputFormatAndroidType,
   AVEncoderAudioQualityIOSType,
   AVEncodingOption,
+  AVModeIOSOption,
   AudioSet,
 } from 'react-native-audio-recorder-player';
-import {NativeModules} from 'react-native';
-// Add imports for the components
+
 import Inputs, {InputsRef} from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
@@ -37,20 +33,10 @@ import fetchHelper from '../utils/fetcher';
 import {Mixpanel} from 'mixpanel-react-native';
 import {logConversation} from '../utils/conversationLogger';
 import {useAdmin} from '../contexts/adminContext';
-import {views, MODEL_CONFIG} from '../utils/constants';
+import {views} from '../utils/constants';
 import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import WhisperService from '../utils/WhisperService';
-import WhisperModelManager from '../utils/WhisperModelManager';
-
-/**
- * WHISPER INTEGRATION NOTES:
- * - Local Whisper transcription is now enabled by default (see MODEL_CONFIG.TRANSCRIPTION.useLocalWhisper)
- * - Falls back to cloud transcription if local Whisper fails (configurable)
- * - Shows visual indicator: "🔒 Local Whisper" or "☁️ Cloud"
- * - WhisperService handles model initialization and transcription
- * - Model must be downloaded first using WhisperDownload component
- */
 
 const {width, height} = Dimensions.get('window');
 
@@ -67,18 +53,8 @@ const DEBUGWITHOUTTRANSCRIPTION = false;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was school today?';
-const DEBUGWHISPER = false; // Set to true to run Whisper debug tests
 
-// Create AudioRecorderPlayer instance with proper error handling
-let audioRecorderPlayer: any;
-
-try {
-  audioRecorderPlayer = AudioRecorderPlayer;
-  console.log('AudioRecorderPlayer initialized successfully');
-} catch (error) {
-  console.error('Failed to initialize AudioRecorderPlayer:', error);
-  audioRecorderPlayer = null;
-}
+let audioRecorderPlayer: AudioRecorderPlayer | null = null;
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {
@@ -93,11 +69,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   } = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
-  const {getItem, setItem} = useAppSettings();
+  const {getItem, preferences} = useAppSettings();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
-
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
@@ -162,8 +138,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       : {width: 60, height: 60},
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? {width: '100%', height: '100%'}
-      : {width: '100%', height: '100%'},
+      ? {width: 50, height: 50}
+      : {width: 40, height: 40},
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
@@ -217,15 +193,30 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  let currentRecordingURI: string | null = null;
+
+  const initializeAudioRecording = async () => {
+    try {
+      let useLocal = false;
+      // Get cached setting or fetch it once
+      if (preferences?.useLocalWhisper) {
+        useLocal = preferences?.useLocalWhisper === '1';
+        setIsUsingLocalWhisper(useLocal);
+      } else {
+        useLocal = (await getItem('useLocalWhisper')) === '1';
+        setIsUsingLocalWhisper(useLocal);
+      }
+
+      if (!audioRecorderPlayer) {
+        audioRecorderPlayer = new AudioRecorderPlayer();
+      }
+    } catch (error) {
+      console.error('Failed to initialize audio recording:', error);
+    }
+  };
+
   useEffect(() => {
     // Send wakeup call to backend when entering Home screen
-    const sendWakeupCall = async () => {
-      try {
-        await fetchHelper('wakeup', {}, {});
-      } catch (error) {
-        console.error('Error sending wakeup call from Home screen:', error);
-      }
-    };
 
     // Load gobackAfterSelection setting
     const loadGobackAfterSelectionSetting = async () => {
@@ -237,13 +228,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       }
     };
 
-    // Send wakeup call
-    sendWakeupCall();
+    // Initialize audio recording based on current settings
+    const setupAudioRecording = async () => {
+      await initializeAudioRecording();
+    };
 
     // Load the setting
     loadGobackAfterSelectionSetting();
 
-    // Log Whisper status
+    // Setup audio recording
+    setupAudioRecording();
 
     // Track screen opening
     mixpanel.track('Conversation', {
@@ -262,328 +256,148 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   // Cleanup useEffect for wake word service and Whisper
   useEffect(() => {
     return () => {
-      if (waitingForNextConversation) {
-        const wakeWordService = WakeWordService.getInstance();
-        wakeWordService.stopListening();
-      }
+      // Always cleanup wake word service
+      const wakeWordService = WakeWordService.getInstance();
+      wakeWordService.stopListening();
 
-      // Cleanup Whisper service when component unmounts
+      // Only cleanup Whisper service when component actually unmounts
+      // Don't destroy it when just waiting for next conversation
       WhisperService.destroy().catch(error => {
         console.error('Error cleaning up Whisper service:', error);
       });
+
+      // Cleanup AudioRecorderPlayer listeners if it was used
+      if (audioRecorderPlayer) {
+        try {
+          audioRecorderPlayer.removeRecordBackListener();
+        } catch (error) {
+          console.error(
+            'Error cleaning up AudioRecorderPlayer listener:',
+            error,
+          );
+        }
+      }
     };
-  }, [waitingForNextConversation]);
+  }, []);
 
   const playSound = async () => {
-    // FORCE THE RECORDING INDICATOR ON
-    setIsRecording(true);
-    const res = await playAttention();
-    if (stateof === 'Attention' && res) {
-      handleRecord();
-    }
+    playAttention();
+    handleRecord();
   };
-
-  const checkAudioPermission = async (): Promise<boolean> => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: 'Audio Recording Permission',
-            message:
-              'This app needs access to your microphone to record audio.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          return true;
-        } else {
-          return false;
-        }
-      } catch (err) {
-        console.warn('Permission request error:', err);
-        return false;
-      }
-    }
-    return true; // iOS permissions are handled differently
-  };
+  // put this near your module top:
 
   const handleRecord = async () => {
-    // Check for audio permission before recording
-    const hasPermission = await checkAudioPermission();
-    if (!hasPermission) {
-      return;
-    }
-
-    // Check if AudioRecorderPlayer is available
-    console.log('AudioRecorderPlayer object:', audioRecorderPlayer);
-    console.log('AudioRecorderPlayer type:', typeof audioRecorderPlayer);
-
-    if (audioRecorderPlayer) {
-      try {
-        console.log(
-          'AudioRecorderPlayer methods:',
-          Object.getOwnPropertyNames(audioRecorderPlayer),
-        );
-      } catch (methodError) {
-        console.warn('Could not get AudioRecorderPlayer methods:', methodError);
-      }
-    }
-
-    if (!audioRecorderPlayer) {
-      console.error('AudioRecorderPlayer is not available');
-      setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-      TTSService.speak(
-        'Audio recording is not available, Tap Home to retry',
-        true,
-      );
-      setIsRecording(false);
-      return;
-    }
-
-    const currentTime = Date.now();
-
-    lastSoundTimeRef.current = 0;
-    metering.current = -100;
-
-    NativeModules.AudioSession?.enableVoiceProcessingSession?.();
-
-    // Add a minimum recording time variable
+    if (isRecording) return;
 
     try {
-      // Get current Whisper setting to determine audio format
-      const useLocalWhisper = await getItem('useLocalWhisper');
-      const isUsingLocalWhisper = useLocalWhisper === '1';
-
-      // Use WAV for local Whisper on Android, WAV for iOS, MP3 for cloud Whisper
-      const path = Platform.select({
-        ios: isUsingLocalWhisper
-          ? `${RNFS.CachesDirectoryPath}/sound.wav`
-          : `${RNFS.CachesDirectoryPath}/sound.m4a`,
-        android: isUsingLocalWhisper
-          ? `${RNFS.CachesDirectoryPath}/sound.wav`
-          : `${RNFS.CachesDirectoryPath}/sound.mp3`, // MP3 for cloud Whisper
-      })!;
-
-      // Clear previous cached recording if it exists
+      // Kill any audio that might hold the session
       try {
-        const exists = await RNFS.exists(path);
-        if (exists) {
-          await RNFS.unlink(path);
-        }
-      } catch (e) {
-        console.warn('handleRecord - Error clearing previous recording:', e);
-      }
-
-      // Configure recording options based on Whisper type
-      const recordingOptions: AudioSet = isUsingLocalWhisper
-        ? {
-            // WAV format for local Whisper - Android configuration
-            AudioSourceAndroid: AudioSourceAndroidType.MIC,
-            OutputFormatAndroid: OutputFormatAndroidType.DEFAULT, // Use default format for WAV compatibility
-            AudioEncoderAndroid: AudioEncoderAndroidType.DEFAULT, // PCM encoding for WAV
-            AudioSamplingRate: 16000, // 16kHz sampling rate for better speech recognition
-            AudioChannels: 1, // Mono channel
-            AudioQuality: 'high', // High quality recording
-            // iOS settings for WAV format
-            AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.max,
-            AVNumberOfChannelsKeyIOS: 1,
-            AVFormatIDKeyIOS: 'lpcm' as AVEncodingOption, // Linear PCM for WAV
-            AVLinearPCMBitDepthKeyIOS: 16, // 16-bit PCM
-            AVLinearPCMIsBigEndianKeyIOS: false, // Little endian
-            AVLinearPCMIsFloatKeyIOS: false, // Integer format
-            AVSampleRateKeyIOS: 16000, // 16kHz sampling rate
-          }
-        : {
-            // AAC configuration for cloud Whisper
-            AudioEncoderAndroid: AudioEncoderAndroidType.AAC,
-            AudioSourceAndroid: AudioSourceAndroidType.MIC,
-            AVEncoderAudioQualityKeyIOS: AVEncoderAudioQualityIOSType.high,
-            AVNumberOfChannelsKeyIOS: 1,
-            AVFormatIDKeyIOS: 'aac' as AVEncodingOption,
-          };
-
-      // Start recording with configured options for better quality
-
-      // Start recording with appropriate format
-
+        await TTSService.stop?.();
+      } catch {}
       try {
-        // Try to initialize the recorder with a delay to allow hybrid object creation
-        await new Promise<void>(resolve => setTimeout(resolve, 100));
-        console.log('🔧 Getting HybridObject for startRecorder...');
-        const hybridObject = audioRecorderPlayer.hybridObject;
-        console.log('🔧 Creating AudioRecorderPlayer HybridObject...');
-        const result = await audioRecorderPlayer.startRecorder(
-          path,
+        const w = WakeWordService.getInstance();
+        w.stopListening();
+      } catch {}
+      try {
+        await audioRecorderPlayer?.stopPlayer?.();
+      } catch {}
+      try {
+        await audioRecorderPlayer?.stopRecorder?.();
+      } catch {}
+
+      if (!audioRecorderPlayer) audioRecorderPlayer = new AudioRecorderPlayer();
+      let uri: string | undefined;
+      if (preferences?.useLocalWhisper === '1') {
+        const recordingOptions: AudioSet = {
+          AVModeIOS: AVModeIOSOption.videochat,
+          AVSampleRateKeyIOS: 16000,
+          AVFormatIDKeyIOS: AVEncodingOption.wav,
+          AVNumberOfChannelsKeyIOS: 1,
+        };
+
+        // IMPORTANT: pass undefined so the lib uses its own default path in Caches
+        uri = await audioRecorderPlayer.startRecorder(
+          undefined,
           recordingOptions,
-          true,
+          false,
         );
-      } catch (startError) {
-        throw new Error(`Recording failed to start: ${startError}`);
+      } else {
+        uri = await audioRecorderPlayer.startRecorder(
+          undefined,
+          undefined,
+          false,
+        );
       }
+      currentRecordingURI = uri ?? null;
 
-      // Add meter listener to detect silence
+      // Add record back listener for iOS cloud Whisper (similar to Android)
       audioRecorderPlayer.addRecordBackListener((e: any) => {
-        if (lastSoundTimeRef.current === 0) {
-          lastSoundTimeRef.current = currentTime;
-        }
-
-        // Store current metering value
-        if (e.currentMetering !== undefined) {
-          metering.current = e.currentMetering;
-        }
-
-        // Check if there's actual sound (not silence)
-        if (e.currentMetering !== undefined && e.currentMetering > -35) {
-          if (Date.now() % 1000 < 100) {
-          }
-          lastSoundTimeRef.current = Date.now();
-        } else {
-          const silenceTime = Date.now() - lastSoundTimeRef.current;
-          if (silenceTime % 500 < 100) {
-          }
-
-          // Increase silence detection time to 3 seconds (was 2 seconds)
-          if (silenceTime > 3000 && lastSoundTimeRef.current > 0) {
-            stopRecording();
-            return;
-          }
-        }
-
+        // iOS doesn't need metering logic like Android, but we need to handle the events
+        // to prevent "no listeners registered" warning
         return true;
       });
 
-      recordingTimer.current = setTimeout(async () => {
-        requestAnimationFrame(() => {
-          setIsRecording(false);
-          //console.log('stopRecording - isRecording set to false');
-        });
-        await stopRecording();
-      }, 6000);
+      setIsRecording(true);
+
+      // auto-stop after 4s (or wire to your UI)
+      recordingTimer.current = setTimeout(stopRecording, 5000);
     } catch (error) {
-      console.error('handleRecord - Recording failed to start:', error);
+      console.error('startIOSRecording failed:', error);
+
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
-      TTSService.speak('Something went wrong, Tap Home to retry', true);
+
       setIsRecording(false);
     }
   };
 
   const stopRecording = async () => {
-    if (recordingTimer.current) {
-      //console.log('stopRecording - Clearing recording timer');
-      clearTimeout(recordingTimer.current);
-      recordingTimer.current = null;
-    }
-
+    let filePath: string | undefined;
     try {
-      const filePath = await audioRecorderPlayer.stopRecorder();
-      audioRecorderPlayer.removeRecordBackListener();
-      await transcribeAudio();
-    } catch (error) {
-      console.error('stopRecording - Failed to stop recording:', error);
+      if (recordingTimer.current) {
+        clearTimeout(recordingTimer.current);
+        recordingTimer.current = null;
+      }
+
+      filePath = await audioRecorderPlayer?.stopRecorder();
+      currentRecordingURI = filePath ?? currentRecordingURI;
+      console.log('🛑 iOS recording stopped. File:', currentRecordingURI);
+      // Remove record back listener for iOS cloud Whisper
+      audioRecorderPlayer?.removeRecordBackListener();
+    } catch (e) {
+      console.error('stopIOSRecording failed:', e);
+      setIsRecording(false);
+      setTranscribedText(ISSUEMESSAGE);
+      setFinishedTranscribing(true);
+    } finally {
+      await transcribeAudio(currentRecordingURI!);
     }
   };
-  // Local Whisper transcription with cloud fallback
+
+  // Local Whisper transcription - no fallback to cloud
   const transcribeAudioWithWhisper = async (audioPath: string) => {
-    let audioUri = audioPath;
-    if (Platform.OS === 'android') {
-      // Add file:// prefix for Android FormData
-      audioUri = `file://${audioPath}`;
-    } else {
-      // For iOS, the path should be used as-is from the recorder
-      audioUri = audioPath.replace('file://', '');
-    }
+    const audioUri = audioPath.replace('file://', '');
 
     try {
       setIsUsingLocalWhisper(true);
       const whisperResult = await WhisperService.transcribeAudio(audioUri);
 
-      return {text: whisperResult.text.trim(), isLocal: true};
-
       if (whisperResult.success && whisperResult.text.trim().length > 0) {
         return {text: whisperResult.text.trim(), isLocal: true};
+      } else {
+        // No fallback to cloud - throw error if local fails
+        setIsUsingLocalWhisper(false);
+        throw new Error(
+          whisperResult.error || 'Local Whisper transcription failed',
+        );
       }
-      //  else {
-      //   // If fallback is disabled, return the error
-      //   if (!MODEL_CONFIG.shouldFallbackToCloud()) {
-      //     setIsUsingLocalWhisper(false);
-      //     throw new Error(
-      //       whisperResult.error || 'Local Whisper transcription failed',
-      //     );
-      //   }
-      // }
-
-      // // Fallback to cloud transcription
-      // setIsUsingLocalWhisper(false);
-      // const cloudResult = await transcribeAudioCloud();
-      // return {...cloudResult, isLocal: false};
     } catch (error) {
       setIsUsingLocalWhisper(false);
       throw error;
     }
   };
-
-  // Debug function to test Whisper functionality
-  const debugWhisper = async () => {
-    console.log('🔍 Starting Whisper debug...');
-
-    try {
-      // Get current audio file path
-      const useLocalWhisper = await getItem('useLocalWhisper');
-      const isUsingLocalWhisper = useLocalWhisper === '1';
-
-      const audioPath = Platform.select({
-        ios: isUsingLocalWhisper
-          ? `${RNFS.CachesDirectoryPath}/sound.wav`
-          : `${RNFS.CachesDirectoryPath}/sound.m4a`,
-        android: isUsingLocalWhisper
-          ? `${RNFS.CachesDirectoryPath}/sound.wav`
-          : `${RNFS.CachesDirectoryPath}/sound.mp3`,
-      })!;
-
-      console.log('Debug: Audio path:', audioPath);
-      console.log('Debug: Using local Whisper:', isUsingLocalWhisper);
-
-      // Check if file exists
-      const fileExists = await RNFS.exists(audioPath);
-      console.log('Debug: File exists:', fileExists);
-
-      if (fileExists) {
-        const stats = await RNFS.stat(audioPath);
-        console.log('Debug: File size:', stats.size, 'bytes');
-
-        // Test audio compatibility
-        const compatibilityResult =
-          await WhisperService.testAudioFileCompatibility(audioPath);
-        console.log('Debug: Audio compatibility:', compatibilityResult);
-
-        if (compatibilityResult.compatible) {
-          // Test transcription
-          const transcriptionResult = await WhisperService.testTranscription(
-            audioPath,
-          );
-          console.log('Debug: Transcription result:', transcriptionResult);
-        }
-      } else {
-        console.log('Debug: Audio file not found');
-      }
-    } catch (error) {
-      console.error('Debug: Error:', error);
-    }
-  };
-
   // Cloud-based transcription (original method)
-  const transcribeAudioCloud = async () => {
-    const audioPath = Platform.select({
-      ios: `${RNFS.CachesDirectoryPath}/sound.m4a`,
-      android: `${RNFS.CachesDirectoryPath}/sound.mp3`, // MP3 for cloud Whisper
-    })!;
-
+  const transcribeAudioCloud = async (audioPath: string) => {
     if (!audioPath) {
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
@@ -632,27 +446,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     return transcribeResponse;
   };
 
-  const transcribeAudio = async () => {
+  const transcribeAudio = async (audioPath: string) => {
+    setIsTranscribing(true);
     // Get current Whisper setting to determine audio format
-    const useLocalWhisper = await getItem('useLocalWhisper');
-    const isUsingLocalWhisper = useLocalWhisper === '1';
-
-    const audioPath = Platform.select({
-      ios: isUsingLocalWhisper
-        ? `${RNFS.CachesDirectoryPath}/sound.wav`
-        : `${RNFS.CachesDirectoryPath}/sound.m4a`,
-      android: isUsingLocalWhisper
-        ? `${RNFS.CachesDirectoryPath}/sound.wav`
-        : `${RNFS.CachesDirectoryPath}/sound.mp3`, // MP3 for cloud Whisper
-    })!;
+    const useLocal = preferences?.useLocalWhisper === '1';
 
     if (!audioPath) {
       console.error('transcribeAudio: No audio path provided');
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
+      audioRecordInitialized = false;
 
       TTSService.speak('I am having an issue, Tap Home to retry', true);
       setIsRecording(false);
+      setIsTranscribing(false);
       return;
     }
 
@@ -660,40 +467,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       let transcribeResponse: any;
       if (!DEBUGWITHOUTTRANSCRIPTION) {
         try {
-          // Check current Whisper preference to determine which service to use
-          const useLocalWhisper = await getItem('useLocalWhisper');
-          const isUsingLocalWhisper = useLocalWhisper === '1';
-
-          console.log(
-            'Current Whisper preference:',
-            isUsingLocalWhisper ? 'Local' : 'Cloud',
-          );
-
-          // Run debug tests if enabled
-          if (DEBUGWHISPER && isUsingLocalWhisper) {
-            await debugWhisper();
-          }
-
-          if (isUsingLocalWhisper) {
-            // Use local Whisper with fallback logic
+          if (useLocal) {
+            // Use local Whisper - no fallback to cloud
             transcribeResponse = await transcribeAudioWithWhisper(audioPath);
           } else {
             // Use cloud Whisper directly
             setIsUsingLocalWhisper(false);
-            transcribeResponse = await transcribeAudioCloud();
-            transcribeResponse.isLocal = false;
+            transcribeResponse = await transcribeAudioCloud(audioPath);
+            (transcribeResponse as any).isLocal = false;
           }
         } catch (networkError) {
-          console.log('transcribeAudio - Error:', networkError);
-
           // Check if it's a network/API key error
           if (
             networkError instanceof Error &&
             networkError.message.includes('Network request failed')
           ) {
-            console.log(
-              'Network error detected - likely missing OpenAI API key or network issue',
-            );
             setFinishedTranscribing(true);
             setTranscribedText(
               'Network error: Please check your internet connection and OpenAI API key configuration',
@@ -708,6 +496,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             TTSService.speak('I am having an issue, Tap Home to retry', true);
           }
           setIsRecording(false);
+          setIsTranscribing(false);
           return;
         }
       } else {
@@ -767,17 +556,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           const contextPrompt = `Context: ${contextInfo}`;
           const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
-          // OPTIMIZATION 3: Start both API calls and don't wait for sendMessage to complete
-
           try {
-            const messagePromise = sendMessage(
+            const messagePromise = await sendMessage(
               messageWithContext,
               threadId,
               'generate_answers',
             );
 
             // Wait for message to be sent, then immediately start assistant
-            const messageId = await messagePromise;
+            const messageId = messagePromise;
 
             if (messageId) {
               // Start assistant run immediately without waiting
@@ -792,7 +579,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               });
             } else {
               setIsProcessingAnswer(false);
-              console.log('transcribeAudio - Error:', 'messageId', messageId);
               TTSService.speak('I am having an issue, Tap Home to retry', true);
               setIsRecording(false);
               return;
@@ -808,18 +594,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         }
 
         setIsRecording(false);
+        setIsTranscribing(false);
       } else {
         setFinishedTranscribing(true);
         setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
         TTSService.speak("I couldn't hear you. Tap Home to retry", true);
         setIsRecording(false);
+        setIsTranscribing(false);
       }
     } catch (error) {
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
-      console.log('transcribeAudio - Error:', 'error');
       TTSService.speak('I am having an issue, Tap Home to retry', true);
       setIsRecording(false);
+      setIsTranscribing(false);
     }
   };
 
@@ -841,7 +629,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             setIsRetrying(false);
             setIsProcessingAnswer(false);
             setShowImages(true);
-          }, 1000); // Show retry gif for at least 1 second
+          }, 300); // Show retry gif for at least 1 second
         } else {
           setIsRetrying(false);
           setIsProcessingAnswer(false);
@@ -856,19 +644,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   }, [imageUrls, status]);
 
-  // Handle assistant failure status
-  // useEffect(() => {
-  //   if (status === 'failed') {
-  //     setIsProcessingAnswer(false);
-  //     setIsRetrying(false);
-  //     setShowImages(false);
-  //     TTSService.speak(
-  //       'We had a problem processing that. Please try again.',
-  //       true,
-  //     );
-  //   }
-  // }, [status]);
-
   // Reset function for local states
   const resetLocalStates = () => {
     setFinishedTranscribing(false);
@@ -877,12 +652,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setIsRetrying(false);
     setRetryCount(0);
     setIsProcessingAnswer(false); // Reset processing state
+    setIsTranscribing(false); // Reset transcription state
+    setIsRecording(false); // Reset recording state
     setKeyboardInput(''); // Reset keyboard input
     setDebouncedKeyboardInput('');
     setIsSubmittingKeyboard(false);
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
+    // Note: Don't reset cachedUseLocalWhisper as it won't change during session
 
     // Clear the input in the Inputs component
     if (inputsRef.current) {
@@ -939,7 +717,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       );
 
       if (messageId) {
-        // Clear old images immediately to prevent flickering
         runAssistant(threadId).catch(error => {
           console.error('handleCantFindIt - Failed to retry:', error);
           setIsProcessingAnswer(false);
@@ -995,25 +772,60 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     // Only navigate back to Open if not currently retrying/getting more answers
     if (selectedAnswer !== 'MoreAnswers') {
       // Wait 1 second to allow user to hear the selected answer being spoken
-      setTimeout(() => {
+      setTimeout(async () => {
         resetAssistant();
-        resetLocalStates();
+
         // Navigate to Open.tsx only if gobackAfterSelection is true
         if (gobackAfterSelection) {
+          resetLocalStates();
           navigation.navigate(views.OPEN as never);
         } else {
           // NEW: Set waiting state and activate wake word
           setWaitingForNextConversation(true);
           clearImages();
-          // Activate wake word listening (safe - no current conflict)
-          const wakeWordService = WakeWordService.getInstance();
-          wakeWordService.setCallback((phrase: string) => {
-            // When wake word detected, start new conversation
 
-            setWaitingForNextConversation(false);
-            playSound(); // This will trigger handleRecord()
-          });
-          wakeWordService.startListening();
+          // Reset states but preserve waitingForNextConversation
+          setFinishedTranscribing(false);
+          setTranscribedText('');
+          setShowImages(false);
+          setIsRetrying(false);
+          setRetryCount(0);
+          setIsProcessingAnswer(false);
+          setIsTranscribing(false);
+          setIsRecording(false);
+          setKeyboardInput('');
+          setDebouncedKeyboardInput('');
+          setIsSubmittingKeyboard(false);
+          setIsUsingLocalWhisper(false);
+          setModelNotAvailable(false);
+
+          // Clear the input in the Inputs component
+          if (inputsRef.current) {
+            inputsRef.current.clearInput();
+          }
+
+          // Clear debounce timer
+          if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+            debounceTimer.current = null;
+          }
+
+          // Activate wake word listening
+          try {
+            const wakeWordService = WakeWordService.getInstance();
+
+            wakeWordService.setCallback((phrase: string) => {
+              // When wake word detected, start new conversation
+              setWaitingForNextConversation(false);
+              playSound(); // This will trigger handleRecord()
+            });
+
+            await wakeWordService.startListening();
+          } catch (error) {
+            console.error('Failed to start wake word service:', error);
+            // Fallback: allow manual trigger
+            setWaitingForNextConversation(true);
+          }
         }
       }, 1000);
     }
@@ -1206,11 +1018,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           navigation={navigation}
           onReset={resetLocalStates}
           disabled={
-            isRecording ||
-            isProcessingAnswer ||
-            isRetrying ||
-            isSubmittingKeyboard ||
-            (!finishedTranscribing && !waitingForNextConversation)
+            stateof === 'Keyboard'
+              ? false
+              : isRecording ||
+                isProcessingAnswer ||
+                isRetrying ||
+                isSubmittingKeyboard ||
+                (!finishedTranscribing && !waitingForNextConversation)
           }
         />
 
@@ -1451,6 +1265,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             }),
                           }}
                           onPress={() => {
+                            setWaitingForNextConversation(false); // Exit waiting state immediately
                             playSound(); // This will trigger handleRecord()
                           }}>
                           <FastImage
@@ -1465,6 +1280,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       </View>
                     ) : stateof === 'Keyboard' ? (
                       <KeyboardInputComponent />
+                    ) : isTranscribing ? (
+                      <View style={{alignItems: 'center'}}>
+                        <FastImage
+                          source={require('../assets/movie/output.gif')}
+                          style={[
+                            styles.iconSize,
+                            responsiveValues.fetchingSize,
+                          ]}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                        <Text
+                          style={{
+                            fontSize: responsiveValues.transcriptionFontSize,
+                            fontWeight: 'bold',
+                            color: '#FF6B35',
+                            marginTop: 10,
+                          }}>
+                          Transcribing...
+                        </Text>
+                      </View>
                     ) : isRecording ? (
                       <View style={{alignItems: 'center'}}>
                         <FastImage
@@ -1579,18 +1414,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             resizeMode={FastImage.resizeMode.contain}
                           />
                         ) : null}
-                        {status === 'failed' && (
-                          <Text
-                            style={[
-                              styles.retryText,
-                              {
-                                fontSize: responsiveValues.retryFontSize,
-                                marginTop: 10,
-                              },
-                            ]}>
-                            Something went wrong. Please press Home to retry.
-                          </Text>
-                        )}
                         {finishedTranscribing &&
                         (transcribedText.length === 0 ||
                           transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (

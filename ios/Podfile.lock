@@ -1855,7 +1855,7 @@ PODS:
     - React-utils (= 0.78.0)
   - RNAudioRecord (0.2.2):
     - React
-  - RNAudioRecorderPlayer (3.6.14):
+  - RNAudioRecorderPlayer (3.6.12):
     - React-Core
   - RNDefaultPreference (1.4.4):
     - React-Core
@@ -2490,7 +2490,7 @@ SPEC CHECKSUMS:
   ReactCodegen: 008c319179d681a6a00966edfc67fda68f9fbb2e
   ReactCommon: 0c097b53f03d6bf166edbcd0915da32f3015dd90
   RNAudioRecord: b253d15d8141c5ef6bc614fc9d9f06577870bfc3
-  RNAudioRecorderPlayer: b5ed41ccfe72a211a870bfe09ab36c046eb27d2a
+  RNAudioRecorderPlayer: 11df0c7b614e9767ef24d896465c3a758c592de7
   RNDefaultPreference: ee13d69e6693d193cd223d10e15e5b3c012d31ba
   RNDeviceInfo: d863506092aef7e7af3a1c350c913d867d795047
   RNFastImage: 462a183c4b0b6b26fdfd639e1ed6ba37536c3b87

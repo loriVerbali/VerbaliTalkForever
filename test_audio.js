@@ -10,5 +10,7 @@ const testConfig = {
 
 console.log('Test configuration:', testConfig);
 console.log('AudioRecorderPlayer available:', !!AudioRecorderPlayer);
-console.log('startRecorder method available:', !!AudioRecorderPlayer.startRecorder);
-
+console.log(
+  'startRecorder method available:',
+  !!AudioRecorderPlayer.startRecorder,
+);

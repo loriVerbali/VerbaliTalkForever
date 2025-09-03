@@ -88,12 +88,6 @@ const OpenScreen: React.FC = () => {
     // Initialize wake word service with proper cleanup and restart
     const initializeWakeWord = async () => {
       try {
-        // Stop any existing wake word service to ensure clean state
-        await wakeWordService.stopListening();
-
-        // Small delay to ensure clean state transition
-        await new Promise<void>(resolve => setTimeout(resolve, 100));
-
         // Set up callback for when wake word is detected
         wakeWordService.setCallback((phrase: string) => {
           // Handle wake word detection
@@ -108,24 +102,13 @@ const OpenScreen: React.FC = () => {
               });
         });
 
-        // Start listening
+        // Start listening (this will handle initialization if needed)
         await wakeWordService.startListening();
       } catch (error) {
         console.error(
           'Failed to initialize wake word service on Open screen:',
           error,
         );
-        // Retry once after a delay with force restart
-        setTimeout(async () => {
-          try {
-            await wakeWordService.forceRestart();
-          } catch (retryError) {
-            console.error(
-              'Wake word service force restart failed:',
-              retryError,
-            );
-          }
-        }, 500);
       }
     };
 

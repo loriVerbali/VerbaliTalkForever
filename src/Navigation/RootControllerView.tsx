@@ -24,7 +24,7 @@ const RootStack = createStackNavigator();
 const RootStackScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
-  const {initializePreferences, getItem} = useAppSettings();
+  const {getItem} = useAppSettings();
 
   // Function to complete onboarding from children
   const completeOnboarding = useCallback(() => {
@@ -34,7 +34,8 @@ const RootStackScreen: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       if (isLoading) {
-        await initializePreferences();
+        // initializePreferences is now handled by AppSettingsProvider
+        // await initializePreferences();
         const wasOnboarded = await getItem('wasOnboarded');
         setShowOnboarding(wasOnboarded !== '1');
         setIsLoading(false);

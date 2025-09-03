@@ -282,7 +282,6 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
           if (fileCheck) {
             const stats = await RNFS.stat(localPath);
           } else {
-            console.log('❌ ERROR: File not found after download');
             throw new Error('File not created after download');
           }
           setDownloadProgress(100);
@@ -317,7 +316,7 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
           const stats = await RNFS.stat(localPath);
         }
       } catch (verifyError) {
-        console.log('Could not verify file:', verifyError);
+        console.error('Could not verify file:', verifyError);
       }
     } catch (error) {
       console.error('Whisper model download error:', error);
