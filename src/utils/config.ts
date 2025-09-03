@@ -348,6 +348,20 @@ const AppConfig: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    validateGoogleReceipt: {
+      description: 'validateGoogleReceipt',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/validate-google-play-receipt',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
   },
 };
 

@@ -23,6 +23,7 @@ import {Mixpanel} from 'mixpanel-react-native';
 import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
+import WhisperModelManager from './utils/WhisperModelManager';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
@@ -76,6 +77,9 @@ const App = () => {
     const initServices = async () => {
       // Initialize TTS service when the app starts
       await TTSService.initialize();
+
+      // Initialize Whisper model availability check
+      // This will be handled by the AppSettingsProvider context
     };
 
     initServices();

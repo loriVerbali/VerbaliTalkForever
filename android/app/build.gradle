@@ -82,11 +82,23 @@ android {
         applicationId "com.verbali.matalkai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "1.0.11"
+        versionCode 14
+        versionName "1.0.14"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
         missingDimensionStrategy "store", "play"
-
+        
+        // Support for 16 KB memory page sizes
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+        }
+        
+        // Enable native library support for different memory page sizes
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+                cppFlags "-std=c++17"
+            }
+        }
     }
     signingConfigs {
         debug {
@@ -124,7 +136,19 @@ android {
         exclude "**/META-INF/LICENSE.txt"
         exclude "**/META-INF/NOTICE"
         exclude "**/META-INF/NOTICE.txt"
+        
+        // Native library handling for 16 KB memory page size support
+        jniLibs {
+            useLegacyPackaging = false
+        }
+        
+        // Ensure proper alignment for native libraries
+        pickFirst "**/libc++_shared.so"
+        pickFirst "**/libjsc.so"
+        pickFirst "**/libhermes.so"
     }
+    
+
 }
 
 dependencies {
@@ -157,4 +181,6 @@ dependencies {
         exclude group: 'com.android.support', module: 'appcompat-v7'
         exclude group: 'com.android.support'
     }
+    
+
 }
