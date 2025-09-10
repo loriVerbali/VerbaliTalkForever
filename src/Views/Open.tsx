@@ -25,6 +25,7 @@ import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
 import MatalkIcon from '../Components/MatalkIcon';
 import ContextInfo from '../Components/ContextInfo';
+import ShowAndTell from '../Components/ShowAndTell';
 import {Mixpanel} from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';
 import {useAdmin} from '../contexts/adminContext';
@@ -55,17 +56,88 @@ const OpenScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
   const [contextInfoVisible, setContextInfoVisible] = useState(false);
+  const [startupModalVisible, setStartupModalVisible] = useState(true);
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
   const {preferences} = useAppSettings();
   const heroName = preferences?.heroName;
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const wakeWordService = WakeWordService.getInstance();
+  const handScaleAnim = useRef(new Animated.Value(1)).current;
+  const bubbleScaleAnim = useRef(new Animated.Value(1)).current;
+  const settingsHandScaleAnim = useRef(new Animated.Value(1)).current;
+  const settingsBubbleScaleAnim = useRef(new Animated.Value(1)).current;
 
   // Track connection state changes
   useEffect(() => {
     setConnectionState(isConnected); // Force local state update
   }, [isConnected]);
+
+  // Hand and bubble pulsing animation
+  useEffect(() => {
+    const createPulseAnimation = () => {
+      return Animated.sequence([
+        Animated.parallel([
+          Animated.timing(handScaleAnim, {
+            toValue: 1.3,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bubbleScaleAnim, {
+            toValue: 1.1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(settingsHandScaleAnim, {
+            toValue: 1.3,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(settingsBubbleScaleAnim, {
+            toValue: 1.1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.timing(handScaleAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(bubbleScaleAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(settingsHandScaleAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(settingsBubbleScaleAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]);
+    };
+
+    const startPulseAnimation = () => {
+      createPulseAnimation().start(() => {
+        // Restart the animation after completion
+        setTimeout(startPulseAnimation, 0);
+      });
+    };
+
+    startPulseAnimation();
+  }, [
+    handScaleAnim,
+    bubbleScaleAnim,
+    settingsHandScaleAnim,
+    settingsBubbleScaleAnim,
+  ]);
 
   const askForAdultHelp = () => {
     TTSService.speak(
@@ -275,6 +347,38 @@ const OpenScreen: React.FC = () => {
             />
           </Pressable>
 
+          {/* Pointing hand with text bubble */}
+          <View style={styles.pointHandBubble}>
+            <Animated.View style={{transform: [{scale: handScaleAnim}]}}>
+              <FastImage
+                source={require('../assets/pointhand.png')}
+                style={styles.pointHandImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.speechBubble,
+                {
+                  transform: [{scale: bubbleScaleAnim}],
+                  borderColor: bubbleScaleAnim.interpolate({
+                    inputRange: [1, 1.1],
+                    outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
+                    extrapolate: 'clamp',
+                  }),
+                  borderWidth: bubbleScaleAnim.interpolate({
+                    inputRange: [1, 1.1],
+                    outputRange: [1, 3],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ]}>
+              <Text style={styles.speechBubbleText}>
+                Tap here or Say Hey Verbi
+              </Text>
+            </Animated.View>
+          </View>
+
           {showRecognitionStatus && (
             <View style={styles.recognitionStatusContainer}>
               <Text style={styles.recognitionStatusText}>{recognizedText}</Text>
@@ -294,6 +398,38 @@ const OpenScreen: React.FC = () => {
               resizeMode={FastImage.resizeMode.contain}
             />
           </Pressable>
+
+          {/* Settings pointing hand with text bubble */}
+          <View style={styles.settingsPointHandBubble}>
+            <Animated.View
+              style={[
+                styles.speechBubble,
+                {
+                  transform: [{scale: settingsBubbleScaleAnim}],
+                  borderColor: settingsBubbleScaleAnim.interpolate({
+                    inputRange: [1, 1.1],
+                    outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
+                    extrapolate: 'clamp',
+                  }),
+                  borderWidth: settingsBubbleScaleAnim.interpolate({
+                    inputRange: [1, 1.1],
+                    outputRange: [1, 3],
+                    extrapolate: 'clamp',
+                  }),
+                  marginRight: width * 0.03,
+                },
+              ]}>
+              <Text style={styles.speechBubbleText}>Personalization!!</Text>
+            </Animated.View>
+            <Animated.View
+              style={{transform: [{scale: settingsHandScaleAnim}]}}>
+              <FastImage
+                source={require('../assets/pointhandRight.png')}
+                style={styles.pointHandImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </Animated.View>
+          </View>
 
           <Pressable
             style={isTablet ? styles.infoButton : styles.infoButtonPhone}
@@ -509,6 +645,36 @@ const OpenScreen: React.FC = () => {
         visible={contextInfoVisible}
         onClose={() => setContextInfoVisible(false)}
       />
+
+      {/* Startup Show-and-Tell Modal */}
+      <Modal
+        visible={startupModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setStartupModalVisible(false)}>
+        <View style={styles.startupModalOverlay}>
+          <View style={styles.startupModalContent}>
+            <View style={styles.showAndTellHeader}>
+              <Text style={styles.showAndTellTitle}>Welcome to Matalk!</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setStartupModalVisible(false)}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.showAndTellVideoContainer}>
+              <ShowAndTell />
+            </View>
+
+            <TouchableOpacity
+              style={styles.getStartedButton}
+              onPress={() => setStartupModalVisible(false)}>
+              <Text style={styles.getStartedButtonText}>Get Started!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -795,6 +961,119 @@ const styles = StyleSheet.create({
     fontSize: height * 0.03,
     fontWeight: 'bold',
     color: '#333',
+  },
+  pointHandBubble: {
+    position: 'absolute',
+    top: height * 0.04,
+    left: width * 0.08,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  pointHandImage: {
+    width: width * 0.04,
+    height: width * 0.04,
+    marginRight: width * 0.03,
+  },
+  speechBubble: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
+    paddingHorizontal: width * 0.02,
+    paddingVertical: height * 0.008,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  speechBubbleText: {
+    fontSize: height * 0.018,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+  },
+  settingsPointHandBubble: {
+    position: 'absolute',
+    top: height * 0.04,
+    right: width * 0.06,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  startupModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: width * 0.05,
+  },
+  startupModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    width: '95%',
+    height: '90%',
+    padding: width * 0.05,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  showAndTellHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: height * 0.02,
+  },
+  showAndTellTitle: {
+    fontSize: height * 0.04,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+  },
+  closeButton: {
+    width: width * 0.08,
+    height: width * 0.08,
+    borderRadius: width * 0.04,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: height * 0.025,
+    color: '#666',
+    fontWeight: 'bold',
+  },
+  showAndTellVideoContainer: {
+    flex: 1,
+    marginBottom: height * 0.02,
+  },
+  getStartedButton: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    paddingVertical: height * 0.02,
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  getStartedButtonText: {
+    color: 'white',
+    fontSize: height * 0.025,
+    fontWeight: 'bold',
   },
 });
 

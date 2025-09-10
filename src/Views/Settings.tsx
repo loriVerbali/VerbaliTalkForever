@@ -218,6 +218,7 @@ const SettingsScreen: React.FC = () => {
   const [useLocalWhisper, setUseLocalWhisper] = useState(true);
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
+  const [showAvatarOptions, setShowAvatarOptions] = useState(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // Easter egg: tap version 5 times to show assistant ID
@@ -232,6 +233,27 @@ const SettingsScreen: React.FC = () => {
     styles.genderImageWrapper,
     {transform: [{scale: 0.7}]},
   ];
+
+  // Helper function to get avatar source based on gender
+  const getAvatarSource = (gender: string) => {
+    switch (gender) {
+      case 'white boy':
+      case 'boy':
+        return require('../assets/gender/wboy.jpg');
+      case 'black boy':
+        return require('../assets/gender/bboy.jpg');
+      case 'asian boy':
+        return require('../assets/gender/aboy.jpg');
+      case 'white girl':
+        return require('../assets/gender/wgirl.jpg');
+      case 'black girl':
+        return require('../assets/gender/bgirl.jpg');
+      case 'asian girl':
+        return require('../assets/gender/agirl.jpg');
+      default:
+        return require('../assets/gender/wboy.jpg'); // fallback
+    }
+  };
 
   useEffect(() => {
     mixpanel.track('Settings', {
@@ -790,13 +812,23 @@ const SettingsScreen: React.FC = () => {
                 />
               </View> */}
 
+                <View style={styles.myPepesSection}>
+                  <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
+                    My People & Stuff
+                  </Text>
+                  <Text style={styles.myPepesDescription}>
+                    Your people, stuff, food, drinks, places, and tv shows with
+                    images, names, and aliases for better conversation context.
+                    <Text style={{fontWeight: '800', color: '#666'}}>
+                      All Images are kept on your device only.
+                    </Text>
+                  </Text>
+                  <MyPepesAndStuff />
+                </View>
+
                 <View style={styles.genderSection}>
                   <View style={styles.genderHeader}>
-                    <View
-                      style={[
-                        styles.genderLabelContainer,
-                        {alignItems: 'center'},
-                      ]}>
+                    <View style={styles.genderLabelContainer}>
                       <Text style={styles.settingLabel}>
                         Your Hero's Avatar(optional)
                       </Text>
@@ -805,141 +837,201 @@ const SettingsScreen: React.FC = () => {
                         style={styles.infoButton}>
                         <Text style={styles.infoIcon}>?</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.noneCheckbox}
-                        onPress={() => setItem('gender', 'other')}>
-                        <View
-                          style={[
-                            styles.checkbox,
-                            preferences.gender === 'other' && styles.checkedBox,
-                          ]}>
-                          {preferences.gender === 'other' && (
-                            <Text style={styles.checkmark}>✓</Text>
-                          )}
+                    </View>
+                  </View>
+
+                  <View style={styles.currentAvatarContainer}>
+                    <View style={styles.currentAvatarDisplay}>
+                      {preferences.gender === 'other' || !preferences.gender ? (
+                        <View style={styles.noAvatarContainer}>
+                          <Text style={styles.noAvatarText}>No Avatar</Text>
                         </View>
-                        <Text style={styles.noneLabel}>Other</Text>
+                      ) : (
+                        <View style={styles.selectedAvatarWrapper}>
+                          <FastImage
+                            source={getAvatarSource(preferences.gender)}
+                            style={styles.currentAvatarImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      )}
+
+                      <TouchableOpacity
+                        style={styles.showMoreButton}
+                        onPress={() =>
+                          setShowAvatarOptions(!showAvatarOptions)
+                        }>
+                        <Text style={styles.showMoreButtonText}>
+                          {showAvatarOptions ? 'Hide' : 'Show More'}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
-                  <View style={styles.genderContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        (preferences.gender === 'white boy' ||
-                          preferences.gender === 'boy') &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'white boy')}>
-                      <View style={genderWrapperStyle}>
-                        {(preferences.gender === 'white boy' ||
-                          preferences.gender === 'boy') && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/wboy.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
+
+                  {showAvatarOptions && (
+                    <View style={styles.avatarOptionsContainer}>
+                      <View style={styles.avatarOptionsGrid}>
+                        <TouchableOpacity
+                          style={[
+                            styles.avatarOption,
+                            (preferences.gender === 'white boy' ||
+                              preferences.gender === 'boy') &&
+                              styles.selectedAvatarOption,
+                          ]}
+                          onPress={() => {
+                            setItem('gender', 'white boy');
+                            setShowAvatarOptions(false);
+                          }}>
+                          <View style={styles.avatarOptionWrapper}>
+                            {(preferences.gender === 'white boy' ||
+                              preferences.gender === 'boy') && (
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
+                            <FastImage
+                              source={require('../assets/gender/wboy.jpg')}
+                              style={styles.avatarOptionImage}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.avatarOption,
+                            preferences.gender === 'black boy' &&
+                              styles.selectedAvatarOption,
+                          ]}
+                          onPress={() => {
+                            setItem('gender', 'black boy');
+                            setShowAvatarOptions(false);
+                          }}>
+                          <View style={styles.avatarOptionWrapper}>
+                            {preferences.gender === 'black boy' && (
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
+                            <FastImage
+                              source={require('../assets/gender/bboy.jpg')}
+                              style={styles.avatarOptionImage}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.avatarOption,
+                            preferences.gender === 'asian boy' &&
+                              styles.selectedAvatarOption,
+                          ]}
+                          onPress={() => {
+                            setItem('gender', 'asian boy');
+                            setShowAvatarOptions(false);
+                          }}>
+                          <View style={styles.avatarOptionWrapper}>
+                            {preferences.gender === 'asian boy' && (
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
+                            <FastImage
+                              source={require('../assets/gender/aboy.jpg')}
+                              style={styles.avatarOptionImage}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.avatarOption,
+                            preferences.gender === 'white girl' &&
+                              styles.selectedAvatarOption,
+                          ]}
+                          onPress={() => {
+                            setItem('gender', 'white girl');
+                            setShowAvatarOptions(false);
+                          }}>
+                          <View style={styles.avatarOptionWrapper}>
+                            {preferences.gender === 'white girl' && (
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
+                            <FastImage
+                              source={require('../assets/gender/wgirl.jpg')}
+                              style={styles.avatarOptionImage}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.avatarOption,
+                            preferences.gender === 'black girl' &&
+                              styles.selectedAvatarOption,
+                          ]}
+                          onPress={() => {
+                            setItem('gender', 'black girl');
+                            setShowAvatarOptions(false);
+                          }}>
+                          <View style={styles.avatarOptionWrapper}>
+                            {preferences.gender === 'black girl' && (
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
+                            <FastImage
+                              source={require('../assets/gender/bgirl.jpg')}
+                              style={styles.avatarOptionImage}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.avatarOption,
+                            preferences.gender === 'asian girl' &&
+                              styles.selectedAvatarOption,
+                          ]}
+                          onPress={() => {
+                            setItem('gender', 'asian girl');
+                            setShowAvatarOptions(false);
+                          }}>
+                          <View style={styles.avatarOptionWrapper}>
+                            {preferences.gender === 'asian girl' && (
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
+                            <FastImage
+                              source={require('../assets/gender/agirl.jpg')}
+                              style={styles.avatarOptionImage}
+                              resizeMode={FastImage.resizeMode.contain}
+                            />
+                          </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.avatarOption,
+                            preferences.gender === 'other' &&
+                              styles.selectedAvatarOption,
+                          ]}
+                          onPress={() => {
+                            setItem('gender', 'other');
+                            setShowAvatarOptions(false);
+                          }}>
+                          <View style={styles.avatarOptionWrapper}>
+                            {preferences.gender === 'other' && (
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
+                            <View style={styles.noAvatarOptionContainer}>
+                              <Text style={styles.noAvatarOptionText}>
+                                Other
+                              </Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
                       </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        (preferences.gender === 'black boy' ||
-                          preferences.gender === 'boy') &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'black boy')}>
-                      <View style={genderWrapperStyle}>
-                        {(preferences.gender === 'black boy' ||
-                          preferences.gender === 'boy') && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/bboy.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'asian boy' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'asian boy')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'asian boy' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/aboy.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'white girl' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'white girl')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'white girl' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/wgirl.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'black girl' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'black girl')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'black girl' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/bgirl.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'asian girl' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'asian girl')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'asian girl' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/agirl.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  </View>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.familyPicsSection}>
-                  <Text style={styles.settingLabel}>Family Members</Text>
-
                   {/* Conversation Mode Setting */}
                   <View style={styles.conversationModeRow}>
                     <View style={styles.switchLabel}>
@@ -990,20 +1082,6 @@ const SettingsScreen: React.FC = () => {
                       />
                     </>
                   )}
-                </View>
-
-                <View style={styles.myPepesSection}>
-                  <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
-                    My People & Stuff
-                  </Text>
-                  <Text style={styles.myPepesDescription}>
-                    Your people, stuff, food, drinks, places, and tv shows with
-                    images, names, and aliases for better conversation context.
-                    <Text style={{fontWeight: '800', color: '#666'}}>
-                      All Images are kept on your device only.
-                    </Text>
-                  </Text>
-                  <MyPepesAndStuff />
                 </View>
 
                 <View style={styles.adminSection}>
@@ -1208,7 +1286,7 @@ const SettingsScreen: React.FC = () => {
             style={styles.linkRow}
             onPress={() =>
               handleLinkPress(
-                'https://www.verbali.io/termsofuse',
+                'https://www.verbali.io/terms-of-use',
                 'Terms of Use',
               )
             }>
@@ -1674,12 +1752,12 @@ const styles = StyleSheet.create({
   },
   heartOverlay: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: -10,
+    right: -10,
     zIndex: 10,
-    fontSize: 21.6,
+    fontSize: 24,
     color: '#FF3B30',
-    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: {width: 0, height: 1},
     textShadowRadius: 2,
     pointerEvents: 'none',
@@ -1749,8 +1827,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
     marginTop: 8,
   },
   conversationModeLabel: {
@@ -1814,8 +1890,7 @@ const styles = StyleSheet.create({
   whisperDownloadSection: {
     paddingHorizontal: 10,
     marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+
     paddingBottom: 20,
   },
   whisperStatusContainer: {
@@ -1841,6 +1916,126 @@ const styles = StyleSheet.create({
   disabledText: {
     opacity: 0.5,
     color: '#999',
+  },
+  currentAvatarContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  currentAvatarDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectedAvatarWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 2,
+  },
+  currentAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+  },
+  noAvatarContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+  },
+  noAvatarText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+  },
+  showMoreButton: {
+    backgroundColor: '#8E24AA',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 16,
+  },
+  showMoreButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  avatarOptionsContainer: {
+    paddingHorizontal: 10,
+    marginTop: 12,
+  },
+  avatarOptionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  avatarOption: {
+    width: '30%',
+    alignItems: 'center',
+    marginBottom: 12,
+    padding: 4,
+  },
+  selectedAvatarOption: {
+    // No background color - just show the heart overlay
+  },
+  avatarOptionWrapper: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 2,
+  },
+  avatarOptionImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 35,
+  },
+  avatarHeartOverlay: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    zIndex: 10,
+    fontSize: 20,
+    color: '#FF3B30',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+    pointerEvents: 'none',
+  },
+  noAvatarOptionContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    borderRadius: 35,
+  },
+  noAvatarOptionText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
   },
 });
 
