@@ -29,6 +29,8 @@ The issue occurs when native libraries (JNI libraries) are not properly aligned 
 - Configured native library packaging options
 - Added memory page size compatibility settings
 - Set proper debug symbol levels for native libraries
+- Added CMake configuration for page size agnostic builds
+- Configured specific handling for problematic native libraries
 
 ### 2. Gradle Properties (`android/gradle.properties`)
 
@@ -36,6 +38,8 @@ The issue occurs when native libraries (JNI libraries) are not properly aligned 
 - Configured NDK optimization levels
 - Set proper native library alignment
 - Added Java 17 requirement configuration
+- Enabled page size agnostic builds
+- Disabled native build cache for proper rebuilds
 
 ### 3. ProGuard Rules (`android/app/proguard-rules.pro`)
 
@@ -44,7 +48,19 @@ The issue occurs when native libraries (JNI libraries) are not properly aligned 
 - Kept Hermes engine classes
 - Preserved wakeword-related classes
 
-### 4. Java Environment Setup
+### 4. CMake Configuration (`android/app/src/main/cpp/CMakeLists.txt`)
+
+- Created CMake configuration for page size agnostic builds
+- Set proper linker flags for 16 KB page size support
+- Configured C++ standard and compilation flags
+
+### 5. Native Library Rebuild Script (`android/rebuild_native_libs.sh`)
+
+- Automated script to rebuild all native libraries with proper alignment
+- Cleans cached builds and forces fresh compilation
+- Ensures all dependencies are rebuilt with 16 KB page size support
+
+### 6. Java Environment Setup
 
 - Created setup script for Java 17 configuration
 - Added Java home configuration to gradle.properties
@@ -71,17 +87,19 @@ The issue occurs when native libraries (JNI libraries) are not properly aligned 
 
 ### Building the App
 
-1. **Clean previous builds**
+1. **Quick rebuild (recommended)**
+
+   ```bash
+   cd android
+   ./rebuild_native_libs.sh
+   ```
+
+2. **Manual rebuild process**
 
    ```bash
    cd android
    ./gradlew clean
-   ```
-
-2. **Build debug version**
-
-   ```bash
-   ./gradlew assembleDebug
+   ./gradlew assembleDebug --no-build-cache --rerun-tasks
    ```
 
 3. **Or build from root directory**

@@ -202,16 +202,16 @@ class WhisperService {
         processedAudioPath = processedAudioPath.slice(7);
       }
 
-      // Check if the audio file exists before attempting transcription
-      const fileExists = await RNFS.exists(processedAudioPath);
-      if (!fileExists) {
-        console.error('❌ Audio file does not exist:', processedAudioPath);
-        return {
-          text: '',
-          success: false,
-          error: `Audio file not found: ${processedAudioPath}`,
-        };
-      }
+      // // Check if the audio file exists before attempting transcription
+      // const fileExists = await RNFS.exists(processedAudioPath);
+      // if (!fileExists) {
+      //   console.error('❌ Audio file does not exist:', processedAudioPath);
+      //   return {
+      //     text: '',
+      //     success: false,
+      //     error: `Audio file not found: ${processedAudioPath}`,
+      //   };
+      // }
 
       // Use the transcription options that work
       const transcriptionOptions = {

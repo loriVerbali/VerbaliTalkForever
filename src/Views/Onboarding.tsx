@@ -49,7 +49,7 @@ const SUBSCRIPTIONSKIP = false;
 const onboardingSteps = [
   {
     id: 'welcome',
-    question: 'Welcome to Ma-Talk AI',
+    question: 'Welcome to MaTalk AI',
     additionalComponents: 'welcome',
     buttonText: 'Next',
   },
@@ -518,7 +518,7 @@ const OnboardingScreen: React.FC = () => {
                   }}>
                   {SUBSCRIPTIONSKIP
                     ? 'Development mode active - continuing setup...'
-                    : 'Welcome to the Ma-Talk community.'}
+                    : 'Welcome to the MaTalk community.'}
                 </Text>
                 {!SUBSCRIPTIONSKIP && (
                   <>
@@ -846,7 +846,7 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {fontSize: 24, fontWeight: '900'},
                       ]}>
-                      Ma-Talk AI needs the following permissions:
+                      MaTalk AI needs the following permissions:
                     </Text>
                     <Text
                       style={[styles.permissionsExplanation, {width: '80%'}]}>
@@ -884,7 +884,7 @@ const OnboardingScreen: React.FC = () => {
                         {color: '#FF6B6B'},
                       ]}>
                       Please enable microphone manually in your device settings
-                      to continue using Ma-Talk AI fully or tap next and do this
+                      to continue using MaTalk AI fully or tap next and do this
                       via the settings later
                     </Text>
                     <TouchableOpacity
@@ -915,7 +915,7 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {color: '#FF6B6B'},
                       ]}>
-                      Without these permissions, Ma-Talk won't be able to:
+                      Without these permissions, MaTalk won't be able to:
                     </Text>
                     <Text
                       style={[
@@ -929,7 +929,7 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {color: '#FF6B6B', marginBottom: 20},
                       ]}>
-                      • Provide the full Ma-Talk experience
+                      • Provide the full MaTalk experience
                     </Text>
                   </>
                 )}
@@ -970,7 +970,7 @@ const OnboardingScreen: React.FC = () => {
             ) : (
               <>
                 <Text style={styles.permissionsExplanation}>
-                  Location to help Ma-Talk know where you are.
+                  Location to help MaTalk know where you are.
                 </Text>
                 {!locationPermissionAttempted && (
                   <TouchableOpacity

@@ -1103,24 +1103,6 @@ const SettingsScreen: React.FC = () => {
 
                 <View style={styles.switchRow}>
                   <View style={styles.switchLabel}>
-                    <Text style={styles.settingLabel}>Show Onboarding</Text>
-                    <TouchableOpacity
-                      onPress={() => setShowOnboardingInfo(true)}
-                      style={styles.infoButton}>
-                      <Text style={styles.infoIcon}>?</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Switch
-                    trackColor={{false: '#767577', true: '#8E24AA'}}
-                    thumbColor={showOnboardingEnabled ? '#fff' : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={handleOnboardingToggle}
-                    value={showOnboardingEnabled}
-                  />
-                </View>
-
-                <View style={styles.switchRow}>
-                  <View style={styles.switchLabel}>
                     <Text style={styles.settingLabel}>
                       Go Back After Selection
                     </Text>
@@ -1249,7 +1231,7 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>Ma-Talk AI v1.4.0</Text>
+            <Text style={styles.aboutText}>MaTalk AI v1.6.0</Text>
           </TouchableOpacity>
 
           {showAssistantId &&
@@ -1274,21 +1256,14 @@ const SettingsScreen: React.FC = () => {
               </>
             )}
           <Text style={styles.aboutDescription}>
-            Ma-Talk AI is a communication tool designed to help users interact
+            MaTalk AI is a communication tool designed to help users interact
             more effectively.
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 Verbali Inc. Ma-Talk AI</Text>
+          <Text style={styles.footerText}>© 2025 Verbali Inc. MaTalk AI</Text>
         </View>
-
-        <InfoModal
-          visible={showOnboardingInfo}
-          onClose={() => setShowOnboardingInfo(false)}
-          title="Show Onboarding"
-          description="Enable this option to see the onboarding screens again on your next app launch. This can be helpful if you want to review the app's features and functionality."
-        />
 
         <InfoModal
           visible={showConversationModeInfo}

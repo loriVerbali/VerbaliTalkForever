@@ -133,7 +133,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.titleMarginBottom,
             },
           ]}>
-          Ma-Talk AI – Privacy Policy v1.0
+          MaTalk AI – Privacy Policy v1.0
         </Text>
 
         <Text
@@ -156,9 +156,9 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          Thank you for using Ma-Talk AI, an app by Verbali Inc. ("Verbali,"
+          Thank you for using MaTalk AI, an app by Verbali Inc. ("Verbali,"
           "we," "our," or "us"). This Privacy Policy describes how we collect,
-          use, and protect your personal information when you use the Ma-Talk AI
+          use, and protect your personal information when you use the MaTalk AI
           mobile application ("App") and related services.
         </Text>
 
@@ -171,7 +171,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          By using Ma-Talk AI, you agree to this policy. If you do not agree,
+          By using MaTalk AI, you agree to this policy. If you do not agree,
           please do not use the App.
         </Text>
 
@@ -209,7 +209,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
             },
           ]}>
           We collect only the minimum data needed to provide and improve the
-          Ma-Talk AI experience.
+          MaTalk AI experience.
         </Text>
 
         <Text
@@ -623,7 +623,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          Ma-Talk AI is a subscription-based app. Payment is processed by Apple,
+          MaTalk AI is a subscription-based app. Payment is processed by Apple,
           Google, or Amazon; we never store your credit card data. Refunds
           follow the policies of the store where you purchased your
           subscription.
@@ -649,7 +649,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          Ma-Talk AI is designed to support communication for children under 13,
+          MaTalk AI is designed to support communication for children under 13,
           but it is intended to be used under adult supervision.
         </Text>
         <Text
@@ -1210,7 +1210,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          Ma-Talk AI is operated from the United States. If you access the app
+          MaTalk AI is operated from the United States. If you access the app
           from outside the U.S. or Canada, your data may be transferred to
           servers in the U.S., where it is subject to U.S. law.
         </Text>
