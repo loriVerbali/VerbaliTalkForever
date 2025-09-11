@@ -48,6 +48,10 @@ interface Preferences {
   whisperModelAvailable: string;
   whisperModelLastChecked: string;
   useLocalWhisper: string;
+  watchedVideos: string;
+  settingsTappedOnce: string;
+  microphoneTappedOnce: string;
+  showAndTellModalShown: string;
 }
 
 const initEnum = {
@@ -99,6 +103,10 @@ const initialPreferences: Preferences = {
   whisperModelAvailable: initEnum.false,
   whisperModelLastChecked: '0',
   useLocalWhisper: initEnum.true,
+  watchedVideos: '',
+  settingsTappedOnce: initEnum.false,
+  microphoneTappedOnce: initEnum.false,
+  showAndTellModalShown: initEnum.false,
 };
 
 interface AppSettingsContextProps {

@@ -50,17 +50,19 @@ const OpenScreen: React.FC = () => {
   const {isTablet} = useAdmin();
   const [recognizedText, setRecognizedText] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const {getItem} = useAppSettings();
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
   const [contextInfoVisible, setContextInfoVisible] = useState(false);
-  const [startupModalVisible, setStartupModalVisible] = useState(true);
+  const [startupModalVisible, setStartupModalVisible] = useState(false);
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
-  const {preferences} = useAppSettings();
+  const {preferences, getItem, setItem} = useAppSettings();
   const heroName = preferences?.heroName;
+  const [settingsTappedOnce, setSettingsTappedOnce] = useState(false);
+  const [microphoneTappedOnce, setMicrophoneTappedOnce] = useState(false);
+  const [showAndTellModalShown, setShowAndTellModalShown] = useState(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const wakeWordService = WakeWordService.getInstance();
   const handScaleAnim = useRef(new Animated.Value(1)).current;
@@ -72,6 +74,28 @@ const OpenScreen: React.FC = () => {
   useEffect(() => {
     setConnectionState(isConnected); // Force local state update
   }, [isConnected]);
+
+  // Load tap status and modal status from persistence
+  useEffect(() => {
+    const loadStatus = async () => {
+      try {
+        const settingsTapped = await getItem('settingsTappedOnce');
+        setSettingsTappedOnce(settingsTapped === '1');
+
+        const microphoneTapped = await getItem('microphoneTappedOnce');
+        setMicrophoneTappedOnce(microphoneTapped === '1');
+
+        const modalShown = await getItem('showAndTellModalShown');
+        setShowAndTellModalShown(modalShown === '1');
+
+        // Show modal only on first launch (when it hasn't been shown before)
+        setStartupModalVisible(modalShown !== '1');
+      } catch (e) {
+        console.log('Error loading status:', e);
+      }
+    };
+    loadStatus();
+  }, [getItem]);
 
   // Hand and bubble pulsing animation
   useEffect(() => {
@@ -219,7 +243,7 @@ const OpenScreen: React.FC = () => {
     }, []),
   );
 
-  const startListening = () => {
+  const startListening = async () => {
     if (
       !hasAppAccess(
         preferences?.isIOSActive || '0',
@@ -230,6 +254,13 @@ const OpenScreen: React.FC = () => {
       askForAdultHelp();
       return;
     }
+
+    // Mark microphone as tapped once
+    if (!microphoneTappedOnce) {
+      setMicrophoneTappedOnce(true);
+      await setItem('microphoneTappedOnce', '1');
+    }
+
     navigation.navigate(views.HOME as never, {
       stateof: 'Attention',
     });
@@ -295,8 +326,13 @@ const OpenScreen: React.FC = () => {
     // TTSService.speak('Keyboard selected');
   };
 
-  const handleSettingsPress = () => {
+  const handleSettingsPress = async () => {
     setModalVisible(true);
+    // Mark settings as tapped once
+    if (!settingsTappedOnce) {
+      setSettingsTappedOnce(true);
+      await setItem('settingsTappedOnce', '1');
+    }
   };
 
   const closeModal = () => {
@@ -318,6 +354,15 @@ const OpenScreen: React.FC = () => {
 
   const toggleContextInfo = () => {
     setContextInfoVisible(!contextInfoVisible);
+  };
+
+  const closeStartupModal = async () => {
+    setStartupModalVisible(false);
+    // Mark modal as shown
+    if (!showAndTellModalShown) {
+      setShowAndTellModalShown(true);
+      await setItem('showAndTellModalShown', '1');
+    }
   };
 
   return (
@@ -347,37 +392,39 @@ const OpenScreen: React.FC = () => {
             />
           </Pressable>
 
-          {/* Pointing hand with text bubble */}
-          <View style={styles.pointHandBubble}>
-            <Animated.View style={{transform: [{scale: handScaleAnim}]}}>
-              <FastImage
-                source={require('../assets/pointhand.png')}
-                style={styles.pointHandImage}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-            </Animated.View>
-            <Animated.View
-              style={[
-                styles.speechBubble,
-                {
-                  transform: [{scale: bubbleScaleAnim}],
-                  borderColor: bubbleScaleAnim.interpolate({
-                    inputRange: [1, 1.1],
-                    outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
-                    extrapolate: 'clamp',
-                  }),
-                  borderWidth: bubbleScaleAnim.interpolate({
-                    inputRange: [1, 1.1],
-                    outputRange: [1, 3],
-                    extrapolate: 'clamp',
-                  }),
-                },
-              ]}>
-              <Text style={styles.speechBubbleText}>
-                Tap here or Say Hey Verbi
-              </Text>
-            </Animated.View>
-          </View>
+          {/* Pointing hand with text bubble - only show if microphone not tapped yet */}
+          {!microphoneTappedOnce && (
+            <View style={styles.pointHandBubble}>
+              <Animated.View style={{transform: [{scale: handScaleAnim}]}}>
+                <FastImage
+                  source={require('../assets/pointhand.png')}
+                  style={styles.pointHandImage}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              </Animated.View>
+              <Animated.View
+                style={[
+                  styles.speechBubble,
+                  {
+                    transform: [{scale: bubbleScaleAnim}],
+                    borderColor: bubbleScaleAnim.interpolate({
+                      inputRange: [1, 1.1],
+                      outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
+                      extrapolate: 'clamp',
+                    }),
+                    borderWidth: bubbleScaleAnim.interpolate({
+                      inputRange: [1, 1.1],
+                      outputRange: [1, 3],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                ]}>
+                <Text style={styles.speechBubbleText}>
+                  Tap here or Say Hey Verbi
+                </Text>
+              </Animated.View>
+            </View>
+          )}
 
           {showRecognitionStatus && (
             <View style={styles.recognitionStatusContainer}>
@@ -399,37 +446,39 @@ const OpenScreen: React.FC = () => {
             />
           </Pressable>
 
-          {/* Settings pointing hand with text bubble */}
-          <View style={styles.settingsPointHandBubble}>
-            <Animated.View
-              style={[
-                styles.speechBubble,
-                {
-                  transform: [{scale: settingsBubbleScaleAnim}],
-                  borderColor: settingsBubbleScaleAnim.interpolate({
-                    inputRange: [1, 1.1],
-                    outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
-                    extrapolate: 'clamp',
-                  }),
-                  borderWidth: settingsBubbleScaleAnim.interpolate({
-                    inputRange: [1, 1.1],
-                    outputRange: [1, 3],
-                    extrapolate: 'clamp',
-                  }),
-                  marginRight: width * 0.03,
-                },
-              ]}>
-              <Text style={styles.speechBubbleText}>Personalization!!</Text>
-            </Animated.View>
-            <Animated.View
-              style={{transform: [{scale: settingsHandScaleAnim}]}}>
-              <FastImage
-                source={require('../assets/pointhandRight.png')}
-                style={styles.pointHandImage}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-            </Animated.View>
-          </View>
+          {/* Settings pointing hand with text bubble - only show if settings not tapped yet */}
+          {!settingsTappedOnce && (
+            <View style={styles.settingsPointHandBubble}>
+              <Animated.View
+                style={[
+                  styles.speechBubble,
+                  {
+                    transform: [{scale: settingsBubbleScaleAnim}],
+                    borderColor: settingsBubbleScaleAnim.interpolate({
+                      inputRange: [1, 1.1],
+                      outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
+                      extrapolate: 'clamp',
+                    }),
+                    borderWidth: settingsBubbleScaleAnim.interpolate({
+                      inputRange: [1, 1.1],
+                      outputRange: [1, 3],
+                      extrapolate: 'clamp',
+                    }),
+                    marginRight: width * 0.03,
+                  },
+                ]}>
+                <Text style={styles.speechBubbleText}>Personalization!!</Text>
+              </Animated.View>
+              <Animated.View
+                style={{transform: [{scale: settingsHandScaleAnim}]}}>
+                <FastImage
+                  source={require('../assets/pointhandRight.png')}
+                  style={styles.pointHandImage}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              </Animated.View>
+            </View>
+          )}
 
           <Pressable
             style={isTablet ? styles.infoButton : styles.infoButtonPhone}
@@ -651,14 +700,15 @@ const OpenScreen: React.FC = () => {
         visible={startupModalVisible}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setStartupModalVisible(false)}>
+        supportedOrientations={['landscape-left', 'landscape-right']}
+        onRequestClose={closeStartupModal}>
         <View style={styles.startupModalOverlay}>
           <View style={styles.startupModalContent}>
             <View style={styles.showAndTellHeader}>
               <Text style={styles.showAndTellTitle}>Welcome to Matalk!</Text>
               <TouchableOpacity
                 style={styles.closeButton}
-                onPress={() => setStartupModalVisible(false)}>
+                onPress={closeStartupModal}>
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -669,7 +719,7 @@ const OpenScreen: React.FC = () => {
 
             <TouchableOpacity
               style={styles.getStartedButton}
-              onPress={() => setStartupModalVisible(false)}>
+              onPress={closeStartupModal}>
               <Text style={styles.getStartedButtonText}>Get Started!</Text>
             </TouchableOpacity>
           </View>
