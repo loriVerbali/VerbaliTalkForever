@@ -158,13 +158,9 @@ const accessibleColors = [
 
 interface WhisperDownloadProps {
   onComplete?: () => void;
-  onSkip?: () => void;
 }
 
-const WhisperDownload: React.FC<WhisperDownloadProps> = ({
-  onComplete,
-  onSkip,
-}) => {
+const WhisperDownload: React.FC<WhisperDownloadProps> = ({onComplete}) => {
   const {isTablet} = useAdmin();
   const {setItem, getItem} = useAppSettings();
   const [isDownloading, setIsDownloading] = useState(false);
@@ -333,9 +329,9 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
     <View style={styles.container}>
       <View style={styles.content}>
         <Text style={[styles.description, {fontSize: isTablet ? 18 : 16}]}>
-          Optional: We need to download a free transcription package. This will
-          enable on-device voice transcription instead of sending audio to the
-          cloud.
+          To use MaTalk AI, you must download our free transcription package.
+          This enables on-device voice transcription and is required to
+          continue.
         </Text>
 
         {isDownloading && (

@@ -230,6 +230,10 @@ const SettingsScreen: React.FC = () => {
   const [subscriptionStatus, setSubscriptionStatus] = useState<
     'active' | 'needs_attention'
   >('needs_attention');
+  const [subscriptionStatusText, setSubscriptionStatusText] = useState('');
+  const [subscriptionStatusColor, setSubscriptionStatusColor] =
+    useState('#f44336');
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -314,12 +318,39 @@ const SettingsScreen: React.FC = () => {
     } else {
       setSubscriptionStatus('needs_attention');
     }
+
+    // Compute subscription status text and color
+    const status = getSubscriptionStatus(
+      preferences.isIOSActive,
+      preferences.isInTrial,
+      preferences.trialInstallationDate,
+    );
+    setSubscriptionStatusText(status.text);
+
+    // Set color based on status
+    if (status.status === 'active') {
+      setSubscriptionStatusColor('#34c759');
+    } else if (status.status === 'trial') {
+      setSubscriptionStatusColor('#FF9500');
+    } else {
+      setSubscriptionStatusColor('#f44336');
+    }
+
+    // Set whether to show account settings
+    setShowAccountSettings(
+      status.status === 'active' || status.status === 'trial',
+    );
+
     // Reset tap count and assistant id visibility on unmount
     return () => {
       setAboutTapCount(0);
       setShowAssistantId(false);
     };
-  }, [preferences.isIOSActive]);
+  }, [
+    preferences.isIOSActive,
+    preferences.isInTrial,
+    preferences.trialInstallationDate,
+  ]);
 
   const handleLogout = async () => {
     try {
@@ -465,12 +496,6 @@ const SettingsScreen: React.FC = () => {
 
   const deleteAccount = async () => {
     await setItem('wasOnboarded', '0');
-    //todo delete account
-    console.log(
-      'deleteAccount',
-      preferences.assistantId,
-      user?.sub?.toString(),
-    );
 
     await fetchHelper(
       'deleteAccount',
@@ -731,27 +756,10 @@ const SettingsScreen: React.FC = () => {
             <Text
               style={{
                 fontSize: 16,
-                color: (() => {
-                  const status = getSubscriptionStatus(
-                    preferences.isIOSActive,
-                    preferences.isInTrial,
-                    preferences.trialInstallationDate,
-                  );
-                  return status.status === 'active'
-                    ? '#34c759'
-                    : status.status === 'trial'
-                    ? '#FF9500'
-                    : '#f44336';
-                })(),
+                color: subscriptionStatusColor,
                 fontWeight: 'bold',
               }}>
-              {
-                getSubscriptionStatus(
-                  preferences.isIOSActive,
-                  preferences.isInTrial,
-                  preferences.trialInstallationDate,
-                ).text
-              }
+              {subscriptionStatusText}
             </Text>
           </View>
           <View
@@ -766,16 +774,7 @@ const SettingsScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        {(getSubscriptionStatus(
-          preferences.isIOSActive,
-          preferences.isInTrial,
-          preferences.trialInstallationDate,
-        ).status === 'active' ||
-          getSubscriptionStatus(
-            preferences.isIOSActive,
-            preferences.isInTrial,
-            preferences.trialInstallationDate,
-          ).status === 'trial') && (
+        {showAccountSettings && (
           <>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
@@ -1548,31 +1547,6 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
 
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabel}>
-                  <Text
-                    style={[
-                      styles.settingLabel,
-                      !whisperModelAvailable && styles.disabledText,
-                    ]}>
-                    Local Whisper (vs Cloud)
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => setShowWhisperInfo(true)}
-                    style={styles.infoButton}>
-                    <Text style={styles.infoIcon}>?</Text>
-                  </TouchableOpacity>
-                </View>
-                <Switch
-                  trackColor={{false: '#767577', true: '#8E24AA'}}
-                  thumbColor={useLocalWhisper ? '#fff' : '#f4f3f4'}
-                  ios_backgroundColor="#3e3e3e"
-                  onValueChange={handleUseLocalWhisperToggle}
-                  value={useLocalWhisper}
-                  disabled={!whisperModelAvailable}
-                />
-              </View>
-
               {/* Whisper Model Download Section */}
               {(useLocalWhisper || !whisperModelAvailable) && (
                 <View style={styles.whisperDownloadSection}>
@@ -1592,7 +1566,6 @@ const SettingsScreen: React.FC = () => {
                       </Text>
                       <WhisperDownload
                         onComplete={handleWhisperDownloadComplete}
-                        onSkip={() => {}}
                       />
                     </View>
                   )}

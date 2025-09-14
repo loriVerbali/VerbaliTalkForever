@@ -214,22 +214,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         (receiptValidationRef as any).timeoutId = timeoutId;
       }
 
-      // Check Whisper model availability on app startup and adjust settings accordingly
-      setTimeout(async () => {
-        try {
-          await WhisperModelManager.checkModelAvailabilityAndAdjustSettings<
-            keyof Preferences
-          >(setItem, getItem);
-        } catch (error) {
-          console.error(
-            'Error checking Whisper model availability on startup:',
-            error,
-          );
-          // If there's an error checking model availability, set useLocalWhisper to false to be safe
-          await setItem('useLocalWhisper', '0');
-        }
-      }, 1000); // Check after 1 second to avoid blocking app startup
-
       return loaded as Preferences;
     } catch (error) {
       console.error('Error initializing preferences', error);

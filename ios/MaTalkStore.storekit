@@ -18,6 +18,9 @@
   ],
   "settings" : {
     "_applicationInternalID" : "6747360381",
+    "_compatibilityTimeRate" : {
+      "3" : 4
+    },
     "_developerTeamID" : "5H8P29SJNH",
     "_failTransactionsEnabled" : false,
     "_lastSynchronizedDate" : 777412211.62916398,
@@ -69,7 +72,8 @@
         "enabled" : false,
         "name" : "Offer Code Redeem Sheet"
       }
-    ]
+    ],
+    "_timeRate" : 11
   },
   "subscriptionGroups" : [
     {
