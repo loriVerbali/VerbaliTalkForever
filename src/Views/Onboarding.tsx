@@ -97,7 +97,7 @@ const onboardingSteps = [
   },
   {
     id: 'on-device-whisper',
-    question: 'Transcribe Audio on Device',
+    question: 'For your privacy Transcribe Audio on Device',
     additionalComponents: 'on-device-whisper',
     buttonText: 'Next',
   },
@@ -149,6 +149,7 @@ const OnboardingScreen: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [gotSubscription, setGotSubscription] = useState(false);
   const [gotAssistant, setGotAssistant] = useState(false);
+  const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
@@ -1012,29 +1013,10 @@ const OnboardingScreen: React.FC = () => {
                   await setItem('useLocalWhisper', '0');
                 }
 
-                // Auto-advance to next step when download completes
-                handleNext();
-              }}
-              onSkip={async () => {
-                // When skipping, check if model is available and adjust settings accordingly
-                try {
-                  const WhisperModelManager = await import(
-                    '../utils/WhisperModelManager'
-                  );
-                  await WhisperModelManager.default.checkModelAvailabilityAndAdjustSettings(
-                    setItem,
-                    getItem,
-                  );
-                } catch (error) {
-                  console.error(
-                    'Error checking Whisper model availability:',
-                    error,
-                  );
-                  // If there's an error, set useLocalWhisper to false to be safe
-                  await setItem('useLocalWhisper', '0');
-                }
+                // Mark download as complete
+                setWhisperDownloadComplete(true);
 
-                // Allow skipping this step
+                // Auto-advance to next step when download completes
                 handleNext();
               }}
             />
@@ -1308,7 +1290,9 @@ const OnboardingScreen: React.FC = () => {
                     !gotSubscription &&
                     !SUBSCRIPTIONSKIP) ||
                   (currentStepData.id === 'Optional Permissions' &&
-                    !locationPermissionAttempted)) &&
+                    !locationPermissionAttempted) ||
+                  (currentStepData.id === 'on-device-whisper' &&
+                    !whisperDownloadComplete)) &&
                   styles.hiddenButton,
               ]}
               onPress={() => {
@@ -1318,12 +1302,17 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'login' && !isLoggedIn) ||
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
-                (currentStepData.id === 'admin-code' && adminCode.length !== 4)
+                (currentStepData.id === 'admin-code' &&
+                  adminCode.length !== 4) ||
+                (currentStepData.id === 'on-device-whisper' &&
+                  !whisperDownloadComplete)
               }>
               <Text
                 style={[styles.buttonText, {fontSize: nextButtonTextFontSize}]}>
                 {currentStepData.id === 'on-device-whisper'
-                  ? 'Skip'
+                  ? whisperDownloadComplete
+                    ? 'Continue'
+                    : 'Download Required'
                   : currentStepData.buttonText}
               </Text>
             </TouchableOpacity>

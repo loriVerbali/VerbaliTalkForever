@@ -2,7 +2,8 @@
  * Trial utility functions for managing 7-day free trial
  */
 
-const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in
+//const TRIAL_DURATION_MS = 2 * 60 * 1000; //2 minutes in milliseconds
 
 /**
  * Check if trial is still active based on installation date
@@ -27,7 +28,7 @@ export const getTrialDaysRemaining = (installationDate: string): number => {
   if (!installationDate || installationDate === 'init.NotSet') {
     return 0;
   }
-
+  debugger;
   const installTime = parseInt(installationDate);
   const now = Date.now();
   const timeElapsed = now - installTime;

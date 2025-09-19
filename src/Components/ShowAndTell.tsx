@@ -15,9 +15,23 @@ type PlaybackRate = 1 | 1.5 | 2 | 2.5;
 
 // Local bundled asset. Ensure the file exists at this path.
 // If the filename differs, update the require path accordingly.
-const VIDEO_SOURCE = require('../assets/movie/GettingStarted.mp4');
+const DEFAULT_VIDEO_SOURCE = require('../assets/movie/GettingStarted.mp4');
 
-const ShowAndTell: React.FC = () => {
+interface ShowAndTellProps {
+  videoSource?: any;
+  context?: 'onboarding' | 'settings';
+  videoList?: any[];
+  currentVideoIndex?: number;
+  onVideoChange?: (index: number) => void;
+}
+
+const ShowAndTell: React.FC<ShowAndTellProps> = ({
+  videoSource,
+  context = 'onboarding',
+  videoList = [],
+  currentVideoIndex = 0,
+  onVideoChange,
+}) => {
   const {width: screenWidth, height: screenHeight} = useWindowDimensions();
   const videoRef = useRef<any>(null);
   const [paused, setPaused] = useState<boolean>(true);
@@ -34,6 +48,30 @@ const ShowAndTell: React.FC = () => {
 
   const handleSelectRate = (newRate: PlaybackRate) => {
     setRate(newRate);
+  };
+
+  const handlePreviousVideo = () => {
+    if (context === 'settings' && videoList.length > 0 && onVideoChange) {
+      const prevIndex =
+        currentVideoIndex > 0 ? currentVideoIndex - 1 : videoList.length - 1;
+      onVideoChange(prevIndex);
+    }
+  };
+
+  const handleNextVideo = () => {
+    if (context === 'settings' && videoList.length > 0 && onVideoChange) {
+      const nextIndex =
+        currentVideoIndex < videoList.length - 1 ? currentVideoIndex + 1 : 0;
+      onVideoChange(nextIndex);
+    }
+  };
+
+  // Determine which video to show
+  const getCurrentVideoSource = () => {
+    if (context === 'settings' && videoList.length > 0) {
+      return videoList[currentVideoIndex];
+    }
+    return videoSource || DEFAULT_VIDEO_SOURCE;
   };
 
   // Landscape-only app: classify phone/tablet by height
@@ -71,7 +109,7 @@ const ShowAndTell: React.FC = () => {
             <View style={[styles.videoWrapper, {width, height}]}>
               <Video
                 ref={videoRef}
-                source={VIDEO_SOURCE}
+                source={getCurrentVideoSource()}
                 style={styles.video}
                 paused={paused}
                 rate={rate}
@@ -187,7 +225,106 @@ const ShowAndTell: React.FC = () => {
                 );
               })}
             </View>
+
+            {/* Navigation buttons - only show in settings context */}
+            {context === 'settings' && videoList.length > 1 && (
+              <View style={styles.navigationRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.navButton,
+                    isTablet && {
+                      paddingVertical: 8 * tabletScale,
+                      paddingHorizontal: 16 * tabletScale,
+                      borderRadius: 20 * tabletScale,
+                    },
+                  ]}
+                  onPress={handlePreviousVideo}>
+                  <Text
+                    style={[
+                      styles.navButtonText,
+                      isTablet && {fontSize: 14 * tabletScale},
+                    ]}>
+                    ← Previous
+                  </Text>
+                </TouchableOpacity>
+
+                <Text
+                  style={[
+                    styles.videoCounter,
+                    isTablet && {fontSize: 12 * tabletScale},
+                  ]}>
+                  {currentVideoIndex + 1} / {videoList.length}
+                </Text>
+
+                <TouchableOpacity
+                  style={[
+                    styles.navButton,
+                    isTablet && {
+                      paddingVertical: 8 * tabletScale,
+                      paddingHorizontal: 16 * tabletScale,
+                      borderRadius: 20 * tabletScale,
+                    },
+                  ]}
+                  onPress={handleNextVideo}>
+                  <Text
+                    style={[
+                      styles.navButtonText,
+                      isTablet && {fontSize: 14 * tabletScale},
+                    ]}>
+                    Next →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </>
+        )}
+
+        {/* Navigation buttons for phone layout - only show in settings context */}
+        {isPhone && context === 'settings' && videoList.length > 1 && (
+          <View style={[styles.navigationColumn, {width: sideColumnWidth}]}>
+            <TouchableOpacity
+              style={[
+                styles.navButton,
+                styles.navButtonFull,
+                {
+                  paddingVertical: 8 * sizeScale,
+                  paddingHorizontal: 16 * sizeScale,
+                  borderRadius: 20 * sizeScale,
+                  marginVertical: 4 * sizeScale,
+                },
+              ]}
+              onPress={handlePreviousVideo}>
+              <Text style={[styles.navButtonText, {fontSize: 12 * sizeScale}]}>
+                ← Previous
+              </Text>
+            </TouchableOpacity>
+
+            <Text
+              style={[
+                styles.videoCounter,
+                styles.videoCounterFull,
+                {fontSize: 10 * sizeScale, marginVertical: 4 * sizeScale},
+              ]}>
+              {currentVideoIndex + 1} / {videoList.length}
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.navButton,
+                styles.navButtonFull,
+                {
+                  paddingVertical: 8 * sizeScale,
+                  paddingHorizontal: 16 * sizeScale,
+                  borderRadius: 20 * sizeScale,
+                  marginVertical: 4 * sizeScale,
+                },
+              ]}
+              onPress={handleNextVideo}>
+              <Text style={[styles.navButtonText, {fontSize: 12 * sizeScale}]}>
+                Next →
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -308,6 +445,45 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     color: '#666',
+  },
+  navigationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 16,
+  },
+  navigationColumn: {
+    marginTop: 12,
+    alignItems: 'stretch',
+  },
+  navButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'rgba(20, 108, 240, 0.45)',
+    backgroundColor: '#fff',
+    marginHorizontal: 6,
+  },
+  navButtonFull: {
+    width: '100%',
+    marginHorizontal: 0,
+    alignItems: 'center',
+  },
+  navButtonText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  videoCounter: {
+    color: '#666',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  videoCounterFull: {
+    textAlign: 'center',
   },
 });
 

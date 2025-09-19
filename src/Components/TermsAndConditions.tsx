@@ -1264,7 +1264,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
           12345 Parklawn Drive, Suite 200{'\n'}
           Rockville, MD 20852, USA{'\n'}
           General inquiries: info@verbali.io{'\n'}
-          Privacy inquiries or data requests: privacy@verbali.io
+          Privacy inquiries or data requests: info@verbali.io
         </Text>
       </ScrollView>
 

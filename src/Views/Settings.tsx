@@ -15,6 +15,7 @@ import {
   Alert,
   Keyboard,
 } from 'react-native';
+import Video from 'react-native-video';
 import {useNavigation, CommonActions} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
@@ -31,6 +32,7 @@ import {Mixpanel} from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
 import Subscription from '../Components/Subscription';
 import WhisperDownload from '../Components/WhisperDownload';
+import ShowAndTell from '../Components/ShowAndTell';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -218,6 +220,7 @@ const SettingsScreen: React.FC = () => {
   const [useLocalWhisper, setUseLocalWhisper] = useState(true);
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
+  const [showAvatarOptions, setShowAvatarOptions] = useState(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // Easter egg: tap version 5 times to show assistant ID
@@ -227,11 +230,50 @@ const SettingsScreen: React.FC = () => {
   const [subscriptionStatus, setSubscriptionStatus] = useState<
     'active' | 'needs_attention'
   >('needs_attention');
+  const [subscriptionStatusText, setSubscriptionStatusText] = useState('');
+  const [subscriptionStatusColor, setSubscriptionStatusColor] =
+    useState('#f44336');
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [watchedVideos, setWatchedVideos] = useState<Set<number>>(new Set());
+
+  // Video list for navigation
+  const videoList = [
+    require('../assets/movie/meetVerbi.mp4'),
+    require('../assets/movie/homescreen.mp4'),
+    require('../assets/movie/question.mp4'),
+    require('../assets/movie/convo.mp4'),
+    require('../assets/movie/personalization.mp4'),
+    require('../assets/movie/quick.mp4'),
+  ];
 
   const genderWrapperStyle = [
     styles.genderImageWrapper,
     {transform: [{scale: 0.7}]},
   ];
+
+  // Helper function to get avatar source based on gender
+  const getAvatarSource = (gender: string) => {
+    switch (gender) {
+      case 'white boy':
+      case 'boy':
+        return require('../assets/gender/wboy.jpg');
+      case 'black boy':
+        return require('../assets/gender/bboy.jpg');
+      case 'asian boy':
+        return require('../assets/gender/aboy.jpg');
+      case 'white girl':
+        return require('../assets/gender/wgirl.jpg');
+      case 'black girl':
+        return require('../assets/gender/bgirl.jpg');
+      case 'asian girl':
+        return require('../assets/gender/agirl.jpg');
+      default:
+        return require('../assets/gender/wboy.jpg'); // fallback
+    }
+  };
 
   useEffect(() => {
     mixpanel.track('Settings', {
@@ -269,18 +311,46 @@ const SettingsScreen: React.FC = () => {
     };
 
     loadSettings();
+    loadWatchedVideos();
     // Set subscription status based on preferences.isIOSActive
     if (preferences.isIOSActive === '1') {
       setSubscriptionStatus('active');
     } else {
       setSubscriptionStatus('needs_attention');
     }
+
+    // Compute subscription status text and color
+    const status = getSubscriptionStatus(
+      preferences.isIOSActive,
+      preferences.isInTrial,
+      preferences.trialInstallationDate,
+    );
+    setSubscriptionStatusText(status.text);
+
+    // Set color based on status
+    if (status.status === 'active') {
+      setSubscriptionStatusColor('#34c759');
+    } else if (status.status === 'trial') {
+      setSubscriptionStatusColor('#FF9500');
+    } else {
+      setSubscriptionStatusColor('#f44336');
+    }
+
+    // Set whether to show account settings
+    setShowAccountSettings(
+      status.status === 'active' || status.status === 'trial',
+    );
+
     // Reset tap count and assistant id visibility on unmount
     return () => {
       setAboutTapCount(0);
       setShowAssistantId(false);
     };
-  }, [preferences.isIOSActive]);
+  }, [
+    preferences.isIOSActive,
+    preferences.isInTrial,
+    preferences.trialInstallationDate,
+  ]);
 
   const handleLogout = async () => {
     try {
@@ -426,12 +496,6 @@ const SettingsScreen: React.FC = () => {
 
   const deleteAccount = async () => {
     await setItem('wasOnboarded', '0');
-    //todo delete account
-    console.log(
-      'deleteAccount',
-      preferences.assistantId,
-      user?.sub?.toString(),
-    );
 
     await fetchHelper(
       'deleteAccount',
@@ -603,6 +667,52 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  const handleVideoCardPress = (videoSource: any) => {
+    const index = videoList.findIndex(video => video === videoSource);
+    const videoIndex = index >= 0 ? index : 0;
+    setCurrentVideoIndex(videoIndex);
+    setSelectedVideoSource(videoSource);
+    setShowVideoModal(true);
+    // Mark video as watched when opened
+    markVideoAsWatched(videoIndex);
+  };
+
+  const handleVideoChange = (index: number) => {
+    setCurrentVideoIndex(index);
+    setSelectedVideoSource(videoList[index]);
+  };
+
+  // Load watched videos from persistence
+  const loadWatchedVideos = async () => {
+    try {
+      const watchedVideosString = await getItem('watchedVideos');
+      if (watchedVideosString) {
+        const watchedArray = JSON.parse(watchedVideosString);
+        setWatchedVideos(new Set(watchedArray));
+      }
+    } catch (e) {
+      console.log('Error loading watched videos:', e);
+    }
+  };
+
+  // Save watched videos to persistence
+  const saveWatchedVideos = async (watchedSet: Set<number>) => {
+    try {
+      const watchedArray = Array.from(watchedSet);
+      await setItem('watchedVideos', JSON.stringify(watchedArray));
+    } catch (e) {
+      console.log('Error saving watched videos:', e);
+    }
+  };
+
+  // Mark video as watched
+  const markVideoAsWatched = async (videoIndex: number) => {
+    const newWatchedVideos = new Set(watchedVideos);
+    newWatchedVideos.add(videoIndex);
+    setWatchedVideos(newWatchedVideos);
+    await saveWatchedVideos(newWatchedVideos);
+  };
+
   return (
     <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
       <View style={styles.header}>
@@ -646,27 +756,10 @@ const SettingsScreen: React.FC = () => {
             <Text
               style={{
                 fontSize: 16,
-                color: (() => {
-                  const status = getSubscriptionStatus(
-                    preferences.isIOSActive,
-                    preferences.isInTrial,
-                    preferences.trialInstallationDate,
-                  );
-                  return status.status === 'active'
-                    ? '#34c759'
-                    : status.status === 'trial'
-                    ? '#FF9500'
-                    : '#f44336';
-                })(),
+                color: subscriptionStatusColor,
                 fontWeight: 'bold',
               }}>
-              {
-                getSubscriptionStatus(
-                  preferences.isIOSActive,
-                  preferences.isInTrial,
-                  preferences.trialInstallationDate,
-                ).text
-              }
+              {subscriptionStatusText}
             </Text>
           </View>
           <View
@@ -681,16 +774,7 @@ const SettingsScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        {(getSubscriptionStatus(
-          preferences.isIOSActive,
-          preferences.isInTrial,
-          preferences.trialInstallationDate,
-        ).status === 'active' ||
-          getSubscriptionStatus(
-            preferences.isIOSActive,
-            preferences.isInTrial,
-            preferences.trialInstallationDate,
-          ).status === 'trial') && (
+        {showAccountSettings && (
           <>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
@@ -761,8 +845,8 @@ const SettingsScreen: React.FC = () => {
                 ) : null}
               </View>
 
-              <View style={styles.sliderGrid}>
-                {/* <View style={styles.sliderRow}>
+              {/*   <View style={styles.sliderGrid}>
+                <View style={styles.sliderRow}>
                 <MessagesSlider
                   value={returnedMessages}
                   onChange={handleMessagesChange}
@@ -775,7 +859,7 @@ const SettingsScreen: React.FC = () => {
                 />
               </View> */}
 
-                {/* <View style={styles.sliderRow}>
+              {/* <View style={styles.sliderRow}>
                 <RangeSlider
                   label="Amount of Actions"
                   value={actionsCount}
@@ -788,390 +872,705 @@ const SettingsScreen: React.FC = () => {
                   onChange={handleObjectsChange}
                   description="Controls the number of objects that can be referenced in conversations. More objects allow for richer context but may increase complexity. 4-6 objects are ideal for most cases, 7-8 for detailed scenarios."
                 />
+              </View>
               </View> */}
+            </View>
 
-                <View style={styles.genderSection}>
-                  <View style={styles.genderHeader}>
-                    <View
-                      style={[
-                        styles.genderLabelContainer,
-                        {alignItems: 'center'},
-                      ]}>
-                      <Text style={styles.settingLabel}>
-                        Your Hero's Avatar(optional)
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => setShowGenderInfo(true)}
-                        style={styles.infoButton}>
-                        <Text style={styles.infoIcon}>?</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.noneCheckbox}
-                        onPress={() => setItem('gender', 'other')}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Help and Learn Center</Text>
+              <Text style={styles.aboutDescription}>
+                Your help and learn center for getting started with MaTalk AI.
+              </Text>
+
+              {/* Checklist Cards Grid */}
+              <View style={styles.checklistGrid}>
+                <View
+                  style={[
+                    styles.checklistRow,
+                    isTablet && styles.checklistRowTablet,
+                  ]}>
+                  <TouchableOpacity
+                    style={[
+                      styles.checklistCard,
+                      isTablet && styles.checklistCardTablet,
+                    ]}
+                    onPress={() =>
+                      handleVideoCardPress(
+                        require('../assets/movie/meetVerbi.mp4'),
+                      )
+                    }>
+                    <View style={styles.videoContainer}>
+                      <Video
+                        source={require('../assets/movie/meetVerbi.mp4')}
+                        style={styles.video}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        repeat={false}
+                        controls={false}
+                      />
+                      {watchedVideos.has(0) && (
                         <View
                           style={[
-                            styles.checkbox,
-                            preferences.gender === 'other' && styles.checkedBox,
+                            styles.videoHeartOverlay,
+                            isTablet && styles.videoHeartOverlayTablet,
                           ]}>
-                          {preferences.gender === 'other' && (
-                            <Text style={styles.checkmark}>✓</Text>
-                          )}
-                        </View>
-                        <Text style={styles.noneLabel}>Other</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  <View style={styles.genderContainer}>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        (preferences.gender === 'white boy' ||
-                          preferences.gender === 'boy') &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'white boy')}>
-                      <View style={genderWrapperStyle}>
-                        {(preferences.gender === 'white boy' ||
-                          preferences.gender === 'boy') && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/wboy.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        (preferences.gender === 'black boy' ||
-                          preferences.gender === 'boy') &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'black boy')}>
-                      <View style={genderWrapperStyle}>
-                        {(preferences.gender === 'black boy' ||
-                          preferences.gender === 'boy') && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/bboy.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'asian boy' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'asian boy')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'asian boy' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/aboy.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'white girl' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'white girl')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'white girl' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/wgirl.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'black girl' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'black girl')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'black girl' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/bgirl.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        preferences.gender === 'asian girl' &&
-                          styles.selectedGender,
-                      ]}
-                      onPress={() => setItem('gender', 'asian girl')}>
-                      <View style={genderWrapperStyle}>
-                        {preferences.gender === 'asian girl' && (
-                          <Text style={styles.heartOverlay}>♥</Text>
-                        )}
-                        <FastImage
-                          source={require('../assets/gender/agirl.jpg')}
-                          style={styles.genderImage}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.familyPicsSection}>
-                  <Text style={styles.settingLabel}>Family Members</Text>
-
-                  {/* Conversation Mode Setting */}
-                  <View style={styles.conversationModeRow}>
-                    <View style={styles.switchLabel}>
-                      <Text style={styles.conversationModeLabel}>
-                        Conversation Mode
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => setShowConversationModeInfo(true)}
-                        style={styles.infoButton}>
-                        <Text style={styles.infoIcon}>?</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.conversationModeContainer}>
-                      <Text
-                        style={[
-                          styles.conversationModeText,
-                          conversationMode === 'easy' && styles.activeMode,
-                        ]}>
-                        Easy
-                      </Text>
-                      <Switch
-                        trackColor={{false: '#767577', true: '#8E24AA'}}
-                        thumbColor={
-                          conversationMode === 'advanced' ? '#fff' : '#f4f3f4'
-                        }
-                        ios_backgroundColor="#3e3e3e"
-                        onValueChange={handleConversationModeToggle}
-                        value={conversationMode === 'advanced'}
-                      />
-                      <Text
-                        style={[
-                          styles.conversationModeText,
-                          conversationMode === 'advanced' && styles.activeMode,
-                        ]}>
-                        Advanced
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Only show family member management in Advanced mode */}
-                  {conversationMode === 'advanced' && (
-                    <>
-                      <Text style={styles.familyDescription}>
-                        Manage family member photos for conversations
-                      </Text>
-                      <FamilyPics
-                        onFamilyMemberSelect={handleFamilyMemberSelect}
-                      />
-                    </>
-                  )}
-                </View>
-
-                <View style={styles.myPepesSection}>
-                  <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
-                    My People & Stuff
-                  </Text>
-                  <Text style={styles.myPepesDescription}>
-                    Your people, stuff, food, drinks, places, and tv shows with
-                    images, names, and aliases for better conversation context.
-                    <Text style={{fontWeight: '800', color: '#666'}}>
-                      All Images are kept on your device only.
-                    </Text>
-                  </Text>
-                  <MyPepesAndStuff />
-                </View>
-
-                <View style={styles.adminSection}>
-                  <View style={styles.adminCodeRow}>
-                    <View style={styles.adminCodeInfo}>
-                      <Text style={styles.settingLabel}>Admin Code</Text>
-                      {isEditingAdminCode ? (
-                        <View style={styles.adminCodeEditContainer}>
-                          <TextInput
+                          <Text
                             style={[
-                              styles.codeInput,
-                              adminCodeError ? styles.errorInput : null,
-                            ]}
-                            value={newAdminCode}
-                            onChangeText={text => {
-                              const numericText = text.replace(/[^0-9]/g, '');
-                              if (numericText.length <= 4) {
-                                setNewAdminCode(numericText);
-                                setAdminCodeError('');
-                              }
-                            }}
-                            keyboardType="numeric"
-                            maxLength={4}
-                            placeholder="Enter new 4-digit code"
-                            secureTextEntry={false}
-                            editable={!isSaving}
-                            returnKeyType="done"
-                            onSubmitEditing={() => {
-                              if (newAdminCode.length === 4) {
-                                handleAdminCodeChange();
-                              }
-                            }}
-                            autoFocus
-                          />
-                          {adminCodeError ? (
-                            <Text style={styles.errorText}>
-                              {adminCodeError}
-                            </Text>
-                          ) : null}
-                          <View style={styles.adminCodeButtons}>
-                            <Pressable
-                              style={[styles.adminButton, styles.cancelButton]}
-                              onPress={cancelAdminCodeEdit}
-                              disabled={isSaving}>
-                              <Text style={styles.buttonText}>Cancel</Text>
-                            </Pressable>
-                            <Pressable
-                              style={[
-                                styles.adminButton,
-                                styles.submitButton,
-                                (newAdminCode.length !== 4 || isSaving) &&
-                                  styles.disabledButton,
-                              ]}
-                              onPress={handleAdminCodeChange}
-                              disabled={newAdminCode.length !== 4 || isSaving}>
-                              <Text style={styles.buttonText}>
-                                {isSaving ? 'Saving...' : 'Save'}
-                              </Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      ) : (
-                        <View style={styles.adminCodeContainer}>
-                          <Text style={styles.adminCodeValue}>
-                            {isAdminCodeVisible
-                              ? adminCode
-                              : adminCode
-                              ? '••••'
-                              : 'Not set'}
+                              styles.videoHeartIcon,
+                              isTablet && styles.videoHeartIconTablet,
+                            ]}>
+                            ♥
                           </Text>
-                          <TouchableOpacity
-                            style={styles.eyeButton}
-                            onPress={() =>
-                              setIsAdminCodeVisible(!isAdminCodeVisible)
-                            }>
-                            <FastImage
-                              source={require('../assets/eye.png')}
-                              style={[
-                                styles.eyeIcon,
-                                !isAdminCodeVisible && styles.eyeIconHidden,
-                              ]}
-                              resizeMode={FastImage.resizeMode.contain}
-                            />
-                          </TouchableOpacity>
                         </View>
                       )}
                     </View>
-                    {!isEditingAdminCode && (
-                      <Pressable
-                        style={styles.changeButton}
-                        onPress={() => setIsEditingAdminCode(true)}>
-                        <Text style={styles.changeButtonText}>Change</Text>
-                      </Pressable>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.switchRow}>
-                  <View style={styles.switchLabel}>
-                    <Text style={styles.settingLabel}>
-                      Go Back After Selection
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowGobackAfterSelectionInfo(true)}
-                      style={styles.infoButton}>
-                      <Text style={styles.infoIcon}>?</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Switch
-                    trackColor={{false: '#767577', true: '#8E24AA'}}
-                    thumbColor={gobackAfterSelection ? '#fff' : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={handleGobackAfterSelectionToggle}
-                    value={gobackAfterSelection}
-                  />
-                </View>
-
-                <View style={styles.switchRow}>
-                  <View style={styles.switchLabel}>
                     <Text
                       style={[
-                        styles.settingLabel,
-                        !whisperModelAvailable && styles.disabledText,
+                        styles.checklistCardTitle,
+                        isTablet && styles.checklistCardTitleTablet,
                       ]}>
-                      Local Whisper (vs Cloud)
+                      Meet Verbi
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.checklistCard,
+                      isTablet && styles.checklistCardTablet,
+                    ]}
+                    onPress={() =>
+                      handleVideoCardPress(
+                        require('../assets/movie/homescreen.mp4'),
+                      )
+                    }>
+                    <View style={styles.videoContainer}>
+                      <Video
+                        source={require('../assets/movie/homescreen.mp4')}
+                        style={styles.video}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        repeat={false}
+                        controls={false}
+                      />
+                      {watchedVideos.has(1) && (
+                        <View
+                          style={[
+                            styles.videoHeartOverlay,
+                            isTablet && styles.videoHeartOverlayTablet,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.videoHeartIcon,
+                              isTablet && styles.videoHeartIconTablet,
+                            ]}>
+                            ♥
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.checklistCardTitle,
+                        isTablet && styles.checklistCardTitleTablet,
+                      ]}>
+                      Home Screen
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.checklistCard,
+                      isTablet && styles.checklistCardTablet,
+                    ]}
+                    onPress={() =>
+                      handleVideoCardPress(
+                        require('../assets/movie/question.mp4'),
+                      )
+                    }>
+                    <View style={styles.videoContainer}>
+                      <Video
+                        source={require('../assets/movie/question.mp4')}
+                        style={styles.video}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        repeat={false}
+                        controls={false}
+                      />
+                      {watchedVideos.has(2) && (
+                        <View
+                          style={[
+                            styles.videoHeartOverlay,
+                            isTablet && styles.videoHeartOverlayTablet,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.videoHeartIcon,
+                              isTablet && styles.videoHeartIconTablet,
+                            ]}>
+                            ♥
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.checklistCardTitle,
+                        isTablet && styles.checklistCardTitleTablet,
+                      ]}>
+                      Responding to a question
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.checklistCard,
+                      isTablet && styles.checklistCardTablet,
+                    ]}
+                    onPress={() =>
+                      handleVideoCardPress(require('../assets/movie/convo.mp4'))
+                    }>
+                    <View style={styles.videoContainer}>
+                      <Video
+                        source={require('../assets/movie/convo.mp4')}
+                        style={styles.video}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        repeat={false}
+                        controls={false}
+                      />
+                      {watchedVideos.has(3) && (
+                        <View
+                          style={[
+                            styles.videoHeartOverlay,
+                            isTablet && styles.videoHeartOverlayTablet,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.videoHeartIcon,
+                              isTablet && styles.videoHeartIconTablet,
+                            ]}>
+                            ♥
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.checklistCardTitle,
+                        isTablet && styles.checklistCardTitleTablet,
+                      ]}>
+                      Start a conversation
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.checklistCard,
+                      isTablet && styles.checklistCardTablet,
+                    ]}
+                    onPress={() =>
+                      handleVideoCardPress(
+                        require('../assets/movie/personalization.mp4'),
+                      )
+                    }>
+                    <View style={styles.videoContainer}>
+                      <Video
+                        source={require('../assets/movie/personalization.mp4')}
+                        style={styles.video}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        repeat={false}
+                        controls={false}
+                      />
+                      {watchedVideos.has(4) && (
+                        <View
+                          style={[
+                            styles.videoHeartOverlay,
+                            isTablet && styles.videoHeartOverlayTablet,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.videoHeartIcon,
+                              isTablet && styles.videoHeartIconTablet,
+                            ]}>
+                            ♥
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.checklistCardTitle,
+                        isTablet && styles.checklistCardTitleTablet,
+                      ]}>
+                      Personalize Your Experience
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.checklistCard,
+                      isTablet && styles.checklistCardTablet,
+                    ]}
+                    onPress={() =>
+                      handleVideoCardPress(require('../assets/movie/quick.mp4'))
+                    }>
+                    <View style={styles.videoContainer}>
+                      <Video
+                        source={require('../assets/movie/quick.mp4')}
+                        style={styles.video}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        repeat={false}
+                        controls={false}
+                      />
+                      {watchedVideos.has(5) && (
+                        <View
+                          style={[
+                            styles.videoHeartOverlay,
+                            isTablet && styles.videoHeartOverlayTablet,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.videoHeartIcon,
+                              isTablet && styles.videoHeartIconTablet,
+                            ]}>
+                            ♥
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.checklistCardTitle,
+                        isTablet && styles.checklistCardTitleTablet,
+                      ]}>
+                      Quick Actions
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Personalize Your Experience
+              </Text>
+              <Text style={styles.aboutDescription}>
+                Personalize your experience with MaTalk AI.
+              </Text>
+
+              <View style={styles.myPepesSection}>
+                <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
+                  My People & Stuff
+                </Text>
+                <Text style={styles.myPepesDescription}>
+                  Your people, stuff, food, drinks, places, and tv shows with
+                  images, names, and aliases for better conversation context.
+                  <Text style={{fontWeight: '800', color: '#666'}}>
+                    All Images are kept on your device only.
+                  </Text>
+                </Text>
+                <MyPepesAndStuff />
+              </View>
+
+              <View style={styles.genderSection}>
+                <View style={styles.genderHeader}>
+                  <View style={styles.genderLabelContainer}>
+                    <Text style={styles.settingLabel}>
+                      Your Hero's Avatar(optional)
                     </Text>
                     <TouchableOpacity
-                      onPress={() => setShowWhisperInfo(true)}
+                      onPress={() => setShowGenderInfo(true)}
                       style={styles.infoButton}>
                       <Text style={styles.infoIcon}>?</Text>
                     </TouchableOpacity>
                   </View>
-                  <Switch
-                    trackColor={{false: '#767577', true: '#8E24AA'}}
-                    thumbColor={useLocalWhisper ? '#fff' : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={handleUseLocalWhisperToggle}
-                    value={useLocalWhisper}
-                    disabled={!whisperModelAvailable}
-                  />
                 </View>
 
-                {/* Whisper Model Download Section */}
-                {(useLocalWhisper || !whisperModelAvailable) && (
-                  <View style={styles.whisperDownloadSection}>
-                    <Text style={styles.settingLabel}>Whisper Model</Text>
-                    {whisperModelAvailable ? (
-                      <View style={styles.whisperStatusContainer}>
-                        <Text style={styles.whisperStatusText}>
-                          ✅ Whisper model is downloaded and ready to use
-                        </Text>
+                <View style={styles.currentAvatarContainer}>
+                  <View style={styles.currentAvatarDisplay}>
+                    {preferences.gender === 'other' || !preferences.gender ? (
+                      <View style={styles.noAvatarContainer}>
+                        <Text style={styles.noAvatarText}>No Avatar</Text>
                       </View>
                     ) : (
-                      <View style={styles.whisperDownloadContainer}>
-                        <Text style={styles.whisperDownloadText}>
-                          {useLocalWhisper
-                            ? 'Download the Whisper model to enable local voice transcription'
-                            : 'Download the Whisper model to enable local voice transcription (required to use local Whisper)'}
-                        </Text>
-                        <WhisperDownload
-                          onComplete={handleWhisperDownloadComplete}
-                          onSkip={() => {}}
+                      <View style={styles.selectedAvatarWrapper}>
+                        <FastImage
+                          source={getAvatarSource(preferences.gender)}
+                          style={styles.currentAvatarImage}
+                          resizeMode={FastImage.resizeMode.contain}
                         />
                       </View>
                     )}
+
+                    <TouchableOpacity
+                      style={styles.showMoreButton}
+                      onPress={() => setShowAvatarOptions(!showAvatarOptions)}>
+                      <Text style={styles.showMoreButtonText}>
+                        {showAvatarOptions ? 'Hide' : 'Show More'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {showAvatarOptions && (
+                  <View style={styles.avatarOptionsContainer}>
+                    <View style={styles.avatarOptionsGrid}>
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          (preferences.gender === 'white boy' ||
+                            preferences.gender === 'boy') &&
+                            styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          setItem('gender', 'white boy');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {(preferences.gender === 'white boy' ||
+                            preferences.gender === 'boy') && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/wboy.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'black boy' &&
+                            styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          setItem('gender', 'black boy');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'black boy' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/bboy.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'asian boy' &&
+                            styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          setItem('gender', 'asian boy');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'asian boy' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/aboy.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'white girl' &&
+                            styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          setItem('gender', 'white girl');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'white girl' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/wgirl.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'black girl' &&
+                            styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          setItem('gender', 'black girl');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'black girl' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/bgirl.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'asian girl' &&
+                            styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          setItem('gender', 'asian girl');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'asian girl' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/agirl.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'other' &&
+                            styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          setItem('gender', 'other');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'other' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <View style={styles.noAvatarOptionContainer}>
+                            <Text style={styles.noAvatarOptionText}>Other</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </View>
+
+              <View style={styles.familyPicsSection}>
+                {/* Conversation Mode Setting */}
+                <View style={styles.conversationModeRow}>
+                  <View style={styles.switchLabel}>
+                    <Text style={styles.conversationModeLabel}>
+                      Conversation Mode
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowConversationModeInfo(true)}
+                      style={styles.infoButton}>
+                      <Text style={styles.infoIcon}>?</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.conversationModeContainer}>
+                    <Text
+                      style={[
+                        styles.conversationModeText,
+                        conversationMode === 'easy' && styles.activeMode,
+                      ]}>
+                      Easy
+                    </Text>
+                    <Switch
+                      trackColor={{false: '#767577', true: '#8E24AA'}}
+                      thumbColor={
+                        conversationMode === 'advanced' ? '#fff' : '#f4f3f4'
+                      }
+                      ios_backgroundColor="#3e3e3e"
+                      onValueChange={handleConversationModeToggle}
+                      value={conversationMode === 'advanced'}
+                    />
+                    <Text
+                      style={[
+                        styles.conversationModeText,
+                        conversationMode === 'advanced' && styles.activeMode,
+                      ]}>
+                      Advanced
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Only show family member management in Advanced mode */}
+                {conversationMode === 'advanced' && (
+                  <>
+                    <Text style={styles.familyDescription}>
+                      Manage family member photos for conversations
+                    </Text>
+                    <FamilyPics
+                      onFamilyMemberSelect={handleFamilyMemberSelect}
+                    />
+                  </>
+                )}
+              </View>
+
+              <View style={styles.adminSection}>
+                <View style={styles.adminCodeRow}>
+                  <View style={styles.adminCodeInfo}>
+                    <Text style={styles.settingLabel}>Admin Code</Text>
+                    {isEditingAdminCode ? (
+                      <View style={styles.adminCodeEditContainer}>
+                        <TextInput
+                          style={[
+                            styles.codeInput,
+                            adminCodeError ? styles.errorInput : null,
+                          ]}
+                          value={newAdminCode}
+                          onChangeText={text => {
+                            const numericText = text.replace(/[^0-9]/g, '');
+                            if (numericText.length <= 4) {
+                              setNewAdminCode(numericText);
+                              setAdminCodeError('');
+                            }
+                          }}
+                          keyboardType="numeric"
+                          maxLength={4}
+                          placeholder="Enter new 4-digit code"
+                          secureTextEntry={false}
+                          editable={!isSaving}
+                          returnKeyType="done"
+                          onSubmitEditing={() => {
+                            if (newAdminCode.length === 4) {
+                              handleAdminCodeChange();
+                            }
+                          }}
+                          autoFocus
+                        />
+                        {adminCodeError ? (
+                          <Text style={styles.errorText}>{adminCodeError}</Text>
+                        ) : null}
+                        <View style={styles.adminCodeButtons}>
+                          <Pressable
+                            style={[styles.adminButton, styles.cancelButton]}
+                            onPress={cancelAdminCodeEdit}
+                            disabled={isSaving}>
+                            <Text style={styles.buttonText}>Cancel</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[
+                              styles.adminButton,
+                              styles.submitButton,
+                              (newAdminCode.length !== 4 || isSaving) &&
+                                styles.disabledButton,
+                            ]}
+                            onPress={handleAdminCodeChange}
+                            disabled={newAdminCode.length !== 4 || isSaving}>
+                            <Text style={styles.buttonText}>
+                              {isSaving ? 'Saving...' : 'Save'}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.adminCodeContainer}>
+                        <Text style={styles.adminCodeValue}>
+                          {isAdminCodeVisible
+                            ? adminCode
+                            : adminCode
+                            ? '••••'
+                            : 'Not set'}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.eyeButton}
+                          onPress={() =>
+                            setIsAdminCodeVisible(!isAdminCodeVisible)
+                          }>
+                          <FastImage
+                            source={require('../assets/eye.png')}
+                            style={[
+                              styles.eyeIcon,
+                              !isAdminCodeVisible && styles.eyeIconHidden,
+                            ]}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                  {!isEditingAdminCode && (
+                    <Pressable
+                      style={styles.changeButton}
+                      onPress={() => setIsEditingAdminCode(true)}>
+                      <Text style={styles.changeButtonText}>Change</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.switchRow}>
+                <View style={styles.switchLabel}>
+                  <Text style={styles.settingLabel}>
+                    Go Back After Selection
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowGobackAfterSelectionInfo(true)}
+                    style={styles.infoButton}>
+                    <Text style={styles.infoIcon}>?</Text>
+                  </TouchableOpacity>
+                </View>
+                <Switch
+                  trackColor={{false: '#767577', true: '#8E24AA'}}
+                  thumbColor={gobackAfterSelection ? '#fff' : '#f4f3f4'}
+                  ios_backgroundColor="#3e3e3e"
+                  onValueChange={handleGobackAfterSelectionToggle}
+                  value={gobackAfterSelection}
+                />
+              </View>
+
+              {/* Whisper Model Download Section */}
+              {(useLocalWhisper || !whisperModelAvailable) && (
+                <View style={styles.whisperDownloadSection}>
+                  <Text style={styles.settingLabel}>Whisper Model</Text>
+                  {whisperModelAvailable ? (
+                    <View style={styles.whisperStatusContainer}>
+                      <Text style={styles.whisperStatusText}>
+                        ✅ Whisper model is downloaded and ready to use
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.whisperDownloadContainer}>
+                      <Text style={styles.whisperDownloadText}>
+                        {useLocalWhisper
+                          ? 'Download the Whisper model to enable local voice transcription'
+                          : 'Download the Whisper model to enable local voice transcription (required to use local Whisper)'}
+                      </Text>
+                      <WhisperDownload
+                        onComplete={handleWhisperDownloadComplete}
+                      />
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
 
             <View style={styles.section}>
@@ -1208,7 +1607,7 @@ const SettingsScreen: React.FC = () => {
             style={styles.linkRow}
             onPress={() =>
               handleLinkPress(
-                'https://www.verbali.io/termsofuse',
+                'https://www.verbali.io/terms-of-use',
                 'Terms of Use',
               )
             }>
@@ -1292,6 +1691,35 @@ const SettingsScreen: React.FC = () => {
           title="Local Whisper vs Cloud"
           description="When enabled, the app will use the downloaded Whisper model for voice transcription on your device. This provides faster transcription and keeps your audio on your device only. The Whisper model must be downloaded before you can enable local Whisper. If the model is not downloaded, the app will use cloud-based transcription."
         />
+
+        {/* Video Modal */}
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={showVideoModal}
+          supportedOrientations={['landscape-left', 'landscape-right']}
+          onRequestClose={() => setShowVideoModal(false)}>
+          <View style={styles.videoModalContainer}>
+            <View style={styles.videoModalHeader}>
+              <TouchableOpacity
+                style={styles.videoModalCloseButton}
+                onPress={() => setShowVideoModal(false)}>
+                <Text style={styles.videoModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.videoModalContent}>
+              {selectedVideoSource && (
+                <ShowAndTell
+                  videoSource={selectedVideoSource}
+                  context="settings"
+                  videoList={videoList}
+                  currentVideoIndex={currentVideoIndex}
+                  onVideoChange={handleVideoChange}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </LinearGradient>
   );
@@ -1368,7 +1796,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   settingLabel: {
-    fontSize: 14,
+    fontSize: 18,
+    marginTop: SCREEN_WIDTH * 0.01,
     color: '#333',
     marginBottom: 8,
   },
@@ -1674,12 +2103,12 @@ const styles = StyleSheet.create({
   },
   heartOverlay: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: -10,
+    right: -10,
     zIndex: 10,
-    fontSize: 21.6,
+    fontSize: 24,
     color: '#FF3B30',
-    textShadowColor: 'rgba(0,0,0,0.2)',
+    textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: {width: 0, height: 1},
     textShadowRadius: 2,
     pointerEvents: 'none',
@@ -1749,12 +2178,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
     marginTop: 8,
   },
   conversationModeLabel: {
-    fontSize: 14,
+    fontSize: 18,
     color: '#333',
   },
   noneContainer: {
@@ -1814,8 +2241,7 @@ const styles = StyleSheet.create({
   whisperDownloadSection: {
     paddingHorizontal: 10,
     marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+
     paddingBottom: 20,
   },
   whisperStatusContainer: {
@@ -1841,6 +2267,246 @@ const styles = StyleSheet.create({
   disabledText: {
     opacity: 0.5,
     color: '#999',
+  },
+  currentAvatarContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  currentAvatarDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectedAvatarWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 2,
+  },
+  currentAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+  },
+  noAvatarContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+  },
+  noAvatarText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+  },
+  showMoreButton: {
+    backgroundColor: '#8E24AA',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginLeft: 16,
+  },
+  showMoreButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  avatarOptionsContainer: {
+    paddingHorizontal: 10,
+    marginTop: 12,
+  },
+  avatarOptionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  avatarOption: {
+    width: '30%',
+    alignItems: 'center',
+    marginBottom: 12,
+    padding: 4,
+  },
+  selectedAvatarOption: {
+    // No background color - just show the heart overlay
+  },
+  avatarOptionWrapper: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 2,
+  },
+  avatarOptionImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 35,
+  },
+  avatarHeartOverlay: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    zIndex: 10,
+    fontSize: 20,
+    color: '#FF3B30',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 2,
+    pointerEvents: 'none',
+  },
+  noAvatarOptionContainer: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderStyle: 'dashed',
+    borderRadius: 35,
+  },
+  noAvatarOptionText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+  },
+  checklistGrid: {
+    marginTop: 20,
+  },
+  checklistRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
+  checklistRowTablet: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checklistCard: {
+    width: (SCREEN_WIDTH - 60) / 3, // 3 cards per row on phone
+    aspectRatio: 1,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    shadowOffset: {width: 0, height: 1},
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  checklistCardTablet: {
+    width: (SCREEN_WIDTH - 80) / 6, // 6 cards per row on tablet (more space)
+    padding: 12,
+    borderRadius: 12,
+    marginHorizontal: 4, // Add horizontal margin for spacing
+  },
+  videoContainer: {
+    width: '70%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 8,
+    backgroundColor: '#f8f9fe',
+  },
+  video: {
+    width: '100%',
+    height: '100%',
+  },
+  checklistCardTitle: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  checklistCardTitleTablet: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  videoModalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  videoModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 10,
+  },
+  videoModalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoModalCloseText: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  videoModalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  videoHeartOverlay: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    zIndex: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    shadowOffset: {width: 0, height: 1},
+    elevation: 2,
+  },
+  videoHeartIcon: {
+    fontSize: 12,
+    color: '#FF3B30',
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: {width: 0, height: 1},
+    textShadowRadius: 1,
+  },
+  videoHeartOverlayTablet: {
+    width: 24,
+    height: 24,
+    borderRadius: 14,
+  },
+  videoHeartIconTablet: {
+    fontSize: 14,
   },
 });
 
