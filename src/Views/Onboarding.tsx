@@ -36,7 +36,6 @@ import WhisperDownload from '../Components/WhisperDownload';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
 import {useAuth0} from 'react-native-auth0';
-import fetchHelper from '../utils/fetcher';
 import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 
@@ -148,7 +147,6 @@ const OnboardingScreen: React.FC = () => {
   );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [gotSubscription, setGotSubscription] = useState(false);
-  const [gotAssistant, setGotAssistant] = useState(false);
   const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
@@ -212,71 +210,6 @@ const OnboardingScreen: React.FC = () => {
     return userSub;
   };
 
-  // Helper function to get assistant ID for the user
-  const getAssistantId = async (userId: string): Promise<void> => {
-    try {
-      const response = await fetchHelper(
-        'getAssistantId',
-        {},
-        {
-          userId: userId,
-        },
-      );
-
-      if (response && response.assistantId) {
-        await setItem('assistantId', response.assistantId);
-      } else {
-        await makeAssistantId(userId);
-      }
-    } catch (error) {
-      setGotAssistant(true);
-      console.log('Error getting assistant ID:', error);
-    }
-  };
-
-  const makeAssistantId = async (userId: string) => {
-    // Get trial installation date
-    let trialInstallationTimestamp = await getItem('trialInstallationDate');
-
-    // If trial installation date is not set, set it now
-    if (
-      !trialInstallationTimestamp ||
-      trialInstallationTimestamp === 'init.NotSet'
-    ) {
-      const currentTimestamp = Date.now().toString();
-      await setItem('trialInstallationDate', currentTimestamp);
-      trialInstallationTimestamp = currentTimestamp;
-    }
-
-    // Format the date for PostgreSQL timestamp format: YYYY-MM-DD HH:MM:SS.microseconds
-    let trialStartedDate = '';
-    if (trialInstallationTimestamp) {
-      const trialDate = new Date(parseInt(trialInstallationTimestamp));
-      // Format as PostgreSQL timestamp: 2025-08-08 16:36:19.060046
-      const year = trialDate.getFullYear();
-      const month = String(trialDate.getMonth() + 1).padStart(2, '0');
-      const day = String(trialDate.getDate()).padStart(2, '0');
-      const hours = String(trialDate.getHours()).padStart(2, '0');
-      const minutes = String(trialDate.getMinutes()).padStart(2, '0');
-      const seconds = String(trialDate.getSeconds()).padStart(2, '0');
-      const milliseconds = String(trialDate.getMilliseconds()).padStart(6, '0');
-
-      trialStartedDate = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
-    }
-
-    const response = await fetchHelper(
-      'makeAssistantId',
-      {},
-      {
-        kidname: heroName,
-        userId: userId,
-        onAppInstall: trialStartedDate,
-      },
-    );
-    if (response && response.assistantId) {
-      await setItem('assistantId', response.assistantId);
-    }
-  };
   const handleLogin = async () => {
     try {
       const result = await authorize({
@@ -349,11 +282,6 @@ const OnboardingScreen: React.FC = () => {
       }
     }
 
-    if (onboardingSteps[currentStep].id === 'name') {
-      setGotAssistant(true);
-      await getAssistantId(user?.sub?.toString() || '');
-      setGotAssistant(false);
-    }
     // Skip family members step if in easy mode
     const shouldSkipFamilyMembers =
       conversationMode === 'easy' &&
@@ -566,43 +494,37 @@ const OnboardingScreen: React.FC = () => {
         );
       case 'name-input':
         return (
-          <>
-            {gotAssistant ? (
-              <ActivityIndicator size="large" color="#0000ff" />
-            ) : (
-              <ScrollView
-                style={{width: '100%'}}
-                contentContainerStyle={styles.nameScrollContainer}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
-                showsVerticalScrollIndicator={false}>
-                <View style={styles.nameContainer}>
-                  <FastImage
-                    source={require('../assets/boy.png')}
-                    style={styles.sideImage}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={isTablet ? styles.input : styles.inputPhone}
-                      placeholder="First name"
-                      placeholderTextColor="#888"
-                      value={heroName}
-                      onChangeText={setHeroName}
-                      autoCapitalize="words"
-                      autoComplete="name-given"
-                      maxLength={20}
-                    />
-                  </View>
-                  <FastImage
-                    source={require('../assets/girl.png')}
-                    style={styles.sideImage}
-                    resizeMode={FastImage.resizeMode.contain}
-                  />
-                </View>
-              </ScrollView>
-            )}
-          </>
+          <ScrollView
+            style={{width: '100%'}}
+            contentContainerStyle={styles.nameScrollContainer}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.nameContainer}>
+              <FastImage
+                source={require('../assets/boy.png')}
+                style={styles.sideImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={isTablet ? styles.input : styles.inputPhone}
+                  placeholder="First name"
+                  placeholderTextColor="#888"
+                  value={heroName}
+                  onChangeText={setHeroName}
+                  autoCapitalize="words"
+                  autoComplete="name-given"
+                  maxLength={20}
+                />
+              </View>
+              <FastImage
+                source={require('../assets/girl.png')}
+                style={styles.sideImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </View>
+          </ScrollView>
         );
       case 'gender-selection':
         return (
@@ -641,7 +563,7 @@ const OnboardingScreen: React.FC = () => {
                   <FastImage
                     source={require('../assets/gender/wboy.jpg')}
                     style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.cover}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 </View>
               </TouchableOpacity>
@@ -662,7 +584,7 @@ const OnboardingScreen: React.FC = () => {
                   <FastImage
                     source={require('../assets/gender/bboy.jpg')}
                     style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.cover}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 </View>
               </TouchableOpacity>
@@ -683,7 +605,7 @@ const OnboardingScreen: React.FC = () => {
                   <FastImage
                     source={require('../assets/gender/aboy.jpg')}
                     style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.cover}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 </View>
               </TouchableOpacity>
@@ -704,7 +626,7 @@ const OnboardingScreen: React.FC = () => {
                   <FastImage
                     source={require('../assets/gender/wgirl.jpg')}
                     style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.cover}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 </View>
               </TouchableOpacity>
@@ -725,7 +647,7 @@ const OnboardingScreen: React.FC = () => {
                   <FastImage
                     source={require('../assets/gender/bgirl.jpg')}
                     style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.cover}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 </View>
               </TouchableOpacity>
@@ -746,7 +668,7 @@ const OnboardingScreen: React.FC = () => {
                   <FastImage
                     source={require('../assets/gender/agirl.jpg')}
                     style={styles.genderImage}
-                    resizeMode={FastImage.resizeMode.cover}
+                    resizeMode={FastImage.resizeMode.contain}
                   />
                 </View>
               </TouchableOpacity>

@@ -10,7 +10,6 @@ import {
 
 import {useNavigation, RouteProp} from '@react-navigation/native';
 import AudioRecorderPlayer, {
-  AVEncoderAudioQualityIOSType,
   AVEncodingOption,
   AVModeIOSOption,
   AudioSet,
@@ -49,34 +48,95 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = false;
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
-const DEBUGTRANSCRIPTION = 'How was school today?';
+const DEBUGTRANSCRIPTION = 'What is your dogs name';
 
 let audioRecorderPlayer: AudioRecorderPlayer | null = null;
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {
-    sendMessage,
-    runAssistant,
-    threadId,
-    imageUrls,
-    status,
-    resetAssistant,
-    clearImages,
-    createThreadIfNeeded,
-  } = useAssistant();
+  const {generateAnswers} = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
   const {getItem, preferences} = useAppSettings();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
+
+  // Function to resolve pepes images for answer words
+  const resolvePepesImage = async (word: string, fallbackUrl: string = '') => {
+    try {
+      const pepesData = await getItem('pepes');
+      if (!pepesData) return fallbackUrl;
+
+      const parsed = JSON.parse(pepesData);
+      const allCategories = [
+        'People',
+        'Toys',
+        'Pets',
+        'TVShows',
+        'Food',
+        'Drinks',
+        'Places',
+      ];
+
+      for (const category of allCategories) {
+        const items = parsed[category] || [];
+        for (const item of items) {
+          // Check if word matches name or any alias
+          const nameMatch = item.name?.toLowerCase() === word.toLowerCase();
+          const aliasMatch = item.aliases?.some(
+            (alias: string) => alias.toLowerCase() === word.toLowerCase(),
+          );
+
+          if ((nameMatch || aliasMatch) && item.imageUri) {
+            return item.imageUri;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error resolving pepes image:', error);
+    }
+
+    return fallbackUrl || '';
+  };
+
+  // Function to manage conversation history with sliding window
+  const addToConversationHistory = (
+    userMessage: string,
+    assistantResponse: string,
+    maxHistoryLength: number = 20, // Keep last 20 exchanges
+  ) => {
+    setConversationHistory(prev => {
+      const newHistory = [
+        ...prev,
+        {role: 'user' as const, content: userMessage, timestamp: Date.now()},
+        {
+          role: 'assistant' as const,
+          content: assistantResponse,
+          timestamp: Date.now(),
+        },
+      ];
+
+      // Keep only the most recent exchanges
+      return newHistory.slice(-maxHistoryLength * 2); // *2 because each exchange has user + assistant
+    });
+  };
+
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
+  const [directAnswers, setDirectAnswers] = useState<
+    Array<{word: string; imageUrl?: string}>
+  >([]);
+
+  // Conversation history state
+  const [conversationHistory, setConversationHistory] = useState<
+    Array<{role: 'user' | 'assistant'; content: string; timestamp: number}>
+  >([]);
+
   // Responsive values based on device type
   const responsiveValues = {
     // Icon sizes
@@ -197,15 +257,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   const initializeAudioRecording = async () => {
     try {
-      let useLocal = false;
-      // Get cached setting or fetch it once
-      if (preferences?.useLocalWhisper) {
-        useLocal = preferences?.useLocalWhisper === '1';
-        setIsUsingLocalWhisper(useLocal);
-      } else {
-        useLocal = (await getItem('useLocalWhisper')) === '1';
-        setIsUsingLocalWhisper(useLocal);
-      }
+      // Always use local Whisper - cloud disabled
+      setIsUsingLocalWhisper(true);
 
       if (!audioRecorderPlayer) {
         audioRecorderPlayer = new AudioRecorderPlayer();
@@ -307,40 +360,54 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
       if (!audioRecorderPlayer) audioRecorderPlayer = new AudioRecorderPlayer();
       let uri: string | undefined;
-      if (preferences?.useLocalWhisper === '1') {
-        const recordingOptions: AudioSet = {
-          AVModeIOS: AVModeIOSOption.videochat,
-          AVSampleRateKeyIOS: 16000,
-          AVFormatIDKeyIOS: AVEncodingOption.wav,
-          AVNumberOfChannelsKeyIOS: 1,
-        };
 
-        // IMPORTANT: pass undefined so the lib uses its own default path in Caches
-        uri = await audioRecorderPlayer.startRecorder(
-          undefined,
-          recordingOptions,
-          false,
-        );
-      } else {
-        uri = await audioRecorderPlayer.startRecorder(
-          undefined,
-          undefined,
-          false,
-        );
-      }
+      // Always use local Whisper settings - cloud disabled
+      const recordingOptions: AudioSet = {
+        AVModeIOS: AVModeIOSOption.videochat,
+        AVSampleRateKeyIOS: 16000,
+        AVFormatIDKeyIOS: AVEncodingOption.wav,
+        AVNumberOfChannelsKeyIOS: 1,
+      };
+
+      // IMPORTANT: pass undefined so the lib uses its own default path in Caches
+      uri = await audioRecorderPlayer.startRecorder(
+        undefined,
+        recordingOptions,
+        false,
+      );
       currentRecordingURI = uri ?? null;
 
-      // Add record back listener for iOS cloud Whisper (similar to Android)
+      // Add record back listener for iOS with silence detection
       audioRecorderPlayer.addRecordBackListener((e: any) => {
-        // iOS doesn't need metering logic like Android, but we need to handle the events
-        // to prevent "no listeners registered" warning
+        if (lastSoundTimeRef.current === 0) {
+          lastSoundTimeRef.current = Date.now();
+        }
+
+        // Store current metering value
+        if (e.currentMetering !== undefined) {
+          metering.current = e.currentMetering;
+        }
+
+        // Check if there's actual sound (not silence)
+        if (e.currentMetering !== undefined && e.currentMetering > -35) {
+          lastSoundTimeRef.current = Date.now();
+        } else {
+          const silenceTime = Date.now() - lastSoundTimeRef.current;
+
+          // Stop recording after 3 seconds of silence
+          if (silenceTime > 3000 && lastSoundTimeRef.current > 0) {
+            stopRecording();
+            return;
+          }
+        }
+
         return true;
       });
 
       setIsRecording(true);
 
-      // auto-stop after 4s (or wire to your UI)
-      recordingTimer.current = setTimeout(stopRecording, 5000);
+      // auto-stop after 8s (or wire to your UI)
+      recordingTimer.current = setTimeout(stopRecording, 8000);
     } catch (error) {
       console.error('startIOSRecording failed:', error);
 
@@ -361,7 +428,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
       filePath = await audioRecorderPlayer?.stopRecorder();
       currentRecordingURI = filePath ?? currentRecordingURI;
-      console.log('🛑 iOS recording stopped. File:', currentRecordingURI);
       // Remove record back listener for iOS cloud Whisper
       audioRecorderPlayer?.removeRecordBackListener();
     } catch (e) {
@@ -448,14 +514,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   const transcribeAudio = async (audioPath: string) => {
     setIsTranscribing(true);
-    // Get current Whisper setting to determine audio format
-    const useLocal = preferences?.useLocalWhisper === '1';
+    // Always use local Whisper - cloud disabled
+    setIsUsingLocalWhisper(true);
 
     if (!audioPath) {
       console.error('transcribeAudio: No audio path provided');
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
-      audioRecordInitialized = false;
+      // Reset audio recording state
 
       TTSService.speak('I am having an issue, Tap Home to retry', true);
       setIsRecording(false);
@@ -467,34 +533,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       let transcribeResponse: any;
       if (!DEBUGWITHOUTTRANSCRIPTION) {
         try {
-          if (useLocal) {
-            // Use local Whisper - no fallback to cloud
-            transcribeResponse = await transcribeAudioWithWhisper(audioPath);
-          } else {
-            // Use cloud Whisper directly
-            setIsUsingLocalWhisper(false);
-            transcribeResponse = await transcribeAudioCloud(audioPath);
-            (transcribeResponse as any).isLocal = false;
-          }
-        } catch (networkError) {
-          // Check if it's a network/API key error
-          if (
-            networkError instanceof Error &&
-            networkError.message.includes('Network request failed')
-          ) {
-            setFinishedTranscribing(true);
-            setTranscribedText(
-              'Network error: Please check your internet connection and OpenAI API key configuration',
-            );
-            TTSService.speak(
-              'Network error, please check your internet connection',
-              true,
-            );
-          } else {
-            setFinishedTranscribing(true);
-            setTranscribedText(ISSUEMESSAGE);
-            TTSService.speak('I am having an issue, Tap Home to retry', true);
-          }
+          // Always use local Whisper - no cloud fallback
+          transcribeResponse = await transcribeAudioWithWhisper(audioPath);
+        } catch (whisperError) {
+          console.error('Local Whisper transcription failed:', whisperError);
+          setFinishedTranscribing(true);
+          setTranscribedText(ISSUEMESSAGE);
+          TTSService.speak('I am having an issue, Tap Home to retry', true);
           setIsRecording(false);
           setIsTranscribing(false);
           return;
@@ -503,11 +548,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         transcribeResponse = {text: DEBUGTRANSCRIPTION};
       }
 
-      if (threadId.length < 1 && threadId === '') {
-        await createThreadIfNeeded();
-      }
-
-      if (transcribeResponse?.text && threadId.length > 1 && threadId !== '') {
+      if (transcribeResponse?.text) {
         const transcribedText = transcribeResponse.text.trim();
 
         if (
@@ -527,8 +568,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         }
 
         if (
-          threadId.length > 1 &&
-          threadId !== '' &&
           transcribedText.length > 0 &&
           transcribedText !== 'null' &&
           transcribedText !== 'Thank you.' &&
@@ -557,26 +596,51 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
           try {
-            const messagePromise = await sendMessage(
-              messageWithContext,
-              threadId,
-              'generate_answers',
-            );
+            // Get pepes data for context
+            const pepesData = await getItem('pepes');
+            const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
 
-            // Wait for message to be sent, then immediately start assistant
-            const messageId = messagePromise;
+            // Use the new generateAnswers function instead of OpenAI assistant
+            const answers = await generateAnswers(transcribedText, {
+              mode: 'generate_answers',
+              metadata: {
+                kidName: preferences?.heroName || 'I',
+                speaker: 'anyone',
+                audience: preferences?.heroName || 'my',
+                pepes: parsedPepes, // Include pepes data for better context
+                conversationHistory: conversationHistory, // Include conversation history
+              },
+              countMin: 5,
+              countMax: 10,
+              genderType: preferences?.gender || 'white boy',
+            });
 
-            if (messageId) {
-              // Start assistant run immediately without waiting
-              runAssistant(threadId).catch(error => {
-                console.error('Failed to run assistant:', error);
-                setIsProcessingAnswer(false);
-                setIsRecording(false);
-                TTSService.speak(
-                  'Failed to process your request. Please try again.',
-                  true,
-                );
-              });
+            if (answers && answers.length > 0) {
+              // Process the answers and resolve pepes images
+
+              // Process answers to resolve pepes images
+              const processedAnswers = await Promise.all(
+                answers.map(async answer => {
+                  const pepesImageUrl = await resolvePepesImage(
+                    answer.word,
+                    answer.imageUrl,
+                  );
+                  return {
+                    ...answer,
+                    imageUrl: pepesImageUrl || answer.imageUrl,
+                  };
+                }),
+              );
+
+              setDirectAnswers(processedAnswers);
+              setIsProcessingAnswer(false);
+              setShowImages(true);
+
+              // Add to conversation history
+              const assistantResponse = processedAnswers
+                .map(answer => answer.word)
+                .join(', ');
+              addToConversationHistory(transcribedText, assistantResponse);
             } else {
               setIsProcessingAnswer(false);
               TTSService.speak('I am having an issue, Tap Home to retry', true);
@@ -584,7 +648,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               return;
             }
           } catch (error) {
-            console.error('Failed to send message:', error);
+            console.error('Failed to generate answers:', error);
             setIsProcessingAnswer(false);
             TTSService.speak(
               'Failed to process your request. Please try again.',
@@ -611,38 +675,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
-  useEffect(() => {
-    if (status === 'completed') {
-      // Count valid images (not placeholders)
-      const validImageCount =
-        imageUrls?.filter(item => {
-          if (!item || !item.url) return false;
-          const urlObj =
-            typeof item.url === 'object' ? item.url : {url: item.url};
-          return urlObj.url && urlObj.url !== 'placeholder';
-        }).length || 0;
-
-      if (validImageCount > 0) {
-        // Add a small delay to ensure gif is visible during retry operations
-        if (isRetrying) {
-          setTimeout(() => {
-            setIsRetrying(false);
-            setIsProcessingAnswer(false);
-            setShowImages(true);
-          }, 300); // Show retry gif for at least 1 second
-        } else {
-          setIsRetrying(false);
-          setIsProcessingAnswer(false);
-          setShowImages(true);
-        }
-      } else {
-        // No valid images returned - keep processing state but don't show images yet
-        // Don't reset isRetrying here in case we're in the middle of a retry
-        setIsProcessingAnswer(false);
-        setShowImages(false);
-      }
-    }
-  }, [imageUrls, status]);
+  // Removed useEffect that depended on status and imageUrls since we're using direct answers now
 
   // Reset function for local states
   const resetLocalStates = () => {
@@ -660,6 +693,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
+    setDirectAnswers([]); // Reset direct answers
+    setConversationHistory([]); // Clear conversation history
     // Note: Don't reset cachedUseLocalWhisper as it won't change during session
 
     // Clear the input in the Inputs component
@@ -682,12 +717,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   // Function to handle "Can't find it" button press
   const handleCantFindIt = async () => {
-    if (
-      !transcribedText ||
-      !threadId ||
-      isRetrying ||
-      retryCount >= MAX_RETRIES
-    ) {
+    if (!transcribedText || isRetrying || retryCount >= MAX_RETRIES) {
       if (retryCount >= MAX_RETRIES) {
         TTSService.speak(
           'You have reached the maximum number of retry attempts. Please try a new question.',
@@ -701,7 +731,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       setIsRetrying(true);
       setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
-      clearImages(); // Clear old images immediately to prevent flickering
+      // Clear old images immediately to prevent flickering
+      setDirectAnswers([]);
       setRetryCount(prev => prev + 1);
 
       // Get contextual information (time, weather, location, special places)
@@ -710,23 +741,55 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       // Create a retry message asking for more alternatives
       const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
 
-      const messageId = await sendMessage(
-        retryMessage,
-        threadId,
-        'generate_more_answers',
-      );
+      // Get pepes data for context
+      const pepesData = await getItem('pepes');
+      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
 
-      if (messageId) {
-        runAssistant(threadId).catch(error => {
-          console.error('handleCantFindIt - Failed to retry:', error);
-          setIsProcessingAnswer(false);
-          setIsRetrying(false);
-          TTSService.speak(
-            'Failed to get more answers. Please try again.',
-            true,
-          );
-          setRetryCount(prev => prev - 1); // Revert retry count on error
-        });
+      // Use generateAnswers to get more answers
+      const answers = await generateAnswers(transcribedText, {
+        mode: 'generate_more_answers',
+        metadata: {
+          kidName: preferences?.heroName || 'I',
+          speaker: 'anyone',
+          audience: preferences?.heroName || 'my',
+          pepes: parsedPepes, // Include pepes data for better context
+          conversationHistory: conversationHistory, // Include conversation history
+        },
+        countMin: 5,
+        countMax: 10,
+        genderType: preferences?.gender || 'white boy',
+      });
+
+      if (answers && answers.length > 0) {
+        // Process answers to resolve pepes images
+        const processedAnswers = await Promise.all(
+          answers.map(async answer => {
+            const pepesImageUrl = await resolvePepesImage(
+              answer.word,
+              answer.imageUrl,
+            );
+            return {
+              ...answer,
+              imageUrl: pepesImageUrl || answer.imageUrl,
+            };
+          }),
+        );
+
+        setDirectAnswers(processedAnswers);
+        setIsProcessingAnswer(false);
+        setIsRetrying(false);
+        setShowImages(true);
+
+        // Add to conversation history
+        const assistantResponse = processedAnswers
+          .map(answer => answer.word)
+          .join(', ');
+        addToConversationHistory(transcribedText, assistantResponse);
+      } else {
+        setIsProcessingAnswer(false);
+        setIsRetrying(false);
+        TTSService.speak('Failed to get more answers. Please try again.', true);
+        setRetryCount(prev => prev - 1);
       }
     } catch (error) {
       console.error('handleCantFindIt - Failed to retry:', error);
@@ -739,14 +802,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   // Function to handle answer selection and logging
   const handleAnswerSelected = async (selectedAnswer: string) => {
-    if (!transcribedText || !threadId || !imageUrls || imageUrls.length === 0) {
+    if (!transcribedText || !directAnswers || directAnswers.length === 0) {
       return;
     }
 
-    // Extract all possible answers from imageUrls
-    const possibleAnswers = imageUrls
-      .filter(item => item && item.prompt)
-      .map(item => item.prompt);
+    // Extract all possible answers from directAnswers
+    const possibleAnswers = directAnswers
+      .filter(item => item && item.word)
+      .map(item => item.word);
 
     // Log the conversation
     logConversation({
@@ -755,15 +818,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       answerPicked: selectedAnswer,
     });
 
-    // Send the selected answer back to the assistant for learning (without triggering response flow)
+    // Send the selected answer back for learning feedback
     try {
-      const currentTime = new Date().toLocaleString();
-      const learningMessage = `User selected answer: "${selectedAnswer}" for question: "${transcribedText}" from possible answers: [${possibleAnswers.join(
-        ', ',
-      )}]. Context - Time: ${currentTime}, Location: ${
-        location || 'Unknown'
-      }, Weather: ${weather || 'Unknown'}`;
-      // await sendMessage(learningMessage, threadId, 'learning_feedback');
+      await generateAnswers(transcribedText, {
+        mode: 'learning_feedback',
+        metadata: {
+          kidName: preferences?.heroName || 'I',
+          speaker: 'anyone',
+          audience: preferences?.heroName || 'my',
+        },
+      });
     } catch (error) {
       console.error('Failed to send learning feedback:', error);
       // Don't block the user flow if learning feedback fails
@@ -773,7 +837,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     if (selectedAnswer !== 'MoreAnswers') {
       // Wait 1 second to allow user to hear the selected answer being spoken
       setTimeout(async () => {
-        resetAssistant();
+        // Reset assistant state
+        setDirectAnswers([]);
 
         // Navigate to Open.tsx only if gobackAfterSelection is true
         if (gobackAfterSelection) {
@@ -782,7 +847,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         } else {
           // NEW: Set waiting state and activate wake word
           setWaitingForNextConversation(true);
-          clearImages();
+          setDirectAnswers([]);
 
           // Reset states but preserve waitingForNextConversation
           setFinishedTranscribing(false);
@@ -1061,23 +1126,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               key={`gallery`}>
               {showImages ? (
                 (() => {
+                  // Use direct answers
+                  const imagesToUse = directAnswers;
+
                   // If no images are available after filtering, show a message
-                  const validImages = imageUrls
+                  const validImages = imagesToUse
                     .filter(item => {
-                      if (!item || !item.url) return false;
-                      const urlObj =
-                        typeof item.url === 'object'
-                          ? item.url
-                          : {url: item.url};
-                      return urlObj.url && urlObj.url !== 'placeholder';
+                      if (!item) return false;
+                      // Handle direct answers format
+                      return item.imageUrl && item.imageUrl !== 'placeholder';
                     })
                     .map(item => {
                       try {
-                        const urlObj =
-                          typeof item.url === 'object'
-                            ? item.url
-                            : {url: item.url};
-                        return {url: urlObj, prompt: item.prompt || ''};
+                        // Handle direct answers format
+                        return {
+                          url: {url: item.imageUrl || ''},
+                          prompt: item.word || '',
+                        };
                       } catch (err) {
                         console.error('Error processing image:', err, item);
                         return null;

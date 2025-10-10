@@ -1478,6 +1478,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-sqlite-storage (6.0.1):
+    - React-Core
   - react-native-video (6.16.0):
     - DoubleConversion
     - glog
@@ -2147,6 +2149,7 @@ DEPENDENCIES:
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-sherpa-onnx-offline-tts (from `../node_modules/react-native-sherpa-onnx-offline-tts`)
   - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
+  - react-native-sqlite-storage (from `../node_modules/react-native-sqlite-storage`)
   - react-native-video (from `../node_modules/react-native-video`)
   - "react-native-voice (from `../node_modules/@react-native-voice/voice`)"
   - react-native-webview (from `../node_modules/react-native-webview`)
@@ -2309,6 +2312,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-sherpa-onnx-offline-tts"
   react-native-slider:
     :path: "../node_modules/@react-native-community/slider"
+  react-native-sqlite-storage:
+    :path: "../node_modules/react-native-sqlite-storage"
   react-native-video:
     :path: "../node_modules/react-native-video"
   react-native-voice:
@@ -2458,6 +2463,7 @@ SPEC CHECKSUMS:
   react-native-safe-area-context: 3ca252db05d82ea67f6d178fbd289ff832f5681b
   react-native-sherpa-onnx-offline-tts: dc92f88677e2e791515523beb424c311f82eb8e2
   react-native-slider: 310d3f89edd6ca8344a974bfe83a29a3fbb60e5a
+  react-native-sqlite-storage: 0c84826214baaa498796c7e46a5ccc9a82e114ed
   react-native-video: 278ea57b2be2993535ba7291a146152ca9301143
   react-native-voice: 908a0eba96c8c3d643e4f98b7232c6557d0a6f9c
   react-native-webview: 80ef603d1df42e24fdde765686fbb9b8a6ecd554

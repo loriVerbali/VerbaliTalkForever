@@ -24,6 +24,7 @@ export interface ConfigType {
   picGeneration: string;
   assemblyAIURL: string;
   transcriptionByOpenAI: boolean;
+  masterAdminCode: string;
   methods: Record<string, MethodObject>;
 }
 
@@ -38,6 +39,7 @@ const AppConfig: ConfigType = {
   transcriptionByOpenAI: true,
   assemblyAIURL: 'https://api.assemblyai.com/v2',
   openAiKey: Config.OPENAI_API_KEY || '',
+  masterAdminCode: '7856',
 
   methods: {
     registerUser: {
@@ -222,6 +224,20 @@ const AppConfig: ConfigType = {
       isPicsUrl: true,
       contentType: 'application/json',
     },
+    generateAnswers: {
+      description: 'generateAnswers',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/answers/generate',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
     logconversation: {
       description: 'logconversation',
       isAuthenticated: true,
@@ -356,6 +372,20 @@ const AppConfig: ConfigType = {
       jsonMethod: true,
       suffixUrl: '/validate-google-play-receipt',
       mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    searchWordImages: {
+      description: 'searchWordImages',
+      isAuthenticated: true,
+      verb: 'GET',
+      sendDeviceKey: false,
+      jsonMethod: false,
+      suffixUrl: '/api/words/search?q={q}&limit={limit}',
+      mustStringify: false,
       isFlatResponse: false,
       openAi: false,
       isBeta: false,

@@ -24,6 +24,8 @@ import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
 import WhisperModelManager from './utils/WhisperModelManager';
+import WhisperService from './utils/WhisperService';
+import DefaultPreference from 'react-native-default-preference';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
@@ -78,8 +80,28 @@ const App = () => {
       // Initialize TTS service when the app starts
       await TTSService.initialize();
 
-      // Initialize Whisper model availability check
-      // This will be handled by the AppSettingsProvider context
+      // Pre-initialize WhisperService for faster first transcription
+      try {
+        // Check if local Whisper is enabled (default to true since we're disabling cloud)
+        const useLocalWhisper = await DefaultPreference.get('useLocalWhisper');
+        const shouldUseLocal = useLocalWhisper !== '0'; // Default to true if not set
+
+        if (shouldUseLocal) {
+          console.log(
+            '🚀 Pre-initializing WhisperService for faster transcription...',
+          );
+          const initSuccess = await WhisperService.initialize();
+          if (initSuccess) {
+            console.log('✅ WhisperService pre-initialized successfully');
+          } else {
+            console.warn(
+              '⚠️ WhisperService pre-initialization failed, will initialize on first use',
+            );
+          }
+        }
+      } catch (error) {
+        console.error('Error pre-initializing WhisperService:', error);
+      }
     };
 
     initServices();

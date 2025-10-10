@@ -9,7 +9,7 @@
       }
     ]
   },
-  "identifier" : "2286CD02",
+  "identifier" : "8B55BA23",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -18,12 +18,9 @@
   ],
   "settings" : {
     "_applicationInternalID" : "6747360381",
-    "_compatibilityTimeRate" : {
-      "3" : 4
-    },
     "_developerTeamID" : "5H8P29SJNH",
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 777412211.62916398,
+    "_lastSynchronizedDate" : 781411310.90039003,
     "_locale" : "en_US",
     "_storefront" : "USA",
     "_storeKitErrors" : [
@@ -72,8 +69,7 @@
         "enabled" : false,
         "name" : "Offer Code Redeem Sheet"
       }
-    ],
-    "_timeRate" : 11
+    ]
   },
   "subscriptionGroups" : [
     {
@@ -92,7 +88,7 @@
               "eligibility" : [
                 "new"
               ],
-              "internalID" : "D0E61D85",
+              "internalID" : "91D20856",
               "isStackable" : true,
               "numberOfPeriods" : 1,
               "paymentMode" : "free",
@@ -100,17 +96,11 @@
               "subscriptionPeriod" : "P1Y"
             }
           ],
-          "displayPrice" : "29.99",
+          "displayPrice" : "4.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6749002748",
-          "introductoryOffer" : {
-            "displayPrice" : "6.99",
-            "internalID" : "32D465F3",
-            "numberOfPeriods" : 3,
-            "paymentMode" : "payAsYouGo",
-            "subscriptionPeriod" : "P1M"
-          },
+          "introductoryOffer" : null,
           "localizations" : [
             {
               "description" : "Ma-Talk AI monthly subscription",
@@ -134,7 +124,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "300.0",
+          "displayPrice" : "49.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6749002822",

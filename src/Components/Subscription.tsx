@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   Platform,
   ActivityIndicator,
   Switch,
+  Linking,
+  ScrollView,
 } from 'react-native';
 import ParentalGate from './ParentalGate';
 import {
@@ -66,7 +68,27 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const [showParentalGate, setShowParentalGate] = useState(true); // Start with parental gate shown
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
   const [showYearlyPlan, setShowYearlyPlan] = useState(false); // Toggle between yearly and monthly
+  const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false); // Toggle for subscription info
   const {setItem, preferences} = useAppSettings();
+  const scrollRef = useRef<any>(null);
+  const [collapsibleY, setCollapsibleY] = useState(0);
+
+  const handleToggleSubscriptionInfo = () => {
+    setShowSubscriptionInfo(prev => {
+      const next = !prev;
+      if (next && !isTablet) {
+        setTimeout(() => {
+          if (scrollRef.current) {
+            scrollRef.current.scrollTo({
+              y: Math.max(collapsibleY - 24, 0),
+              animated: true,
+            });
+          }
+        }, 120);
+      }
+      return next;
+    });
+  };
 
   // Log component mounting
   useEffect(() => {}, []);
@@ -596,7 +618,17 @@ const Subscription: React.FC<SubscriptionProps> = ({
         : isMediumPhone
         ? width * 0.38
         : width * 0.36,
-      height: isSmallPhone ? 110 : isMediumPhone ? 125 : 135, // Even smaller height
+      height: isTablet
+        ? isSmallPhone
+          ? 110
+          : isMediumPhone
+          ? 125
+          : 135
+        : isSmallPhone
+        ? 88
+        : isMediumPhone
+        ? 100
+        : 108, // 20% smaller on mobile
       overflow: 'visible' as const,
     },
     cardsContainer: {
@@ -715,7 +747,15 @@ const Subscription: React.FC<SubscriptionProps> = ({
           <Text style={styles.loadingText}>Loading subscription plans...</Text>
         </View>
       ) : (
-        <>
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={
+            showSubscriptionInfo
+              ? styles.scrollContentContainerExpanded
+              : styles.scrollContentContainer
+          }
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}>
           {/* Toggle Switch for Yearly/Monthly when trial card is shown */}
           {shouldShowTrialCard(
             preferences.isIOSActive,
@@ -792,7 +832,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     style={[
                       dynamicStyles.planSubtitle,
                       {
-                        fontSize: isSmallPhone ? 10 : 11,
+                        fontSize: isSmallPhone ? 22 : 24,
                         fontWeight: 'normal',
                         color: '#666',
                         textAlign: 'center',
@@ -804,7 +844,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     style={[
                       dynamicStyles.selectText,
                       {
-                        fontSize: isSmallPhone ? 9 : 10,
+                        fontSize: isSmallPhone ? 12 : 13,
                         fontWeight: 'normal',
                         color: '#666',
                         textAlign: 'center',
@@ -871,7 +911,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     style={[
                       dynamicStyles.planPrice,
                       {
-                        fontSize: isSmallPhone ? 16 : 18,
+                        fontSize: isSmallPhone ? 22 : 24,
                         fontWeight: 'bold',
                         color: '#000',
                       },
@@ -887,7 +927,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                         color: '#FF3B30',
                       },
                     ]}>
-                    Save $60 (2 months free)
+                    Save! (2 months free)!
                   </Text>
                   <Text
                     style={[
@@ -932,15 +972,6 @@ const Subscription: React.FC<SubscriptionProps> = ({
                   handlePlanSelection('monthly');
                 }}
                 disabled={isLoading}>
-                <View style={dynamicStyles.cancelBadge}>
-                  <Text
-                    style={[
-                      dynamicStyles.savingsAmount,
-                      {fontSize: isSmallPhone ? 6 : isMediumPhone ? 6 : 6},
-                    ]}>
-                    {'Intro offer 75% \n off the first 3 months'}
-                  </Text>
-                </View>
                 <View
                   style={[
                     styles.cardHeader,
@@ -969,7 +1000,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     style={[
                       dynamicStyles.planPrice,
                       {
-                        fontSize: isSmallPhone ? 16 : 18,
+                        fontSize: isSmallPhone ? 20 : 22,
                         fontWeight: 'bold',
                         color: '#FF9500',
                       },
@@ -980,7 +1011,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     style={[
                       dynamicStyles.selectText,
                       {
-                        fontSize: isSmallPhone ? 9 : 10,
+                        fontSize: isSmallPhone ? 12 : 13,
                         fontWeight: 'normal',
                         color: '#666',
                         textAlign: 'center',
@@ -1003,17 +1034,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                       {getIntroductoryOfferText('monthly')}
                     </Text>
                   )}
-                  <Text
-                    style={[
-                      dynamicStyles.planSubtitle,
-                      {
-                        fontSize: isSmallPhone ? 10 : 11,
-                        fontWeight: 'normal',
-                        color: '#000',
-                      },
-                    ]}>
-                    Then {getRegularPrice('monthly')}/month thereafter
-                  </Text>
+
                   <Text
                     style={[
                       dynamicStyles.selectText,
@@ -1029,50 +1050,120 @@ const Subscription: React.FC<SubscriptionProps> = ({
               </TouchableOpacity>
             )}
           </View>
-        </>
-      )}
-      <View style={{marginTop: 1, alignItems: 'center', flexDirection: 'row'}}>
-        <Text
-          style={[
-            styles.modalFeature,
-            {fontSize: isTablet ? 14 : 12, fontWeight: 'bold'},
-          ]}>
-          Both plans include:
-        </Text>
-        <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-          <Text style={{color: 'purple'}}>✓</Text> Full access to all features
-        </Text>
-        <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-          <Text style={{color: 'purple'}}>✓</Text> AI-powered AAC creation
-        </Text>
-        <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-          <Text style={{color: 'purple'}}>✓</Text> Customer support
-        </Text>
-      </View>
 
-      <View style={{marginTop: 1, alignItems: 'center'}}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Text
-            style={{
-              fontSize: isTablet ? 14 : 11,
-              fontWeight: 'normal',
-              color: '#666',
-              textAlign: 'center',
-              paddingHorizontal: 20,
-            }}>
-            Subscription automatically renews unless canceled at least 24 hours
-            before the end of the current period.All subscriptions can be
-            managed in your{' '}
-            {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account
-            settings.
-          </Text>
-        </View>
-      </View>
+          <View
+            style={{marginTop: 1, alignItems: 'center', flexDirection: 'row'}}>
+            <Text
+              style={[
+                styles.modalFeature,
+                {fontSize: isTablet ? 14 : 12, fontWeight: 'bold'},
+              ]}>
+              Both plans include:
+            </Text>
+            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
+              <Text style={{color: 'purple'}}>✓</Text> Full access to all
+              features
+            </Text>
+            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
+              <Text style={{color: 'purple'}}>✓</Text> AI-powered AAC creation
+            </Text>
+            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
+              <Text style={{color: 'purple'}}>✓</Text> Customer support
+            </Text>
+          </View>
+
+          <View style={{marginTop: 1, alignItems: 'center'}}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <Text
+                style={{
+                  fontSize: isTablet ? 14 : 11,
+                  fontWeight: 'normal',
+                  color: '#666',
+                  textAlign: 'center',
+                  paddingHorizontal: 20,
+                }}>
+                <TouchableOpacity onPress={handleToggleSubscriptionInfo}>
+                  <Text
+                    style={{
+                      color: '#007AFF',
+                      fontWeight: 'bold',
+                      fontSize: isTablet ? 12 : 10,
+                    }}>
+                    Subscription Information{showSubscriptionInfo ? ' ▼' : ' ▶'}
+                  </Text>
+                </TouchableOpacity>
+                : Subscription automatically renews unless canceled at least 24
+                hours before the end of the current period.All subscriptions can
+                be managed in your{' '}
+                {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account
+                settings.
+              </Text>
+            </View>
+            {/* Collapsible Subscription Information (moved below text) */}
+            {showSubscriptionInfo && (
+              <View
+                style={styles.subscriptionInfoContent}
+                onLayout={({nativeEvent}) =>
+                  setCollapsibleY(nativeEvent.layout.y)
+                }>
+                <View style={styles.subscriptionDetails}>
+                  <Text style={styles.subscriptionDetailText}>
+                    <Text style={styles.boldText}>Title:</Text> MaTalk AI
+                    Premium Subscription
+                  </Text>
+                  <Text style={styles.subscriptionDetailText}>
+                    <Text style={styles.boldText}>Length:</Text> Monthly (1
+                    month) or Annual (12 months)
+                  </Text>
+                  <Text style={styles.subscriptionDetailText}>
+                    <Text style={styles.boldText}>Price:</Text>{' '}
+                    {getRegularPrice('monthly')}/month or{' '}
+                    {getRegularPrice('yearly')}
+                    /year
+                  </Text>
+                </View>
+
+                <View style={styles.legalLinksContainer}>
+                  <TouchableOpacity
+                    style={styles.legalLink}
+                    onPress={() =>
+                      Linking.openURL(
+                        'https://www.verbali.io/matalk-ai-privacy-policy',
+                      )
+                    }>
+                    <Text style={styles.legalLinkText}>Privacy Policy</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.legalLink}
+                    onPress={() =>
+                      Linking.openURL('https://www.verbali.io/eula')
+                    }>
+                    <Text style={styles.legalLinkText}>
+                      End User License Agreement (EULA)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.legalLink}
+                    onPress={() =>
+                      Linking.openURL(
+                        'https://www.verbali.io/terms-of-use-standalone',
+                      )
+                    }>
+                    <Text style={styles.legalLinkText}>Terms of Use</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -1080,9 +1171,25 @@ const Subscription: React.FC<SubscriptionProps> = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    height: '100%',
     alignItems: 'center',
     flex: 1,
     backgroundColor: '#FFF8E7',
+  },
+  scrollContainer: {
+    flex: 1,
+    width: '100%',
+    minHeight: 400,
+  },
+  scrollContentContainer: {
+    alignItems: 'center',
+    paddingBottom: 60,
+    flexGrow: 1,
+  },
+  scrollContentContainerExpanded: {
+    alignItems: 'center',
+    paddingBottom: 590,
+    flexGrow: 1,
   },
   title: {
     fontSize: 24,
@@ -1275,6 +1382,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginHorizontal: 10,
+  },
+  subscriptionInfoLink: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  subscriptionInfoContent: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  subscriptionDetails: {
+    marginBottom: 16,
+  },
+  subscriptionDetailText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  boldText: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  legalLinksContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    paddingTop: 12,
+  },
+  legalLink: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  legalLinkText: {
+    fontSize: 14,
+    color: '#007AFF',
+    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
 });
 

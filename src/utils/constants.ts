@@ -163,6 +163,10 @@ export const MODEL_CONFIG = {
   },
 
   // Whisper model configuration
+  // Available models (smaller = faster but less accurate):
+  // - tiny.en (75MB) - Fastest, least accurate
+  // - base.en (142MB) - Good balance of speed and accuracy
+  // - small.en (466MB) - Better accuracy, slower [CURRENT]
   WHISPER: {
     name: 'Whisper Base English',
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin',
@@ -198,8 +202,8 @@ export const MODEL_CONFIG = {
 
   // Transcription configuration
   TRANSCRIPTION: {
-    useLocalWhisper: true, // Set to false to use cloud-based transcription
-    fallbackToCloud: true, // If local fails, fallback to cloud
+    useLocalWhisper: true, // Always use local Whisper - cloud disabled
+    fallbackToCloud: false, // Never fallback to cloud - local only
   },
 
   // Get transcription preference (now dynamic based on settings)
