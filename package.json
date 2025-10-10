@@ -1,6 +1,6 @@
 {
   "name": "Matalk",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
     "android": "npx @react-native-community/cli run-android",
@@ -38,6 +38,7 @@
     "react-native-config": "^1.5.5",
     "react-native-default-preference": "^1.4.4",
     "react-native-device-info": "^14.0.4",
+    "react-native-draggable-grid": "^2.2.2",
     "react-native-fast-image": "^8.6.3",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.25.0",
@@ -51,6 +52,7 @@
     "react-native-safe-area-context": "^5.2.0",
     "react-native-sherpa-onnx-offline-tts": "^0.2.4",
     "react-native-sound": "^0.11.2",
+    "react-native-sqlite-storage": "^6.0.1",
     "react-native-tts": "^4.1.1",
     "react-native-video": "6.16.0",
     "react-native-wakeword": "^1.1.15",

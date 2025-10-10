@@ -25,7 +25,6 @@ const HomeButton: React.FC<HomeButtonProps> = ({
   // Use passed navigation if provided, otherwise use the hook
   const navigationHook = useNavigation();
   const navigation = navigationProp || navigationHook;
-  const {resetAssistant} = useAssistant();
   const {isTablet} = useAdmin();
 
   // Responsive values for home button
@@ -53,8 +52,6 @@ const HomeButton: React.FC<HomeButtonProps> = ({
     if (onReset) {
       onReset();
     }
-    // Reset the assistant state (everything except threadId)
-    resetAssistant();
     navigation.navigate(views.OPEN as never);
   };
 

@@ -25,6 +25,7 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useAppSettings} from '../utils/persistance';
+import AppConfig from '../utils/config';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
 
@@ -129,7 +130,13 @@ const CANADIAN_PROVINCES = [
   'Yukon',
 ];
 
-const MyPepesAndStuff: React.FC = () => {
+interface MyPepesAndStuffProps {
+  resetSessionTrigger?: number; // When this changes, reset the session gates
+}
+
+const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
+  resetSessionTrigger,
+}) => {
   const [selectedCategory, setSelectedCategory] = useState<
     'People' | 'Toys' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places'
   >('People');
@@ -174,11 +181,11 @@ const MyPepesAndStuff: React.FC = () => {
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isAdminCodeError, setIsAdminCodeError] = useState(false);
+  const [sessionGatesShown, setSessionGatesShown] = useState(false);
 
   const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
   const {width, height} = useWindowDimensions();
-  const {threadId, sendMessage} = useAssistant();
 
   // Type and relationship options
   const typeOptions = {
@@ -347,6 +354,13 @@ const MyPepesAndStuff: React.FC = () => {
     loadPepesData();
   }, []);
 
+  // Reset session gates when resetSessionTrigger changes
+  useEffect(() => {
+    if (resetSessionTrigger !== undefined) {
+      setSessionGatesShown(false);
+    }
+  }, [resetSessionTrigger]);
+
   const loadPepesData = async () => {
     try {
       const savedData = await getItem('pepes');
@@ -451,10 +465,15 @@ const MyPepesAndStuff: React.FC = () => {
   const handleAdminCodeSubmit = async () => {
     try {
       const stored = await getItem('adminCode');
-      if (stored && adminCodeInput === stored) {
+      if (
+        stored &&
+        (adminCodeInput === stored ||
+          adminCodeInput === AppConfig.masterAdminCode)
+      ) {
         setShowAdminCodeModal(false);
         setAdminCodeInput('');
         setIsAdminCodeError(false);
+        setSessionGatesShown(true); // Mark gates as shown for this session
         await requestMediaPermissionsAfterGate();
         openAddModal();
       } else {
@@ -560,6 +579,20 @@ const MyPepesAndStuff: React.FC = () => {
     });
     setPlaceIsCurrentLocation(false);
     setShowModal(true);
+  };
+
+  const handleAddPress = () => {
+    if (sessionGatesShown) {
+      // Gates already shown in this session, go directly to add modal
+      openAddModal();
+    } else {
+      // First time in this session, show gates
+      setShowAddGate(true);
+    }
+  };
+
+  const resetSessionGates = () => {
+    setSessionGatesShown(false);
   };
 
   const openEditModal = (item: PepeItem) => {
@@ -695,15 +728,6 @@ const MyPepesAndStuff: React.FC = () => {
 
     savePepesData(updatedData);
     // Send updated pepes to the current thread as learning feedback
-    try {
-      if (threadId) {
-        const content = `pepes data:\n${JSON.stringify(updatedData)}`;
-        // Fire-and-forget to avoid blocking UI
-        sendMessage(content, threadId, 'learning_feedback').catch(() => {});
-      }
-    } catch (_) {
-      // ignore send errors
-    }
     // Sync SpecialPlaces persistence when relevant
     if (selectedCategory === 'Places') {
       syncSpecialPlacesFromItem(newItem);
@@ -1354,7 +1378,7 @@ const MyPepesAndStuff: React.FC = () => {
               paddingVertical: responsiveValues.addButtonPaddingVertical,
             },
           ]}
-          onPress={() => setShowAddGate(true)}>
+          onPress={handleAddPress}>
           <Text
             style={[
               styles.addButtonText,
@@ -1432,7 +1456,7 @@ const MyPepesAndStuff: React.FC = () => {
                     responsiveValues.emptyAddButtonPaddingVertical,
                 },
               ]}
-              onPress={() => setShowAddGate(true)}>
+              onPress={handleAddPress}>
               <Text
                 style={[
                   styles.emptyAddButtonText,

@@ -17,7 +17,6 @@ interface Preferences {
   wasWelcomed: string;
   showInit: string;
   token: string;
-  threadId: string;
   threadCreatedAt: string;
   returnedMessages: string;
   topicsCount: string;
@@ -52,6 +51,8 @@ interface Preferences {
   settingsTappedOnce: string;
   microphoneTappedOnce: string;
   showAndTellModalShown: string;
+  my8words: string;
+  handshakeMessage: string;
 }
 
 const initEnum = {
@@ -72,7 +73,6 @@ const initialPreferences: Preferences = {
   wasWelcomed: initEnum.false,
   showInit: initEnum.false,
   token: initEnum.notSet,
-  threadId: '',
   threadCreatedAt: '',
   returnedMessages: '5',
   topicsCount: '4',
@@ -107,6 +107,9 @@ const initialPreferences: Preferences = {
   settingsTappedOnce: initEnum.false,
   microphoneTappedOnce: initEnum.false,
   showAndTellModalShown: initEnum.false,
+  my8words: '',
+  handshakeMessage:
+    'Hi ,this is how I communicate say Hey Verby and it will record the question.',
 };
 
 interface AppSettingsContextProps {

@@ -28,6 +28,7 @@ import Slider from '@react-native-community/slider';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import MyPepesAndStuff from '../Components/MyPepesAndStuff';
+import My8WordsCustomizer from '../Components/My8WordsCustomizer';
 import {Mixpanel} from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
 import Subscription from '../Components/Subscription';
@@ -195,8 +196,8 @@ const SettingsScreen: React.FC = () => {
   const [topicsCount, setTopicsCount] = useState(4);
   const [actionsCount, setActionsCount] = useState(4);
   const [objectsCount, setObjectsCount] = useState(4);
-  const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(false);
-  const [showOnboardingInfo, setShowOnboardingInfo] = useState(false);
+  const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(true);
+
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
   const [adminCode, setAdminCode] = useState('');
   const [isEditingAdminCode, setIsEditingAdminCode] = useState(false);
@@ -204,9 +205,7 @@ const SettingsScreen: React.FC = () => {
   const [adminCodeError, setAdminCodeError] = useState('');
   const [isAdminCodeVisible, setIsAdminCodeVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [conversationMode, setConversationMode] = useState('easy');
-  const [showConversationModeInfo, setShowConversationModeInfo] =
-    useState(false);
+
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
     useState(false);
@@ -216,6 +215,14 @@ const SettingsScreen: React.FC = () => {
   const [isEditingHeroName, setIsEditingHeroName] = useState(false);
   const [newHeroName, setNewHeroName] = useState('');
   const [heroNameError, setHeroNameError] = useState('');
+  // Handshake message state
+  const [handshakeMessage, setHandshakeMessage] = useState(
+    'Hello! How can I help you today?',
+  );
+  const [isEditingHandshakeMessage, setIsEditingHandshakeMessage] =
+    useState(false);
+  const [newHandshakeMessage, setNewHandshakeMessage] = useState('');
+  const [handshakeMessageError, setHandshakeMessageError] = useState('');
   // Whisper settings state
   const [useLocalWhisper, setUseLocalWhisper] = useState(true);
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
@@ -238,6 +245,7 @@ const SettingsScreen: React.FC = () => {
   const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [watchedVideos, setWatchedVideos] = useState<Set<number>>(new Set());
+  const [sessionResetTrigger, setSessionResetTrigger] = useState(0);
 
   // Video list for navigation
   const videoList = [
@@ -279,6 +287,10 @@ const SettingsScreen: React.FC = () => {
     mixpanel.track('Settings', {
       Opened: 'Settings',
     });
+
+    // Reset session gates when Settings page is opened
+    setSessionResetTrigger(prev => prev + 1);
+
     const loadSettings = async () => {
       try {
         const savedReturnedMessages = await getItem('returnedMessages');
@@ -290,6 +302,7 @@ const SettingsScreen: React.FC = () => {
         const savedConversationMode = await getItem('conversationMode');
         const savedGobackAfterSelection = await getItem('gobackAfterSelection');
         const savedHeroName = await getItem('heroName');
+        const savedHandshakeMessage = await getItem('handshakeMessage');
         const savedUseLocalWhisper = await getItem('useLocalWhisper');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
@@ -298,16 +311,18 @@ const SettingsScreen: React.FC = () => {
         setObjectsCount(parseInt(savedObjectsCount) || 4);
         setShowOnboardingEnabled(wasOnboarded !== '1');
         setAdminCode(savedAdminCode || '');
-        setConversationMode(savedConversationMode || 'easy');
         setGobackAfterSelection(savedGobackAfterSelection === '1');
         setHeroName(
           savedHeroName && savedHeroName.trim() ? savedHeroName : 'Name',
         );
+        setHandshakeMessage(
+          savedHandshakeMessage && savedHandshakeMessage.trim()
+            ? savedHandshakeMessage
+            : 'Hello! How can I help you today?',
+        );
         setUseLocalWhisper(savedUseLocalWhisper === '1');
         setWhisperModelAvailable(preferences.whisperModelAvailable === '1');
-      } catch (e) {
-        console.log('Error loading settings:', e);
-      }
+      } catch (e) {}
     };
 
     loadSettings();
@@ -358,9 +373,7 @@ const SettingsScreen: React.FC = () => {
       await setItem('loggedIn', '0');
       await setItem('username', '');
       navigation.navigate(views.LOGIN as never);
-    } catch (e) {
-      console.log('Log out cancelled', e);
-    }
+    } catch (e) {}
   };
 
   const handleLinkPress = (url: string, title: string) => {
@@ -400,12 +413,6 @@ const SettingsScreen: React.FC = () => {
   const handleOnboardingToggle = async (value: boolean) => {
     setShowOnboardingEnabled(value);
     await setItem('wasOnboarded', value ? '0' : '1');
-  };
-
-  const handleConversationModeToggle = async (value: boolean) => {
-    const mode = value ? 'advanced' : 'easy';
-    setConversationMode(mode);
-    await setItem('conversationMode', mode);
   };
 
   const handleGobackAfterSelectionToggle = async (value: boolean) => {
@@ -449,7 +456,6 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
-    // console.log('Selected family member:', member);
     // You can add additional logic here if needed
   };
 
@@ -470,7 +476,6 @@ const SettingsScreen: React.FC = () => {
       setAdminCodeError('');
       setIsAdminCodeVisible(false);
     } catch (e) {
-      console.log('Error saving admin code:', e);
       setAdminCodeError('Failed to save admin code');
     } finally {
       setIsSaving(false);
@@ -533,11 +538,11 @@ const SettingsScreen: React.FC = () => {
           await setItem('wasLocationOnboarded', '0');
           await setItem('adminCode', '');
           await setItem('wasWelcomed', '0');
-          await setItem('threadId', '');
           await setItem('threadCreatedAt', '');
           await setItem('auth0Id', '');
           await setItem('assistantId', '');
           await setItem('heroName', '');
+          await setItem('handshakeMessage', '');
 
           await handleLogout();
         },
@@ -667,6 +672,36 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  // Handshake message handlers
+  const handleEditHandshakeMessage = () => {
+    setNewHandshakeMessage(handshakeMessage);
+    setIsEditingHandshakeMessage(true);
+    setHandshakeMessageError('');
+  };
+
+  const handleCancelHandshakeMessageEdit = () => {
+    Keyboard.dismiss();
+    setIsEditingHandshakeMessage(false);
+    setNewHandshakeMessage('');
+    setHandshakeMessageError('');
+  };
+
+  const handleSaveHandshakeMessage = async () => {
+    Keyboard.dismiss();
+    if (!newHandshakeMessage.trim()) {
+      setHandshakeMessageError("Handshake message can't be empty");
+      return;
+    }
+    try {
+      await setItem('handshakeMessage', newHandshakeMessage.trim());
+      setHandshakeMessage(newHandshakeMessage.trim());
+      setIsEditingHandshakeMessage(false);
+      setHandshakeMessageError('');
+    } catch (e) {
+      setHandshakeMessageError('Failed to save handshake message');
+    }
+  };
+
   const handleVideoCardPress = (videoSource: any) => {
     const index = videoList.findIndex(video => video === videoSource);
     const videoIndex = index >= 0 ? index : 0;
@@ -690,9 +725,7 @@ const SettingsScreen: React.FC = () => {
         const watchedArray = JSON.parse(watchedVideosString);
         setWatchedVideos(new Set(watchedArray));
       }
-    } catch (e) {
-      console.log('Error loading watched videos:', e);
-    }
+    } catch (e) {}
   };
 
   // Save watched videos to persistence
@@ -700,9 +733,7 @@ const SettingsScreen: React.FC = () => {
     try {
       const watchedArray = Array.from(watchedSet);
       await setItem('watchedVideos', JSON.stringify(watchedArray));
-    } catch (e) {
-      console.log('Error saving watched videos:', e);
-    }
+    } catch (e) {}
   };
 
   // Mark video as watched
@@ -845,6 +876,74 @@ const SettingsScreen: React.FC = () => {
                 ) : null}
               </View>
 
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Handshake Message</Text>
+                {/* Handshake Message Edit UI */}
+                {isEditingHandshakeMessage ? (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginBottom: 10,
+                    }}>
+                    <TextInput
+                      style={[styles.codeInput, {flex: 1}]}
+                      value={newHandshakeMessage}
+                      onChangeText={setNewHandshakeMessage}
+                      placeholder="Enter handshake message"
+                      maxLength={100}
+                      autoFocus
+                      returnKeyType="done"
+                      onSubmitEditing={handleSaveHandshakeMessage}
+                      blurOnSubmit={true}
+                      multiline
+                      numberOfLines={2}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.adminButton,
+                        styles.submitButton,
+                        {marginLeft: 8},
+                      ]}
+                      onPress={handleSaveHandshakeMessage}>
+                      <Text style={styles.buttonText}>Save</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.adminButton,
+                        styles.cancelButton,
+                        {marginLeft: 8},
+                      ]}
+                      onPress={handleCancelHandshakeMessageEdit}>
+                      <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginBottom: 10,
+                    }}>
+                    <Text style={{fontSize: 16, color: '#333', flex: 1}}>
+                      {handshakeMessage}
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.adminButton,
+                        styles.submitButton,
+                        {marginLeft: 8},
+                      ]}
+                      onPress={handleEditHandshakeMessage}>
+                      <Text style={styles.buttonText}>Edit</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {handshakeMessageError ? (
+                  <Text style={styles.errorText}>{handshakeMessageError}</Text>
+                ) : null}
+              </View>
+
               {/*   <View style={styles.sliderGrid}>
                 <View style={styles.sliderRow}>
                 <MessagesSlider
@@ -882,7 +981,7 @@ const SettingsScreen: React.FC = () => {
                 Your help and learn center for getting started with MaTalk AI.
               </Text>
 
-              {/* Checklist Cards Grid */}
+              {/* Checklist Cards Grid - Single Row Layout */}
               <View style={styles.checklistGrid}>
                 <View
                   style={[
@@ -1177,7 +1276,22 @@ const SettingsScreen: React.FC = () => {
                     All Images are kept on your device only.
                   </Text>
                 </Text>
-                <MyPepesAndStuff />
+                <MyPepesAndStuff resetSessionTrigger={sessionResetTrigger} />
+              </View>
+
+              <View style={styles.my8WordsSection}>
+                <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
+                  My 8 Words
+                </Text>
+                <Text style={styles.my8WordsDescription}>
+                  Customize the 8 words that appear on your main screen cards.
+                  Search for words and their images to personalize your
+                  experience.
+                  <Text style={{fontWeight: '800', color: '#666'}}>
+                    Images are downloaded and stored on your device only.
+                  </Text>
+                </Text>
+                <My8WordsCustomizer isTablet={isTablet} />
               </View>
 
               <View style={styles.genderSection}>
@@ -1381,59 +1495,6 @@ const SettingsScreen: React.FC = () => {
                 )}
               </View>
 
-              <View style={styles.familyPicsSection}>
-                {/* Conversation Mode Setting */}
-                <View style={styles.conversationModeRow}>
-                  <View style={styles.switchLabel}>
-                    <Text style={styles.conversationModeLabel}>
-                      Conversation Mode
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowConversationModeInfo(true)}
-                      style={styles.infoButton}>
-                      <Text style={styles.infoIcon}>?</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.conversationModeContainer}>
-                    <Text
-                      style={[
-                        styles.conversationModeText,
-                        conversationMode === 'easy' && styles.activeMode,
-                      ]}>
-                      Easy
-                    </Text>
-                    <Switch
-                      trackColor={{false: '#767577', true: '#8E24AA'}}
-                      thumbColor={
-                        conversationMode === 'advanced' ? '#fff' : '#f4f3f4'
-                      }
-                      ios_backgroundColor="#3e3e3e"
-                      onValueChange={handleConversationModeToggle}
-                      value={conversationMode === 'advanced'}
-                    />
-                    <Text
-                      style={[
-                        styles.conversationModeText,
-                        conversationMode === 'advanced' && styles.activeMode,
-                      ]}>
-                      Advanced
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Only show family member management in Advanced mode */}
-                {conversationMode === 'advanced' && (
-                  <>
-                    <Text style={styles.familyDescription}>
-                      Manage family member photos for conversations
-                    </Text>
-                    <FamilyPics
-                      onFamilyMemberSelect={handleFamilyMemberSelect}
-                    />
-                  </>
-                )}
-              </View>
-
               <View style={styles.adminSection}>
                 <View style={styles.adminCodeRow}>
                   <View style={styles.adminCodeInfo}>
@@ -1607,7 +1668,21 @@ const SettingsScreen: React.FC = () => {
             style={styles.linkRow}
             onPress={() =>
               handleLinkPress(
-                'https://www.verbali.io/terms-of-use',
+                'https://www.verbali.io/eula',
+                'End User License Agreement (EULA)',
+              )
+            }>
+            <Text style={styles.linkText}>
+              End User License Agreement (EULA)
+            </Text>
+            <Text style={styles.linkArrow}>→</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.linkRow}
+            onPress={() =>
+              handleLinkPress(
+                'https://www.verbali.io/terms-of-use-standalone',
                 'Terms of Use',
               )
             }>
@@ -1630,7 +1705,7 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>MaTalk AI v1.6.0</Text>
+            <Text style={styles.aboutText}>MaTalk AI v1.6.21</Text>
           </TouchableOpacity>
 
           {showAssistantId &&
@@ -1638,14 +1713,6 @@ const SettingsScreen: React.FC = () => {
               user?.email === 'shay@verbali.io' ||
               user?.email === 'loria33@gmail.com') && (
               <>
-                {preferences.assistantId && showAssistantId && (
-                  <Text style={styles.aboutText}>
-                    Assistant ID: {preferences.assistantId}
-                  </Text>
-                )}
-                <Text style={styles.aboutText}>
-                  Thread ID: {preferences.threadId}
-                </Text>
                 <TouchableOpacity
                   onPress={() => {
                     setItem('isIOSActive', '1');
@@ -1663,13 +1730,6 @@ const SettingsScreen: React.FC = () => {
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2025 Verbali Inc. MaTalk AI</Text>
         </View>
-
-        <InfoModal
-          visible={showConversationModeInfo}
-          onClose={() => setShowConversationModeInfo(false)}
-          title="Conversation Mode"
-          description="Easy mode provides a simplified interface with just Question or Statement buttons, automatically setting the speaker as 'I' and audience as 'anyone'. Advanced mode shows the full interface with speaker, audience, and sentence type selection for more detailed conversations."
-        />
 
         <InfoModal
           visible={showGobackAfterSelectionInfo}
@@ -1874,10 +1934,6 @@ const styles = StyleSheet.create({
   slider: {
     height: 40,
   },
-  sliderGrid: {
-    width: '100%',
-    paddingHorizontal: 10,
-  },
   sliderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -2057,32 +2113,6 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f0f0f0',
     paddingBottom: 20,
   },
-  genderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 12,
-    flexWrap: 'wrap',
-  },
-  genderOption: {
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderRadius: 16,
-    padding: 0,
-    width: '33.33%',
-    borderWidth: 0,
-    borderColor: 'transparent',
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: {width: 0, height: 4},
-    elevation: 4,
-  },
-  selectedGender: {
-    borderColor: 'transparent',
-    backgroundColor: 'transparent',
-  },
   genderImageWrapper: {
     width: '80%',
     aspectRatio: 1.43,
@@ -2094,57 +2124,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: {width: 0, height: 4},
     elevation: 4,
-  },
-  genderImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  heartOverlay: {
-    position: 'absolute',
-    top: -10,
-    right: -10,
-    zIndex: 10,
-    fontSize: 24,
-    color: '#FF3B30',
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: {width: 0, height: 1},
-    textShadowRadius: 2,
-    pointerEvents: 'none',
-  },
-  genderText: {
-    display: 'none',
-  },
-  selectedGenderText: {
-    display: 'none',
-  },
-  familyPicsSection: {
-    paddingHorizontal: 10,
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    paddingBottom: 20,
-  },
-  familyDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-    lineHeight: 20,
-  },
-  specialPlacesSection: {
-    paddingHorizontal: 10,
-    marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    paddingBottom: 20,
-  },
-  specialPlacesDescription: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-    marginBottom: 15,
-    lineHeight: 20,
   },
   myPepesSection: {
     paddingHorizontal: 10,
@@ -2160,77 +2139,25 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     lineHeight: 20,
   },
-  conversationModeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  my8WordsSection: {
+    paddingHorizontal: 10,
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 20,
   },
-  conversationModeText: {
+  my8WordsDescription: {
     fontSize: 14,
-    color: '#333',
-    marginHorizontal: 8,
-  },
-  activeMode: {
-    fontWeight: 'bold',
-    color: '#8E24AA',
-  },
-  conversationModeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  conversationModeLabel: {
-    fontSize: 18,
-    color: '#333',
-  },
-  noneContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  noneIcon: {
-    fontSize: 24,
-    color: '#999',
-    fontWeight: 'bold',
+    color: '#666',
+    marginTop: 5,
+    marginBottom: 15,
+    lineHeight: 20,
   },
   genderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  noneCheckbox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: '#8E24AA',
-    borderRadius: 4,
-    marginRight: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkedBox: {
-    backgroundColor: '#8E24AA',
-  },
-  checkmark: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  noneLabel: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
   },
   genderLabelContainer: {
     flexDirection: 'row',
@@ -2263,10 +2190,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
     lineHeight: 20,
-  },
-  disabledText: {
-    opacity: 0.5,
-    color: '#999',
   },
   currentAvatarContainer: {
     paddingVertical: 12,
@@ -2389,12 +2312,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   checklistGrid: {
-    marginTop: 20,
+    marginTop: 10,
   },
   checklistRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
     flexWrap: 'wrap',
   },
   checklistRowTablet: {
@@ -2402,33 +2325,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checklistCard: {
-    width: (SCREEN_WIDTH - 60) / 3, // 3 cards per row on phone
-    aspectRatio: 1,
+    width: (height - 120) / 6, // Height-based calculation for landscape - 6 cards per row
+    height: (height - 120) / 6, // Square cards based on height
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 8,
+    borderRadius: 6,
+    padding: 4,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 2,
     shadowOffset: {width: 0, height: 1},
     elevation: 2,
     borderWidth: 1,
     borderColor: '#f0f0f0',
   },
   checklistCardTablet: {
-    width: (SCREEN_WIDTH - 80) / 6, // 6 cards per row on tablet (more space)
-    padding: 12,
-    borderRadius: 12,
-    marginHorizontal: 4, // Add horizontal margin for spacing
+    width: (height - 140) / 6, // Height-based calculation for tablet landscape
+    height: (height - 140) / 6, // Square cards based on height
+    padding: 6,
+    borderRadius: 8,
+    marginHorizontal: 2,
   },
   videoContainer: {
-    width: '70%',
+    width: '70%', // Video container sized for height-based cards
     aspectRatio: 1,
-    borderRadius: 8,
+    borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: 4,
     backgroundColor: '#f8f9fe',
   },
   video: {
@@ -2436,15 +2360,15 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   checklistCardTitle: {
-    fontSize: 10,
+    fontSize: height * 0.012, // Height-based font size
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
-    lineHeight: 14,
+    lineHeight: height * 0.015,
   },
   checklistCardTitleTablet: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: height * 0.014, // Height-based font size for tablet
+    lineHeight: height * 0.018,
   },
   videoModalContainer: {
     flex: 1,

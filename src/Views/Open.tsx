@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState} from 'react';
+import React, {useRef, useEffect, useState, useCallback} from 'react';
 import {
   View,
   StyleSheet,
@@ -20,16 +20,42 @@ import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
+import AppConfig from '../utils/config';
 import {hasAppAccess} from '../utils/trialUtils';
 import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
-import MatalkIcon from '../Components/MatalkIcon';
-import ContextInfo from '../Components/ContextInfo';
 import ShowAndTell from '../Components/ShowAndTell';
 import {Mixpanel} from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';
 import {useAdmin} from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
+import {
+  parseMy8Words,
+  My8WordsData,
+  getDefaultMy8Words,
+} from '../utils/my8wordsUtils';
+import {getImageSource} from '../utils/imageDownloader';
+
+// Function to get avatar image based on selected gender
+const getAvatarImage = (gender: string) => {
+  switch (gender) {
+    case 'white boy':
+      return require('../assets/gender/wboy.jpg');
+    case 'black boy':
+      return require('../assets/gender/bboy.jpg');
+    case 'asian boy':
+      return require('../assets/gender/aboy.jpg');
+    case 'white girl':
+      return require('../assets/gender/wgirl.jpg');
+    case 'black girl':
+      return require('../assets/gender/bgirl.jpg');
+    case 'asian girl':
+      return require('../assets/gender/agirl.jpg');
+    default:
+      // Default to hand icon if no gender is selected
+      return require('../assets/hand.png');
+  }
+};
 
 type RootStackParamList = {
   LOGIN: undefined;
@@ -54,7 +80,6 @@ const OpenScreen: React.FC = () => {
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
-  const [contextInfoVisible, setContextInfoVisible] = useState(false);
   const [startupModalVisible, setStartupModalVisible] = useState(false);
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
@@ -63,12 +88,19 @@ const OpenScreen: React.FC = () => {
   const [settingsTappedOnce, setSettingsTappedOnce] = useState(false);
   const [microphoneTappedOnce, setMicrophoneTappedOnce] = useState(false);
   const [showAndTellModalShown, setShowAndTellModalShown] = useState(false);
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
+  const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
+  const mixpanel = useRef(
+    new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true),
+  ).current;
   const wakeWordService = WakeWordService.getInstance();
   const handScaleAnim = useRef(new Animated.Value(1)).current;
   const bubbleScaleAnim = useRef(new Animated.Value(1)).current;
   const settingsHandScaleAnim = useRef(new Animated.Value(1)).current;
   const settingsBubbleScaleAnim = useRef(new Animated.Value(1)).current;
+  const handshakeTappedRef = useRef(false);
+  const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track connection state changes
   useEffect(() => {
@@ -88,17 +120,25 @@ const OpenScreen: React.FC = () => {
         const modalShown = await getItem('showAndTellModalShown');
         setShowAndTellModalShown(modalShown === '1');
 
+        // Load my8words data
+        const my8wordsJson = await getItem('my8words');
+        const parsedData = parseMy8Words(my8wordsJson);
+        setMy8WordsData(parsedData);
+
         // Show modal only on first launch (when it hasn't been shown before)
         setStartupModalVisible(modalShown !== '1');
-      } catch (e) {
-        console.log('Error loading status:', e);
-      }
+      } catch (e) {}
     };
     loadStatus();
   }, [getItem]);
 
   // Hand and bubble pulsing animation
   useEffect(() => {
+    // Only start animation if at least one pointing element should be visible
+    if (microphoneTappedOnce && settingsTappedOnce) {
+      return; // Both have been tapped, no need to animate
+    }
+
     const createPulseAnimation = () => {
       return Animated.sequence([
         Animated.parallel([
@@ -148,19 +188,42 @@ const OpenScreen: React.FC = () => {
       ]);
     };
 
+    let animationTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const startPulseAnimation = () => {
+      // Check if both have been tapped before starting next animation
+      if (microphoneTappedOnce && settingsTappedOnce) {
+        return; // Stop animation if both have been tapped
+      }
+
       createPulseAnimation().start(() => {
-        // Restart the animation after completion
-        setTimeout(startPulseAnimation, 0);
+        // Only restart if at least one pointing element should still be visible
+        if (!microphoneTappedOnce || !settingsTappedOnce) {
+          animationTimeout = setTimeout(startPulseAnimation, 0);
+        }
       });
     };
 
     startPulseAnimation();
+
+    // Cleanup function to stop animation and clear timeout
+    return () => {
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+      }
+      // Stop any running animations
+      handScaleAnim.stopAnimation();
+      bubbleScaleAnim.stopAnimation();
+      settingsHandScaleAnim.stopAnimation();
+      settingsBubbleScaleAnim.stopAnimation();
+    };
   }, [
     handScaleAnim,
     bubbleScaleAnim,
     settingsHandScaleAnim,
     settingsBubbleScaleAnim,
+    microphoneTappedOnce,
+    settingsTappedOnce,
   ]);
 
   const askForAdultHelp = () => {
@@ -187,13 +250,19 @@ const OpenScreen: React.FC = () => {
         // Set up callback for when wake word is detected
         wakeWordService.setCallback((phrase: string) => {
           // Handle wake word detection
+          if (handshakeTappedRef.current) {
+            handshakeTappedRef.current = false;
+            // If handshake was tapped, don't navigate - user will say "Hey Verby"
+            return;
+          }
+
           !hasAppAccess(
             preferences?.isIOSActive || '0',
             preferences?.isInTrial || '0',
             preferences?.trialInstallationDate || 'init.NotSet',
           )
             ? askForAdultHelp()
-            : navigation.navigate(views.HOME as never, {
+            : navigation.navigate('HOME' as any, {
                 stateof: 'Attention',
               });
         });
@@ -213,6 +282,13 @@ const OpenScreen: React.FC = () => {
     // Clean up on unmount
     return () => {
       setRecognizedText('');
+      // Clear any pending timeouts
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
       // Properly stop wake word service to prevent memory leaks
       wakeWordService.stopListening().catch(error => {
         console.error(
@@ -261,7 +337,7 @@ const OpenScreen: React.FC = () => {
       await setItem('microphoneTappedOnce', '1');
     }
 
-    navigation.navigate(views.HOME as never, {
+    navigation.navigate('HOME' as any, {
       stateof: 'Attention',
     });
   };
@@ -269,20 +345,22 @@ const OpenScreen: React.FC = () => {
   useEffect(() => {}, [modalVisible]);
 
   // Handle Android back button when modal is visible
+  const handleBackPress = useCallback(() => {
+    if (modalVisible) {
+      closeModal();
+      return true; // Prevent default behavior
+    }
+    return false; // Let default behavior handle it
+  }, [modalVisible]);
+
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
-      () => {
-        if (modalVisible) {
-          closeModal();
-          return true; // Prevent default behavior
-        }
-        return false; // Let default behavior handle it
-      },
+      handleBackPress,
     );
 
     return () => backHandler.remove();
-  }, [modalVisible]);
+  }, [handleBackPress]);
 
   const handleNavigation = (state: string) => {
     if (
@@ -302,9 +380,9 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start(() => {
       if (state === 'Talk') {
-        navigation.navigate(views.CONVO as never);
+        navigation.navigate(views.CONVO as any);
       } else {
-        navigation.navigate(views.HOME as never);
+        navigation.navigate(views.HOME as any);
       }
     });
   };
@@ -320,7 +398,7 @@ const OpenScreen: React.FC = () => {
       askForAdultHelp();
       return;
     }
-    navigation.navigate(views.HOME as never, {
+    navigation.navigate('HOME' as any, {
       stateof: 'Keyboard',
     });
     // TTSService.speak('Keyboard selected');
@@ -335,6 +413,18 @@ const OpenScreen: React.FC = () => {
     }
   };
 
+  const handleHandshakePress = async () => {
+    if (isHandshakeSpeaking) return; // Prevent multiple simultaneous TTS calls
+
+    // setIsHandshakeSpeaking(true);
+    handshakeTappedRef.current = true; // Set flag to prevent navigation on wake word
+
+    // Speak the introduction message
+    const message = `${preferences?.handshakeMessage}`;
+    await TTSService.speak(message, true);
+    // setIsHandshakeSpeaking(false);
+  };
+
   const closeModal = () => {
     setModalVisible(false);
     setAdminCodeInput('');
@@ -343,17 +433,20 @@ const OpenScreen: React.FC = () => {
 
   const handleAdminCodeSubmit = async () => {
     const storedAdminCode = await getItem('adminCode');
-    if (adminCodeInput === storedAdminCode) {
+    if (
+      adminCodeInput === storedAdminCode ||
+      adminCodeInput === AppConfig.masterAdminCode
+    ) {
       closeModal();
       navigation.navigate(views.SETTINGS as never);
     } else {
       setIsError(true);
-      setTimeout(closeModal, 1000);
+      // Clear any existing timeout
+      if (errorTimeoutRef.current) {
+        clearTimeout(errorTimeoutRef.current);
+      }
+      errorTimeoutRef.current = setTimeout(closeModal, 1000);
     }
-  };
-
-  const toggleContextInfo = () => {
-    setContextInfoVisible(!contextInfoVisible);
   };
 
   const closeStartupModal = async () => {
@@ -374,10 +467,27 @@ const OpenScreen: React.FC = () => {
           <View style={styles.headerContainer}>
             <Text style={styles.headerText}>Hi {heroName ? heroName : ''}</Text>
             <FastImage
-              source={require('../assets/hand.png')}
-              style={styles.matanImage}
-              resizeMode={FastImage.resizeMode.contain}
+              source={getAvatarImage(preferences?.gender || '')}
+              style={styles.avatarImage}
+              resizeMode={FastImage.resizeMode.cover}
             />
+            <Pressable
+              style={[
+                isTablet ? styles.handshakeButton : styles.handshakeButtonPhone,
+                isHandshakeSpeaking && styles.speakingButton,
+              ]}
+              onPress={handleHandshakePress}>
+              <FastImage
+                source={require('../assets/handshake.png')}
+                style={[
+                  isTablet
+                    ? styles.microphoneImage
+                    : styles.microphoneImagePhone,
+                  isHandshakeSpeaking && {opacity: 0.7},
+                ]}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </Pressable>
           </View>
 
           <Pressable style={styles.microphoneButton} onPress={startListening}>
@@ -412,11 +522,6 @@ const OpenScreen: React.FC = () => {
                       outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
                       extrapolate: 'clamp',
                     }),
-                    borderWidth: bubbleScaleAnim.interpolate({
-                      inputRange: [1, 1.1],
-                      outputRange: [1, 3],
-                      extrapolate: 'clamp',
-                    }),
                   },
                 ]}>
                 <Text style={styles.speechBubbleText}>
@@ -432,19 +537,23 @@ const OpenScreen: React.FC = () => {
             </View>
           )}
 
-          <Pressable
-            style={
-              isTablet ? styles.settingsButton : styles.settingsButtonPhone
-            }
-            onPress={handleSettingsPress}>
-            <FastImage
-              source={require('../assets/settings.png')}
+          <View style={styles.topButtonsContainer}>
+            <Pressable
               style={
-                isTablet ? styles.microphoneImage : styles.microphoneImagePhone
+                isTablet ? styles.settingsButton : styles.settingsButtonPhone
               }
-              resizeMode={FastImage.resizeMode.contain}
-            />
-          </Pressable>
+              onPress={handleSettingsPress}>
+              <FastImage
+                source={require('../assets/settings.png')}
+                style={
+                  isTablet
+                    ? styles.microphoneImage
+                    : styles.microphoneImagePhone
+                }
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </Pressable>
+          </View>
 
           {/* Settings pointing hand with text bubble - only show if settings not tapped yet */}
           {!settingsTappedOnce && (
@@ -457,11 +566,6 @@ const OpenScreen: React.FC = () => {
                     borderColor: settingsBubbleScaleAnim.interpolate({
                       inputRange: [1, 1.1],
                       outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
-                      extrapolate: 'clamp',
-                    }),
-                    borderWidth: settingsBubbleScaleAnim.interpolate({
-                      inputRange: [1, 1.1],
-                      outputRange: [1, 3],
                       extrapolate: 'clamp',
                     }),
                     marginRight: width * 0.03,
@@ -480,146 +584,189 @@ const OpenScreen: React.FC = () => {
             </View>
           )}
 
-          <Pressable
-            style={isTablet ? styles.infoButton : styles.infoButtonPhone}
-            onPress={toggleContextInfo}>
-            <Text style={styles.infoIcon}>ℹ️</Text>
-          </Pressable>
-
-          <View style={isTablet ? styles.matalkIcon : styles.matalkIconPhone}>
-            <MatalkIcon size={isTablet ? width * 0.05 : width * 0.04} />
-          </View>
-
           <View style={styles.contentContainer}>
-            <View style={styles.wrapper}>
-              <View style={styles.rowContent}>
-                <Pressable
-                  style={styles.tileWrapper}
-                  onPress={() =>
-                    connectionState ? handleNavigation('Talk') : null
-                  }>
-                  <View style={styles.imageWrapper}>
-                    {connectionState ? (
-                      <FastImage
-                        key="connected-image"
-                        source={require('../assets/talk.png')}
-                        style={styles.image}
-                        resizeMode={FastImage.resizeMode.contain}
-                      />
-                    ) : (
-                      <NoInternetConnection
-                        key="no-connection"
-                        height={'30%'}
-                      />
-                    )}
-                  </View>
-                  <View
-                    style={[
-                      styles.labelContainer,
-                      {backgroundColor: 'rgba(20, 108, 240, 0.25)'},
-                    ]}>
-                    <Text style={styles.kidText}>Start Talking</Text>
-                  </View>
-                </Pressable>
+            {/* Left side - Main cards (50% width) */}
+            <View style={styles.leftSideContainer}>
+              <View style={styles.wrapper}>
+                <View style={styles.rowContent}>
+                  <Pressable
+                    style={styles.tileWrapper}
+                    onPress={() =>
+                      connectionState ? handleNavigation('Talk') : null
+                    }>
+                    <View style={styles.imageWrapper}>
+                      {connectionState ? (
+                        <FastImage
+                          key="connected-image"
+                          source={require('../assets/talk.png')}
+                          style={styles.image}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      ) : (
+                        <NoInternetConnection
+                          key="no-connection"
+                          height={'30%'}
+                        />
+                      )}
+                    </View>
+                    <View
+                      style={[
+                        styles.labelContainer,
+                        {backgroundColor: 'rgba(20, 108, 240, 0.25)'},
+                      ]}>
+                      <Text style={styles.kidText}>Start Talking</Text>
+                    </View>
+                  </Pressable>
+                </View>
+                <View style={styles.rowContent}>
+                  <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
+                    <View style={styles.imageWrapper}>
+                      <View style={styles.imageWrapper}>
+                        <FastImage
+                          source={require('../assets/keyboard.png')}
+                          style={styles.image}
+                          resizeMode={FastImage.resizeMode.contain}
+                        />
+                      </View>
+                    </View>
+                    <View
+                      style={[
+                        styles.labelContainer,
+                        {backgroundColor: 'rgba(47, 183, 111, 0.25)'},
+                      ]}>
+                      <Text style={styles.kidText}>Type Here</Text>
+                    </View>
+                  </Pressable>
+                </View>
               </View>
-              <View style={styles.rowContent}>
-                <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
-                  <View style={styles.imageWrapper}>
+
+              <View style={styles.wrapper}>
+                <View style={styles.rowContent}>
+                  <Pressable
+                    style={styles.tileWrapper}
+                    onPress={() => {
+                      if (
+                        !hasAppAccess(
+                          preferences?.isIOSActive || '0',
+                          preferences?.isInTrial || '0',
+                          preferences?.trialInstallationDate || 'init.NotSet',
+                        )
+                      ) {
+                        askForAdultHelp();
+                        return;
+                      }
+                      Animated.timing(fadeAnim, {
+                        toValue: 0,
+                        duration: 500,
+                        useNativeDriver: true,
+                      }).start(() => {
+                        navigation.navigate('FEELINGS' as any);
+                      });
+                    }}>
                     <View style={styles.imageWrapper}>
                       <FastImage
-                        source={require('../assets/keyboard.png')}
+                        source={require('../assets/feelings.png')}
                         style={styles.image}
                         resizeMode={FastImage.resizeMode.contain}
                       />
                     </View>
-                  </View>
-                  <View
-                    style={[
-                      styles.labelContainer,
-                      {backgroundColor: 'rgba(47, 183, 111, 0.25)'},
-                    ]}>
-                    <Text style={styles.kidText}>Type Here</Text>
-                  </View>
-                </Pressable>
+                    <View
+                      style={[
+                        styles.labelContainer,
+                        {backgroundColor: 'rgba(229, 72, 72, 0.25)'},
+                      ]}>
+                      <Text style={[styles.kidText]}>How I Feel</Text>
+                    </View>
+                  </Pressable>
+                </View>
+                <View style={styles.rowContent}>
+                  <Pressable
+                    style={styles.tileWrapper}
+                    onPress={() => {
+                      if (
+                        !hasAppAccess(
+                          preferences?.isIOSActive || '0',
+                          preferences?.isInTrial || '0',
+                          preferences?.trialInstallationDate || 'init.NotSet',
+                        )
+                      ) {
+                        askForAdultHelp();
+                        return;
+                      }
+                      Animated.timing(fadeAnim, {
+                        toValue: 0,
+                        duration: 500,
+                        useNativeDriver: true,
+                      }).start(() => {
+                        navigation.navigate('SHORTCUTS' as any);
+                      });
+                    }}>
+                    <View style={styles.imageWrapper}>
+                      <FastImage
+                        source={require('../assets/shortCuts.png')}
+                        style={styles.image}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
+                    </View>
+                    <View
+                      style={[
+                        styles.labelContainer,
+                        {backgroundColor: 'rgba(124, 58, 237, 0.25)'},
+                      ]}>
+                      <Text style={styles.kidText}>ShortCuts</Text>
+                    </View>
+                  </Pressable>
+                </View>
               </View>
             </View>
 
-            <View style={styles.wrapper}>
-              <View style={styles.rowContent}>
-                <Pressable
-                  style={styles.tileWrapper}
-                  onPress={() => {
-                    if (
-                      !hasAppAccess(
-                        preferences?.isIOSActive || '0',
-                        preferences?.isInTrial || '0',
-                        preferences?.trialInstallationDate || 'init.NotSet',
-                      )
-                    ) {
-                      askForAdultHelp();
-                      return;
-                    }
-                    Animated.timing(fadeAnim, {
-                      toValue: 0,
-                      duration: 500,
-                      useNativeDriver: true,
-                    }).start(() => {
-                      navigation.navigate(views.FEELINGS as never);
-                    });
-                  }}>
-                  <View style={styles.imageWrapper}>
-                    <FastImage
-                      source={require('../assets/feelings.png')}
-                      style={styles.image}
-                      resizeMode={FastImage.resizeMode.contain}
-                    />
-                  </View>
-                  <View
-                    style={[
-                      styles.labelContainer,
-                      {backgroundColor: 'rgba(229, 72, 72, 0.25)'},
-                    ]}>
-                    <Text style={[styles.kidText]}>How I Feel</Text>
-                  </View>
-                </Pressable>
-              </View>
-              <View style={styles.rowContent}>
-                <Pressable
-                  style={styles.tileWrapper}
-                  onPress={() => {
-                    if (
-                      !hasAppAccess(
-                        preferences?.isIOSActive || '0',
-                        preferences?.isInTrial || '0',
-                        preferences?.trialInstallationDate || 'init.NotSet',
-                      )
-                    ) {
-                      askForAdultHelp();
-                      return;
-                    }
-                    Animated.timing(fadeAnim, {
-                      toValue: 0,
-                      duration: 500,
-                      useNativeDriver: true,
-                    }).start(() => {
-                      navigation.navigate(views.SHORTCUTS as never);
-                    });
-                  }}>
-                  <View style={styles.imageWrapper}>
-                    <FastImage
-                      source={require('../assets/shortCuts.png')}
-                      style={styles.image}
-                      resizeMode={FastImage.resizeMode.contain}
-                    />
-                  </View>
-                  <View
-                    style={[
-                      styles.labelContainer,
-                      {backgroundColor: 'rgba(124, 58, 237, 0.25)'},
-                    ]}>
-                    <Text style={styles.kidText}>ShortCuts</Text>
-                  </View>
-                </Pressable>
+            {/* Right side - YES/NO cards (50% width) */}
+            <View style={styles.rightSideContainer}>
+              <View style={styles.yesNoWrapper}>
+                <View style={styles.yesNoColumn}>
+                  {(my8WordsData || getDefaultMy8Words()).cards
+                    .slice(0, 4)
+                    .map((card, index) => (
+                      <Pressable
+                        key={`left-${index}`}
+                        style={styles.yesNoCard}
+                        onPress={() => {
+                          TTSService.speak(card.word, true);
+                        }}>
+                        <View style={styles.cardImageContainer}>
+                          <FastImage
+                            source={getImageSource(card)}
+                            style={styles.cardImage}
+                            resizeMode={FastImage.resizeMode.cover}
+                            onError={() => {}}
+                          />
+                        </View>
+                        <Text style={styles.yesNoTextSmall}>{card.word}</Text>
+                      </Pressable>
+                    ))}
+                </View>
+                <View style={styles.yesNoColumn}>
+                  {(my8WordsData || getDefaultMy8Words()).cards
+                    .slice(4, 8)
+                    .map((card, index) => (
+                      <Pressable
+                        key={`right-${index}`}
+                        style={styles.yesNoCard}
+                        onPress={() => {
+                          TTSService.speak(card.word, true);
+                        }}>
+                        <View style={styles.cardImageContainer}>
+                          <FastImage
+                            source={getImageSource(card)}
+                            style={styles.cardImage}
+                            resizeMode={FastImage.resizeMode.cover}
+                            onError={() => {}}
+                          />
+                        </View>
+                        <Text style={styles.yesNoTextSmall}>{card.word}</Text>
+                      </Pressable>
+                    ))}
+                </View>
               </View>
             </View>
           </View>
@@ -658,7 +805,11 @@ const OpenScreen: React.FC = () => {
                   }}
                   onBlur={() => {
                     // Auto-cancel when user dismisses keyboard by tapping away
-                    setTimeout(() => {
+                    // Clear any existing timeout
+                    if (blurTimeoutRef.current) {
+                      clearTimeout(blurTimeoutRef.current);
+                    }
+                    blurTimeoutRef.current = setTimeout(() => {
                       // Small delay to allow for done button press if that was the intent
                       if (modalVisible && adminCodeInput.length !== 4) {
                         closeModal();
@@ -689,11 +840,6 @@ const OpenScreen: React.FC = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-
-      <ContextInfo
-        visible={contextInfoVisible}
-        onClose={() => setContextInfoVisible(false)}
-      />
 
       {/* Startup Show-and-Tell Modal */}
       <Modal
@@ -744,7 +890,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerText: {
-    fontSize: height * 0.08,
+    fontSize: height * 0.06,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
@@ -752,17 +898,32 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     backgroundColor: '#FFF8E7',
-    flexDirection: 'column',
+    flexDirection: 'row',
     width: '100%',
     height: '100%',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: width * 0.02,
+  },
+  leftSideContainer: {
+    width: '50%',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-start',
+  },
+  rightSideContainer: {
+    width: '50%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingLeft: width * 0.01,
   },
   wrapper: {
     flexDirection: 'row',
     height: height * 0.42,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     marginTop: height * 0.01,
+    width: '100%',
   },
   imageWrapper: {
     width: '90%',
@@ -775,13 +936,14 @@ const styles = StyleSheet.create({
     height: '85%',
   },
   rowContent: {
-    width: '44%',
+    width: '48%',
     alignItems: 'center',
     justifyContent: 'flex-start',
     height: '100%',
+    marginHorizontal: '1%',
   },
   tileWrapper: {
-    width: '95%',
+    width: '100%',
     height: '92%',
     justifyContent: 'center',
     alignItems: 'center',
@@ -794,6 +956,57 @@ const styles = StyleSheet.create({
     elevation: 8,
     backgroundColor: 'white',
   },
+  yesNoWrapper: {
+    flexDirection: 'row',
+    height: height * 0.84, // Same height as both main card rows (0.42 * 2)
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: height * 0.01,
+  },
+  yesNoColumn: {
+    flexDirection: 'column',
+    width: '48%',
+    height: '100%',
+    justifyContent: 'flex-start',
+  },
+  yesNoCard: {
+    width: '100%',
+    height: height * 0.18, // Reduced height to prevent overflow
+    marginBottom: height * 0.02, // Small gap between cards
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 16,
+    shadowColor: 'rgba(0, 0, 0, 0.50)',
+    shadowOpacity: 8,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 8},
+    elevation: 8,
+    backgroundColor: 'white',
+  },
+  yesNoText: {
+    fontSize: height * 0.04,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  yesNoTextSmall: {
+    fontSize: height * 0.025,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  cardImageContainer: {
+    width: '60%',
+    height: '60%',
+    marginBottom: height * 0.01,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
   microphoneButton: {
     top: height * 0.04,
     justifyContent: 'center',
@@ -804,71 +1017,50 @@ const styles = StyleSheet.create({
     height: width * 0.05,
     zIndex: 2,
   },
-  settingsButton: {
+  topButtonsContainer: {
     top: height * 0.04,
+    right: width * 0.02,
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  handshakeButton: {
     justifyContent: 'center',
     alignItems: 'center',
-    right: width * 0.02,
+    marginRight: width * 0.01,
     elevation: 17,
-    position: 'absolute',
     width: width * 0.04,
     height: width * 0.04,
     borderRadius: width * 0.04,
-    zIndex: 2,
+  },
+  handshakeButtonPhone: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: width * 0.01,
+    elevation: 17,
+    width: width * 0.035,
+    height: width * 0.035,
+    borderRadius: width * 0.035,
+  },
+  settingsButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 17,
+    width: width * 0.04,
+    height: width * 0.04,
+    borderRadius: width * 0.04,
   },
   settingsButtonPhone: {
-    top: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
-    right: width * 0.02,
     elevation: 17,
-    position: 'absolute',
     width: width * 0.035,
     height: width * 0.035,
     borderRadius: width * 0.035,
-    zIndex: 2,
   },
-  matalkIcon: {
-    bottom: height * 0.02,
-    justifyContent: 'center',
-    alignItems: 'center',
-    left: width * 0.015,
-    position: 'absolute',
-    zIndex: 3,
-  },
-  matalkIconPhone: {
-    bottom: height * 0.04,
-    justifyContent: 'center',
-    alignItems: 'center',
-    left: width * 0.015,
-    position: 'absolute',
-    zIndex: 3,
-  },
-  infoButton: {
-    bottom: height * 0.02,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    zIndex: 3,
-    right: width * 0.015,
-    elevation: 15,
-    width: width * 0.035,
-    height: width * 0.035,
-    borderRadius: width * 0.035,
-    backgroundColor: 'white',
-  },
-  infoButtonPhone: {
-    bottom: height * 0.04,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    zIndex: 3,
-    right: width * 0.02,
-    elevation: 15,
-    width: width * 0.035,
-    height: width * 0.035,
-    borderRadius: width * 0.035,
-    backgroundColor: 'white',
+  speakingButton: {
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
   },
   iconSize: {
     width: width * 0.04,
@@ -1007,10 +1199,13 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     marginLeft: width * 0.015,
   },
-  infoIcon: {
-    fontSize: height * 0.03,
-    fontWeight: 'bold',
-    color: '#333',
+  avatarImage: {
+    width: width * 0.05,
+    height: width * 0.05,
+    borderRadius: width * 0.025,
+    marginLeft: width * 0.015,
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
   },
   pointHandBubble: {
     position: 'absolute',
@@ -1050,7 +1245,7 @@ const styles = StyleSheet.create({
   settingsPointHandBubble: {
     position: 'absolute',
     top: height * 0.04,
-    right: width * 0.06,
+    right: width * 0.04,
     flexDirection: 'row',
     alignItems: 'center',
     zIndex: 2,
