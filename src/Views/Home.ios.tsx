@@ -48,10 +48,10 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = false;
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
-const DEBUGTRANSCRIPTION = 'What is your dogs name';
+const DEBUGTRANSCRIPTION = 'In snow white what is the name of the prince?';
 
 let audioRecorderPlayer: AudioRecorderPlayer | null = null;
 

@@ -87,13 +87,8 @@ const App = () => {
         const shouldUseLocal = useLocalWhisper !== '0'; // Default to true if not set
 
         if (shouldUseLocal) {
-          console.log(
-            '🚀 Pre-initializing WhisperService for faster transcription...',
-          );
           const initSuccess = await WhisperService.initialize();
-          if (initSuccess) {
-            console.log('✅ WhisperService pre-initialized successfully');
-          } else {
+          if (!initSuccess) {
             console.warn(
               '⚠️ WhisperService pre-initialization failed, will initialize on first use',
             );

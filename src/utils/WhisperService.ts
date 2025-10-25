@@ -311,8 +311,6 @@ class WhisperService {
     fileInfo?: any;
   }> {
     try {
-      console.log('🧪 Testing transcription with file:', audioPath);
-
       // Check if file exists
       const fileExists = await RNFS.exists(audioPath);
       if (!fileExists) {
@@ -324,7 +322,6 @@ class WhisperService {
 
       // Get file info
       const fileInfo = await RNFS.stat(audioPath);
-      console.log('File info:', fileInfo);
 
       // Initialize if needed
       if (!this.initialized) {

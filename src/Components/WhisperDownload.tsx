@@ -245,7 +245,7 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({onComplete}) => {
         try {
           const stats = await RNFS.stat(localPath);
         } catch (statError) {
-          console.log('Could not get file stats:', statError);
+          console.error('Could not get file stats:', statError);
         }
         setDownloadProgress(100);
       } else {

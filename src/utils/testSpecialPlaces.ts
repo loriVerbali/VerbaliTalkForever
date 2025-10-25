@@ -36,27 +36,20 @@ export const testAddresses = [
 
 // Function to test special places matching
 export const testSpecialPlacesMatching = () => {
-  console.log('=== Testing Special Places Matching ===');
-
   // This would normally use the actual checkSpecialPlaces function
-  // For now, we'll just log what we would test
+  // For now, we'll just test what we would test
 
   testAddresses.forEach((address, index) => {
-    console.log(`\nTest ${index + 1}: ${address}`);
-    console.log('Expected matches:');
-
     if (address.includes('123 Main Street')) {
-      console.log('- Should match: Home');
+      // Should match: Home
     } else if (address.includes('Lincoln Elementary')) {
-      console.log('- Should match: School');
+      // Should match: School
     } else if (address.includes('Sunshine Therapy')) {
-      console.log('- Should match: Therapy');
+      // Should match: Therapy
     } else {
-      console.log('- Should match: None');
+      // Should match: None
     }
   });
-
-  console.log('\n=== Test Complete ===');
 };
 
 // Function to simulate saving special places (for testing)
@@ -65,7 +58,6 @@ export const saveTestSpecialPlaces = async (
 ) => {
   try {
     await setItem('specialPlaces', JSON.stringify(mockSpecialPlaces));
-    console.log('Test special places saved successfully');
   } catch (error) {
     console.error('Error saving test special places:', error);
   }
@@ -77,7 +69,6 @@ export const clearSpecialPlaces = async (
 ) => {
   try {
     await setItem('specialPlaces', '');
-    console.log('Special places cleared');
   } catch (error) {
     console.error('Error clearing special places:', error);
   }

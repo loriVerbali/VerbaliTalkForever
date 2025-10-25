@@ -41,7 +41,7 @@ function LoggedNavigation() {
           isFirstRender.current = false;
         }
       } catch (e) {
-        console.log('Error checking login status:', e);
+        console.error('Error checking login status:', e);
       }
     };
 

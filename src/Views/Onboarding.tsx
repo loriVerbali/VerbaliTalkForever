@@ -192,9 +192,7 @@ const OnboardingScreen: React.FC = () => {
   // Log when subscription step is reached
   useEffect(() => {
     if (onboardingSteps[currentStep].id === 'subscription-selection') {
-      console.log('🎯 Reached subscription step in Onboarding');
-      console.log('  - Current step:', onboardingSteps[currentStep].id);
-      console.log('  - gotSubscription state:', gotSubscription);
+      // Subscription step reached
     }
   }, [currentStep, gotSubscription]);
 
@@ -222,10 +220,8 @@ const OnboardingScreen: React.FC = () => {
       }
 
       // Do not persist refresh tokens; rely on Auth0 Credentials Manager
-
-      console.log('Authorization result:', result);
     } catch (e) {
-      console.log('Authorization error:', e);
+      console.error('Authorization error:', e);
     }
   };
 
@@ -236,9 +232,8 @@ const OnboardingScreen: React.FC = () => {
       await setItem('username', '');
       await setItem('token', '');
       setIsLoggedIn(false);
-      console.log('User logged out during onboarding');
     } catch (e) {
-      console.log('Log out cancelled during onboarding', e);
+      console.error('Log out error during onboarding:', e);
     }
   };
 
@@ -961,7 +956,6 @@ const OnboardingScreen: React.FC = () => {
           text: 'OK',
           onPress: () => {
             // Here you can use the selected family member in your conversation
-            console.log('Selected family member for conversation:', member);
           },
         },
       ],
@@ -1119,8 +1113,6 @@ const OnboardingScreen: React.FC = () => {
       Step: currentStep,
     });
   }, [currentStep]);
-
-  console.log(gotSubscription);
 
   return (
     <SafeAreaView style={styles.safeArea}>
