@@ -258,20 +258,22 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     }));
 
     // Convert deleted nodes to empty cells (always show them, but only tappable in edit mode)
-    const emptyCellsFromDeleted: Node[] = deletedNodes.map((node, index) => ({
-      id: `empty-deleted-${node.id}`,
-      parentId: node.parentId,
-      kind: 'word' as const,
-      title: '',
-      type: 'other' as const,
-      orderIndex: node.orderIndex, // Keep the same position
-      isSeed: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      key: `empty-deleted-${node.id}`,
-      disabledDrag: true,
-      disabledReSorted: true,
-    }));
+    const emptyCellsFromDeleted: Node[] = deletedNodes.map((node, index) => {
+      return {
+        id: `empty-deleted-${node.id}`,
+        parentId: node.parentId,
+        kind: 'word' as const,
+        title: '',
+        type: 'other' as const,
+        orderIndex: node.orderIndex, // Keep the same position
+        isSeed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        key: `empty-deleted-${node.id}`,
+        disabledDrag: !isEditing, // Allow dragging in edit mode so cards can swap with empty spaces
+        disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
+      };
+    });
 
     // Calculate additional empty cells needed
     const filledCells =
@@ -291,8 +293,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           key: `empty-${index}`,
-          disabledDrag: true,
-          disabledReSorted: true,
+          disabledDrag: false, // Allow dragging in edit mode so cards can swap with empty spaces
+          disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
         }))
       : [];
 
@@ -383,7 +385,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       lastPressedNodeId === node.id &&
       currentTime - lastPressTime < DEBOUNCE_DELAY
     ) {
-      console.log('Debounced duplicate tap detected, ignoring');
       return;
     }
 
@@ -686,22 +687,30 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           ? folderStack[folderStack.length - 1].nodeId
           : null;
 
-      // Filter out empty cells and only process real nodes
-      const realNodes = newSortedData.filter(
-        node =>
-          !node.id.startsWith('empty-') &&
-          !node.id.startsWith('empty-deleted-'),
-      );
+      // Track the actual position in the grid for each node (including empty cells)
+      const nodeUpdates: Array<{id: string; orderIndex: number}> = [];
 
-      const nodeIds = realNodes.map((node, index) => {
-        // Update the orderIndex to match the new position
-        return node.id;
+      newSortedData.forEach((node, index) => {
+        // Check if it's an empty cell from a deleted node FIRST (before checking for 'empty-')
+        if (node.id.startsWith('empty-deleted-')) {
+          // Extract the original node ID
+          const originalNodeId = node.id.replace('empty-deleted-', '');
+          nodeUpdates.push({id: originalNodeId, orderIndex: index});
+        } else if (!node.id.startsWith('empty-')) {
+          // Regular node (not an empty placeholder)
+          nodeUpdates.push({id: node.id, orderIndex: index});
+        }
       });
 
-      console.log('Drag release - reordering nodes:', nodeIds);
+      // Update in database - use the new method that accepts {id, orderIndex} pairs
+      const nodeIds = nodeUpdates.map(update => update.id);
+      const orderIndexes = nodeUpdates.map(update => update.orderIndex);
 
-      // Update in database
-      await sentenceBuilderSqlite.reorderNodes(currentParentId, nodeIds);
+      await sentenceBuilderSqlite.reorderNodesWithPositions(
+        currentParentId,
+        nodeIds,
+        orderIndexes,
+      );
 
       // Force a complete refresh by incrementing the refresh key
       setGridRefreshKey(prev => prev + 1);

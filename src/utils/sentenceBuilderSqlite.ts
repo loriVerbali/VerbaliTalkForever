@@ -168,6 +168,12 @@ export class SentenceBuilderSqlite {
           ALTER TABLE nodes ADD COLUMN deleted BOOLEAN DEFAULT 0
         `);
       }
+
+      // Fix any existing deleted nodes to ensure they can be rearranged
+      // Set disabledDrag=0 and disabledReSorted=0 for all deleted nodes
+      await this.db.executeSql(`
+        UPDATE nodes SET disabledDrag = 0, disabledReSorted = 0 WHERE deleted = 1
+      `);
     } catch (error) {
       console.error('Error during migration:', error);
       // Don't throw error as this might be expected for new installations
@@ -564,9 +570,10 @@ export class SentenceBuilderSqlite {
     if (!this.db) throw new Error('Database not initialized');
 
     // Mark as deleted instead of actually deleting
+    // Also set disabledDrag=0 and disabledReSorted=0 so the empty space can be rearranged
     const [result] = await this.db.executeSql(
       `
-      UPDATE nodes SET deleted = 1, updatedAt = ? WHERE id = ?
+      UPDATE nodes SET deleted = 1, disabledDrag = 0, disabledReSorted = 0, updatedAt = ? WHERE id = ?
     `,
       [new Date().toISOString(), nodeId],
     );
@@ -598,6 +605,30 @@ export class SentenceBuilderSqlite {
         UPDATE nodes SET orderIndex = ?, updatedAt = ? WHERE id = ?
       `,
         [i, new Date().toISOString(), nodeIds[i]],
+      );
+    }
+  }
+
+  async reorderNodesWithPositions(
+    parentId: string | null,
+    nodeIds: string[],
+    orderIndexes: number[],
+  ): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    if (nodeIds.length !== orderIndexes.length) {
+      throw new Error(
+        'nodeIds and orderIndexes arrays must have the same length',
+      );
+    }
+
+    for (let i = 0; i < nodeIds.length; i++) {
+      // Update position while preserving drag properties for deleted nodes
+      await this.db.executeSql(
+        `
+        UPDATE nodes SET orderIndex = ?, updatedAt = ? WHERE id = ?
+      `,
+        [orderIndexes[i], new Date().toISOString(), nodeIds[i]],
       );
     }
   }
