@@ -1,95 +1,14 @@
 import Config from 'react-native-config';
-import DefaultPreference from 'react-native-default-preference';
-import Auth0 from 'react-native-auth0';
 import _ from 'lodash';
 import AppConfig, {MethodObject} from './config';
-import {navigate} from './navigation';
-import {views} from './constants';
+import {sessionManager} from './sessionManager';
 
 const METHODTODEBUG = 'processImagesConvo';
 
-// Global reference to Auth0 instance for token refresh
-let auth0Instance: Auth0 | null = null;
-
-// Function to set the Auth0 instance from the app
-export const setAuth0Instance = (instance: Auth0) => {
-  auth0Instance = instance;
-};
-
-// Function to get fresh credentials from Auth0 credential manager
-const getFreshCredentials = async (): Promise<{accessToken: string} | null> => {
-  try {
-    if (!auth0Instance) {
-      throw new Error('Auth0 instance not initialized');
-    }
-
-    const credentials = await auth0Instance.credentialsManager.getCredentials();
-    return credentials as unknown as {accessToken: string} | null;
-  } catch (error) {
-    console.error('Error getting fresh credentials:', error);
-    return null;
-  }
-};
-
-// Single-flight guard for token refresh to avoid concurrent refreshes
-let refreshInFlight: Promise<string | null> | null = null;
-
-// Function to handle token expiration/invalidation
-export const handleTokenExpiration = async (): Promise<void> => {
-  try {
-    // Clear all auth-related data
-    await DefaultPreference.set('token', '');
-    await DefaultPreference.set('loggedIn', '0');
-    await DefaultPreference.set('username', '');
-    // Navigate user to login screen
-    navigate(views.LOGIN);
-  } catch (error) {
-    console.error('Error handling token expiration:', error);
-  }
-};
-
-// Public utility function to ensure we have a fresh token
-export const ensureFreshToken = async (): Promise<string | null> => {
-  try {
-    if (refreshInFlight) {
-      return await refreshInFlight;
-    }
-
-    refreshInFlight = (async () => {
-      const credentials = await getFreshCredentials();
-      if (credentials?.accessToken) {
-        // Update stored token for backward compatibility only
-        await DefaultPreference.set('token', credentials.accessToken);
-        return credentials.accessToken;
-      }
-      // No credentials available – force re-auth flow
-      await handleTokenExpiration();
-      return null;
-    })()
-      .catch(error => {
-        console.error('Error ensuring fresh token:', error);
-        return null;
-      })
-      .finally(() => {
-        refreshInFlight = null;
-      });
-
-    return await refreshInFlight;
-  } catch (error) {
-    console.error('Error ensuring fresh token:', error);
-    return null;
-  }
-};
-
-// Helper function to check if user is authenticated
+// Helper function to check if user is authenticated (always true for guest sessions)
 export const isAuthenticated = async (): Promise<boolean> => {
-  try {
-    const token = await DefaultPreference.get('token');
-    return token !== null && token !== 'init.NotSet' && token !== '';
-  } catch (error) {
-    console.error('Error checking authentication status:', error);
-    return false;
-  }
+  // Guest sessions are always "authenticated"
+  return true;
 };
 
 // Modify the fetchWithRetry function to handle 401s better
@@ -119,8 +38,8 @@ const fetchWithRetry = async (
     if (response.status === 401 && retries > 0) {
       const methodObject = AppConfig.methods[methodName];
       if (methodObject.isAuthenticated && !methodObject.openAi) {
-        // Use credentials manager single-flight to refresh
-        const newToken = await ensureFreshToken();
+        // Try to refresh session and retry once
+        const newToken = await sessionManager.refreshSession();
 
         if (newToken) {
           request.headers = {
@@ -130,8 +49,7 @@ const fetchWithRetry = async (
           return fetchWithRetry(url, methodName, request, retries - 1, delay);
         }
 
-        await handleTokenExpiration();
-        return Promise.reject('Authentication failed - please log in again');
+        return Promise.reject('Authentication failed - session refresh failed');
       }
     }
 
@@ -165,16 +83,15 @@ const fetchHelper = async (
     if (methodObject.openAi) {
       headers['Authorization'] = 'Bearer ' + (Config.OPENAI_API_KEY || '');
     } else {
-      // For backend API calls, ensure we have a fresh token before making the request
-      const freshToken = await ensureFreshToken();
-      if (freshToken) {
-        headers['Authorization'] = 'Bearer ' + freshToken;
+      // For backend API calls, ensure we have a valid session token
+      const sessionToken = await sessionManager.ensureValidSession();
+      if (sessionToken) {
+        headers['Authorization'] = 'Bearer ' + sessionToken;
       } else {
         console.warn(
-          `No valid token found for authenticated method: ${methodName}`,
+          `No valid session token found for authenticated method: ${methodName}`,
         );
-        await handleTokenExpiration();
-        return Promise.reject('No valid authentication token');
+        return Promise.reject('No valid session token');
       }
     }
   }

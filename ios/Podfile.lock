@@ -1,12 +1,4 @@
 PODS:
-  - A0Auth0 (4.6.0):
-    - Auth0 (= 2.10)
-    - JWTDecode (= 3.2.0)
-    - React-Core
-    - SimpleKeychain (= 1.2.0)
-  - Auth0 (2.10.0):
-    - JWTDecode (= 3.2.0)
-    - SimpleKeychain (= 1.2.0)
   - boost (1.84.0)
   - BVLinearGradient (2.8.3):
     - React-Core
@@ -18,7 +10,6 @@ PODS:
   - hermes-engine (0.78.0):
     - hermes-engine/Pre-built (= 0.78.0)
   - hermes-engine/Pre-built (0.78.0)
-  - JWTDecode (3.2.0)
   - KeyWordRNBridge (1.0.1):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
@@ -2047,7 +2038,6 @@ PODS:
   - SDWebImageWebPCoder (0.8.5):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
-  - SimpleKeychain (1.2.0)
   - SocketRocket (0.7.1)
   - TextToSpeech (4.1.1):
     - React-Core
@@ -2097,7 +2087,6 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
-  - A0Auth0 (from `../node_modules/react-native-auth0`)
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - BVLinearGradient (from `../node_modules/react-native-linear-gradient`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
@@ -2198,8 +2187,6 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - Auth0
-    - JWTDecode
     - libwebp
     - lottie-ios
     - Mixpanel-swift
@@ -2207,12 +2194,9 @@ SPEC REPOS:
     - onnxruntime-objc
     - SDWebImage
     - SDWebImageWebPCoder
-    - SimpleKeychain
     - SocketRocket
 
 EXTERNAL SOURCES:
-  A0Auth0:
-    :path: "../node_modules/react-native-auth0"
   boost:
     :podspec: "../node_modules/react-native/third-party-podspecs/boost.podspec"
   BVLinearGradient:
@@ -2406,8 +2390,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  A0Auth0: 03f8957c3991644e0ad550a304a9d99a4b589c91
-  Auth0: 2876d0c36857422eda9cb580a6cc896c7d14cb36
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   BVLinearGradient: cb006ba232a1f3e4f341bb62c42d1098c284da70
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
@@ -2416,7 +2398,6 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: eb93e2f488219332457c3c4eafd2738ddc7e80b8
   hermes-engine: b417d2b2aee3b89b58e63e23a51e02be91dc876d
-  JWTDecode: 7dae24cb9bf9b608eae61e5081029ec169bb5527
   KeyWordRNBridge: 7a57dec07b16fde95153af940e30c4cf676dc43d
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
@@ -2508,7 +2489,6 @@ SPEC CHECKSUMS:
   RNSound: 314cc5226453ef4a3314a196c65e8a65e5106a7b
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
-  SimpleKeychain: 768cf43ae778b1c21816e94dddf01bb8ee96a075
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   TextToSpeech: 89b239221ec378d213af422d14789a729705360b
   whisper-rn: c0affbc30bf40c20fafc12b572dd5f33a20ba344

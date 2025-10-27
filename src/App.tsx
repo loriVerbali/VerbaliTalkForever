@@ -16,9 +16,7 @@ import {SoundProvider} from './contexts/soundContext';
 import {ConnectionProvider} from './utils/connection';
 import {ToastProvider} from './contexts/ToastContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {Auth0Provider} from 'react-native-auth0';
-import {setAuth0Instance} from './utils/fetcher';
-import Auth0 from 'react-native-auth0';
+import {sessionManager} from './utils/sessionManager';
 import {Mixpanel} from 'mixpanel-react-native';
 import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
@@ -41,16 +39,12 @@ const App = () => {
   mixpanel.reset(); // anonymizes session, clears device_id and user_id
   mixpanel.clearSuperProperties();
 
-  // Initialize Auth0 instance for token refresh
+  // Initialize session manager with app settings
   useEffect(() => {
-    const auth0 = new Auth0({
-      domain: 'dev-64l2kpebzn1y4zm7.us.auth0.com',
-      clientId: '9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX',
-    });
-    setAuth0Instance(auth0);
+    // Session manager will be initialized in AppSettingsProvider
   }, []);
 
-  // Refresh token when app becomes active (Auth0 credential manager handles automatic refresh)
+  // Refresh session when app becomes active
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (
@@ -58,10 +52,9 @@ const App = () => {
         nextAppState === 'active'
       ) {
         try {
-          const {ensureFreshToken} = await import('./utils/fetcher');
-          await ensureFreshToken();
+          await sessionManager.ensureValidSession();
         } catch (error) {
-          console.error('App state change token refresh failed:', error);
+          console.error('App state change session refresh failed:', error);
         }
       }
       appState.current = nextAppState;
@@ -163,9 +156,7 @@ const App = () => {
   }, []);
 
   return (
-    <Auth0Provider
-      domain={'dev-64l2kpebzn1y4zm7.us.auth0.com'}
-      clientId={'9CrrlRaLHYzHfzIa5DlE01PdMzwXk5jX'}>
+    <>
       {/* Hide status bar for immersive experience - handled by Android native code */}
       <StatusBar hidden animated />
       <GestureHandlerRootView style={styles.container}>
@@ -183,7 +174,7 @@ const App = () => {
           </ConnectionProvider>
         </ToastProvider>
       </GestureHandlerRootView>
-    </Auth0Provider>
+    </>
   );
 };
 

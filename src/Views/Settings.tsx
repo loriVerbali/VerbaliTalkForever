@@ -21,7 +21,7 @@ import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import {getSubscriptionStatus} from '../utils/trialUtils';
-import {useAuth0} from 'react-native-auth0';
+import {sessionManager} from '../utils/sessionManager';
 import {useAdmin} from '../contexts/adminContext';
 import {stacks, views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
@@ -189,7 +189,7 @@ const RangeSlider = ({
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const {preferences, setItem, getItem, clear} = useAppSettings();
-  const {user, clearSession} = useAuth0();
+  // Removed Auth0 - using guest sessions
   const {isTablet} = useAdmin();
 
   const [returnedMessages, setReturnedMessages] = useState(5);
@@ -367,14 +367,7 @@ const SettingsScreen: React.FC = () => {
     preferences.trialInstallationDate,
   ]);
 
-  const handleLogout = async () => {
-    try {
-      await clearSession();
-      await setItem('loggedIn', '0');
-      await setItem('username', '');
-      navigation.navigate(views.LOGIN as never);
-    } catch (e) {}
-  };
+  // Removed logout functionality - guest sessions don't need logout
 
   const handleLinkPress = (url: string, title: string) => {
     navigation.navigate(
@@ -484,12 +477,12 @@ const SettingsScreen: React.FC = () => {
 
   const handleDeleteAccount = async () => {
     Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action is irreversible. All your data will be deleted.You will be logged out and will need to signup again as we will also delete your assistant.',
+      'Reset Installation',
+      'Are you sure you want to reset your installation? This action is irreversible. All your data will be deleted and you will need to go through onboarding again.',
       [
         {text: 'Cancel', style: 'cancel'},
         {
-          text: 'Delete',
+          text: 'Reset',
           style: 'destructive',
           onPress: async () => {
             deleteAccount();
@@ -500,54 +493,69 @@ const SettingsScreen: React.FC = () => {
   };
 
   const deleteAccount = async () => {
+    // For guest sessions, reset the installation instead of deleting account
     await setItem('wasOnboarded', '0');
 
-    await fetchHelper(
-      'deleteAccount',
-      {},
-      {assistantId: preferences.assistantId, userId: user?.sub?.toString()},
-    );
-    await setItem('token', '');
+    // Call the delete assistant endpoint if we have an assistant ID
+    if (preferences.assistantId) {
+      try {
+        await fetchHelper(
+          'deleteAccount',
+          {},
+          {assistantId: preferences.assistantId, userId: 'guest'},
+        );
+      } catch (error) {
+        console.error('Error deleting assistant:', error);
+      }
+    }
 
-    Alert.alert('Account deleted', '', [
-      {
-        text: 'OK',
-        style: 'destructive',
-        onPress: async () => {
-          await setItem('wasOnboarded', '0');
-          await setItem('showInit', '0');
-          await setItem('loggedIn', '0');
-          await setItem('username', '');
-          await setItem('assistantId', '');
-          await setItem('conversationMode', 'easy');
-          await setItem('gobackAfterSelection', '1');
-          await setItem('returnedMessages', '5');
-          await setItem('topicsCount', '4');
-          await setItem('actionsCount', '4');
-          await setItem('objectsCount', '4');
-          await setItem('gender', '');
-          await setItem('familyPicsData', '');
-          await setItem('specialPlaces', '');
-          await setItem('pepes', '');
-          await setItem('homeAddress', '');
-          await setItem('homeIsCurrentLocation', '0');
-          await setItem('schoolAddress', '');
-          await setItem('schoolIsCurrentLocation', '0');
-          await setItem('therapyAddress', '');
-          await setItem('therapyIsCurrentLocation', '0');
-          await setItem('wasLocationOnboarded', '0');
-          await setItem('adminCode', '');
-          await setItem('wasWelcomed', '0');
-          await setItem('threadCreatedAt', '');
-          await setItem('auth0Id', '');
-          await setItem('assistantId', '');
-          await setItem('heroName', '');
-          await setItem('handshakeMessage', '');
+    Alert.alert(
+      'Installation Reset',
+      'Your installation has been reset. The app will restart with a fresh setup.',
+      [
+        {
+          text: 'OK',
+          style: 'destructive',
+          onPress: async () => {
+            // Reset all user data and session
+            await setItem('wasOnboarded', '0');
+            await setItem('showInit', '0');
+            await setItem('loggedIn', '0');
+            await setItem('username', '');
+            await setItem('assistantId', '');
+            await setItem('conversationMode', 'easy');
+            await setItem('gobackAfterSelection', '1');
+            await setItem('returnedMessages', '5');
+            await setItem('topicsCount', '4');
+            await setItem('actionsCount', '4');
+            await setItem('objectsCount', '4');
+            await setItem('gender', '');
+            await setItem('familyPicsData', '');
+            await setItem('specialPlaces', '');
+            await setItem('pepes', '');
 
-          await handleLogout();
+            // Reset guest session
+            await sessionManager.resetInstallation();
+            await setItem('homeAddress', '');
+            await setItem('homeIsCurrentLocation', '0');
+            await setItem('schoolAddress', '');
+            await setItem('schoolIsCurrentLocation', '0');
+            await setItem('therapyAddress', '');
+            await setItem('therapyIsCurrentLocation', '0');
+            await setItem('wasLocationOnboarded', '0');
+            await setItem('adminCode', '');
+            await setItem('wasWelcomed', '0');
+            await setItem('threadCreatedAt', '');
+            await setItem('auth0Id', '');
+            await setItem('assistantId', '');
+            await setItem('heroName', '');
+            await setItem('handshakeMessage', '');
+
+            // Removed handleLogout call - guest sessions don't need logout
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const cancelAdminCodeEdit = () => {
@@ -761,10 +769,8 @@ const SettingsScreen: React.FC = () => {
 
           <View style={styles.profileSection}>
             <View style={styles.profileInfo}>
-              <Text style={styles.userName}>{user?.name || 'User'}</Text>
-              <Text style={styles.userEmail}>
-                {user?.email || 'No email provided'}
-              </Text>
+              <Text style={styles.userName}>Guest User</Text>
+              <Text style={styles.userEmail}>Guest Session</Text>
             </View>
           </View>
 
@@ -800,9 +806,7 @@ const SettingsScreen: React.FC = () => {
               context="settings"
             />
           </View>
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Log Out</Text>
-          </Pressable>
+          {/* Removed logout button - guest sessions don't need logout */}
         </View>
 
         {showAccountSettings && (
@@ -1635,15 +1639,15 @@ const SettingsScreen: React.FC = () => {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Delete My Account</Text>
+              <Text style={styles.sectionTitle}>Reset Installation</Text>
               <Text style={styles.aboutDescription}>
-                Delete your account and all your data. This action is
+                Reset your installation and delete all your data. This action is
                 irreversible.
               </Text>
               <TouchableOpacity
                 style={styles.deleteAccountButton}
                 onPress={handleDeleteAccount}>
-                <Text style={styles.logoutText}>Delete Account</Text>
+                <Text style={styles.logoutText}>Reset Installation</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -1708,19 +1712,16 @@ const SettingsScreen: React.FC = () => {
             <Text style={styles.aboutText}>MaTalk AI v1.6.21</Text>
           </TouchableOpacity>
 
-          {showAssistantId &&
-            (user?.email === 'lori@verbali.io' ||
-              user?.email === 'shay@verbali.io' ||
-              user?.email === 'loria33@gmail.com') && (
-              <>
-                <TouchableOpacity
-                  onPress={() => {
-                    setItem('isIOSActive', '1');
-                  }}>
-                  <Text style={styles.aboutText}>Reset isIOSActive</Text>
-                </TouchableOpacity>
-              </>
-            )}
+          {showAssistantId && (
+            <>
+              <TouchableOpacity
+                onPress={() => {
+                  setItem('isIOSActive', '1');
+                }}>
+                <Text style={styles.aboutText}>Reset isIOSActive</Text>
+              </TouchableOpacity>
+            </>
+          )}
           <Text style={styles.aboutDescription}>
             MaTalk AI is a communication tool designed to help users interact
             more effectively.
