@@ -66,12 +66,6 @@ const onboardingSteps = [
     buttonText: 'Next',
   },
   {
-    id: 'ShowAndTell',
-    question: 'Getting started with Matalk-AI',
-    additionalComponents: 'show-and-tell',
-    buttonText: 'Next',
-  },
-  {
     id: 'subscription',
     question: 'Choose Your Plan',
     additionalComponents: 'subscription-selection',

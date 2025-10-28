@@ -1709,7 +1709,7 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>MaTalk AI v1.6.21</Text>
+            <Text style={styles.aboutText}>MaTalk AI v1.8</Text>
           </TouchableOpacity>
 
           {showAssistantId && (
