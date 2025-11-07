@@ -25,7 +25,6 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useAppSettings} from '../utils/persistance';
-import AppConfig from '../utils/config';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
 
@@ -172,15 +171,11 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     country: 'USA',
   });
   const [placeIsCurrentLocation, setPlaceIsCurrentLocation] = useState(false);
-  const [showStatePicker, setShowStatePicker] = useState(false);
-  const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const geocodeTimerRef = useRef<any>(null);
   const lastGeocodeQueryRef = useRef<string>('');
+  const userSelectedCountryRef = useRef<boolean>(false); // Track if user manually selected country
   const [showAddGate, setShowAddGate] = useState(false);
-  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
-  const [adminCodeInput, setAdminCodeInput] = useState('');
-  const [isAdminCodeError, setIsAdminCodeError] = useState(false);
   const [sessionGatesShown, setSessionGatesShown] = useState(false);
 
   const {setItem, getItem} = useAppSettings();
@@ -462,32 +457,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     }
   };
 
-  const handleAdminCodeSubmit = async () => {
-    try {
-      const stored = await getItem('adminCode');
-      if (
-        stored &&
-        (adminCodeInput === stored ||
-          adminCodeInput === AppConfig.masterAdminCode)
-      ) {
-        setShowAdminCodeModal(false);
-        setAdminCodeInput('');
-        setIsAdminCodeError(false);
-        setSessionGatesShown(true); // Mark gates as shown for this session
-        await requestMediaPermissionsAfterGate();
-        openAddModal();
-      } else {
-        setIsAdminCodeError(true);
-        setTimeout(() => {
-          setIsAdminCodeError(false);
-          setAdminCodeInput('');
-        }, 1000);
-      }
-    } catch (_) {
-      setIsAdminCodeError(true);
-    }
-  };
-
   const handlePickerResponse = (response: ImagePickerResponse) => {
     if (response.didCancel || response.errorMessage) {
       return;
@@ -569,13 +538,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     setErrorMessage('');
     setItemIsFavorite(false);
     // reset places fields
+    userSelectedCountryRef.current = false; // Reset country selection flag
     setPlaceAddress({
       address: '',
       address2: '',
       city: '',
       state: '',
       zipcode: '',
-      country: 'USA',
+      country: 'USA', // Default to USA, but user can change it
     });
     setPlaceIsCurrentLocation(false);
     setShowModal(true);
@@ -606,16 +576,13 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     setItemIsFavorite(!!item.isFavorite);
 
     if (selectedCategory === 'Places') {
-      setPlaceAddress(
-        item.addressDetails || {
-          address: '',
-          address2: '',
-          city: '',
-          state: '',
-          zipcode: '',
-          country: 'USA',
-        },
-      );
+      userSelectedCountryRef.current = false; // Reset flag when editing
+      const normalized = normalizeAddressDetails(item.addressDetails);
+      setPlaceAddress(normalized);
+      // If the place already has a country set, mark it as user-selected to preserve it
+      if (normalized.country && normalized.country !== 'USA') {
+        userSelectedCountryRef.current = true;
+      }
       setPlaceIsCurrentLocation(!!item.isCurrentLocation);
     }
 
@@ -632,6 +599,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     setItemRelationship('');
     setErrorMessage('');
     setItemIsFavorite(false);
+    userSelectedCountryRef.current = false; // Reset country selection flag
     setPlaceAddress({
       address: '',
       address2: '',
@@ -641,6 +609,13 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       country: 'USA',
     });
     setPlaceIsCurrentLocation(false);
+    // Clear geocoding state
+    setIsGeocoding(false);
+    if (geocodeTimerRef.current) {
+      clearTimeout(geocodeTimerRef.current);
+      geocodeTimerRef.current = null;
+    }
+    lastGeocodeQueryRef.current = '';
   };
 
   const isFormValid = () => {
@@ -848,7 +823,9 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                   ? 'Canada'
                   : p.addressDetails?.country === 'USA'
                   ? 'USA'
-                  : 'USA',
+                  : p.addressDetails?.country === 'Other'
+                  ? 'Other'
+                  : 'USA', // Default to USA only if country is missing/invalid
             },
             isCurrentLocation: !!p.isCurrentLocation,
           };
@@ -888,56 +865,101 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
 
   const parseLocationToAddressDetails = (
     locationString: string,
+    addressObj?: any,
   ): AddressDetails => {
-    const parts = locationString.split(', ');
-
     let address = '';
     let city = '';
     let state = '';
     let zipcode = '';
     let country: 'USA' | 'Canada' | 'Other' = 'USA';
 
-    if (parts.length >= 8) {
-      address = `${parts[1]} ${parts[2]}`.trim();
-      city = parts[4] || '';
-      state = parts[6] || '';
-      zipcode = parts[7] || '';
-      country =
-        parts[8] === 'United States'
-          ? 'USA'
-          : parts[8] === 'Canada'
-          ? 'Canada'
-          : 'USA';
-    } else if (parts.length >= 5) {
-      address = `${parts[0]} ${parts[1]}`.trim();
-      city = parts[2] || '';
-      state = parts[3] || '';
-      country = parts[4] === 'Canada' ? 'Canada' : 'USA';
-    } else if (parts.length === 4) {
-      address = parts[0] || '';
-      city = parts[1] || '';
-      state = parts[2] || '';
-      country = parts[3] === 'Canada' ? 'Canada' : 'USA';
-    } else if (parts.length === 3) {
-      address = parts[0] || '';
-      city = parts[1] || '';
-      state = parts[2] || '';
-    } else if (parts.length === 2) {
-      address = parts[0] || '';
-      city = parts[1] || '';
-    } else {
-      address = parts[0] || '';
-    }
+    // Use structured address data if available (more reliable)
+    if (addressObj) {
+      // Build street address from available components
+      const houseNumber = addressObj.house_number || '';
+      const road = addressObj.road || '';
+      const street = addressObj.street || '';
+      address = [houseNumber, road || street].filter(Boolean).join(' ').trim();
 
-    const validStates = country === 'Canada' ? CANADIAN_PROVINCES : US_STATES;
-    const normalizedState = state.trim();
-    // we keep parsed state even if not in list
+      city =
+        addressObj.city ||
+        addressObj.town ||
+        addressObj.village ||
+        addressObj.municipality ||
+        '';
+
+      // State/Province - use state or state_district (not county)
+      state =
+        addressObj.state || addressObj.province || addressObj.region || '';
+
+      zipcode = addressObj.postcode || '';
+
+      // Determine country
+      const countryCode = addressObj.country_code?.toUpperCase();
+      if (countryCode === 'CA') {
+        country = 'Canada';
+      } else if (countryCode === 'US') {
+        country = 'USA';
+      } else {
+        // Fallback to parsing display_name
+        const countryName =
+          addressObj.country || locationString.split(', ').pop() || '';
+        if (countryName === 'Canada' || countryName.includes('Canada')) {
+          country = 'Canada';
+        } else {
+          country = 'USA';
+        }
+      }
+    } else {
+      // Fallback to parsing display_name string
+      const parts = locationString.split(', ');
+
+      // Try to find state in the parts (usually second-to-last or third-to-last before country)
+      // Look for known states/provinces
+      let foundState = '';
+      let foundCountry: 'USA' | 'Canada' | 'Other' = 'USA';
+
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const part = parts[i].trim();
+        if (US_STATES.includes(part)) {
+          foundState = part;
+          foundCountry = 'USA';
+          break;
+        } else if (CANADIAN_PROVINCES.includes(part)) {
+          foundState = part;
+          foundCountry = 'Canada';
+          break;
+        }
+      }
+
+      // Try to find country
+      const lastPart = parts[parts.length - 1] || '';
+      if (lastPart.includes('Canada') || lastPart.includes('CA')) {
+        foundCountry = 'Canada';
+      } else if (
+        lastPart.includes('United States') ||
+        lastPart.includes('USA') ||
+        lastPart.includes('US')
+      ) {
+        foundCountry = 'USA';
+      }
+
+      // Extract address, city, zipcode
+      if (parts.length >= 3) {
+        address = parts[0] || '';
+        city = parts[1] || '';
+        zipcode = parts.find(p => /^\d{5}(-\d{4})?$/.test(p.trim())) || '';
+      }
+
+      state = foundState;
+      country = foundCountry;
+    }
 
     return {
       address: address.trim(),
       address2: '',
       city: city.trim(),
-      state: normalizedState,
+      state: state.trim(),
       zipcode: zipcode.trim(),
       country,
     };
@@ -945,12 +967,13 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
 
   const reverseGeocode = async (lat: number, lon: number) => {
     try {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`;
       const response = await fetch(url);
       const data = await response.json();
       if (response.ok && data) {
         return {
           display_name: data.display_name as string,
+          address: data.address as any,
         };
       }
     } catch (err) {
@@ -984,24 +1007,33 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     try {
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
         query,
-      )}`;
+      )}&addressdetails=1&limit=1`;
       const resp = await fetch(url);
       const results = await resp.json();
       if (Array.isArray(results) && results.length > 0) {
         const best = results[0];
         if (best?.display_name) {
-          const parsed = parseLocationToAddressDetails(best.display_name);
-          // Preserve address2 and country preference normalization (USA/Canada)
-          setPlaceAddress(prev => ({
-            ...parsed,
-            address2: prev.address2,
-            country:
-              parsed.country === 'Canada'
+          const parsed = parseLocationToAddressDetails(
+            best.display_name,
+            best.address,
+          );
+          // Preserve address2 and user's country selection
+          // If user manually selected country, always preserve it
+          setPlaceAddress(prev => {
+            const shouldPreserveCountry = userSelectedCountryRef.current;
+            return {
+              ...parsed,
+              address2: prev.address2,
+              // If user manually selected country, preserve it; otherwise use geocoded result if valid
+              country: shouldPreserveCountry
+                ? prev.country
+                : parsed.country === 'Canada'
                 ? 'Canada'
                 : parsed.country === 'USA'
                 ? 'USA'
-                : prev.country,
-          }));
+                : prev.country, // Preserve user's selection if geocoding didn't find USA/Canada
+            };
+          });
         }
       }
     } catch (e) {
@@ -1088,7 +1120,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           const {latitude, longitude} = position.coords;
           const rg = await reverseGeocode(latitude, longitude);
           if (rg?.display_name) {
-            const parsed = parseLocationToAddressDetails(rg.display_name);
+            const parsed = parseLocationToAddressDetails(
+              rg.display_name,
+              rg.address,
+            );
             setPlaceAddress(parsed);
             setPlaceIsCurrentLocation(true);
           } else {
@@ -1121,7 +1156,57 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     }
   };
 
+  // Infer country from state/province if country is missing or invalid
+  const inferCountryFromState = (
+    state: string,
+    currentCountry?: 'USA' | 'Canada' | 'Other',
+  ): 'USA' | 'Canada' | 'Other' => {
+    if (!state || !state.trim()) {
+      return currentCountry || 'USA';
+    }
+    const stateTrimmed = state.trim();
+    if (US_STATES.includes(stateTrimmed)) {
+      return 'USA';
+    }
+    if (CANADIAN_PROVINCES.includes(stateTrimmed)) {
+      return 'Canada';
+    }
+    return currentCountry || 'USA';
+  };
+
+  // Normalize address details to ensure country is set correctly
+  const normalizeAddressDetails = (
+    addressDetails?: AddressDetails,
+  ): AddressDetails => {
+    if (!addressDetails) {
+      return {
+        address: '',
+        address2: '',
+        city: '',
+        state: '',
+        zipcode: '',
+        country: 'USA',
+      };
+    }
+    // If country is missing or invalid, try to infer from state
+    const country =
+      addressDetails.country === 'USA' ||
+      addressDetails.country === 'Canada' ||
+      addressDetails.country === 'Other'
+        ? addressDetails.country
+        : inferCountryFromState(addressDetails.state);
+    return {
+      address: addressDetails.address || '',
+      address2: addressDetails.address2 || '',
+      city: addressDetails.city || '',
+      state: addressDetails.state || '',
+      zipcode: addressDetails.zipcode || '',
+      country,
+    };
+  };
+
   // Auto-geocode manual address edits for Places (debounced)
+  // Note: We exclude country from dependencies to avoid overriding user's country selection
   useEffect(() => {
     if (selectedCategory !== 'Places') return;
     if (placeIsCurrentLocation) return; // skip when bound to current location
@@ -1146,7 +1231,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     placeAddress.city,
     placeAddress.state,
     placeAddress.zipcode,
-    placeAddress.country,
+    // Note: country is intentionally excluded to prevent geocoding from overriding user's country selection
   ]);
 
   const renderItem = (item: PepeItem) => (
@@ -1880,29 +1965,162 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                     />
 
                     <TouchableOpacity
-                      style={[styles.dropdown, {marginTop: 10}]}
-                      onPress={() => setShowCountryPicker(true)}>
-                      <Text style={styles.dropdownText}>
+                      style={[
+                        styles.dropdown,
+                        {
+                          paddingHorizontal:
+                            responsiveValues.textInputPaddingHorizontal,
+                          paddingVertical:
+                            responsiveValues.textInputPaddingVertical,
+                          marginTop: 10,
+                        },
+                      ]}
+                      onPress={() => {
+                        Alert.alert(
+                          'Select Country',
+                          '',
+                          [
+                            {
+                              text: 'USA',
+                              onPress: () => {
+                                userSelectedCountryRef.current = true;
+                                setPlaceAddress(prev => ({
+                                  ...prev,
+                                  country: 'USA',
+                                  state: '',
+                                }));
+                                setPlaceIsCurrentLocation(false);
+                                setTimeout(() => {
+                                  userSelectedCountryRef.current = false;
+                                }, 2000);
+                              },
+                            },
+                            {
+                              text: 'Canada',
+                              onPress: () => {
+                                userSelectedCountryRef.current = true;
+                                setPlaceAddress(prev => ({
+                                  ...prev,
+                                  country: 'Canada',
+                                  state: '',
+                                }));
+                                setPlaceIsCurrentLocation(false);
+                                setTimeout(() => {
+                                  userSelectedCountryRef.current = false;
+                                }, 2000);
+                              },
+                            },
+                            {
+                              text: 'Other',
+                              onPress: () => {
+                                userSelectedCountryRef.current = true;
+                                setPlaceAddress(prev => ({
+                                  ...prev,
+                                  country: 'Other',
+                                  state: '',
+                                }));
+                                setPlaceIsCurrentLocation(false);
+                                setTimeout(() => {
+                                  userSelectedCountryRef.current = false;
+                                }, 2000);
+                              },
+                            },
+                            {text: 'Cancel', style: 'cancel'},
+                          ],
+                          {cancelable: true},
+                        );
+                      }}>
+                      <Text
+                        style={[
+                          styles.dropdownText,
+                          {fontSize: responsiveValues.textInputFontSize},
+                        ]}>
                         {placeAddress.country === 'Other'
                           ? 'Other'
                           : placeAddress.country}
                       </Text>
-                      <Text style={styles.dropdownArrow}>▼</Text>
+                      <Text
+                        style={[
+                          styles.dropdownArrow,
+                          {fontSize: responsiveValues.textInputFontSize},
+                        ]}>
+                        ▼
+                      </Text>
                     </TouchableOpacity>
 
                     {placeAddress.country !== 'Other' && (
-                      <TouchableOpacity
-                        style={[styles.dropdown, {marginTop: 10}]}
-                        onPress={() => setShowStatePicker(true)}>
+                      <View style={styles.inputSection}>
                         <Text
                           style={[
-                            styles.dropdownText,
-                            !placeAddress.state && styles.placeholder,
+                            styles.sectionLabel,
+                            {fontSize: responsiveValues.sectionLabelFontSize},
                           ]}>
-                          {placeAddress.state || 'State/Province'}
+                          {placeAddress.country === 'Canada'
+                            ? 'Province'
+                            : 'State'}
                         </Text>
-                        <Text style={styles.dropdownArrow}>▼</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.dropdown,
+                            {
+                              paddingHorizontal:
+                                responsiveValues.textInputPaddingHorizontal,
+                              paddingVertical:
+                                responsiveValues.textInputPaddingVertical,
+                            },
+                          ]}
+                          onPress={() => {
+                            const states = getStatesForCountry(
+                              placeAddress.country,
+                            );
+                            Alert.alert(
+                              placeAddress.country === 'Canada'
+                                ? 'Select Province'
+                                : 'Select State',
+                              '',
+                              [
+                                ...states.map(state => ({
+                                  text: state,
+                                  onPress: () => {
+                                    setPlaceAddress(prev => {
+                                      const inferredCountry =
+                                        inferCountryFromState(
+                                          state,
+                                          prev.country,
+                                        );
+                                      return {
+                                        ...prev,
+                                        state,
+                                        country: inferredCountry,
+                                      };
+                                    });
+                                    setPlaceIsCurrentLocation(false);
+                                  },
+                                })),
+                                {text: 'Cancel', style: 'cancel'},
+                              ],
+                              {cancelable: true},
+                            );
+                          }}>
+                          <Text
+                            style={[
+                              styles.dropdownText,
+                              {
+                                fontSize: responsiveValues.textInputFontSize,
+                              },
+                              !placeAddress.state && styles.placeholder,
+                            ]}>
+                            {placeAddress.state || 'Select State/Province'}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.dropdownArrow,
+                              {fontSize: responsiveValues.textInputFontSize},
+                            ]}>
+                            ▼
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
 
                     <TextInput
@@ -1971,156 +2189,18 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         </View>
       </Modal>
 
-      {/* State picker modal */}
-      <Modal
-        visible={showStatePicker}
-        transparent
-        animationType="slide"
-        supportedOrientations={['landscape-left', 'landscape-right']}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Select{' '}
-                {placeAddress.country === 'Canada' ? 'Province' : 'State'}
-              </Text>
-              <TouchableOpacity onPress={() => setShowStatePicker(false)}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {(getStatesForCountry(placeAddress.country) || []).map(item => (
-                <TouchableOpacity
-                  key={item}
-                  style={styles.modalItem}
-                  onPress={() => {
-                    setPlaceAddress(prev => ({...prev, state: item}));
-                    setShowStatePicker(false);
-                  }}>
-                  <Text style={styles.modalItemText}>{item}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Country picker modal */}
-      <Modal
-        visible={showCountryPicker}
-        transparent
-        animationType="slide"
-        supportedOrientations={['landscape-left', 'landscape-right']}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
-              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            {(['USA', 'Canada', 'Other'] as const).map(country => (
-              <TouchableOpacity
-                key={country}
-                style={styles.modalItem}
-                onPress={() => {
-                  setPlaceAddress(prev => ({...prev, country, state: ''}));
-                  setShowCountryPicker(false);
-                }}>
-                <Text style={styles.modalItemText}>
-                  {country === 'Other' ? 'Other' : country}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
-
       {showAddGate && (
         <ParentalGate
           onSuccess={async () => {
             setShowAddGate(false);
-            setShowAdminCodeModal(true);
+            setSessionGatesShown(true); // Mark gates as shown for this session
+            await requestMediaPermissionsAfterGate();
+            openAddModal();
           }}
           isSettingsContext={false}
           message="Making sure you are an adult as there is camera usage . All images stay local"
         />
       )}
-
-      {/* Admin Code Modal (second gate) */}
-      <Modal
-        visible={showAdminCodeModal}
-        animationType="fade"
-        transparent
-        supportedOrientations={['landscape-left', 'landscape-right']}
-        onRequestClose={() => {
-          setShowAdminCodeModal(false);
-          setAdminCodeInput('');
-          setIsAdminCodeError(false);
-        }}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Enter Admin Code</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setShowAdminCodeModal(false);
-                  setAdminCodeInput('');
-                  setIsAdminCodeError(false);
-                }}>
-                <Text style={styles.closeButton}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={[styles.modalBody, {paddingBottom: 20}]}>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  isAdminCodeError && {
-                    borderColor: '#ff3b30',
-                    backgroundColor: '#fff0f0',
-                  },
-                ]}
-                value={adminCodeInput}
-                onChangeText={text => {
-                  const numeric = text.replace(/[^0-9]/g, '');
-                  if (numeric.length <= 4) setAdminCodeInput(numeric);
-                }}
-                placeholder="4-digit code"
-                placeholderTextColor="#888"
-                keyboardType="numeric"
-                maxLength={4}
-                secureTextEntry
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  if (adminCodeInput.length === 4) handleAdminCodeSubmit();
-                }}
-                autoFocus
-              />
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={[styles.cancelButton, {paddingVertical: 12}]}
-                  onPress={() => {
-                    setShowAdminCodeModal(false);
-                    setAdminCodeInput('');
-                    setIsAdminCodeError(false);
-                  }}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    {paddingVertical: 12},
-                    adminCodeInput.length !== 4 && styles.saveButtonDisabled,
-                  ]}
-                  onPress={handleAdminCodeSubmit}
-                  disabled={adminCodeInput.length !== 4}>
-                  <Text style={styles.saveButtonText}>Submit</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };

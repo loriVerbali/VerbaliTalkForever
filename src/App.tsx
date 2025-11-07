@@ -15,6 +15,7 @@ import {ChatContextProvider} from './contexts/ChatContextProvider';
 import {SoundProvider} from './contexts/soundContext';
 import {ConnectionProvider} from './utils/connection';
 import {ToastProvider} from './contexts/ToastContext';
+import {DatabaseProvider} from './contexts/DatabaseContext';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {sessionManager} from './utils/sessionManager';
 import {Mixpanel} from 'mixpanel-react-native';
@@ -163,13 +164,15 @@ const App = () => {
         <ToastProvider>
           <ConnectionProvider>
             <AppSettingsProvider>
-              <AdminProvider>
-                <ChatContextProvider>
-                  <SoundProvider>
-                    <RootControllerView />
-                  </SoundProvider>
-                </ChatContextProvider>
-              </AdminProvider>
+              <DatabaseProvider>
+                <AdminProvider>
+                  <ChatContextProvider>
+                    <SoundProvider>
+                      <RootControllerView />
+                    </SoundProvider>
+                  </ChatContextProvider>
+                </AdminProvider>
+              </DatabaseProvider>
             </AppSettingsProvider>
           </ConnectionProvider>
         </ToastProvider>

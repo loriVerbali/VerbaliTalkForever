@@ -58,6 +58,9 @@ interface Preferences {
   installationGuid: string;
   sessionToken: string;
   lastRefreshCheck: string;
+  // App rating
+  ratingPromptShown: string;
+  ratingPromptDismissed: string;
 }
 
 const initEnum = {
@@ -119,6 +122,9 @@ const initialPreferences: Preferences = {
   installationGuid: initEnum.notSet,
   sessionToken: initEnum.notSet,
   lastRefreshCheck: '0',
+  // App rating
+  ratingPromptShown: initEnum.false,
+  ratingPromptDismissed: initEnum.false,
 };
 
 interface AppSettingsContextProps {

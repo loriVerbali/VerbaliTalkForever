@@ -10,6 +10,8 @@ import ShortCutsScreen from '../Views/ShortCuts';
 import Convo from '../Views/Convo';
 import SettingsScreen from '../Views/Settings';
 import WebViewScreen from '../Views/WebViewScreen';
+import ReportsScreen from '../Views/Reports';
+import MetricDetailScreen from '../Views/MetricDetail';
 
 const HomeStack = createStackNavigator();
 
@@ -55,6 +57,20 @@ function LoggedNavigation() {
           <HomeStack.Screen
             name={views.SETTINGS}
             component={SettingsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <HomeStack.Screen
+            name={views.REPORTS}
+            component={ReportsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <HomeStack.Screen
+            name={views.METRIC_DETAIL}
+            component={MetricDetailScreen}
             options={{
               headerShown: false,
             }}

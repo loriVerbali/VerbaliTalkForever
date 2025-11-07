@@ -13,9 +13,24 @@ const {width} = Dimensions.get('window');
 
 type PlaybackRate = 1 | 1.5 | 2 | 2.5;
 
-// Local bundled asset. Ensure the file exists at this path.
-// If the filename differs, update the require path accordingly.
-const DEFAULT_VIDEO_SOURCE = require('../assets/movie/GettingStarted.mp4');
+// Base URL for remote video assets
+const VIDEO_BASE_URL = 'https://pub-478619cacb0f41448d8ea23825356593.r2.dev/';
+
+/**
+ * Builds a video URL from a video name
+ * @param videoName - The name of the video file (e.g., "GettingStarted", "reports")
+ * @returns Video source object with URI for react-native-video
+ */
+const getVideoUrl = (videoName: string): {uri: string} => {
+  // Remove .mp4 extension if present
+  const name = videoName.replace(/\.mp4$/, '');
+  return {
+    uri: `${VIDEO_BASE_URL}${name}.mp4`,
+  };
+};
+
+// Default video source using remote URL
+const DEFAULT_VIDEO_SOURCE = getVideoUrl('GettingStarted');
 
 interface ShowAndTellProps {
   videoSource?: any;
@@ -66,12 +81,43 @@ const ShowAndTell: React.FC<ShowAndTellProps> = ({
     }
   };
 
+  /**
+   * Normalizes a video source to the format expected by react-native-video
+   * Handles both require() objects, string names, and URI objects
+   */
+  const normalizeVideoSource = (source: any): {uri: string} => {
+    // If it's already a URI object, return it
+    if (source && typeof source === 'object' && source.uri) {
+      return source;
+    }
+
+    // If it's a require() object (has a number or uri property), try to extract name
+    // For backward compatibility, we'll try to handle require() objects
+    if (source && typeof source === 'object') {
+      // If it has a uri property already, use it
+      if (source.uri) {
+        return source;
+      }
+      // If it's a require() result, we can't determine the name, so fall back to default
+      // This shouldn't happen in the new implementation, but handle it gracefully
+      return DEFAULT_VIDEO_SOURCE;
+    }
+
+    // If it's a string, treat it as a video name
+    if (typeof source === 'string') {
+      return getVideoUrl(source);
+    }
+
+    // Default fallback
+    return DEFAULT_VIDEO_SOURCE;
+  };
+
   // Determine which video to show
   const getCurrentVideoSource = () => {
     if (context === 'settings' && videoList.length > 0) {
-      return videoList[currentVideoIndex];
+      return normalizeVideoSource(videoList[currentVideoIndex]);
     }
-    return videoSource || DEFAULT_VIDEO_SOURCE;
+    return normalizeVideoSource(videoSource || DEFAULT_VIDEO_SOURCE);
   };
 
   // Landscape-only app: classify phone/tablet by height
