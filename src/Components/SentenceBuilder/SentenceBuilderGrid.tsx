@@ -32,16 +32,24 @@ import {resolveImageSource} from '../../utils/imageSourceResolver';
 import {views} from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
+import {useDatabase} from '../../contexts/DatabaseContext';
 
 const {width, height} = Dimensions.get('window');
 
 interface SentenceBuilderGridProps {
   isTablet?: boolean;
+  onWordAdded?: (nodeId: string) => void;
+  onWordRemoved?: (nodeId: string) => void;
+  onSentencePlayed?: (sentenceTokens: string[], nodes: Node[]) => void;
 }
 
 const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   isTablet,
+  onWordAdded,
+  onWordRemoved,
+  onSentencePlayed,
 }) => {
+  const {addUtterance} = useDatabase();
   const {getItem} = useAppSettings();
   const navigation = useNavigation();
 
@@ -375,6 +383,20 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     setFolderStack([]);
   };
 
+  // Function to log word selection to database
+  const logWordSelection = async (word: string) => {
+    try {
+      await addUtterance({
+        word: word.trim(),
+        dateof: new Date(),
+        source: 'Convo',
+      });
+    } catch (error) {
+      console.error('Error logging word selection:', error);
+      // Fail silently as requested
+    }
+  };
+
   // Card handlers
   const handleCardPress = async (node: Node) => {
     // Debounce logic to prevent double-tap issues (especially on first tap after launch)
@@ -435,6 +457,13 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       try {
         await sentenceBuilderSqlite.addWordToSentence(node.id);
         setSentenceTokenIds(prev => [...prev, node.id]);
+
+        // Notify parent component about word addition
+        onWordAdded?.(node.id);
+
+        // Log word selection to database
+        const wordToLog = node.ttsText || node.title;
+        await logWordSelection(wordToLog);
 
         // Speak the word using TTS
         const textToSpeak = node.ttsText || node.title;
@@ -555,6 +584,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     try {
       await sentenceBuilderSqlite.removeWordFromSentence(nodeId);
       setSentenceTokenIds(prev => prev.filter(id => id !== nodeId));
+
+      // Notify parent component about word removal
+      onWordRemoved?.(nodeId);
     } catch (error) {
       console.error('Error removing token:', error);
       Alert.alert('Error', 'Failed to remove word from sentence');
@@ -570,6 +602,11 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   const handleResetSentence = async () => {
     try {
+      // Notify parent component about sentence being played before clearing
+      if (sentenceTokenIds.length > 0) {
+        onSentencePlayed?.(sentenceTokenIds, nodes);
+      }
+
       await sentenceBuilderSqlite.clearSentence();
       setSentenceTokenIds([]);
     } catch (error) {

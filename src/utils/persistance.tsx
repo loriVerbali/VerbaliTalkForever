@@ -10,6 +10,7 @@ import React, {
 import DefaultPreference from 'react-native-default-preference';
 import {validateReceiptOnLaunch} from './recieptValidation';
 import WhisperModelManager from './WhisperModelManager';
+import {sessionManager} from './sessionManager';
 
 interface Preferences {
   loggedIn: string;
@@ -53,6 +54,13 @@ interface Preferences {
   showAndTellModalShown: string;
   my8words: string;
   handshakeMessage: string;
+  // Guest session management
+  installationGuid: string;
+  sessionToken: string;
+  lastRefreshCheck: string;
+  // App rating
+  ratingPromptShown: string;
+  ratingPromptDismissed: string;
 }
 
 const initEnum = {
@@ -110,6 +118,13 @@ const initialPreferences: Preferences = {
   my8words: '',
   handshakeMessage:
     'Hi ,this is how I communicate say Hey Verby and it will record the question.',
+  // Guest session management
+  installationGuid: initEnum.notSet,
+  sessionToken: initEnum.notSet,
+  lastRefreshCheck: '0',
+  // App rating
+  ratingPromptShown: initEnum.false,
+  ratingPromptDismissed: initEnum.false,
 };
 
 interface AppSettingsContextProps {
@@ -225,7 +240,30 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   };
 
   useEffect(() => {
-    initializePreferences();
+    const initApp = async () => {
+      // Initialize session manager with app settings
+      sessionManager.setAppSettings({
+        preferences,
+        setItem,
+        getItem,
+        removeItem,
+        initializePreferences,
+        clear,
+      });
+
+      // Initialize preferences
+      await initializePreferences();
+
+      // Initialize guest session
+      try {
+        await sessionManager.ensureValidSession();
+        console.log('Guest session initialized on app start');
+      } catch (error) {
+        console.error('Failed to initialize guest session:', error);
+      }
+    };
+
+    initApp();
 
     return () => {
       initializationRef.current = false;

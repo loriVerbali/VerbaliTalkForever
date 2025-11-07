@@ -32,7 +32,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       metadata = {},
       prior = {},
       countMin = 5,
-      countMax = 10,
+      countMax = 5,
       genderType = 'white boy',
     } = options;
 

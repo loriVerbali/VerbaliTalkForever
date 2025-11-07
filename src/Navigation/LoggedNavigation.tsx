@@ -1,11 +1,5 @@
-import React, {useEffect, useState, useRef} from 'react';
+import React from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
-import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
-import {
-  NavigationProp,
-  ParamListBase,
-  RouteProp,
-} from '@react-navigation/native';
 import HomeScreen from '../Views/Home';
 import {views} from '../utils/constants';
 import {AssistantProvider} from '../contexts/AssistantContext';
@@ -16,47 +10,19 @@ import ShortCutsScreen from '../Views/ShortCuts';
 import Convo from '../Views/Convo';
 import SettingsScreen from '../Views/Settings';
 import WebViewScreen from '../Views/WebViewScreen';
-import {useAppSettings} from '../utils/persistance';
-import Login from '../Views/Login';
+import ReportsScreen from '../Views/Reports';
+import MetricDetailScreen from '../Views/MetricDetail';
 
 const HomeStack = createStackNavigator();
 
 function LoggedNavigation() {
-  const {getItem} = useAppSettings();
-  const [initialRoute, setInitialRoute] = useState(views.LOGIN);
-  const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    // Check if user is already logged in
-    const checkLoginStatus = async () => {
-      try {
-        // Only run on first render
-        if (isFirstRender.current) {
-          const loggedInValue = await getItem('loggedIn');
-          if (loggedInValue === '1') {
-            setInitialRoute(views.OPEN);
-          } else {
-            setInitialRoute(views.LOGIN);
-          }
-          isFirstRender.current = false;
-        }
-      } catch (e) {
-        console.error('Error checking login status:', e);
-      }
-    };
-
-    checkLoginStatus();
-  }, []); // Empty dependency array to run once on mount
+  // No need to check login status - guest sessions are always "authenticated"
+  // Always start with the main app
 
   return (
     <AssistantProvider>
       <SoundProvider>
-        <HomeStack.Navigator initialRouteName={initialRoute}>
-          <HomeStack.Screen
-            options={{headerShown: false}}
-            component={Login}
-            name={views.LOGIN}
-          />
+        <HomeStack.Navigator initialRouteName={views.OPEN}>
           <HomeStack.Screen
             options={{headerShown: false}}
             component={OpenScreen}
@@ -91,6 +57,20 @@ function LoggedNavigation() {
           <HomeStack.Screen
             name={views.SETTINGS}
             component={SettingsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <HomeStack.Screen
+            name={views.REPORTS}
+            component={ReportsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+          <HomeStack.Screen
+            name={views.METRIC_DETAIL}
+            component={MetricDetailScreen}
             options={{
               headerShown: false,
             }}

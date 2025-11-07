@@ -35,7 +35,7 @@ import ShowAndTell from '../Components/ShowAndTell';
 import WhisperDownload from '../Components/WhisperDownload';
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
-import {useAuth0} from 'react-native-auth0';
+// Removed Auth0 - using guest sessions
 import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 
@@ -52,12 +52,7 @@ const onboardingSteps = [
     additionalComponents: 'welcome',
     buttonText: 'Next',
   },
-  {
-    id: 'login',
-    question: 'Sign In to Continue',
-    additionalComponents: 'login',
-    buttonText: 'Next',
-  },
+  // Removed login step - guest sessions don't need login
   {
     id: 'terms',
     question: 'Terms and Conditions',
@@ -68,12 +63,6 @@ const onboardingSteps = [
     id: 'name',
     question: "What is our Hero's name?",
     additionalComponents: 'name-input',
-    buttonText: 'Next',
-  },
-  {
-    id: 'ShowAndTell',
-    question: 'Getting started with Matalk-AI',
-    additionalComponents: 'show-and-tell',
     buttonText: 'Next',
   },
   {
@@ -119,13 +108,7 @@ const OnboardingScreen: React.FC = () => {
   const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
   const {completeOnboarding} = useContext(OnboardingContext);
-  const {
-    authorize,
-    user,
-    isLoading: authLoading,
-    clearSession,
-    getCredentials,
-  } = useAuth0();
+  // Removed Auth0 - using guest sessions
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
   const [adminCode, setAdminCode] = useState('');
@@ -145,7 +128,7 @@ const OnboardingScreen: React.FC = () => {
   const [conversationMode, setConversationMode] = useState<'easy' | 'advanced'>(
     'easy',
   );
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Removed isLoggedIn state - guest sessions are always "authenticated"
   const [gotSubscription, setGotSubscription] = useState(false);
   const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
@@ -172,22 +155,7 @@ const OnboardingScreen: React.FC = () => {
     loadConversationMode();
   }, []);
 
-  // Check login status when on login step
-  useEffect(() => {
-    if (onboardingSteps[currentStep].id === 'login' && user) {
-      setIsLoggedIn(true);
-      getCredentials().then(credentials => {
-        if (credentials?.accessToken) {
-          setItem('token', credentials?.accessToken);
-          // Stop persisting refresh tokens; let the Auth0 Credentials Manager manage rotation
-        } else {
-          clearSession();
-          setItem('loggedIn', '0');
-          setItem('username', '');
-        }
-      });
-    }
-  }, [user, currentStep]);
+  // Removed login status check - guest sessions don't need login
 
   // Log when subscription step is reached
   useEffect(() => {
@@ -208,34 +176,9 @@ const OnboardingScreen: React.FC = () => {
     return userSub;
   };
 
-  const handleLogin = async () => {
-    try {
-      const result = await authorize({
-        scope: 'openid profile email offline_access',
-        audience: 'https://matalkapi-production.up.railway.app/',
-      });
+  // Removed handleLogin - guest sessions don't need login
 
-      if (result?.accessToken) {
-        await setItem('token', result.accessToken);
-      }
-
-      // Do not persist refresh tokens; rely on Auth0 Credentials Manager
-    } catch (e) {
-      console.error('Authorization error:', e);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await clearSession();
-      await setItem('loggedIn', '0');
-      await setItem('username', '');
-      await setItem('token', '');
-      setIsLoggedIn(false);
-    } catch (e) {
-      console.error('Log out error during onboarding:', e);
-    }
-  };
+  // Removed handleLogout - guest sessions don't need logout
 
   const handleBack = () => {
     // Handle going back while skipping family members in easy mode
@@ -260,22 +203,7 @@ const OnboardingScreen: React.FC = () => {
   };
 
   const handleNext = async () => {
-    // Handle login step
-    if (onboardingSteps[currentStep].id === 'login') {
-      if (!isLoggedIn) {
-        // Don't proceed if not logged in
-        return;
-      }
-
-      // Save user data when login is successful
-      if (user) {
-        const userId = user.sub?.toString() || '';
-
-        await setItem('auth0Id', userId);
-        await setItem('loggedIn', '1');
-        await setItem('username', user.name || '');
-      }
-    }
+    // Removed login step logic - guest sessions don't need login
 
     // Skip family members step if in easy mode
     const shouldSkipFamilyMembers =
@@ -365,51 +293,7 @@ const OnboardingScreen: React.FC = () => {
             </View>
           </View>
         );
-      case 'login':
-        return (
-          <View style={styles.loginContainer}>
-            <View style={styles.loginContent}>
-              {!isLoggedIn ? (
-                <>
-                  <TouchableOpacity
-                    style={styles.loginButton}
-                    onPress={handleLogin}
-                    disabled={authLoading}>
-                    <Text
-                      style={[
-                        styles.loginButtonText,
-                        {fontSize: nextButtonTextFontSize},
-                      ]}>
-                      {authLoading ? 'Signing In...' : 'Sign In'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text
-                    style={[
-                      styles.permissionsExplanation,
-                      {width: '80%', marginTop: 4, fontStyle: 'italic'},
-                    ]}>
-                    In order to use the app you must login. The next button will
-                    be disabled until you are logged in.
-                  </Text>
-                </>
-              ) : (
-                <View style={styles.loggedInContainer}>
-                  <Text style={styles.loggedInText}>
-                    Welcome, {user?.name || 'User'}!
-                  </Text>
-                  <Text style={styles.loggedInSubtext}>
-                    You're successfully signed in
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.logoutButton}
-                    onPress={handleLogout}>
-                    <Text style={styles.logoutButtonText}>Logout</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </View>
-        );
+      // Removed login case - guest sessions don't need login
       case 'subscription-selection':
         return (
           <>
@@ -1213,7 +1097,6 @@ const OnboardingScreen: React.FC = () => {
                 handleNext();
               }}
               disabled={
-                (currentStepData.id === 'login' && !isLoggedIn) ||
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
                 (currentStepData.id === 'admin-code' &&

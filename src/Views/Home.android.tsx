@@ -39,6 +39,7 @@ import {views} from '../utils/constants';
 import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import WhisperService from '../utils/WhisperService';
+import {useDatabase} from '../contexts/DatabaseContext';
 
 const {width, height} = Dimensions.get('window');
 
@@ -64,6 +65,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
   const {getItem, preferences} = useAppSettings();
+  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
 
@@ -105,6 +107,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     return fallbackUrl || '';
   };
 
+  // Function to log word selection to database
+  const logWordSelection = async (word: string, source: 'Home' | 'Convo') => {
+    try {
+      await addUtterance({
+        word: word.trim(),
+        dateof: new Date(),
+        source: source,
+      });
+    } catch (error) {
+      console.error('Error logging word selection:', error);
+      // Fail silently as requested
+    }
+  };
+
   // Function to manage conversation history with sliding window
   const addToConversationHistory = (
     userMessage: string,
@@ -140,6 +156,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [conversationHistory, setConversationHistory] = useState<
     Array<{role: 'user' | 'assistant'; content: string; timestamp: number}>
   >([]);
+
+  // AI Resolved tracking state
+  const [currentAIRecord, setCurrentAIRecord] = useState<{
+    question: string;
+    round1Answers: string[];
+    round1Picked?: string;
+    round2Answers?: string[];
+    round2Picked?: string;
+    round3Answers?: string[];
+    round3Picked?: string;
+    currentRound: number;
+  } | null>(null);
 
   // Responsive values based on device type
   const responsiveValues = {
@@ -257,6 +285,47 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const MAX_RETRIES = 3;
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
+  // AI response timer state
+  const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
+    null,
+  );
+  const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Function to start AI response timer
+  const startResponseTimer = () => {
+    const startTime = Date.now();
+    setResponseTimerStart(startTime);
+  };
+
+  // Function to stop AI response timer and log the duration
+  const stopResponseTimer = async (
+    action: 'home' | 'card' | 'more_answers',
+  ) => {
+    if (responseTimerStart) {
+      const duration = Date.now() - responseTimerStart;
+
+      // Only log to database if it's a card selection (not home or more answers)
+      if (action === 'card') {
+        try {
+          await addAIResponseTime({
+            timetotap: duration,
+            dateof: new Date(),
+          });
+        } catch (error) {
+          console.error('Error logging AI response time:', error);
+        }
+      }
+
+      setResponseTimerStart(null);
+    }
+
+    // Clear any existing timer
+    if (responseTimerRef.current) {
+      clearTimeout(responseTimerRef.current);
+      responseTimerRef.current = null;
+    }
+  };
+
   // Flag to disable metering for performance
   const DISABLE_METERING = false;
 
@@ -361,6 +430,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         } catch (error) {
           console.error('Error cleaning up AudioRecord:', error);
         }
+      }
+
+      // Cleanup response timer
+      if (responseTimerRef.current) {
+        clearTimeout(responseTimerRef.current);
+        responseTimerRef.current = null;
       }
     };
   }, []);
@@ -727,7 +802,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                 conversationHistory: conversationHistory, // Include conversation history
               },
               countMin: 5,
-              countMax: 10,
+              countMax: 5,
               genderType: preferences?.gender || 'white boy',
             });
 
@@ -751,6 +826,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               setDirectAnswers(processedAnswers);
               setIsProcessingAnswer(false);
               setShowImages(true);
+              startResponseTimer();
+
+              // Initialize AI Resolved record for Round 1
+              const answerWords = processedAnswers.map(answer => answer.word);
+              setCurrentAIRecord({
+                question: transcribedText,
+                round1Answers: answerWords,
+                currentRound: 1,
+              });
 
               // Add to conversation history
               const assistantResponse = processedAnswers
@@ -808,6 +892,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   // Reset function for local states
   const resetLocalStates = () => {
+    // Stop response timer if running
+    stopResponseTimer('home');
+
     setFinishedTranscribing(false);
     setTranscribedText('');
     setShowImages(false);
@@ -824,6 +911,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
     setConversationHistory([]); // Clear conversation history
+    setCurrentAIRecord(null); // Clear AI Resolved record
     // Note: Don't reset cachedUseLocalWhisper as it won't change during session
 
     // Clear the input in the Inputs component
@@ -856,10 +944,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       return;
     }
 
+    // Stop current response timer
+    stopResponseTimer('more_answers');
+
     try {
       setIsRetrying(true);
       setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
+
+      // Capture current answers before clearing to pass as prior
+      const priorAnswers = directAnswers
+        .map(answer => answer.word)
+        .filter(word => word); // Get the 5 words that were shown
+
       // Clear old images immediately to prevent flickering
       setDirectAnswers([]);
       setRetryCount(prev => prev + 1);
@@ -884,8 +981,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           pepes: parsedPepes, // Include pepes data for better context
           conversationHistory: conversationHistory, // Include conversation history
         },
+        prior: {
+          answers: priorAnswers, // Pass the 5 current answers so they aren't shown again
+        },
         countMin: 5,
-        countMax: 10,
+        countMax: 5,
         genderType: preferences?.gender || 'white boy',
       });
 
@@ -908,6 +1008,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         setIsProcessingAnswer(false);
         setIsRetrying(false);
         setShowImages(true);
+        startResponseTimer();
+
+        // Update AI Resolved record for next round
+        if (currentAIRecord && currentAIRecord.currentRound < 3) {
+          const answerWords = processedAnswers.map(answer => answer.word);
+          const nextRound = currentAIRecord.currentRound + 1;
+
+          setCurrentAIRecord({
+            ...currentAIRecord,
+            currentRound: nextRound,
+            [`round${nextRound}Answers`]: answerWords,
+          });
+        }
 
         // Add to conversation history
         const assistantResponse = processedAnswers
@@ -935,6 +1048,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       return;
     }
 
+    // Stop response timer if running
+    stopResponseTimer('card');
+
     // Extract all possible answers from directAnswers
     const possibleAnswers = directAnswers
       .filter(item => item && item.word)
@@ -946,6 +1062,52 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       possibleAnswers: possibleAnswers,
       answerPicked: selectedAnswer,
     });
+
+    // Log the selected word to database (only if it's not "MoreAnswers")
+    if (selectedAnswer !== 'MoreAnswers') {
+      await logWordSelection(selectedAnswer, 'Home');
+    }
+
+    // Update AI Resolved record with the selected answer
+    if (currentAIRecord) {
+      const updatedRecord = {...currentAIRecord};
+
+      if (currentAIRecord.currentRound === 1) {
+        updatedRecord.round1Picked = selectedAnswer;
+      } else if (currentAIRecord.currentRound === 2) {
+        updatedRecord.round2Picked = selectedAnswer;
+      } else if (currentAIRecord.currentRound === 3) {
+        updatedRecord.round3Picked = selectedAnswer;
+      }
+
+      // If it's a final answer (not "MoreAnswers"), save to database
+      if (selectedAnswer !== 'MoreAnswers') {
+        try {
+          await addAIResolved({
+            question: updatedRecord.question,
+            dateof: new Date(),
+            round1_answers: JSON.stringify(updatedRecord.round1Answers),
+            round1_picked: updatedRecord.round1Picked,
+            round2_answers: updatedRecord.round2Answers
+              ? JSON.stringify(updatedRecord.round2Answers)
+              : undefined,
+            round2_picked: updatedRecord.round2Picked,
+            round3_answers: updatedRecord.round3Answers
+              ? JSON.stringify(updatedRecord.round3Answers)
+              : undefined,
+            round3_picked: updatedRecord.round3Picked,
+          });
+        } catch (error) {
+          console.error('Error saving AI Resolved record:', error);
+        }
+
+        // Clear the current AI record
+        setCurrentAIRecord(null);
+      } else {
+        // Update the current record for next round
+        setCurrentAIRecord(updatedRecord);
+      }
+    }
 
     // Send the selected answer back for learning feedback
     try {

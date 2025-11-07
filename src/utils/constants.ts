@@ -6,6 +6,8 @@ import FastImage from 'react-native-fast-image';
 type Views = {
   HOME: string;
   SETTINGS: string;
+  REPORTS: string;
+  METRIC_DETAIL: string;
   AUTHORS: string;
   INITVIEW: string;
   SETUP: string;
@@ -45,6 +47,8 @@ type CarouselItem = {
 export const views: Views = {
   HOME: 'HOME',
   SETTINGS: 'view.SETTINGS',
+  REPORTS: 'view.REPORTS',
+  METRIC_DETAIL: 'view.METRIC_DETAIL',
   AUTHORS: 'AUTHORS',
   INITVIEW: 'view.INITVIEW',
   SETUP: 'view.SETUP',

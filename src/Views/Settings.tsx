@@ -16,12 +16,17 @@ import {
   Keyboard,
 } from 'react-native';
 import Video from 'react-native-video';
-import {useNavigation, CommonActions} from '@react-navigation/native';
+import {
+  useNavigation,
+  CommonActions,
+  useFocusEffect,
+  useRoute,
+} from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import {getSubscriptionStatus} from '../utils/trialUtils';
-import {useAuth0} from 'react-native-auth0';
+import {sessionManager} from '../utils/sessionManager';
 import {useAdmin} from '../contexts/adminContext';
 import {stacks, views} from '../utils/constants';
 import Slider from '@react-native-community/slider';
@@ -34,9 +39,24 @@ import fetchHelper from '../utils/fetcher';
 import Subscription from '../Components/Subscription';
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
+import AppRatingModal from '../Components/AppRatingModal';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
+
+// Base URL for remote video assets
+const VIDEO_BASE_URL = 'https://pub-478619cacb0f41448d8ea23825356593.r2.dev/';
+
+/**
+ * Builds a video URL from a video name
+ * @param videoName - The name of the video file (e.g., "homescreen", "reports")
+ * @returns Video source object with URI for react-native-video
+ */
+const getVideoUrl = (videoName: string): {uri: string} => {
+  return {
+    uri: `${VIDEO_BASE_URL}${videoName}.mp4`,
+  };
+};
 
 type WebViewParams = {
   url: string;
@@ -188,8 +208,9 @@ const RangeSlider = ({
 
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const route = useRoute();
   const {preferences, setItem, getItem, clear} = useAppSettings();
-  const {user, clearSession} = useAuth0();
+  // Removed Auth0 - using guest sessions
   const {isTablet} = useAdmin();
 
   const [returnedMessages, setReturnedMessages] = useState(5);
@@ -246,15 +267,16 @@ const SettingsScreen: React.FC = () => {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [watchedVideos, setWatchedVideos] = useState<Set<number>>(new Set());
   const [sessionResetTrigger, setSessionResetTrigger] = useState(0);
+  const [showRatingModal, setShowRatingModal] = useState(false);
 
-  // Video list for navigation
+  // Video list for navigation - using remote URLs
   const videoList = [
-    require('../assets/movie/meetVerbi.mp4'),
-    require('../assets/movie/homescreen.mp4'),
-    require('../assets/movie/question.mp4'),
-    require('../assets/movie/convo.mp4'),
-    require('../assets/movie/personalization.mp4'),
-    require('../assets/movie/quick.mp4'),
+    'homescreen',
+    'question',
+    'convo',
+    'reports',
+    'personalization',
+    'boardCustomize',
   ];
 
   const genderWrapperStyle = [
@@ -367,14 +389,53 @@ const SettingsScreen: React.FC = () => {
     preferences.trialInstallationDate,
   ]);
 
-  const handleLogout = async () => {
-    try {
-      await clearSession();
-      await setItem('loggedIn', '0');
-      await setItem('username', '');
-      navigation.navigate(views.LOGIN as never);
-    } catch (e) {}
+  // Detect navigation from Reports and show rating modal
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkForRatingPrompt = async () => {
+        try {
+          // Get route params to check if we came from Reports
+          const params = (route.params as any) || {};
+          const fromReports = params.fromReports === true;
+
+          if (fromReports) {
+            // Check if user has already dismissed the prompt
+            const ratingPromptShown = await getItem('ratingPromptShown');
+            const ratingPromptDismissed = await getItem(
+              'ratingPromptDismissed',
+            );
+
+            // Only show if not permanently dismissed
+            // Allow showing again if user hasn't permanently dismissed it
+            if (ratingPromptDismissed !== '1') {
+              // Small delay to ensure screen is fully rendered
+              setTimeout(() => {
+                setShowRatingModal(true);
+                if (ratingPromptShown !== '1') {
+                  setItem('ratingPromptShown', '1');
+                }
+              }, 500);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking for rating prompt:', error);
+        }
+      };
+
+      checkForRatingPrompt();
+    }, [route, getItem, setItem]),
+  );
+
+  const handleRatingModalClose = async () => {
+    setShowRatingModal(false);
   };
+
+  const handleRatingModalDismiss = async () => {
+    // Mark as permanently dismissed so it never shows again
+    await setItem('ratingPromptDismissed', '1');
+  };
+
+  // Removed logout functionality - guest sessions don't need logout
 
   const handleLinkPress = (url: string, title: string) => {
     navigation.navigate(
@@ -484,12 +545,12 @@ const SettingsScreen: React.FC = () => {
 
   const handleDeleteAccount = async () => {
     Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action is irreversible. All your data will be deleted.You will be logged out and will need to signup again as we will also delete your assistant.',
+      'Reset Installation',
+      'Are you sure you want to reset your installation? This action is irreversible. All your data will be deleted and you will need to go through onboarding again.',
       [
         {text: 'Cancel', style: 'cancel'},
         {
-          text: 'Delete',
+          text: 'Reset',
           style: 'destructive',
           onPress: async () => {
             deleteAccount();
@@ -500,54 +561,69 @@ const SettingsScreen: React.FC = () => {
   };
 
   const deleteAccount = async () => {
+    // For guest sessions, reset the installation instead of deleting account
     await setItem('wasOnboarded', '0');
 
-    await fetchHelper(
-      'deleteAccount',
-      {},
-      {assistantId: preferences.assistantId, userId: user?.sub?.toString()},
-    );
-    await setItem('token', '');
+    // Call the delete assistant endpoint if we have an assistant ID
+    if (preferences.assistantId) {
+      try {
+        await fetchHelper(
+          'deleteAccount',
+          {},
+          {assistantId: preferences.assistantId, userId: 'guest'},
+        );
+      } catch (error) {
+        console.error('Error deleting assistant:', error);
+      }
+    }
 
-    Alert.alert('Account deleted', '', [
-      {
-        text: 'OK',
-        style: 'destructive',
-        onPress: async () => {
-          await setItem('wasOnboarded', '0');
-          await setItem('showInit', '0');
-          await setItem('loggedIn', '0');
-          await setItem('username', '');
-          await setItem('assistantId', '');
-          await setItem('conversationMode', 'easy');
-          await setItem('gobackAfterSelection', '1');
-          await setItem('returnedMessages', '5');
-          await setItem('topicsCount', '4');
-          await setItem('actionsCount', '4');
-          await setItem('objectsCount', '4');
-          await setItem('gender', '');
-          await setItem('familyPicsData', '');
-          await setItem('specialPlaces', '');
-          await setItem('pepes', '');
-          await setItem('homeAddress', '');
-          await setItem('homeIsCurrentLocation', '0');
-          await setItem('schoolAddress', '');
-          await setItem('schoolIsCurrentLocation', '0');
-          await setItem('therapyAddress', '');
-          await setItem('therapyIsCurrentLocation', '0');
-          await setItem('wasLocationOnboarded', '0');
-          await setItem('adminCode', '');
-          await setItem('wasWelcomed', '0');
-          await setItem('threadCreatedAt', '');
-          await setItem('auth0Id', '');
-          await setItem('assistantId', '');
-          await setItem('heroName', '');
-          await setItem('handshakeMessage', '');
+    Alert.alert(
+      'Installation Reset',
+      'Your installation has been reset. The app will restart with a fresh setup.',
+      [
+        {
+          text: 'OK',
+          style: 'destructive',
+          onPress: async () => {
+            // Reset all user data and session
+            await setItem('wasOnboarded', '0');
+            await setItem('showInit', '0');
+            await setItem('loggedIn', '0');
+            await setItem('username', '');
+            await setItem('assistantId', '');
+            await setItem('conversationMode', 'easy');
+            await setItem('gobackAfterSelection', '1');
+            await setItem('returnedMessages', '5');
+            await setItem('topicsCount', '4');
+            await setItem('actionsCount', '4');
+            await setItem('objectsCount', '4');
+            await setItem('gender', '');
+            await setItem('familyPicsData', '');
+            await setItem('specialPlaces', '');
+            await setItem('pepes', '');
 
-          await handleLogout();
+            // Reset guest session
+            await sessionManager.resetInstallation();
+            await setItem('homeAddress', '');
+            await setItem('homeIsCurrentLocation', '0');
+            await setItem('schoolAddress', '');
+            await setItem('schoolIsCurrentLocation', '0');
+            await setItem('therapyAddress', '');
+            await setItem('therapyIsCurrentLocation', '0');
+            await setItem('wasLocationOnboarded', '0');
+            await setItem('adminCode', '');
+            await setItem('wasWelcomed', '0');
+            await setItem('threadCreatedAt', '');
+            await setItem('auth0Id', '');
+            await setItem('assistantId', '');
+            await setItem('heroName', '');
+            await setItem('handshakeMessage', '');
+
+            // Removed handleLogout call - guest sessions don't need logout
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const cancelAdminCodeEdit = () => {
@@ -702,11 +778,11 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
-  const handleVideoCardPress = (videoSource: any) => {
-    const index = videoList.findIndex(video => video === videoSource);
+  const handleVideoCardPress = (videoName: string) => {
+    const index = videoList.findIndex(video => video === videoName);
     const videoIndex = index >= 0 ? index : 0;
     setCurrentVideoIndex(videoIndex);
-    setSelectedVideoSource(videoSource);
+    setSelectedVideoSource(videoName);
     setShowVideoModal(true);
     // Mark video as watched when opened
     markVideoAsWatched(videoIndex);
@@ -749,7 +825,7 @@ const SettingsScreen: React.FC = () => {
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
+          onPress={() => navigation.navigate(views.OPEN)}>
           <Text style={styles.backButtonText}>←</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
@@ -758,15 +834,6 @@ const SettingsScreen: React.FC = () => {
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
-
-          <View style={styles.profileSection}>
-            <View style={styles.profileInfo}>
-              <Text style={styles.userName}>{user?.name || 'User'}</Text>
-              <Text style={styles.userEmail}>
-                {user?.email || 'No email provided'}
-              </Text>
-            </View>
-          </View>
 
           {/* Subscription Status */}
           <View
@@ -793,16 +860,16 @@ const SettingsScreen: React.FC = () => {
               {subscriptionStatusText}
             </Text>
           </View>
-          <View
-            style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
-            <Subscription
-              setGotSubscription={setShowSubscription}
-              context="settings"
-            />
-          </View>
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Log Out</Text>
-          </Pressable>
+          {preferences.isIOSActive !== '1' && (
+            <View
+              style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
+              <Subscription
+                setGotSubscription={setShowSubscription}
+                context="settings"
+              />
+            </View>
+          )}
+          {/* Removed logout button - guest sessions don't need logout */}
         </View>
 
         {showAccountSettings && (
@@ -976,6 +1043,114 @@ const SettingsScreen: React.FC = () => {
             </View>
 
             <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                Reports : Analytics & Insights
+              </Text>
+              <Text style={styles.aboutDescription}>
+                View detailed analytics and insights about usage, performance,
+                and engagement metrics.
+              </Text>
+              <View style={styles.reportsCardsContainer}>
+                <TouchableOpacity
+                  style={styles.reportsCard}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  <View style={styles.reportsCardContent}>
+                    <Text style={styles.reportsCardTitle}>
+                      Total Utterances
+                    </Text>
+                    <Text style={styles.reportsCardInsight}>
+                      Track usage patterns and most frequently used words
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.reportsCardButton}
+                      activeOpacity={0.8}
+                      onPress={e => {
+                        e.stopPropagation();
+                        navigation.navigate(views.REPORTS);
+                      }}>
+                      <Text style={styles.reportsCardButtonText}>
+                        enter reports
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.reportsCard}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  <View style={styles.reportsCardContent}>
+                    <Text style={styles.reportsCardTitle}>
+                      Classic Words Board
+                    </Text>
+                    <Text style={styles.reportsCardInsight}>
+                      Monitor sentence building speed and efficiency
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.reportsCardButton}
+                      activeOpacity={0.8}
+                      onPress={e => {
+                        e.stopPropagation();
+                        navigation.navigate(views.REPORTS);
+                      }}>
+                      <Text style={styles.reportsCardButtonText}>
+                        enter reports
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.reportsCard}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  <View style={styles.reportsCardContent}>
+                    <Text style={styles.reportsCardTitle}>
+                      AI Response Time
+                    </Text>
+                    <Text style={styles.reportsCardInsight}>
+                      Analyze how quickly questions are answered
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.reportsCardButton}
+                      activeOpacity={0.8}
+                      onPress={e => {
+                        e.stopPropagation();
+                        navigation.navigate(views.REPORTS);
+                      }}>
+                      <Text style={styles.reportsCardButtonText}>
+                        enter reports
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.reportsCard}
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  <View style={styles.reportsCardContent}>
+                    <Text style={styles.reportsCardTitle}>
+                      AI Questions Answered
+                    </Text>
+                    <Text style={styles.reportsCardInsight}>
+                      See question resolution rates and rounds needed
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.reportsCardButton}
+                      activeOpacity={0.8}
+                      onPress={e => {
+                        e.stopPropagation();
+                        navigation.navigate(views.REPORTS);
+                      }}>
+                      <Text style={styles.reportsCardButtonText}>
+                        enter reports
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Help and Learn Center</Text>
               <Text style={styles.aboutDescription}>
                 Your help and learn center for getting started with MaTalk AI.
@@ -993,14 +1168,10 @@ const SettingsScreen: React.FC = () => {
                       styles.checklistCard,
                       isTablet && styles.checklistCardTablet,
                     ]}
-                    onPress={() =>
-                      handleVideoCardPress(
-                        require('../assets/movie/meetVerbi.mp4'),
-                      )
-                    }>
+                    onPress={() => handleVideoCardPress('homescreen')}>
                     <View style={styles.videoContainer}>
                       <Video
-                        source={require('../assets/movie/meetVerbi.mp4')}
+                        source={getVideoUrl('homescreen')}
                         style={styles.video}
                         resizeMode="cover"
                         paused={true}
@@ -1009,51 +1180,6 @@ const SettingsScreen: React.FC = () => {
                         controls={false}
                       />
                       {watchedVideos.has(0) && (
-                        <View
-                          style={[
-                            styles.videoHeartOverlay,
-                            isTablet && styles.videoHeartOverlayTablet,
-                          ]}>
-                          <Text
-                            style={[
-                              styles.videoHeartIcon,
-                              isTablet && styles.videoHeartIconTablet,
-                            ]}>
-                            ♥
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
-                      style={[
-                        styles.checklistCardTitle,
-                        isTablet && styles.checklistCardTitleTablet,
-                      ]}>
-                      Meet Verbi
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.checklistCard,
-                      isTablet && styles.checklistCardTablet,
-                    ]}
-                    onPress={() =>
-                      handleVideoCardPress(
-                        require('../assets/movie/homescreen.mp4'),
-                      )
-                    }>
-                    <View style={styles.videoContainer}>
-                      <Video
-                        source={require('../assets/movie/homescreen.mp4')}
-                        style={styles.video}
-                        resizeMode="cover"
-                        paused={true}
-                        muted={true}
-                        repeat={false}
-                        controls={false}
-                      />
-                      {watchedVideos.has(1) && (
                         <View
                           style={[
                             styles.videoHeartOverlay,
@@ -1083,14 +1209,10 @@ const SettingsScreen: React.FC = () => {
                       styles.checklistCard,
                       isTablet && styles.checklistCardTablet,
                     ]}
-                    onPress={() =>
-                      handleVideoCardPress(
-                        require('../assets/movie/question.mp4'),
-                      )
-                    }>
+                    onPress={() => handleVideoCardPress('question')}>
                     <View style={styles.videoContainer}>
                       <Video
-                        source={require('../assets/movie/question.mp4')}
+                        source={getVideoUrl('question')}
                         style={styles.video}
                         resizeMode="cover"
                         paused={true}
@@ -1098,7 +1220,7 @@ const SettingsScreen: React.FC = () => {
                         repeat={false}
                         controls={false}
                       />
-                      {watchedVideos.has(2) && (
+                      {watchedVideos.has(1) && (
                         <View
                           style={[
                             styles.videoHeartOverlay,
@@ -1128,12 +1250,10 @@ const SettingsScreen: React.FC = () => {
                       styles.checklistCard,
                       isTablet && styles.checklistCardTablet,
                     ]}
-                    onPress={() =>
-                      handleVideoCardPress(require('../assets/movie/convo.mp4'))
-                    }>
+                    onPress={() => handleVideoCardPress('convo')}>
                     <View style={styles.videoContainer}>
                       <Video
-                        source={require('../assets/movie/convo.mp4')}
+                        source={getVideoUrl('convo')}
                         style={styles.video}
                         resizeMode="cover"
                         paused={true}
@@ -1141,7 +1261,7 @@ const SettingsScreen: React.FC = () => {
                         repeat={false}
                         controls={false}
                       />
-                      {watchedVideos.has(3) && (
+                      {watchedVideos.has(2) && (
                         <View
                           style={[
                             styles.videoHeartOverlay,
@@ -1171,14 +1291,51 @@ const SettingsScreen: React.FC = () => {
                       styles.checklistCard,
                       isTablet && styles.checklistCardTablet,
                     ]}
-                    onPress={() =>
-                      handleVideoCardPress(
-                        require('../assets/movie/personalization.mp4'),
-                      )
-                    }>
+                    onPress={() => handleVideoCardPress('reports')}>
                     <View style={styles.videoContainer}>
                       <Video
-                        source={require('../assets/movie/personalization.mp4')}
+                        source={getVideoUrl('reports')}
+                        style={styles.video}
+                        resizeMode="cover"
+                        paused={true}
+                        muted={true}
+                        repeat={false}
+                        controls={false}
+                      />
+                      {watchedVideos.has(3) && (
+                        <View
+                          style={[
+                            styles.videoHeartOverlay,
+                            isTablet && styles.videoHeartOverlayTablet,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.videoHeartIcon,
+                              isTablet && styles.videoHeartIconTablet,
+                            ]}>
+                            ♥
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text
+                      style={[
+                        styles.checklistCardTitle,
+                        isTablet && styles.checklistCardTitleTablet,
+                      ]}>
+                      Reports
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.checklistCard,
+                      isTablet && styles.checklistCardTablet,
+                    ]}
+                    onPress={() => handleVideoCardPress('personalization')}>
+                    <View style={styles.videoContainer}>
+                      <Video
+                        source={getVideoUrl('personalization')}
                         style={styles.video}
                         resizeMode="cover"
                         paused={true}
@@ -1216,12 +1373,10 @@ const SettingsScreen: React.FC = () => {
                       styles.checklistCard,
                       isTablet && styles.checklistCardTablet,
                     ]}
-                    onPress={() =>
-                      handleVideoCardPress(require('../assets/movie/quick.mp4'))
-                    }>
+                    onPress={() => handleVideoCardPress('boardCustomize')}>
                     <View style={styles.videoContainer}>
                       <Video
-                        source={require('../assets/movie/quick.mp4')}
+                        source={getVideoUrl('boardCustomize')}
                         style={styles.video}
                         resizeMode="cover"
                         paused={true}
@@ -1250,7 +1405,7 @@ const SettingsScreen: React.FC = () => {
                         styles.checklistCardTitle,
                         isTablet && styles.checklistCardTitleTablet,
                       ]}>
-                      Quick Actions
+                      Board Customize
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1635,15 +1790,15 @@ const SettingsScreen: React.FC = () => {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Delete My Account</Text>
+              <Text style={styles.sectionTitle}>Reset Installation</Text>
               <Text style={styles.aboutDescription}>
-                Delete your account and all your data. This action is
+                Reset your installation and delete all your data. This action is
                 irreversible.
               </Text>
               <TouchableOpacity
                 style={styles.deleteAccountButton}
                 onPress={handleDeleteAccount}>
-                <Text style={styles.logoutText}>Delete Account</Text>
+                <Text style={styles.logoutText}>Reset Installation</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -1705,22 +1860,19 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>MaTalk AI v1.6.21</Text>
+            <Text style={styles.aboutText}>MaTalk AI v1.8</Text>
           </TouchableOpacity>
 
-          {showAssistantId &&
-            (user?.email === 'lori@verbali.io' ||
-              user?.email === 'shay@verbali.io' ||
-              user?.email === 'loria33@gmail.com') && (
-              <>
-                <TouchableOpacity
-                  onPress={() => {
-                    setItem('isIOSActive', '1');
-                  }}>
-                  <Text style={styles.aboutText}>Reset isIOSActive</Text>
-                </TouchableOpacity>
-              </>
-            )}
+          {showAssistantId && (
+            <>
+              <TouchableOpacity
+                onPress={() => {
+                  setItem('isIOSActive', '1');
+                }}>
+                <Text style={styles.aboutText}>Reset isIOSActive</Text>
+              </TouchableOpacity>
+            </>
+          )}
           <Text style={styles.aboutDescription}>
             MaTalk AI is a communication tool designed to help users interact
             more effectively.
@@ -1780,6 +1932,13 @@ const SettingsScreen: React.FC = () => {
             </View>
           </View>
         </Modal>
+
+        {/* App Rating Modal */}
+        <AppRatingModal
+          visible={showRatingModal}
+          onClose={handleRatingModalClose}
+          onDismiss={handleRatingModalDismiss}
+        />
       </ScrollView>
     </LinearGradient>
   );
@@ -1919,6 +2078,78 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#8E24AA',
     fontWeight: '500',
+  },
+  reportsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#f0f0f0',
+  },
+  reportsButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+  },
+  reportsCardsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
+    marginTop: 10,
+  },
+  reportsCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 4,
+    borderWidth: 2,
+    borderColor: '#B3E5FC',
+    minWidth: SCREEN_WIDTH * 0.2,
+    minHeight: height * 0.12,
+  },
+  reportsCardContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportsCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  reportsCardInsight: {
+    fontSize: 11,
+    color: '#666',
+    lineHeight: 14,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  reportsCardButton: {
+    backgroundColor: '#34c759',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginTop: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reportsCardButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'lowercase',
   },
   valueText: {
     fontSize: 14,
