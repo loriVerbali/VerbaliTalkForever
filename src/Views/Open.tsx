@@ -591,9 +591,7 @@ const OpenScreen: React.FC = () => {
                 <View style={styles.rowContent}>
                   <Pressable
                     style={styles.tileWrapper}
-                    onPress={() =>
-                      connectionState ? handleNavigation('Talk') : null
-                    }>
+                    onPress={() => handleNavigation('Talk')}>
                     <View style={styles.imageWrapper}>
                       {connectionState ? (
                         <FastImage
