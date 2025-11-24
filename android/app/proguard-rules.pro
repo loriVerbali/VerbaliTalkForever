@@ -31,3 +31,6 @@
 
 # Keep wakeword related classes
 -keep class com.reactnativewakeword.** { *; }
+
+# whisper.rn
+-keep class com.rnwhisper.** { *; }

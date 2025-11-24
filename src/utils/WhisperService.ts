@@ -1,6 +1,7 @@
 import RNFS from 'react-native-fs';
 import {Platform} from 'react-native';
 import {MODEL_CONFIG} from './constants';
+import {detectDeviceCapabilities} from './deviceDetection';
 
 // Import whisper.rn
 let initWhisper: any;
@@ -25,6 +26,8 @@ class WhisperService {
   private initializationChecked: boolean = false; // optimization 6
   private modelPath: string = '';
   private whisperContext: any = null;
+  private useGpu: boolean = true; // Will be determined based on device
+  private isLowEndDevice: boolean = false; // Cached device capability
 
   private constructor() {
     // Private constructor for singleton
@@ -35,6 +38,41 @@ class WhisperService {
       WhisperService.instance = new WhisperService();
     }
     return WhisperService.instance;
+  }
+
+  /**
+   * Detect if device is low-end and should use CPU instead of GPU
+   * Pi-3 tablets and similar low-end devices benefit from CPU mode
+   */
+  private async detectDeviceCapabilities(): Promise<void> {
+    if (this.initializationChecked) {
+      return; // Already detected
+    }
+
+    try {
+      const capabilities = await detectDeviceCapabilities();
+      this.isLowEndDevice = capabilities.isLowEndDevice;
+
+      // On low-end devices, CPU is often faster than GPU
+      // GPU on these devices is usually weak and can cause slowdowns
+      this.useGpu = !this.isLowEndDevice;
+
+      console.log(
+        `🔍 Device detection: Model=${capabilities.deviceModel}, Brand=${capabilities.deviceBrand}, ` +
+          `RAM=${capabilities.totalMemoryMB.toFixed(0)}MB, LowEnd=${
+            this.isLowEndDevice
+          }, ` +
+          `UseGPU=${this.useGpu}`,
+      );
+    } catch (error) {
+      console.warn(
+        '⚠️ Error detecting device capabilities, defaulting to CPU:',
+        error,
+      );
+      // Default to CPU on error to be safe
+      this.isLowEndDevice = true;
+      this.useGpu = false;
+    }
   }
 
   /**
@@ -49,8 +87,13 @@ class WhisperService {
         return false;
       }
 
-      // Check if model file exists
-      const whisperFileName = MODEL_CONFIG.getWhisperModelFileName();
+      // Detect device capabilities first
+      await this.detectDeviceCapabilities();
+
+      // Check if model file exists (use appropriate model for device)
+      const whisperFileName = MODEL_CONFIG.getWhisperModelFileName(
+        this.isLowEndDevice,
+      );
       this.modelPath = `${RNFS.DocumentDirectoryPath}/${whisperFileName}`;
 
       const modelExists = await RNFS.exists(this.modelPath);
@@ -60,26 +103,71 @@ class WhisperService {
         return false;
       }
 
-      // Verify model file size
+      // Verify model file size (different thresholds for different models)
       const stats = await RNFS.stat(this.modelPath);
-      if (stats.size < 100 * 1024 * 1024) {
-        console.warn('Whisper model file seems too small, might be corrupted');
+      const minSize = this.isLowEndDevice
+        ? 50 * 1024 * 1024 // 50MB for tiny model
+        : 100 * 1024 * 1024; // 100MB for small model
+      if (stats.size < minSize) {
+        console.warn(
+          `Whisper model file seems too small (${(
+            stats.size /
+            1024 /
+            1024
+          ).toFixed(2)}MB), might be corrupted`,
+        );
       }
 
-      // Initialize Whisper context
-      this.whisperContext = await initWhisper({
-        filePath: this.modelPath,
-        isBundleAsset: false,
-        useGpu: true,
-      });
+      // Try to initialize with detected GPU preference
+      // If GPU fails on low-end device, fallback to CPU
+      let initAttempts = 0;
+      const maxAttempts = this.isLowEndDevice ? 1 : 2; // Only try GPU once on low-end, allow retry on others
 
-      if (!this.whisperContext) {
-        console.error('❌ Failed to initialize Whisper context');
-        return false;
+      while (initAttempts < maxAttempts) {
+        try {
+          console.log(
+            `🚀 Initializing Whisper with ${
+              this.useGpu ? 'GPU' : 'CPU'
+            } mode (attempt ${initAttempts + 1})`,
+          );
+
+          this.whisperContext = await initWhisper({
+            filePath: this.modelPath,
+            isBundleAsset: false,
+            useGpu: this.useGpu,
+          });
+
+          if (this.whisperContext) {
+            console.log(
+              `✅ Whisper initialized successfully with ${
+                this.useGpu ? 'GPU' : 'CPU'
+              }`,
+            );
+            this.initialized = true;
+            return true;
+          }
+        } catch (gpuError) {
+          console.warn(
+            `⚠️ GPU initialization failed: ${
+              gpuError instanceof Error ? gpuError.message : 'Unknown error'
+            }`,
+          );
+
+          // If GPU failed and we haven't tried CPU yet, fallback to CPU
+          if (this.useGpu && initAttempts < maxAttempts - 1) {
+            console.log('🔄 Falling back to CPU mode...');
+            this.useGpu = false;
+          }
+        }
+
+        initAttempts++;
       }
 
-      this.initialized = true;
-      return true;
+      // If we get here, initialization failed
+      console.error(
+        '❌ Failed to initialize Whisper context after all attempts',
+      );
+      return false;
     } catch (error) {
       console.error('❌ Error initializing Whisper service:', error);
       return false;
@@ -94,14 +182,28 @@ class WhisperService {
       return false;
     }
 
-    const whisperFileName = MODEL_CONFIG.getWhisperModelFileName();
+    // Detect device capabilities to determine which model to check for
+    let deviceIsLowEnd = false;
+    try {
+      const capabilities = await detectDeviceCapabilities();
+      deviceIsLowEnd = capabilities.isLowEndDevice;
+    } catch (error) {
+      console.warn('Error detecting device capabilities:', error);
+      deviceIsLowEnd = true; // Default to low-end on error
+    }
+
+    const whisperFileName =
+      MODEL_CONFIG.getWhisperModelFileName(deviceIsLowEnd);
     const modelPath = `${RNFS.DocumentDirectoryPath}/${whisperFileName}`;
 
     try {
       const exists = await RNFS.exists(modelPath);
       if (exists) {
         const stats = await RNFS.stat(modelPath);
-        const isValidSize = stats.size > 100 * 1024 * 1024; // At least 100MB
+        const minSize = deviceIsLowEnd
+          ? 50 * 1024 * 1024 // 50MB for tiny model
+          : 100 * 1024 * 1024; // 100MB for small model
+        const isValidSize = stats.size > minSize;
 
         return isValidSize;
       } else {
@@ -131,14 +233,28 @@ class WhisperService {
       };
     }
 
-    const whisperFileName = MODEL_CONFIG.getWhisperModelFileName();
+    // Detect device capabilities to determine which model to check for
+    let deviceIsLowEnd = false;
+    try {
+      const capabilities = await detectDeviceCapabilities();
+      deviceIsLowEnd = capabilities.isLowEndDevice;
+    } catch (error) {
+      console.warn('Error detecting device capabilities:', error);
+      deviceIsLowEnd = true; // Default to low-end on error
+    }
+
+    const whisperFileName =
+      MODEL_CONFIG.getWhisperModelFileName(deviceIsLowEnd);
     const modelPath = `${RNFS.DocumentDirectoryPath}/${whisperFileName}`;
 
     try {
       const exists = await RNFS.exists(modelPath);
       if (exists) {
         const stats = await RNFS.stat(modelPath);
-        const isValidSize = stats.size > 100 * 1024 * 1024;
+        const minSize = deviceIsLowEnd
+          ? 50 * 1024 * 1024 // 50MB for tiny model
+          : 100 * 1024 * 1024; // 100MB for small model
+        const isValidSize = stats.size > minSize;
 
         return {
           available: isValidSize,
@@ -213,17 +329,24 @@ class WhisperService {
       //   };
       // }
 
-      // Use the transcription options that work
+      // Optimize transcription options for speed, especially on low-end devices
+      // Lower temperature and bestOf values = faster processing
       const transcriptionOptions = {
         language: 'en',
         translateToEnglish: false,
         wordTimestamps: false,
         outputFormat: 'text',
-        temperature: 0.0,
-        bestOf: 1,
+        temperature: 0.0, // Keep at 0 for deterministic, faster results
+        bestOf: 1, // Single pass for speed (no beam search)
         suppressBlank: true,
         suppressNonSpeechTokens: true,
         initialPrompt: '',
+        // Additional speed optimizations for low-end devices
+        ...(this.isLowEndDevice &&
+          {
+            // On low-end devices, we can skip some processing for speed
+            // These options are already optimal, but we document them here
+          }),
       };
 
       try {
@@ -395,9 +518,9 @@ class WhisperService {
         }
       }
 
-      // Try a minimal transcription test
+      // Try a minimal transcription test with optimized options
       try {
-        const transcribeJob = this.whisperContext.transcribe(audioPath, {
+        const transcriptionOptions = {
           language: 'en',
           translateToEnglish: false,
           wordTimestamps: false,
@@ -407,7 +530,12 @@ class WhisperService {
           suppressBlank: true,
           suppressNonSpeechTokens: true,
           initialPrompt: '',
-        });
+        };
+
+        const transcribeJob = this.whisperContext.transcribe(
+          audioPath,
+          transcriptionOptions,
+        );
 
         const testResult = await transcribeJob.promise;
 

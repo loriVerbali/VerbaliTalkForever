@@ -71,35 +71,6 @@ export const stacks: Stacks = {
   INITSTACK: 'INITSTACK',
 };
 
-export const imageUrl = {
-  url: 'https://niche.ink',
-};
-
-export const carouselData: CarouselItem[] = [
-  {
-    title: 'Welcome to GH Tracker',
-    description: '',
-    subdescription: ' Track your GH treatment with ease',
-    bgColor: '#3B5998',
-    textColor: 'white',
-    subTextColor: 'white',
-    resizeMode: FastImage.resizeMode.cover,
-    pic: require('../assets/welcome.png'),
-    colors: '#AF9B46',
-  },
-  {
-    title: 'Lets get started',
-    description: 'Growing together',
-    subdescription: ' ',
-    bgColor: '#43d854',
-    textColor: 'white',
-    subTextColor: 'white',
-    resizeMode: FastImage.resizeMode.cover,
-    pic: require('../assets/welcome.png'),
-    colors: '#089ACD',
-  },
-];
-
 export const colors = {
   niceBlue: '#19769f',
   shipCove: '#7A8EB1',
@@ -171,36 +142,65 @@ export const MODEL_CONFIG = {
   // - tiny.en (75MB) - Fastest, least accurate
   // - base.en (142MB) - Good balance of speed and accuracy
   // - small.en (466MB) - Better accuracy, slower [CURRENT]
-  WHISPER: {
+  WHISPER_BIG: {
     name: 'Whisper Base English',
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin',
     fileName: 'ggml-small.en.bin',
     size: '466MB',
     description: 'Whisper transcription model for voice-to-text conversion',
   },
+  WHISPER: {
+    name: 'Whisper Tiny Base English',
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
+    fileName: 'ggml-tiny.en.bin',
+    size: '77.7MB',
+    description: 'Whisper transcription model for voice-to-text conversion',
+  },
+  WHISPER_TINY: {
+    name: 'Whisper Tiny English',
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin',
+    fileName: 'ggml-tiny.en-q5_1.bin',
+    size: '32.2MB',
+    description: 'Whisper transcription model for voice-to-text conversion',
+  },
 
-  // Get Whisper model URL
-  getWhisperModelUrl() {
+  // Get Whisper model URL (optionally for low-end devices)
+  getWhisperModelUrl(isLowEndDevice?: boolean) {
+    if (isLowEndDevice) {
+      return this.WHISPER_TINY.url;
+    }
     return this.WHISPER.url;
   },
 
-  // Get Whisper model file name
-  getWhisperModelFileName() {
+  // Get Whisper model file name (optionally for low-end devices)
+  getWhisperModelFileName(isLowEndDevice?: boolean) {
+    if (isLowEndDevice) {
+      return this.WHISPER_TINY.fileName;
+    }
     return this.WHISPER.fileName;
   },
 
-  // Get Whisper model size
-  getWhisperModelSize() {
+  // Get Whisper model size (optionally for low-end devices)
+  getWhisperModelSize(isLowEndDevice?: boolean) {
+    if (isLowEndDevice) {
+      return this.WHISPER_TINY.size;
+    }
     return this.WHISPER.size;
   },
 
-  // Get Whisper model name
-  getWhisperModelName() {
+  // Get Whisper model name (optionally for low-end devices)
+  getWhisperModelName(isLowEndDevice?: boolean) {
+    if (isLowEndDevice) {
+      return this.WHISPER_TINY.name;
+    }
     return this.WHISPER.name;
   },
 
-  // Get Whisper model description
-  getWhisperModelDescription() {
+  // Get Whisper model description (optionally for low-end devices)
+  getWhisperModelDescription(isLowEndDevice?: boolean) {
+    if (isLowEndDevice) {
+      return this.WHISPER_TINY.description;
+    }
     return this.WHISPER.description;
   },
 

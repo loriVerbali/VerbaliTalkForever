@@ -15,6 +15,7 @@ import {MODEL_CONFIG} from '../utils/constants';
 import {useAdmin} from '../contexts/adminContext';
 import WhisperModelManager from '../utils/WhisperModelManager';
 import {useAppSettings} from '../utils/persistance';
+import {detectDeviceCapabilities} from '../utils/deviceDetection';
 
 const {width, height} = Dimensions.get('window');
 
@@ -168,6 +169,7 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({onComplete}) => {
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [currentColor, setCurrentColor] = useState('#333');
   const [isCellular, setIsCellular] = useState(false);
+  const [isLowEndDevice, setIsLowEndDevice] = useState<boolean | null>(null);
   const lastProgressUpdate = useRef(0);
 
   const nextButtonTextFontSize = isTablet ? 20 : 14;
@@ -204,6 +206,29 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({onComplete}) => {
     return () => unsubscribe();
   }, []);
 
+  // Detect device capabilities on mount
+  useEffect(() => {
+    const detectDevice = async () => {
+      try {
+        const capabilities = await detectDeviceCapabilities();
+        setIsLowEndDevice(capabilities.isLowEndDevice);
+        console.log(
+          `📱 Device detected as ${
+            capabilities.isLowEndDevice ? 'low-end' : 'standard'
+          }. Will download ${
+            capabilities.isLowEndDevice ? 'WHISPER_TINY' : 'WHISPER'
+          } model.`,
+        );
+      } catch (error) {
+        console.error('Error detecting device capabilities:', error);
+        // Default to low-end on error to be safe
+        setIsLowEndDevice(true);
+      }
+    };
+
+    detectDevice();
+  }, []);
+
   const startWhisperDownload = async () => {
     try {
       // Check if on cellular and warn user
@@ -235,8 +260,23 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({onComplete}) => {
     try {
       setIsDownloading(true);
       setDownloadProgress(0);
-      const whisperUrl = MODEL_CONFIG.getWhisperModelUrl();
-      const whisperFileName = MODEL_CONFIG.getWhisperModelFileName();
+
+      // Detect device capabilities if not already detected
+      let deviceIsLowEnd = isLowEndDevice;
+      if (deviceIsLowEnd === null) {
+        try {
+          const capabilities = await detectDeviceCapabilities();
+          deviceIsLowEnd = capabilities.isLowEndDevice;
+          setIsLowEndDevice(deviceIsLowEnd);
+        } catch (error) {
+          console.error('Error detecting device capabilities:', error);
+          deviceIsLowEnd = true; // Default to low-end on error
+        }
+      }
+
+      const whisperUrl = MODEL_CONFIG.getWhisperModelUrl(deviceIsLowEnd);
+      const whisperFileName =
+        MODEL_CONFIG.getWhisperModelFileName(deviceIsLowEnd);
       const localPath = `${RNFS.DocumentDirectoryPath}/${whisperFileName}`;
 
       const fileExists = await RNFS.exists(localPath);
@@ -371,7 +411,10 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({onComplete}) => {
                   styles.downloadButtonText,
                   {fontSize: nextButtonTextFontSize},
                 ]}>
-                📥 Download {MODEL_CONFIG.getWhisperModelSize()}
+                📥 Download{' '}
+                {isLowEndDevice !== null
+                  ? MODEL_CONFIG.getWhisperModelSize(isLowEndDevice)
+                  : MODEL_CONFIG.getWhisperModelSize()}
               </Text>
             </TouchableOpacity>
           </>
