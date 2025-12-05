@@ -1,0 +1,70 @@
+    Verbs	    ../../assets/classic/verbs.jpg
+    Food	    ../../assets/classic/food.jpg
+    Things	    ../../assets/classic/things.jpg
+    Places	    ../../assets/classic/places.jpg
+    Pronouns	    ../../assets/classic/pronouns.jpg
+    People	    ../../assets/classic/people.jpg
+    Feelings	    ../../assets/classic/feelings.jpg
+    Shortcuts	    ../../assets/classic/shortcuts.jpg
+    Time	    ../../assets/classic/time.jpg
+    Description	    ../../assets/classic/description.jpg
+    Questions	    ../../assets/classic/questions.jpg
+    More words	    ../../assets/classic/more_words.jpg
+    Profession	    ../../assets/classic/profession.jpg
+    More People	    ../../assets/classic/more_people.jpg
+    Duration	    ../../assets/classic/duration.jpg
+    Times of Day	    ../../assets/classic/times_of_day.jpg
+    Days of Week	    ../../assets/classic/days_of_week.jpg
+    Frequency	    ../../assets/classic/frequency.jpg
+    Months	    ../../assets/classic/months.jpg
+    Seasons	    ../../assets/classic/seasons.jpg
+    Colors	    ../../assets/classic/colors.jpg
+    Size & Length	    ../../assets/classic/size_and_length.jpg
+    Shape	    ../../assets/classic/shape.jpg
+    Texture	    ../../assets/classic/texture.jpg
+    Temperature	    ../../assets/classic/temperature.jpg
+    Quantity	    ../../assets/classic/quantity.jpg
+    Speed	    ../../assets/classic/speed.jpg
+    Sound	    ../../assets/classic/sound.jpg
+    Brightness / Light	    ../../assets/classic/brightness_and_light.jpg
+    Condition / State	    ../../assets/classic/condition_and_state.jpg
+    Taste	    ../../assets/classic/taste.jpg
+    Smell	    ../../assets/classic/smell.jpg
+    Sense & Think	    ../../assets/classic/sense_and_think.jpg
+    Move	    ../../assets/classic/move.jpg
+    Talk & Ask	    ../../assets/classic/talk_and_ask.jpg
+    Food & Drink Actions	    ../../assets/classic/food_and_drink_actions.jpg
+    Body & Self-Care	    ../../assets/classic/body_and_self-care.jpg
+    Home & Chores	    ../../assets/classic/home_and_chores.jpg
+    School & Work	    ../../assets/classic/school_and_work.jpg
+    Play & Create	    ../../assets/classic/play_and_create.jpg
+    Feel & Be	    ../../assets/classic/feel_and_be.jpg
+    Device & Media	    ../../assets/classic/device_and_media.jpg
+    Social & Help	    ../../assets/classic/social_and_help.jpg
+    Time & Routine	    ../../assets/classic/time_and_routine.jpg
+    Toys & Games	    ../../assets/classic/toys_and_games.jpg
+    School Supplies	    ../../assets/classic/school_supplies.jpg
+    Clothing	    ../../assets/classic/clothing.jpg
+    Bathroom	    ../../assets/classic/bathroom.jpg
+    Kitchen	    ../../assets/classic/kitchen.jpg
+    Home & Furniture	    ../../assets/classic/home_and_furniture.jpg
+    Outdoors & Sports	    ../../assets/classic/outdoors_and_sports.jpg
+    Art & Crafts	    ../../assets/classic/art_and_crafts.jpg
+    Electronics	    ../../assets/classic/electronics.jpg
+    Medicine & Care	    ../../assets/classic/medicine_and_care.jpg
+    Transportation	    ../../assets/classic/transportation.jpg
+    Fruits	    ../../assets/classic/fruits.jpg
+    Vegetables	    ../../assets/classic/vegetables.jpg
+    Proteins	    ../../assets/classic/proteins.jpg
+    Grains & Carbs	    ../../assets/classic/grains_and_carbs.jpg
+    Dairy	    ../../assets/classic/dairy.jpg
+    Drinks	    ../../assets/classic/drinks.jpg
+    Snacks	    ../../assets/classic/snacks.jpg
+    Sweets / Desserts	    ../../assets/classic/sweets_desserts.jpg
+    Meals	    ../../assets/classic/meals.jpg
+    Sauces & Condiments	    ../../assets/classic/sauces_and_condiments.jpg
+    Cuisine	    ../../assets/classic/cuisine.jpg
+    Numbers	    ../../assets/classic/numbers.jpg
+    Sight Words	    ../../assets/classic/sight_words.jpg
+    Letters	    ../../assets/classic/letters.jpg
+    Body parts	    ../../assets/classic/body_parts.jpg
