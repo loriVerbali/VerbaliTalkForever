@@ -25,7 +25,6 @@ import {
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
-import {getSubscriptionStatus} from '../utils/trialUtils';
 import {sessionManager} from '../utils/sessionManager';
 import {useAdmin} from '../contexts/adminContext';
 import {stacks, views} from '../utils/constants';
@@ -36,7 +35,6 @@ import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
 import {Mixpanel} from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
-import Subscription from '../Components/Subscription';
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
@@ -254,14 +252,6 @@ const SettingsScreen: React.FC = () => {
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
   const [showAssistantId, setShowAssistantId] = useState(false);
-  const [showSubscription, setShowSubscription] = useState(false);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<
-    'active' | 'needs_attention'
-  >('needs_attention');
-  const [subscriptionStatusText, setSubscriptionStatusText] = useState('');
-  const [subscriptionStatusColor, setSubscriptionStatusColor] =
-    useState('#f44336');
-  const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -352,45 +342,13 @@ const SettingsScreen: React.FC = () => {
 
     loadSettings();
     loadWatchedVideos();
-    // Set subscription status based on preferences.isIOSActive
-    if (preferences.isIOSActive === '1') {
-      setSubscriptionStatus('active');
-    } else {
-      setSubscriptionStatus('needs_attention');
-    }
-
-    // Compute subscription status text and color
-    const status = getSubscriptionStatus(
-      preferences.isIOSActive,
-      preferences.isInTrial,
-      preferences.trialInstallationDate,
-    );
-    setSubscriptionStatusText(status.text);
-
-    // Set color based on status
-    if (status.status === 'active') {
-      setSubscriptionStatusColor('#34c759');
-    } else if (status.status === 'trial') {
-      setSubscriptionStatusColor('#FF9500');
-    } else {
-      setSubscriptionStatusColor('#f44336');
-    }
-
-    // Set whether to show account settings
-    setShowAccountSettings(
-      status.status === 'active' || status.status === 'trial',
-    );
 
     // Reset tap count and assistant id visibility on unmount
     return () => {
       setAboutTapCount(0);
       setShowAssistantId(false);
     };
-  }, [
-    preferences.isIOSActive,
-    preferences.isInTrial,
-    preferences.trialInstallationDate,
-  ]);
+  }, []);
 
   // Detect navigation from Reports and show rating modal
   useFocusEffect(
@@ -940,48 +898,6 @@ const SettingsScreen: React.FC = () => {
 
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-
-          {/* Subscription Status */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 10,
-            }}>
-            <Text
-              style={{
-                fontSize: 16,
-                color: '#333',
-                fontWeight: '500',
-                marginRight: 10,
-              }}>
-              Subscription Status:
-            </Text>
-            <Text
-              style={{
-                fontSize: 16,
-                color: subscriptionStatusColor,
-                fontWeight: 'bold',
-              }}>
-              {subscriptionStatusText}
-            </Text>
-          </View>
-          {preferences.isIOSActive !== '1' && (
-            <View
-              style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
-              <Subscription
-                setGotSubscription={setShowSubscription}
-                context="settings"
-              />
-            </View>
-          )}
-          {/* Removed logout button - guest sessions don't need logout */}
-        </View>
-
-        {showAccountSettings && (
-          <>
-            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
 
               <View style={styles.section}>
@@ -1971,8 +1887,6 @@ const SettingsScreen: React.FC = () => {
                 <Text style={styles.logoutText}>Reset Installation</Text>
               </TouchableOpacity>
             </View>
-          </>
-        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Legal</Text>
@@ -2035,12 +1949,7 @@ const SettingsScreen: React.FC = () => {
 
           {showAssistantId && (
             <>
-              <TouchableOpacity
-                onPress={() => {
-                  setItem('isIOSActive', '1');
-                }}>
-                <Text style={styles.aboutText}>Reset isIOSActive</Text>
-              </TouchableOpacity>
+              <Text style={styles.aboutText}>Debug mode active</Text>
             </>
           )}
           <Text style={styles.aboutDescription}>

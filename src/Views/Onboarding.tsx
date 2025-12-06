@@ -30,7 +30,6 @@ import matalkImg from '../assets/matalk.png';
 import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
-import Subscription from '../Components/Subscription';
 import ShowAndTell from '../Components/ShowAndTell';
 import WhisperDownload from '../Components/WhisperDownload';
 import {Mixpanel} from 'mixpanel-react-native';
@@ -40,9 +39,6 @@ import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 
 const {width, height} = Dimensions.get('window');
-
-// Debug key to skip subscription during development
-const SUBSCRIPTIONSKIP = false;
 
 // Define onboarding steps with display names for analytics
 const onboardingSteps = [
@@ -66,13 +62,6 @@ const onboardingSteps = [
     name: 'Hero Name Input',
     question: "What is our Hero's name?",
     additionalComponents: 'name-input',
-    buttonText: 'Next',
-  },
-  {
-    id: 'subscription',
-    name: 'Subscription Selection',
-    question: 'Choose Your Plan',
-    additionalComponents: 'subscription-selection',
     buttonText: 'Next',
   },
   {
@@ -138,7 +127,6 @@ const OnboardingScreen: React.FC = () => {
     'easy',
   );
   // Removed isLoggedIn state - guest sessions are always "authenticated"
-  const [gotSubscription, setGotSubscription] = useState(false);
   const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
@@ -165,13 +153,6 @@ const OnboardingScreen: React.FC = () => {
   }, []);
 
   // Removed login status check - guest sessions don't need login
-
-  // Log when subscription step is reached
-  useEffect(() => {
-    if (onboardingSteps[currentStep].id === 'subscription-selection') {
-      // Subscription step reached
-    }
-  }, [currentStep, gotSubscription]);
 
   // Helper function to extract user ID from Auth0 user.sub
   const extractUserId = (userSub: string): string => {
@@ -239,7 +220,6 @@ const OnboardingScreen: React.FC = () => {
       permissions_denied: permissionsDenied,
       permissions_permanently_denied: permissionsPermanentlyDenied,
       location_permission_granted: locationGranted,
-      subscription_completed: gotSubscription || SUBSCRIPTIONSKIP,
       conversation_mode: conversationMode,
     });
 
@@ -295,13 +275,12 @@ const OnboardingScreen: React.FC = () => {
         total_steps: onboardingSteps.length,
         hero_name_provided: heroName.trim().length > 0,
         admin_code_provided: adminCode.length > 0,
-        gender_selected: selectedGender.length > 0,
-        gender_value: selectedGender || 'none',
-        permissions_granted: permissionsGranted,
-        location_permission_granted: locationGranted,
-        subscription_completed: gotSubscription || SUBSCRIPTIONSKIP,
-        conversation_mode: conversationMode,
-      });
+      gender_selected: selectedGender.length > 0,
+      gender_value: selectedGender || 'none',
+      permissions_granted: permissionsGranted,
+      location_permission_granted: locationGranted,
+      conversation_mode: conversationMode,
+    });
 
       // Use the context to complete onboarding
       completeOnboarding();
@@ -347,96 +326,6 @@ const OnboardingScreen: React.FC = () => {
           </View>
         );
       // Removed login case - guest sessions don't need login
-      case 'subscription-selection':
-        return (
-          <>
-            {gotSubscription || SUBSCRIPTIONSKIP ? (
-              <View
-                style={{
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  padding: 32,
-                }}>
-                <Text
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 'bold',
-                    color: '#47B76F',
-                    marginBottom: 16,
-                    textAlign: 'center',
-                  }}>
-                  {SUBSCRIPTIONSKIP
-                    ? 'Debug Mode: Subscription Skipped'
-                    : 'We are so happy you joined!'}
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 20,
-                    color: '#333',
-                    marginBottom: 24,
-                    textAlign: 'center',
-                  }}>
-                  {SUBSCRIPTIONSKIP
-                    ? 'Development mode active - continuing setup...'
-                    : 'Welcome to the MaTalk community.'}
-                </Text>
-                {!SUBSCRIPTIONSKIP && (
-                  <>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontStyle: 'italic',
-                        color: '#8E24AA',
-                        textAlign: 'center',
-                      }}>
-                      'Because the most meaningful conversation is a natural
-                      one'
-                    </Text>
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        fontStyle: 'italic',
-                        color: '#8E24AA',
-                        textAlign: 'center',
-                      }}>
-                      Shay Cohen Verbali CEO 2025
-                    </Text>
-                  </>
-                )}
-              </View>
-            ) : (
-              <View style={styles.questionContainer}>
-                <Subscription
-                  setGotSubscription={setGotSubscription}
-                  context="onboarding"
-                  onPlanSelected={plan => {
-                    mixpanel.track('Onboarding - Subscription Plan Selected', {
-                      step_name: onboardingSteps[currentStep].name,
-                      step_id: onboardingSteps[currentStep].id,
-                      plan: plan,
-                      platform: Platform.OS,
-                    });
-                  }}
-                  onTrialSelected={() => {
-                    mixpanel.track('Onboarding - Trial Selected', {
-                      step_name: onboardingSteps[currentStep].name,
-                      step_id: onboardingSteps[currentStep].id,
-                      platform: Platform.OS,
-                    });
-                  }}
-                  onSubscriptionInfoViewed={() => {
-                    mixpanel.track('Onboarding - Subscription Info Viewed', {
-                      step_name: onboardingSteps[currentStep].name,
-                      step_id: onboardingSteps[currentStep].id,
-                      platform: Platform.OS,
-                    });
-                  }}
-                />
-              </View>
-            )}
-          </>
-        );
       case 'show-and-tell':
         return (
           <View style={{width: '100%', alignItems: 'center'}}>
@@ -1391,9 +1280,6 @@ const OnboardingScreen: React.FC = () => {
                 ((currentStepData.id === 'Permissions' &&
                   !permissionsAttempted) ||
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
-                  (currentStepData.id === 'subscription' &&
-                    !gotSubscription &&
-                    !SUBSCRIPTIONSKIP) ||
                   (currentStepData.id === 'Optional Permissions' &&
                     !locationPermissionAttempted) ||
                   (currentStepData.id === 'on-device-whisper' &&

@@ -32,8 +32,6 @@
     "openai": "^5.12.0",
     "react": "19.0.0",
     "react-native": "0.78.0",
-    "react-native-audio-record": "^0.2.2",
-    "react-native-audio-recorder-player": "file:.yalc/react-native-audio-recorder-player",
     "react-native-config": "^1.5.5",
     "react-native-default-preference": "^1.4.4",
     "react-native-device-info": "^14.0.4",

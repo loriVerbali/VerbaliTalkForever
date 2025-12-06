@@ -36,36 +36,6 @@ const Login: React.FC = () => {
     return userSub;
   };
 
-  // Helper function to validate and update trial date
-  const validateAndUpdateTrialDate = async (serverCreatedAt: string) => {
-    try {
-      const localTrialDate = await getItem('trialInstallationDate');
-
-      // Skip if no local trial date (shouldn't happen after onboarding)
-      if (!localTrialDate || localTrialDate === 'init.NotSet') {
-        return;
-      }
-
-      // Parse server date (PostgreSQL format: "2025-01-15 10:30:45.123456")
-      const serverDate = new Date(serverCreatedAt.replace(' ', 'T'));
-      const localDate = new Date(parseInt(localTrialDate));
-
-      // Calculate time difference in hours
-      const timeDiffHours =
-        Math.abs(serverDate.getTime() - localDate.getTime()) / (1000 * 60 * 60);
-
-      // If difference is more than 24 hours, update to the later date (more generous)
-      if (timeDiffHours > 24) {
-        const laterDate = serverDate > localDate ? serverDate : localDate;
-        const laterTimestamp = laterDate.getTime().toString();
-
-        await setItem('trialInstallationDate', laterTimestamp);
-      }
-    } catch (error) {
-      console.error('Error validating trial date:', error);
-    }
-  };
-
   // Helper function to get assistant ID for the user
   const getAssistantId = async (userId: string): Promise<void> => {
     try {
@@ -79,11 +49,6 @@ const Login: React.FC = () => {
 
       if (response && response.assistantId) {
         await setItem('assistantId', response.assistantId);
-
-        // Validate and update trial date if server returns createdAt
-        if (response.createdAt) {
-          await validateAndUpdateTrialDate(response.createdAt);
-        }
       }
     } catch (error) {
       console.error('Error getting assistant ID:', error);

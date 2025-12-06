@@ -55,19 +55,16 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Matalk.app"
-            BlueprintName = "Matalk"
-            ReferencedContainer = "container:Matalk.xcodeproj">
+            BuildableName = "MatalkForever.app"
+            BlueprintName = "MatalkForever"
+            ReferencedContainer = "container:MatalkForever.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <LocationScenarioReference
          identifier = "com.apple.dt.IDEFoundation.CurrentLocationScenarioIdentifier"
          referenceType = "1">
       </LocationScenarioReference>
-      <StoreKitConfigurationFileReference
-         identifier = "../MatalkForeverStore.storekit">
-      </StoreKitConfigurationFileReference>
-   </LaunchAction>
+      </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
       shouldUseLaunchSchemeArgsEnv = "YES"
@@ -79,11 +76,20 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Matalk.app"
-            BlueprintName = "Matalk"
-            ReferencedContainer = "container:Matalk.xcodeproj">
+            BuildableName = "MatalkForever.app"
+            BlueprintName = "MatalkForever"
+            ReferencedContainer = "container:MatalkForever.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
+            BuildableName = "MatalkForever.app"
+            BlueprintName = "MatalkForever"
+            ReferencedContainer = "container:MatalkForever.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
