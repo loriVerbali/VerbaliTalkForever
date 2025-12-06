@@ -21,7 +21,6 @@ import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import AppConfig from '../utils/config';
-import {hasAppAccess} from '../utils/trialUtils';
 import {useConnection} from '../utils/connection';
 import NoInternetConnection from '../Components/NoInternetConnection';
 import ShowAndTell from '../Components/ShowAndTell';
@@ -84,20 +83,6 @@ const OpenScreen: React.FC = () => {
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
   const {preferences, getItem, setItem} = useAppSettings();
-
-  // Helper function to check app access using actual stored values
-  // This ensures we check real persisted values, not just the preferences state
-  // which might still have defaults if preferences haven't loaded yet
-  const checkAppAccess = async (): Promise<boolean> => {
-    const isIOSActive = await getItem('isIOSActive');
-    const isInTrial = await getItem('isInTrial');
-    const installationDate = await getItem('trialInstallationDate');
-    return hasAppAccess(
-      isIOSActive || '0',
-      isInTrial || '0',
-      installationDate || 'init.NotSet',
-    );
-  };
   const heroName = preferences?.heroName;
   const [settingsTappedOnce, setSettingsTappedOnce] = useState(false);
   const [microphoneTappedOnce, setMicrophoneTappedOnce] = useState(false);
@@ -240,39 +225,9 @@ const OpenScreen: React.FC = () => {
     settingsTappedOnce,
   ]);
 
-  const askForAdultHelp = () => {
-    // Track issue occurrence
-    mixpanel.track('App Issue - Problem Detected', {
-      screen: 'Open',
-      action: 'issue_occurred',
-      error_context: 'ask_for_adult_help',
-      message: 'There seems to be a problem , please ask an adult for help',
-    });
-
-    TTSService.speak(
-      'There seems to be a problem , please ask an adult for help',
-    );
-    handleSettingsPress();
-  };
-
   useEffect(() => {
     mixpanel.track('MainScreen', {
       Opened: 'MainScreen',
-    });
-
-    // Track hasAppAccess on app open with all three parameters
-    const isIOSActive = preferences?.isIOSActive || '0';
-    const isInTrial = preferences?.isInTrial || '0';
-    const installationDate =
-      preferences?.trialInstallationDate || 'init.NotSet';
-    const hasAccess = hasAppAccess(isIOSActive, isInTrial, installationDate);
-
-    mixpanel.track('App Open - hasAppAccess', {
-      isIOSActive: isIOSActive,
-      isInTrial: isInTrial,
-      installationDate: installationDate,
-      hasAppAccess: hasAccess,
-      platform: Platform.OS,
     });
 
     // Fade in when the screen mounts
@@ -301,15 +256,10 @@ const OpenScreen: React.FC = () => {
             phrase: phrase,
           });
 
-          const hasAccess = await checkAppAccess();
-          if (!hasAccess) {
-            askForAdultHelp();
-          } else {
-            navigation.navigate('HOME' as any, {
-              stateof: 'Attention',
-              entryMethod: 'wake_word',
-            });
-          }
+          navigation.navigate('HOME' as any, {
+            stateof: 'Attention',
+            entryMethod: 'wake_word',
+          });
         });
 
         // Start listening (this will handle initialization if needed)
@@ -347,22 +297,6 @@ const OpenScreen: React.FC = () => {
   // Ensure wake word service is properly initialized when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      // Track hasAppAccess when screen is focused
-      const isIOSActive = preferences?.isIOSActive || '0';
-      const isInTrial = preferences?.isInTrial || '0';
-      const installationDate =
-        preferences?.trialInstallationDate || 'init.NotSet';
-      const hasAccess = hasAppAccess(isIOSActive, isInTrial, installationDate);
-
-      mixpanel.track('App Open - hasAppAccess', {
-        isIOSActive: isIOSActive,
-        isInTrial: isInTrial,
-        installationDate: installationDate,
-        hasAppAccess: hasAccess,
-        platform: Platform.OS,
-        screen_focus: true,
-      });
-
       const ensureWakeWordActive = async () => {
         try {
           // Check if wake word service is listening, if not, start it
@@ -377,16 +311,10 @@ const OpenScreen: React.FC = () => {
       // Small delay to ensure navigation is complete
       const timer = setTimeout(ensureWakeWordActive, 200);
       return () => clearTimeout(timer);
-    }, [preferences]),
+    }, []),
   );
 
   const startListening = async () => {
-    const hasAccess = await checkAppAccess();
-    if (!hasAccess) {
-      askForAdultHelp();
-      return;
-    }
-
     // Track microphone button click
     mixpanel.track('Open Screen - Microphone Button Clicked', {
       screen: 'Open',
@@ -426,11 +354,6 @@ const OpenScreen: React.FC = () => {
   }, [handleBackPress]);
 
   const handleNavigation = async (state: string) => {
-    const hasAccess = await checkAppAccess();
-    if (!hasAccess) {
-      askForAdultHelp();
-      return;
-    }
     // Start fade out before navigation
     Animated.timing(fadeAnim, {
       toValue: 0,
@@ -446,15 +369,9 @@ const OpenScreen: React.FC = () => {
   };
 
   const handKeyboard = async () => {
-    const hasAccess = await checkAppAccess();
-    if (!hasAccess) {
-      askForAdultHelp();
-      return;
-    }
     navigation.navigate('HOME' as any, {
       stateof: 'Keyboard',
     });
-    // TTSService.speak('Keyboard selected');
   };
 
   const handleSettingsPress = async () => {
@@ -736,11 +653,6 @@ const OpenScreen: React.FC = () => {
                         action: 'quick_dial_tile',
                         tile_name: 'How I Feel',
                       });
-                      const hasAccess = await checkAppAccess();
-                      if (!hasAccess) {
-                        askForAdultHelp();
-                        return;
-                      }
                       Animated.timing(fadeAnim, {
                         toValue: 0,
                         duration: 500,
@@ -775,11 +687,6 @@ const OpenScreen: React.FC = () => {
                         action: 'quick_dial_tile',
                         tile_name: 'ShortCuts',
                       });
-                      const hasAccess = await checkAppAccess();
-                      if (!hasAccess) {
-                        askForAdultHelp();
-                        return;
-                      }
                       Animated.timing(fadeAnim, {
                         toValue: 0,
                         duration: 500,

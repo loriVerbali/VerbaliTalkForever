@@ -8,8 +8,6 @@ import React, {
   useRef,
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
-import {validateReceiptOnLaunch} from './recieptValidation';
-import WhisperModelManager from './WhisperModelManager';
 import {sessionManager} from './sessionManager';
 
 interface Preferences {
@@ -41,9 +39,6 @@ interface Preferences {
   conversationMode: string;
   gobackAfterSelection: string;
   wasDeleted: string;
-  isIOSActive: string;
-  isInTrial: string;
-  trialInstallationDate: string;
   pepes: string;
   whisperModelAvailable: string;
   whisperModelLastChecked: string;
@@ -104,9 +99,6 @@ const initialPreferences: Preferences = {
   conversationMode: 'easy',
   gobackAfterSelection: initEnum.false,
   wasDeleted: initEnum.false,
-  isIOSActive: initEnum.false,
-  isInTrial: initEnum.false,
-  trialInstallationDate: initEnum.notSet,
   pepes: '',
   whisperModelAvailable: initEnum.false,
   whisperModelLastChecked: '0',
@@ -150,7 +142,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const [preferences, setPreferences] =
     useState<Preferences>(initialPreferences);
   const initializationRef = useRef(false);
-  const receiptValidationRef = useRef(false);
 
   const setItem = async (
     key: keyof Preferences,
@@ -204,34 +195,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
       );
 
-      // Set trial installation date on first app launch (never override)
-      if (loaded.trialInstallationDate === initEnum.notSet) {
-        const currentTimestamp = Date.now().toString();
-        await setItem('trialInstallationDate', currentTimestamp);
-      }
-
-      // validate purchase on launch
-      if (!receiptValidationRef.current) {
-        receiptValidationRef.current = true;
-
-        // Use a single timeout reference to prevent multiple executions
-        const timeoutId = setTimeout(async () => {
-          try {
-            const purchaseValid = await validateReceiptOnLaunch();
-            if (!purchaseValid) {
-              await setItem('isIOSActive', '0');
-            } else {
-              await setItem('isIOSActive', '1');
-            }
-          } catch (error) {
-            console.error('Receipt validation error:', error);
-          }
-        }, 3000);
-
-        // Store the timeout ID so we can clear it if needed
-        (receiptValidationRef as any).timeoutId = timeoutId;
-      }
-
       return loaded as Preferences;
     } catch (error) {
       console.error('Error initializing preferences', error);
@@ -267,12 +230,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
     return () => {
       initializationRef.current = false;
-      receiptValidationRef.current = false;
-
-      // Clear any pending timeout
-      if ((receiptValidationRef as any).timeoutId) {
-        clearTimeout((receiptValidationRef as any).timeoutId);
-      }
     };
   }, []);
 

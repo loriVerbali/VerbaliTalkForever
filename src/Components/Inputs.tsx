@@ -6,19 +6,11 @@ import React, {
   useEffect,
 } from 'react';
 import {View, StyleSheet, TextInput, Dimensions, Platform} from 'react-native';
-import AudioRecorderPlayer, {
-  AudioEncoderAndroidType,
-  AudioSourceAndroidType,
-  AVEncoderAudioQualityIOSType,
-  AVEncodingOption,
-} from 'react-native-audio-recorder-player';
+
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
 
 import FastImage from 'react-native-fast-image';
-
-// Use the exported instance directly
-const audioRecorderPlayer = AudioRecorderPlayer;
 
 interface InputsProps {
   mode: string;
