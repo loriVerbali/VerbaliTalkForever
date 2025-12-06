@@ -7,10 +7,7 @@ import React, {
 } from 'react';
 import {View, StyleSheet, TextInput, Dimensions, Platform} from 'react-native';
 
-import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
-
-import FastImage from 'react-native-fast-image';
 
 interface InputsProps {
   mode: string;
