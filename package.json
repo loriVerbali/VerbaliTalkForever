@@ -56,7 +56,7 @@
     "react-native-video": "6.16.0",
     "react-native-wakeword": "^1.1.15",
     "react-native-webview": "^13.13.5",
-    "whisper.rn": "0.5.2",
+    "whisper.rn": "^0.5.4",
     "yarn": "^1.22.22"
   },
   "devDependencies": {
