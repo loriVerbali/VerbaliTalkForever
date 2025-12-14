@@ -305,7 +305,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
 
       return null;
     } catch (error) {
-      console.error('Error checking pepes places:', error);
+      
       return null;
     }
   };
@@ -400,7 +400,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
         return status === RESULTS.GRANTED;
       }
     } catch (error) {
-      console.warn('Permission check error:', error);
+      
       return false;
     }
   };
@@ -415,7 +415,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
         // Check permissions first
         const hasPermission = await checkLocationPermission();
         if (!hasPermission) {
-          console.warn('Location permission not granted');
+          
           reject(new Error('Location permission not granted'));
           return;
         }
@@ -426,7 +426,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
             resolve({latitude, longitude});
           },
           (error: any) => {
-            console.warn('Location error:', error);
+            
             // Don't fallback to default location - reject the promise
             reject(error);
           },
@@ -437,7 +437,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
           },
         );
       } catch (error) {
-        console.warn('getCurrentLocation error:', error);
+        
         reject(error);
       }
     });
@@ -458,7 +458,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
         };
       }
     } catch (err) {
-      console.warn('Reverse geocoding failed:', err);
+      
     }
     return null;
   };
@@ -516,7 +516,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
         throw new Error('Failed to fetch weather data');
       }
     } catch (err) {
-      console.error('Weather fetch error:', err);
+      
       setError('Unable to fetch weather information');
     }
   };
@@ -532,7 +532,7 @@ export const ChatContextProvider: React.FC<ChatContextProviderProps> = ({
       const coords = await getCurrentLocation();
       await fetchWeatherData(coords.latitude, coords.longitude);
     } catch (err: any) {
-      console.error('Error getting location:', err);
+      
 
       // Provide more specific error messages
       if (err?.message?.includes('permission')) {

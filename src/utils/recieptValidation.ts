@@ -25,7 +25,7 @@ const validateSubscription = async (receipt: string) => {
         return false;
       }
     } catch (e) {
-      console.error('Android receipt validation failed', e);
+      
       return false;
     }
   }
@@ -45,7 +45,7 @@ const validateSubscription = async (receipt: string) => {
       return false;
     }
   } catch (e) {
-    console.error('Receipt validation failed', e);
+    
     return false;
   }
 };
@@ -56,13 +56,13 @@ const validateReceiptOnLaunch = async () => {
     try {
       const connected = await initConnection();
       if (!connected) {
-        console.warn('Android IAP connection failed');
+        
         return null;
       }
 
       const purchases = await getAvailablePurchases();
       if (!purchases || purchases.length === 0) {
-        console.warn('⚠️ No Android purchases found');
+        
         return false;
       }
 
@@ -77,7 +77,7 @@ const validateReceiptOnLaunch = async () => {
       const latestReceipt = latestPurchase.transactionReceipt;
 
       if (!latestReceipt) {
-        console.warn('⚠️ No receipt found in latest Android purchase');
+        
         return false;
       }
 
@@ -95,7 +95,7 @@ const validateReceiptOnLaunch = async () => {
         return false;
       }
     } catch (e) {
-      console.error('Android receipt validation on launch failed', e);
+      
       return false;
     }
   }
@@ -103,13 +103,13 @@ const validateReceiptOnLaunch = async () => {
   try {
     const connected = await initConnection();
     if (!connected) {
-      console.warn('IAP connection failed');
+      
       return null;
     }
 
     const receipt = await getReceiptIOS({forceRefresh: true});
     if (!receipt) {
-      console.warn('⚠️ No receipt found');
+      
       return null;
     }
     const res = await fetchHelper(
@@ -125,7 +125,7 @@ const validateReceiptOnLaunch = async () => {
       return false;
     }
   } catch (e) {
-    console.error('Receipt validation failed', e);
+    
     return false;
   }
 };

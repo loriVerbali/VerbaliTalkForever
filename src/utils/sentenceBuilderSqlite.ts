@@ -47,7 +47,6 @@ export class SentenceBuilderSqlite {
       await this.migrateDatabase();
       await this.seedData();
     } catch (error) {
-      console.error('Error initializing database:', error);
       throw error;
     }
   }
@@ -175,7 +174,6 @@ export class SentenceBuilderSqlite {
         UPDATE nodes SET disabledDrag = 0, disabledReSorted = 0 WHERE deleted = 1
       `);
     } catch (error) {
-      console.error('Error during migration:', error);
       // Don't throw error as this might be expected for new installations
     }
   }
@@ -647,7 +645,6 @@ export class SentenceBuilderSqlite {
     try {
       return JSON.parse(result.rows.item(0).value);
     } catch (error) {
-      console.error('Error parsing grid settings:', error);
       return DEFAULT_GRID_SETTINGS;
     }
   }
@@ -679,7 +676,6 @@ export class SentenceBuilderSqlite {
     try {
       return JSON.parse(result.rows.item(0).tokenIds);
     } catch (error) {
-      console.error('Error parsing sentence state:', error);
       return DEFAULT_SENTENCE_STATE;
     }
   }
@@ -699,8 +695,11 @@ export class SentenceBuilderSqlite {
     if (!this.db) throw new Error('Database not initialized');
 
     const currentState = await this.getSentenceState();
-    currentState.tokenIds.push(nodeId);
-    await this.saveSentenceState(currentState);
+    // Prevent duplicate additions - only add if not already in the array
+    if (!currentState.tokenIds.includes(nodeId)) {
+      currentState.tokenIds.push(nodeId);
+      await this.saveSentenceState(currentState);
+    }
   }
 
   async removeWordFromSentence(nodeId: string): Promise<void> {
@@ -747,7 +746,6 @@ export class SentenceBuilderSqlite {
 
       return newNode;
     } catch (error) {
-      console.error('Error adding word from search:', error);
       throw error;
     }
   }

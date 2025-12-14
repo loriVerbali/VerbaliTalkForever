@@ -29,20 +29,20 @@ import DeviceInfo from 'react-native-device-info';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
-  const mixpanelRef = useRef<Mixpanel | null>(null);
 
   // Lock to landscape orientation as early as possible
   // Orientation.lockToLandscapeLeft();
 
-  // Initialize Mixpanel once
-  useEffect(() => {
-    const trackAutomaticEvents = false;
-    const mixpanelToken = 'b5c43b5eeefef8db948f6bf391e5ce39';
-    const mixpanel = new Mixpanel(mixpanelToken, trackAutomaticEvents);
-    mixpanel.init();
-    mixpanelRef.current = mixpanel;
+  const trackAutomaticEvents = false;
+  const mixpanelToken = 'f88f7a27585868c53b1e08c06f5226bd';
 
-    // Initialize device ID for Mixpanel tracking
+  const mixpanel = new Mixpanel(mixpanelToken, trackAutomaticEvents);
+  mixpanel.init();
+  mixpanel.reset(); // anonymizes session, clears device_id and user_id
+  mixpanel.clearSuperProperties();
+
+  // Initialize device ID for Mixpanel tracking
+  useEffect(() => {
     const initializeDeviceTracking = async () => {
       try {
         // Get the actual device ID
@@ -55,8 +55,6 @@ const App = () => {
         mixpanel.registerSuperProperties({
           device_id: deviceId,
         });
-
-        console.log('Device ID set in Mixpanel:', deviceId);
       } catch (error) {
         console.error('Error setting device ID in Mixpanel:', error);
         // Fallback: generate a GUID if device ID retrieval fails
@@ -78,11 +76,6 @@ const App = () => {
     initializeDeviceTracking();
   }, []);
 
-  // Initialize session manager with app settings
-  useEffect(() => {
-    // Session manager will be initialized in AppSettingsProvider
-  }, []);
-
   // Refresh session when app becomes active
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
@@ -92,9 +85,7 @@ const App = () => {
       ) {
         try {
           await sessionManager.ensureValidSession();
-        } catch (error) {
-          console.error('App state change session refresh failed:', error);
-        }
+        } catch (error) {}
       }
       appState.current = nextAppState;
     };
@@ -112,23 +103,11 @@ const App = () => {
       // Initialize TTS service when the app starts
       await TTSService.initialize();
 
-      // Pre-initialize WhisperService for faster first transcription
-      try {
-        // Check if local Whisper is enabled (default to true since we're disabling cloud)
-        const useLocalWhisper = await DefaultPreference.get('useLocalWhisper');
-        const shouldUseLocal = useLocalWhisper !== '0'; // Default to true if not set
-
-        if (shouldUseLocal) {
-          const initSuccess = await WhisperService.initialize();
-          if (!initSuccess) {
-            console.warn(
-              '⚠️ WhisperService pre-initialization failed, will initialize on first use',
-            );
-          }
-        }
-      } catch (error) {
-        console.error('Error pre-initializing WhisperService:', error);
-      }
+      // CRITICAL: Do NOT pre-initialize WhisperService here
+      // Whisper initialization must happen AFTER wake word is initialized
+      // This is handled in LoggedNavigation.tsx to ensure correct initialization order
+      // Pre-initializing here would cause wake word to fail because Whisper takes exclusive control
+      // of ONNX Runtime, CoreML, and audio resources
     };
 
     initServices();
@@ -137,16 +116,15 @@ const App = () => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       const wakeWordService = WakeWordService.getInstance();
 
+      // Check if onboarding is complete before starting wakeword service
+      const wasOnboarded = await DefaultPreference.get('wasOnboarded');
+      const isOnboardingComplete = wasOnboarded === '1';
+
       if (nextAppState === 'background') {
         // Stop wake word service when app goes to background to save battery and memory
         try {
           await wakeWordService.stopListening();
-        } catch (error) {
-          console.error(
-            'Error stopping wake word service on background:',
-            error,
-          );
-        }
+        } catch (error) {}
       } else if (
         nextAppState === 'active' &&
         appState.current === 'background'
@@ -155,26 +133,21 @@ const App = () => {
 
         try {
           await fetchHelper('wakeup', {}, {});
-        } catch (error) {
-          console.error('Error sending wakeup call to backend:', error);
-        }
+        } catch (error) {}
 
-        // Restart wake word service when app comes back to foreground
-        try {
-          await wakeWordService.startListening();
-        } catch (error) {
-          console.error(
-            'Error restarting wake word service on foreground:',
-            error,
-          );
+        // Restart wake word service when app comes back to foreground (only if onboarding is complete)
+        if (isOnboardingComplete) {
+          try {
+            await wakeWordService.startListening();
+          } catch (error) {}
+        } else {
         }
       } else if (nextAppState === 'active' && appState.current === 'inactive') {
         // App is being opened for the first time or from inactive state
         try {
           await fetchHelper('wakeup', {}, {});
-        } catch (error) {
-          console.error('Error sending wakeup call to backend:', error);
-        }
+        } catch (error) {}
+        // Don't start wakeword here - let Open.tsx handle it after onboarding
       }
 
       appState.current = nextAppState;

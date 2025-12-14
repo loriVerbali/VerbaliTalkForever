@@ -244,13 +244,6 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
     const normalizedState = state.trim();
     const isValidState = validStates.includes(normalizedState);
 
-    // If state is not valid, log a warning but keep the parsed value
-    if (normalizedState && !isValidState) {
-      console.warn(
-        `Parsed state "${normalizedState}" is not in the ${country} states list`,
-      );
-    }
-
     return {
       address: address.trim(),
       address2: '',
@@ -294,9 +287,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         });
         setPlaces(migratedPlaces);
       }
-    } catch (error) {
-      console.error('Error loading saved places:', error);
-    }
+    } catch (error) {}
   };
 
   const handleAddressFieldChange = (
@@ -379,7 +370,6 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         onComplete();
       }
     } catch (error) {
-      console.error('Error saving place:', error);
       Alert.alert('Error', 'Failed to save address. Please try again.');
     }
   };
@@ -443,7 +433,6 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                 } address deleted.`,
               );
             } catch (error) {
-              console.error('Error deleting place:', error);
               Alert.alert(
                 'Error',
                 'Failed to delete address. Please try again.',

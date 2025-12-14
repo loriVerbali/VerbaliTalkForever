@@ -6,9 +6,14 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  PermissionsAndroid,
 } from 'react-native';
+
 import {useNavigation, RouteProp} from '@react-navigation/native';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+
+import Inputs, {InputsRef} from '../Components/Inputs';
+import ImageGallery from '../Components/ImageGallery';
+import MatalkIcon from '../Components/MatalkIcon';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useSound} from '../contexts/soundContext';
 import {
@@ -19,26 +24,21 @@ import TTSService from '../utils/TTSService';
 import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
+import fetchHelper from '../utils/fetcher';
 import {Mixpanel} from 'mixpanel-react-native';
 import {logConversation} from '../utils/conversationLogger';
 import {useAdmin} from '../contexts/adminContext';
 import {views} from '../utils/constants';
 import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
-import VoiceService from '../utils/VoiceService';
+import AudioSessionManager from '../utils/AudioSessionManager';
+import WhisperService from '../utils/WhisperService';
 import {useDatabase} from '../contexts/DatabaseContext';
-// Add imports for the components
-import Inputs, {InputsRef} from '../Components/Inputs';
-import ImageGallery from '../Components/ImageGallery';
-import MatalkIcon from '../Components/MatalkIcon';
 
 const {width, height} = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: {
-    stateof?: 'Attention' | 'Keyboard' | string;
-    entryMethod?: 'wake_word' | 'microphone_button' | string;
-  };
+  Home: {stateof?: 'Attention' | 'Keyboard' | string};
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -49,7 +49,7 @@ interface HomeScreenProps {
 const DEBUGWITHOUTTRANSCRIPTION = false;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
-const DEBUGTRANSCRIPTION = 'How was school today?';
+const DEBUGTRANSCRIPTION = 'How was your practice today?';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {generateAnswers} = useAssistant();
@@ -58,7 +58,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {getItem, preferences} = useAppSettings();
   const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
   const stateof = route?.params?.stateof ?? '';
-  const entryMethod = route?.params?.entryMethod;
   const [isRecording, setIsRecording] = useState(false);
 
   // Function to resolve pepes images for answer words
@@ -92,9 +91,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           }
         }
       }
-    } catch (error) {
-      // Error resolving pepes image
-    }
+    } catch (error) {}
 
     return fallbackUrl || '';
   };
@@ -172,7 +169,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
 
     // Layout dimensions
-    inputNavigationHeight: isTablet ? height * 0.13 : height * 0.12,
+    inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
     contentMarginTop: isTablet ? 10 : 8,
     contentPadding: isTablet ? 20 : 15,
 
@@ -221,8 +218,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       : {width: 60, height: 60},
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? {width: '100%', height: '100%'}
-      : {width: '100%', height: '100%'},
+      ? {width: 50, height: 50}
+      : {width: 40, height: 40},
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
@@ -233,6 +230,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     waitingContainerPadding: isTablet ? 30 : 20,
     waitingLabelMarginBottom: isTablet ? 30 : 20,
   };
+
   // Add context caching to improve performance
   const [cachedContextInfo, setCachedContextInfo] = useState<string>('');
   const [lastContextUpdate, setLastContextUpdate] = useState<number>(0);
@@ -261,33 +259,36 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
+  const metering = useRef<number>(-100);
+  const lastSoundTimeRef = useRef<number>(Date.now());
   const {playAttention} = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasStoppedRecordingRef = useRef<boolean>(false);
+  const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const lastPartialUpdateTime = useRef<number | null>(null);
+  const lastPartialResult = useRef<string>('');
+  const recordingStartTime = useRef<number | null>(null);
+  const silenceDetectionTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [showImages, setShowImages] = useState(false);
   const [finishedTranscribing, setFinishedTranscribing] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
+  const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+  let currentRecordingURI: string | null = null;
 
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
     null,
   );
   const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // iOS-specific transcription state
-  // Tracks the final text and whether the 2-second debounce timeout has fired
-  const [iosFinalTextPending, setIosFinalTextPending] = useState<{
-    text: string;
-    readyToProcess: boolean;
-  } | null>(null);
-  const iosTranscribeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
 
   // Function to start AI response timer
   const startResponseTimer = () => {
@@ -309,9 +310,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) {
-          // Error logging AI response time
-        }
+        } catch (error) {}
       }
 
       setResponseTimerStart(null);
@@ -324,57 +323,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
-  const initializeVoiceService = async () => {
-    try {
-      // Request RECORD_AUDIO permission for Android
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: 'Microphone Permission',
-            message:
-              'This app needs access to your microphone for speech recognition',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          throw new Error('Microphone permission denied');
-        }
-      }
-
-      // Check if voice recognition is available
-      const isAvailable = await VoiceService.isAvailable();
-      if (!isAvailable) {
-        // Voice recognition is not available on this device
-      }
-    } catch (error) {
-      // Failed to initialize voice service
-    }
-  };
-
   useEffect(() => {
     // Load gobackAfterSelection setting
     const loadGobackAfterSelectionSetting = async () => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) {
-        // Error loading gobackAfterSelection setting
-      }
-    };
-
-    // Initialize voice service
-    const setupVoiceService = async () => {
-      await initializeVoiceService();
+      } catch (error) {}
     };
 
     // Load the setting
     loadGobackAfterSelectionSetting();
-
-    // Setup voice service
-    setupVoiceService();
 
     // Track screen opening
     mixpanel.track('Conversation', {
@@ -382,6 +341,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     });
     if (stateof === 'Attention') {
       // wakeWord.stopListening();
+      mixpanel.track('Recording Restarted', {
+        source: 'attention_state',
+      });
       playSound();
     }
     if (stateof === 'Keyboard') {
@@ -390,477 +352,509 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   }, []);
 
-  // Cleanup useEffect for wake word service and Voice service
+  // Cleanup useEffect for wake word service and Whisper
   useEffect(() => {
     return () => {
       // Always cleanup wake word service
       const wakeWordService = WakeWordService.getInstance();
       wakeWordService.stopListening();
 
-      // Cleanup Voice service
-      VoiceService.destroy().catch(error => {
-        // Error cleaning up Voice service
-      });
+      // Only cleanup Whisper service when component actually unmounts
+      // Don't destroy it when just waiting for next conversation
+      WhisperService.destroy().catch(error => {});
 
       // Cleanup response timer
       if (responseTimerRef.current) {
         clearTimeout(responseTimerRef.current);
         responseTimerRef.current = null;
       }
+
+      // Cleanup partial results timer
+      if (partialResultsTimer.current) {
+        clearInterval(partialResultsTimer.current);
+        partialResultsTimer.current = null;
+      }
+
+      // Cleanup silence detection timer
+      if (silenceDetectionTimer.current) {
+        clearTimeout(silenceDetectionTimer.current);
+        silenceDetectionTimer.current = null;
+      }
+
+      // Cleanup recording timer
+      if (recordingTimer.current) {
+        clearTimeout(recordingTimer.current);
+        recordingTimer.current = null;
+      }
     };
   }, []);
 
   const playSound = async () => {
-    // Track conversation mode entry
-    // entryMethod will be 'wake_word' or 'microphone_button' when coming from Open screen
-    mixpanel.track('Home Screen - Conversation Mode Entered', {
-      screen: 'Home',
-      action: 'conversation_mode_entered',
-      entry_method:
-        entryMethod || (stateof === 'Attention' ? 'unknown' : 'other'),
-    });
-
-    // FORCE THE RECORDING INDICATOR ON
-    setIsRecording(true);
-    const res = await playAttention();
-    // Always call handleRecord when triggered by wake word or attention sound
-    // The stateof check was preventing recording when gobackAfterSelection is false
-    if (res) {
-      handleRecord();
-    }
+    // COMMENTED OUT FOR TESTING
+    // playAttention();
+    handleRecord();
   };
+  // put this near your module top:
 
   const handleRecord = async () => {
-    // Prevent multiple simultaneous recordings
-    if (isRecording) {
-      return;
-    }
+    if (isRecording) return;
+
+    // Track microphone press
+    mixpanel.track('Microphone Pressed');
 
     try {
-      // CRITICAL: Stop wake word service before starting voice recognition
-      // On Android 11+, if another service is binding to the microphone,
-      // react-native-voice cannot bind to it and will return error 7/No match
+      // Check and request microphone permission
+      const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
+
+      if (micPermission === RESULTS.DENIED) {
+        const result = await request(PERMISSIONS.IOS.MICROPHONE);
+        if (result !== RESULTS.GRANTED) {
+          mixpanel.track('Error', {
+            error_type: 'microphone_permission_denied',
+            error_message: 'Microphone permission denied by user',
+          });
+          setFinishedTranscribing(true);
+          setTranscribedText('Microphone permission is required');
+          TTSService.speak('Please allow microphone access in Settings', true);
+          return;
+        }
+      } else if (micPermission === RESULTS.BLOCKED) {
+        mixpanel.track('Error', {
+          error_type: 'microphone_permission_blocked',
+          error_message: 'Microphone permission blocked',
+        });
+        setFinishedTranscribing(true);
+        setTranscribedText('Microphone permission is blocked');
+        TTSService.speak('Please enable microphone access in Settings', true);
+        return;
+      }
+
+      // Kill any audio that might hold the session
       try {
-        const wakeWordService = WakeWordService.getInstance();
-        await wakeWordService.stopListening();
-      } catch (wakeWordError) {
-        // Continue anyway - might not be listening
+        await TTSService.stop?.();
+      } catch {}
+      try {
+        const w = WakeWordService.getInstance();
+        w.stopListening();
+      } catch {}
+
+      // Prepare audio session for Whisper (after stopping wakeword)
+      await AudioSessionManager.prepareForWhisper();
+
+      // Add a small delay to ensure audio session is released
+      await new Promise<void>(resolve => setTimeout(resolve, 200));
+
+      // Start real-time transcription with WhisperService
+
+      const started = await WhisperService.startRealTimeTranscription();
+
+      if (!started) {
+        mixpanel.track('Error', {
+          error_type: 'whisper_start_failed',
+          error_message:
+            'WhisperService.startRealTimeTranscription returned false',
+        });
+        setFinishedTranscribing(true);
+        setTranscribedText(ISSUEMESSAGE);
+        setIsRecording(false);
+        TTSService.speak('I am having an issue, Tap Home to retry', true);
+        return;
       }
 
       setIsRecording(true);
-      setTranscribedText('');
-      setFinishedTranscribing(false);
-      setIsTranscribing(true);
-      // Reset the stop flag when starting a new recording
-      hasStoppedRecordingRef.current = false;
-      // Clear iOS transcription timer and pending state for new recording
-      if (iosTranscribeTimerRef.current) {
-        clearTimeout(iosTranscribeTimerRef.current);
-        iosTranscribeTimerRef.current = null;
+      setIsUsingLocalWhisper(true); // Real-time transcription uses local Whisper
+
+      // Reset silence detection
+      recordingStartTime.current = Date.now();
+      lastPartialUpdateTime.current = Date.now();
+      lastPartialResult.current = '';
+      if (silenceDetectionTimer.current) {
+        clearTimeout(silenceDetectionTimer.current);
+        silenceDetectionTimer.current = null;
       }
-      setIosFinalTextPending(null);
 
-      // Start voice recognition with streaming callbacks
-      const started = await VoiceService.startListening(
-        'en-US',
-        // Real-time streaming callback (partial results)
-        (text, isFinal) => {
-          if (!isFinal) {
-            // Update UI with real-time transcription
-            setTranscribedText(text);
-            // Also update the input field with partial results
-            if (inputsRef.current) {
-              inputsRef.current.setInput(text);
-            }
+      // Start polling for partial results to display in input
+      partialResultsTimer.current = setInterval(() => {
+        const partialResult = WhisperService.getRealTimeResult();
+        if (partialResult && partialResult.trim().length > 0) {
+          // Update input field with partial result
+          if (inputsRef.current) {
+            inputsRef.current.setInput(partialResult);
           }
-        },
-        // Final transcription callback
-        finalText => {
-          // Process the final transcription
-          if (Platform.OS === 'android') {
-            processTranscription(finalText);
-          }
-          // INSERT_YOUR_CODE
-          if (Platform.OS === 'ios') {
-            // Set a timeout: if more final text comes, do NOT fire processTranscription
-            // Otherwise, if nothing comes in, fire processTranscription in stopRecording after 2s
-            // Store the last final text seen
-            const lastFinalText = finalText;
 
-            // Clear any existing timer before setting a new one
-            if (iosTranscribeTimerRef.current) {
-              clearTimeout(iosTranscribeTimerRef.current);
+          // If the result changed, update the timestamp and reset silence timer
+          if (partialResult !== lastPartialResult.current) {
+            lastPartialUpdateTime.current = Date.now();
+            lastPartialResult.current = partialResult;
+
+            // Clear any existing silence detection timer
+            if (silenceDetectionTimer.current) {
+              clearTimeout(silenceDetectionTimer.current);
+              silenceDetectionTimer.current = null;
             }
 
-            // Save the pending text with readyToProcess = false
-            setIosFinalTextPending({
-              text: finalText,
-              readyToProcess: false,
-            });
+            // Set a new timer: if no update for 2 seconds, auto-stop
+            silenceDetectionTimer.current = setTimeout(() => {
+              // Double-check: if still no change after 2 seconds, stop recording
+              const currentResult = WhisperService.getRealTimeResult();
+              const timeSinceRecordingStart = recordingStartTime.current
+                ? Date.now() - recordingStartTime.current
+                : 0;
 
-            // Set a new timeout - this only sets a flag, doesn't process
-            iosTranscribeTimerRef.current = setTimeout(() => {
-              // Mark as ready to process if this is still the latest final text
-              setIosFinalTextPending(
-                (current: {text: string; readyToProcess: boolean} | null) => {
-                  if (
-                    current &&
-                    current.text === lastFinalText &&
-                    lastFinalText &&
-                    lastFinalText.trim()
-                  ) {
-                    // Mark as ready - stopRecording() will handle processing
-                    const updated = {text: current.text, readyToProcess: true};
-
-                    // If recording is already stopped, process now
-                    // Otherwise, stopRecording() will handle it when speech ends
-                    if (!isRecording) {
-                      // Use setTimeout to process outside of setState callback
-                      setTimeout(() => {
-                        // processTranscription(lastFinalText);
-                        stopRecording();
-                      }, 0);
-                    }
-
-                    return updated;
-                  }
-                  return current;
-                },
-              );
+              // Only auto-stop if:
+              // 1. We have text
+              // 2. The text hasn't changed (still silence)
+              // 3. We've been recording for at least 1 second (safety check)
+              if (
+                currentResult === lastPartialResult.current &&
+                currentResult.trim().length > 0 &&
+                timeSinceRecordingStart >= 1000
+              ) {
+                stopRecording();
+              }
             }, 2000);
           }
-        },
-        // Error callback
-        error => {
-          // Error code 7 = "No match" - user didn't speak or speech wasn't recognized
-          if (
-            error.code === 'recognition_fail_ooo' ||
-            error.code === '7' ||
-            error.message.includes('No speech detected') ||
-            error.message.includes('No match')
-          ) {
-            // Immediately stop recording and clear timeout
-            if (recordingTimer.current) {
-              clearTimeout(recordingTimer.current);
-              recordingTimer.current = null;
-            }
+        } else if (lastPartialResult.current.trim().length > 0) {
+          // If we had text before but now it's empty, still track silence
+          // This handles edge cases where transcription might clear temporarily
+          if (!silenceDetectionTimer.current) {
+            silenceDetectionTimer.current = setTimeout(() => {
+              const currentResult = WhisperService.getRealTimeResult();
+              const timeSinceRecordingStart = recordingStartTime.current
+                ? Date.now() - recordingStartTime.current
+                : 0;
 
-            // Stop voice recognition immediately to prevent TTS from being transcribed
-            VoiceService.stopListening().catch(err => {
-              // Error stopping voice recognition on error 7
-            });
-
-            setIsRecording(false);
-            setIsTranscribing(false);
-            setFinishedTranscribing(true);
-            setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-
-            // Wait 3 seconds before speaking to avoid transcription
-            setTimeout(() => {
-              TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-            }, 3000);
-          } else {
-            // Other errors - show error message
-            setIsRecording(false);
-            setIsTranscribing(false);
-            setFinishedTranscribing(true);
-            setTranscribedText(ISSUEMESSAGE);
-            TTSService.speak('I am having an issue, Tap Home to retry', true);
-
-            // Track issue occurrence
-            mixpanel.track('App Issue - Voice Recognition Error', {
-              screen: 'Home',
-              action: 'issue_occurred',
-              error_context: 'voice_recognition_error_callback',
-              error_code: error?.code || 'unknown',
-              error_message: error?.message || 'unknown',
-              error_type: typeof error,
-            });
+              if (
+                currentResult.trim().length > 0 &&
+                timeSinceRecordingStart >= 1000
+              ) {
+                stopRecording();
+              }
+            }, 2000);
           }
-        },
-        // Speech end callback - call stopRecording when speech recognition ends
-        () => {
-          if (Platform.OS === 'android') {
-            stopRecording();
-          } else if (Platform.OS === 'ios') {
-            // On iOS, clear the timeout timer to prevent it from firing after speech has ended
-            if (iosTranscribeTimerRef.current) {
-              clearTimeout(iosTranscribeTimerRef.current);
-              iosTranscribeTimerRef.current = null;
-            }
-            // Call stopRecording to process the final transcription
-            stopRecording();
-          }
-        },
-      );
+        }
+      }, 500); // Poll every 500ms for smooth updates
 
-      if (!started) {
-        throw new Error('Failed to start voice recognition');
+      // Auto-stop after 8 seconds (real-time will handle up to 300 seconds based on config)
+      recordingTimer.current = setTimeout(stopRecording, 8000);
+    } catch (error) {
+      // Clear partial results polling timer on error
+      if (partialResultsTimer.current) {
+        clearInterval(partialResultsTimer.current);
+        partialResultsTimer.current = null;
       }
 
-      // Auto-stop after 20 seconds
-      recordingTimer.current = setTimeout(async () => {
-        await stopRecording();
-      }, 20000);
-    } catch (error) {
+      mixpanel.track('Error', {
+        error_type: 'handle_record_error',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
       setIsRecording(false);
-      setIsTranscribing(false);
+      TTSService.speak('I am having an issue, Tap Home to retry', true);
     }
   };
 
   const stopRecording = async () => {
-    // Prevent multiple calls - if already stopped, return early
-    if (hasStoppedRecordingRef.current) {
-      return;
-    }
-    hasStoppedRecordingRef.current = true;
-
     try {
-      // Clear timer first to prevent multiple calls
       if (recordingTimer.current) {
         clearTimeout(recordingTimer.current);
         recordingTimer.current = null;
       }
 
-      // Clear iOS transcription timer
-      if (iosTranscribeTimerRef.current) {
-        clearTimeout(iosTranscribeTimerRef.current);
-        iosTranscribeTimerRef.current = null;
+      // Clear silence detection timer
+      if (silenceDetectionTimer.current) {
+        clearTimeout(silenceDetectionTimer.current);
+        silenceDetectionTimer.current = null;
       }
 
-      // Stop voice recognition
-      await VoiceService.stopListening();
+      // Clear partial results polling timer
+      if (partialResultsTimer.current) {
+        clearInterval(partialResultsTimer.current);
+        partialResultsTimer.current = null;
+      }
+
+      // Reset recording start time
+      recordingStartTime.current = null;
+
       setIsRecording(false);
+      setIsTranscribing(true);
 
-      // Platform-specific processing logic
-      if (Platform.OS === 'ios') {
-        // On iOS, check if the debounce timeout has fired and we're ready to process
-        const pending = iosFinalTextPending;
-        if (
-          pending &&
-          pending.readyToProcess &&
-          pending.text &&
-          pending.text.trim()
-        ) {
-          // Timeout fired, safe to process
-          processTranscription(pending.text);
-        } else if (pending && !pending.readyToProcess) {
-          // Recording has stopped, so no more text will come - process immediately
-          // The debounce timer was meant to wait for more final text, but since
-          // recording stopped, we can safely process the pending text now
-          if (pending.text && pending.text.trim()) {
-            processTranscription(pending.text);
-          } else {
-            // Pending text is empty, check VoiceService as fallback
-            const currentText = VoiceService.getCurrentText();
-            if (currentText && currentText.trim().length > 0) {
-              processTranscription(currentText);
-            } else {
-              // No text received, show error
-              setFinishedTranscribing(true);
-              setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-              setIsTranscribing(false);
-              TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-            }
-          }
-        } else {
-          // No pending text, check VoiceService as fallback
-          const currentText = VoiceService.getCurrentText();
-          if (currentText && currentText.trim().length > 0) {
-            processTranscription(currentText);
-          } else {
-            // No text received, show error
-            setFinishedTranscribing(true);
-            setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-            setIsTranscribing(false);
-            TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-          }
-        }
-      } else {
-        // Android: process immediately
-        const currentText = VoiceService.getCurrentText();
-        if (currentText && currentText.trim().length > 0) {
-          processTranscription(currentText);
-        } else {
-          // No text received, show error
-          setFinishedTranscribing(true);
-          setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-          setIsTranscribing(false);
-          TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-        }
+      // Stop real-time transcription and get the result
+      const transcribedText = await WhisperService.stopRealTimeTranscription();
+
+      if (!transcribedText || transcribedText.trim().length === 0) {
+        mixpanel.track('Error', {
+          error_type: 'empty_transcription',
+          error_message: 'No transcription result from WhisperService',
+        });
+        setFinishedTranscribing(true);
+        setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
+        setIsTranscribing(false);
+        // Prepare for TTS before speaking
+        await AudioSessionManager.prepareForTTS();
+        TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+        return;
       }
-    } catch (error) {
+
+      // Prepare audio session for TTS (after stopping Whisper)
+      await AudioSessionManager.prepareForTTS();
+
+      // Process the transcription result directly
+      await processTranscriptionResult(transcribedText.trim());
+    } catch (e) {
+      mixpanel.track('Error', {
+        error_type: 'stop_recording_error',
+        error_message: e instanceof Error ? e.message : String(e),
+      });
       setIsRecording(false);
       setIsTranscribing(false);
-      setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
-
-      // Track error to mixpanel
-      mixpanel.track('App Issue - Stop Recording Error', {
-        screen: 'Home',
-        action: 'stop_recording_error',
-        error_context: 'stop_recording_catch_block',
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type: typeof error,
-      });
+      setFinishedTranscribing(true);
+      TTSService.speak('I am having an issue, Tap Home to retry', true);
     }
   };
 
-  // Process transcription text (replaces transcribeAudio)
-  const processTranscription = async (transcribedText: string) => {
-    setIsTranscribing(false);
+  // Process transcription result (extracted from transcribeAudio for reuse)
+  const processTranscriptionResult = async (transcribedText: string) => {
+    try {
+      // Filter out common false positives from Whisper
+      const falsePositives = [
+        'Thank you for watching!',
+        'Thank you for watching.',
+        'Thanks for watching!',
+        'Thanks for watching.',
+        'Thank you.',
+        '. .',
+        '.',
+      ];
 
-    if (!transcribedText || transcribedText.trim().length === 0) {
+      if (
+        transcribedText.length === 0 ||
+        falsePositives.includes(transcribedText)
+      ) {
+        mixpanel.track('Error', {
+          error_type: 'invalid_transcription',
+          error_message: 'Empty transcription or false positive detected',
+        });
+        setFinishedTranscribing(true);
+        setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
+        setIsTranscribing(false);
+        TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+        return;
+      }
+
+      // Valid transcription - process it
+      mixpanel.track('Question Asked');
       setFinishedTranscribing(true);
-      setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-      TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+      setTranscribedText(transcribedText);
+      setIsProcessingAnswer(true);
+      setIsTranscribing(false);
+
+      // Set the transcribed text in the top input
+      if (inputsRef.current) {
+        inputsRef.current.setInput(transcribedText);
+      }
+
+      // Get cached context info
+      const contextInfo = getCachedContextInfo();
+      const corePrompt = `User asked: "${transcribedText}"`;
+      const contextPrompt = `Context: ${contextInfo}`;
+      const messageWithContext = `${corePrompt}. ${contextPrompt}`;
+
+      // Get pepes data for context
+      const pepesData = await getItem('pepes');
+      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
+
+      // Generate answers
+      const answers = await generateAnswers(transcribedText, {
+        mode: 'generate_answers',
+        metadata: {
+          kidName: preferences?.heroName || 'I',
+          speaker: 'anyone',
+          audience: preferences?.heroName || 'my',
+          pepes: parsedPepes,
+          conversationHistory: conversationHistory,
+        },
+        countMin: 5,
+        countMax: 5,
+        genderType: preferences?.gender || 'white boy',
+      });
+
+      if (answers && answers.length > 0) {
+        // Process answers to resolve pepes images
+        const processedAnswers = await Promise.all(
+          answers.map(async answer => {
+            const pepesImageUrl = await resolvePepesImage(
+              answer.word,
+              answer.imageUrl,
+            );
+            return {
+              ...answer,
+              imageUrl: pepesImageUrl || answer.imageUrl,
+            };
+          }),
+        );
+
+        setDirectAnswers(processedAnswers);
+        setIsProcessingAnswer(false);
+        setShowImages(true);
+        startResponseTimer();
+
+        // Initialize AI Resolved record for Round 1
+        const answerWords = processedAnswers.map(answer => answer.word);
+        setCurrentAIRecord({
+          question: transcribedText,
+          round1Answers: answerWords,
+          currentRound: 1,
+        });
+
+        // Add to conversation history
+        const assistantResponse = processedAnswers
+          .map(answer => answer.word)
+          .join(', ');
+        addToConversationHistory(transcribedText, assistantResponse);
+      } else {
+        mixpanel.track('Error', {
+          error_type: 'no_answers_generated',
+          error_message: 'generateAnswers returned empty array',
+        });
+        setIsProcessingAnswer(false);
+        TTSService.speak('I am having an issue, Tap Home to retry', true);
+      }
+    } catch (error) {
+      mixpanel.track('Error', {
+        error_type: 'process_transcription_error',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      setIsProcessingAnswer(false);
+      setIsTranscribing(false);
+      TTSService.speak(
+        'Failed to process your request. Please try again.',
+        true,
+      );
+    }
+  };
+
+  // Local Whisper transcription - no fallback to cloud
+  const transcribeAudioWithWhisper = async (audioPath: string) => {
+    const audioUri = audioPath.replace('file://', '');
+
+    try {
+      setIsUsingLocalWhisper(true);
+      const whisperResult = await WhisperService.transcribeAudio(audioUri);
+
+      if (whisperResult.success && whisperResult.text.trim().length > 0) {
+        return {text: whisperResult.text.trim(), isLocal: true};
+      } else {
+        // No fallback to cloud - throw error if local fails
+        setIsUsingLocalWhisper(false);
+        throw new Error(
+          whisperResult.error || 'Local Whisper transcription failed',
+        );
+      }
+    } catch (error) {
+      setIsUsingLocalWhisper(false);
+      throw error;
+    }
+  };
+  // Cloud-based transcription (original method)
+  const transcribeAudioCloud = async (audioPath: string) => {
+    if (!audioPath) {
+      setFinishedTranscribing(true);
+      setTranscribedText(ISSUEMESSAGE);
+
+      TTSService.speak('I am having an issue, Tap Home to retry', true);
       setIsRecording(false);
       return;
     }
 
+    const formData = new FormData();
+    // Fix the file URI handling - ensure proper format for React Native FormData
+    let audioUri = audioPath;
+
+    // For Android, ensure the URI starts with 'file://' for FormData
+    if (Platform.OS === 'android') {
+      // Add file:// prefix for Android FormData
+      audioUri = `file://${audioPath}`;
+    } else {
+      // For iOS, the path should be used as-is from the recorder
+      audioUri = audioPath.replace('file://', '');
+    }
+
+    const fileObj =
+      Platform.OS === 'android'
+        ? {
+            uri: audioUri,
+            type: 'audio/mp3',
+            name: 'sound.mp3',
+            filename: 'sound.mp3', // Add filename for Android
+          }
+        : {
+            uri: audioUri,
+            type: 'audio/x-m4a',
+            name: 'recording.m4a',
+          };
+
+    formData.append('file', fileObj);
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'en');
+
+    const transcribeResponse = await fetchHelper(
+      'transcribeAudio',
+      {},
+      formData,
+    );
+    return transcribeResponse;
+  };
+
+  const transcribeAudio = async (audioPath: string) => {
+    setIsTranscribing(true);
+    // Always use local Whisper - cloud disabled
+    setIsUsingLocalWhisper(true);
+
+    if (!audioPath) {
+      setFinishedTranscribing(true);
+      setTranscribedText(ISSUEMESSAGE);
+      // Reset audio recording state
+
+      TTSService.speak('I am having an issue, Tap Home to retry', true);
+      setIsRecording(false);
+      setIsTranscribing(false);
+      return;
+    }
+
     try {
-      let finalText = transcribedText.trim();
-
-      // Use debug transcription if enabled
-      if (DEBUGWITHOUTTRANSCRIPTION) {
-        finalText = DEBUGTRANSCRIPTION;
-      }
-
-      if (finalText) {
-        // Check for invalid transcriptions
-        if (
-          finalText.length === 0 ||
-          finalText === 'Thank you for watching!' ||
-          finalText === 'Thank you for watching.' ||
-          finalText === 'Thanks for watching!' ||
-          finalText === 'Thanks for watching.' ||
-          finalText === '. .' ||
-          finalText === '.' ||
-          finalText === 'null'
-        ) {
+      let transcribeResponse: any;
+      if (!DEBUGWITHOUTTRANSCRIPTION) {
+        try {
+          // Always use local Whisper - no cloud fallback
+          transcribeResponse = await transcribeAudioWithWhisper(audioPath);
+        } catch (whisperError) {
+          mixpanel.track('Error', {
+            error_type: 'whisper_transcription_error',
+            error_message:
+              whisperError instanceof Error
+                ? whisperError.message
+                : String(whisperError),
+          });
           setFinishedTranscribing(true);
-          setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-          TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+          setTranscribedText(ISSUEMESSAGE);
+          TTSService.speak('I am having an issue, Tap Home to retry', true);
           setIsRecording(false);
+          setIsTranscribing(false);
           return;
         }
+      } else {
+        transcribeResponse = {text: DEBUGTRANSCRIPTION};
+      }
 
-        // Process valid transcription
-        if (
-          finalText.length > 0 &&
-          finalText !== 'null' &&
-          finalText !== 'Thank you.' &&
-          finalText !== 'Thank you for watching!' &&
-          finalText !== 'Thank you for watching.' &&
-          finalText !== 'Thanks for watching!' &&
-          finalText !== 'Thanks for watching.' &&
-          finalText !== '. .' &&
-          finalText !== '.'
-        ) {
-          setFinishedTranscribing(true);
-          setTranscribedText(finalText);
-          setIsProcessingAnswer(true); // Show processing immediately
+      if (transcribeResponse?.text) {
+        const transcribedText = transcribeResponse.text.trim();
 
-          // Set the transcribed text in the top input
-          if (inputsRef.current) {
-            inputsRef.current.setInput(finalText);
-          }
-          // OPTIMIZATION 2: Create optimized context message
-          // Use simpler context to reduce message size and processing time
-          const contextInfo = getCachedContextInfo();
-
-          // Split into core prompt and context for better processing
-          const corePrompt = `User asked: "${finalText}"`;
-          const contextPrompt = `Context: ${contextInfo}`;
-          const messageWithContext = `${corePrompt}. ${contextPrompt}`;
-
-          try {
-            // Get pepes data for context
-            const pepesData = await getItem('pepes');
-            const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
-            // Use the new generateAnswers function instead of OpenAI assistant
-            const answers = await generateAnswers(finalText, {
-              mode: 'generate_answers',
-              metadata: {
-                kidName: preferences?.heroName || 'I',
-                speaker: 'anyone',
-                audience: preferences?.heroName || 'my',
-                pepes: parsedPepes, // Include pepes data for better context
-                conversationHistory: conversationHistory, // Include conversation history
-              },
-              countMin: 5,
-              countMax: 5,
-              genderType: preferences?.gender || 'white boy',
-            });
-
-            if (answers && answers.length > 0) {
-              // Process the answers and resolve pepes images
-
-              // Process answers to resolve pepes images
-              const processedAnswers = await Promise.all(
-                answers.map(async answer => {
-                  const pepesImageUrl = await resolvePepesImage(
-                    answer.word,
-                    answer.imageUrl,
-                  );
-                  return {
-                    ...answer,
-                    imageUrl: pepesImageUrl || answer.imageUrl,
-                  };
-                }),
-              );
-
-              setDirectAnswers(processedAnswers);
-              setIsProcessingAnswer(false);
-              setShowImages(true);
-              startResponseTimer();
-
-              // Initialize AI Resolved record for Round 1
-              const answerWords = processedAnswers.map(answer => answer.word);
-              setCurrentAIRecord({
-                question: finalText,
-                round1Answers: answerWords,
-                currentRound: 1,
-              });
-
-              // Defer conversation history update to prevent re-render after images are shown
-              // Use setTimeout to batch this update after the current render cycle
-              const assistantResponse = processedAnswers
-                .map(answer => answer.word)
-                .join(', ');
-              setTimeout(() => {
-                addToConversationHistory(finalText, assistantResponse);
-              }, 0);
-            } else {
-              setIsProcessingAnswer(false);
-              TTSService.speak('I am having an issue, Tap Home to retry', true);
-              setIsRecording(false);
-
-              // Track issue occurrence
-              mixpanel.track('App Issue - Answer Processing Failed', {
-                screen: 'Home',
-                action: 'issue_occurred',
-                error_context: 'answer_processing_failed',
-                transcribed_text_length: finalText?.length || 0,
-                has_processed_answers: false,
-              });
-
-              return;
-            }
-          } catch (error) {
-            setIsProcessingAnswer(false);
-            TTSService.speak(
-              'Failed to process your request. Please try again.',
-              true,
-            );
-          }
-        }
-
+        // Use the new processTranscriptionResult function
+        await processTranscriptionResult(transcribedText);
         setIsRecording(false);
-        setIsTranscribing(false);
       } else {
         setFinishedTranscribing(true);
         setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
@@ -869,69 +863,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         setIsTranscribing(false);
       }
     } catch (error) {
+      mixpanel.track('Error', {
+        error_type: 'transcribe_audio_error',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
       TTSService.speak('I am having an issue, Tap Home to retry', true);
       setIsRecording(false);
       setIsTranscribing(false);
-
-      // Track issue occurrence
-      mixpanel.track('App Issue - Stop Recording Error', {
-        screen: 'Home',
-        action: 'issue_occurred',
-        error_context: 'stop_recording_catch_block',
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type: typeof error,
-      });
     }
   };
 
   // Removed useEffect that depended on status and imageUrls since we're using direct answers now
 
-  // Handle assistant failure status
-  // useEffect(() => {
-  //   if (status === 'failed') {
-  //     setIsProcessingAnswer(false);
-  //     setIsRetrying(false);
-  //     setShowImages(false);
-  //     TTSService.speak(
-  //       'We had a problem processing that. Please try again.',
-  //       true,
-  //     );
-  //   }
-  // }, [status]);
-
   // Reset function for local states
-  const resetLocalStates = async () => {
+  const resetLocalStates = () => {
     // Stop response timer if running
     stopResponseTimer('home');
-
-    // Stop voice recognition if active
-    try {
-      await VoiceService.stopListening();
-    } catch (error) {
-      // Track error to mixpanel
-      mixpanel.track('App Issue - Reset Local States Error', {
-        screen: 'Home',
-        action: 'reset_local_states_error',
-        error_context: 'voice_service_stop_error',
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type: typeof error,
-      });
-    }
-
-    // Clear recording timer
-    if (recordingTimer.current) {
-      clearTimeout(recordingTimer.current);
-      recordingTimer.current = null;
-    }
-
-    // Clear iOS transcription timer and state
-    if (iosTranscribeTimerRef.current) {
-      clearTimeout(iosTranscribeTimerRef.current);
-      iosTranscribeTimerRef.current = null;
-    }
-    setIosFinalTextPending(null);
 
     setFinishedTranscribing(false);
     setTranscribedText('');
@@ -945,6 +894,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setDebouncedKeyboardInput('');
     setIsSubmittingKeyboard(false);
     setWaitingForNextConversation(false); // Reset waiting state
+    setIsUsingLocalWhisper(false); // Reset transcription method indicator
+    setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
     setConversationHistory([]); // Clear conversation history
     setCurrentAIRecord(null); // Clear AI Resolved record
@@ -971,6 +922,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const handleCantFindIt = async () => {
     if (!transcribedText || isRetrying || retryCount >= MAX_RETRIES) {
       if (retryCount >= MAX_RETRIES) {
+        mixpanel.track('More Answers Pressed', {
+          result: 'max_retries_reached',
+        });
         TTSService.speak(
           'You have reached the maximum number of retry attempts. Please try a new question.',
           true,
@@ -979,11 +933,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       return;
     }
 
-    // Track more answers button click
-    mixpanel.track('Home Screen - More Answers Button Clicked', {
-      screen: 'Home',
-      action: 'more_answers_button',
-      retry_count: retryCount,
+    mixpanel.track('More Answers Pressed', {
+      retry_count: retryCount + 1,
     });
 
     // Stop current response timer
@@ -1024,7 +975,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           conversationHistory: conversationHistory, // Include conversation history
         },
         prior: {
-          answers: priorAnswers, // Pass the 5 current answers so they aren't shown again
+          answers: priorAnswers || [], // Pass the 5 current answers so they aren't shown again
         },
         countMin: 5,
         countMax: 5,
@@ -1064,21 +1015,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           });
         }
 
-        // Defer conversation history update to prevent re-render after images are shown
-        // Use setTimeout to batch this update after the current render cycle
+        // Add to conversation history
         const assistantResponse = processedAnswers
           .map(answer => answer.word)
           .join(', ');
-        setTimeout(() => {
-          addToConversationHistory(transcribedText, assistantResponse);
-        }, 0);
+        addToConversationHistory(transcribedText, assistantResponse);
       } else {
+        mixpanel.track('Error', {
+          error_type: 'more_answers_failed',
+          error_message:
+            'generateAnswers returned empty array for more answers',
+        });
         setIsProcessingAnswer(false);
         setIsRetrying(false);
         TTSService.speak('Failed to get more answers. Please try again.', true);
         setRetryCount(prev => prev - 1);
       }
     } catch (error) {
+      mixpanel.track('Error', {
+        error_type: 'more_answers_error',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
       setIsProcessingAnswer(false);
       setIsRetrying(false);
       TTSService.speak('Failed to get more answers. Please try again.', true);
@@ -1090,6 +1047,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const handleAnswerSelected = async (selectedAnswer: string) => {
     if (!transcribedText || !directAnswers || directAnswers.length === 0) {
       return;
+    }
+
+    if (selectedAnswer !== 'MoreAnswers') {
+      mixpanel.track('Answer Selected', {
+        selected_answer: selectedAnswer,
+      });
     }
 
     // Stop response timer if running
@@ -1141,9 +1104,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) {
-          // Error saving AI Resolved record
-        }
+        } catch (error) {}
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1169,24 +1130,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Only navigate back to Open if not currently retrying/getting more answers
     if (selectedAnswer !== 'MoreAnswers') {
-      // Wait 1 second to allow user to hear the selected answer being spoken
+      // Navigate to Open.tsx only if gobackAfterSelection is true
       setTimeout(async () => {
-        // Reset assistant state
         setDirectAnswers([]);
-
-        // Navigate to Open.tsx only if gobackAfterSelection is true
         if (gobackAfterSelection) {
+          // Wait 1 second to allow user to hear the selected answer being spoken
           resetLocalStates();
           navigation.navigate(views.OPEN as never);
         } else {
-          // NEW: Set waiting state and activate wake word
+          // NEW: Set waiting state immediately so it shows right away
+          // TTS has already finished by the time this function is called
+          setShowImages(false);
           setWaitingForNextConversation(true);
           setDirectAnswers([]);
-
           // Reset states but preserve waitingForNextConversation
           setFinishedTranscribing(false);
           setTranscribedText('');
-          setShowImages(false);
           setIsRetrying(false);
           setRetryCount(0);
           setIsProcessingAnswer(false);
@@ -1195,13 +1154,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           setKeyboardInput('');
           setDebouncedKeyboardInput('');
           setIsSubmittingKeyboard(false);
-
-          // Clear iOS transcription timer and pending state
-          if (iosTranscribeTimerRef.current) {
-            clearTimeout(iosTranscribeTimerRef.current);
-            iosTranscribeTimerRef.current = null;
-          }
-          setIosFinalTextPending(null);
+          setIsUsingLocalWhisper(false);
+          setModelNotAvailable(false);
 
           // Clear the input in the Inputs component
           if (inputsRef.current) {
@@ -1214,27 +1168,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             debounceTimer.current = null;
           }
 
-          // Activate wake word listening
+          // Activate wake word listening with callback
           try {
             const wakeWordService = WakeWordService.getInstance();
 
-            wakeWordService.setCallback((phrase: string) => {
-              // Track wake word detection in waiting state
-              mixpanel.track(
-                'Home Screen - Wake Word Detected (Waiting State)',
-                {
-                  screen: 'Home',
-                  action: 'wake_word_detected_waiting',
-                  phrase: phrase,
-                },
-              );
+            wakeWordService.setCallback(async (phrase: string) => {
               // When wake word detected, start new conversation
+              mixpanel.track('Recording Restarted', {
+                source: 'wake_word_detected',
+              });
               setWaitingForNextConversation(false);
-              playSound(); // This will trigger handleRecord()
+              await playSound(); // This will trigger handleRecord()
             });
 
-            await wakeWordService.startListening();
+            if (!wakeWordService.isCurrentlyListening()) {
+              await wakeWordService.startListening();
+            }
           } catch (error) {
+            console.error('[Home] Error setting up wakeword callback:', error);
             // Fallback: allow manual trigger
             setWaitingForNextConversation(true);
           }
@@ -1257,7 +1208,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       // Simply display what was written without making API calls
       TTSService.speak(inputText, true);
     } catch (error) {
-      // Processing failed
     } finally {
       setIsSubmittingKeyboard(false);
     }
@@ -1407,7 +1357,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
         ]}>
         {stateof === 'Keyboard' ? null : (
-          <View
+          <TouchableOpacity
             style={[
               styles.microphoneButton,
               {
@@ -1416,20 +1366,35 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                 width: responsiveValues.microphoneButtonSize,
                 height: responsiveValues.microphoneButtonSize,
               },
-            ]}>
+            ]}
+            onPress={() => {
+              mixpanel.track('Contiuing the conversation Restarted', {
+                source: 'microphone_button_home_screen',
+              });
+              setWaitingForNextConversation(false); // Exit waiting state immediately
+              playSound(); // This will trigger handleRecord()
+            }}>
             <FastImage
               source={require('../assets/michrophone.gif')}
               style={[styles.iconSize, responsiveValues.microphoneSize]}
               resizeMode={FastImage.resizeMode.contain}
             />
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Home Button */}
         <HomeButton
           navigation={navigation}
           onReset={resetLocalStates}
-          disabled={false}
+          disabled={
+            stateof === 'Keyboard'
+              ? false
+              : isRecording ||
+                isProcessingAnswer ||
+                isRetrying ||
+                isSubmittingKeyboard ||
+                (!finishedTranscribing && !waitingForNextConversation)
+          }
         />
 
         {/* Matalk Icon */}
@@ -1441,7 +1406,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <View
           style={[
             styles.inputNavigationContainer,
-            {minHeight: responsiveValues.inputNavigationHeight},
+            {height: responsiveValues.inputNavigationHeight},
           ]}>
           <Inputs
             ref={inputsRef}
@@ -1517,9 +1482,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                 elevation: responsiveValues.elevation,
                               },
                             ]}
-                            onPress={() =>
-                              navigation.navigate('ShortCuts' as never)
-                            }>
+                            onPress={() => {
+                              mixpanel.track('Shortcuts Tapped', {
+                                context: 'more_answers_failed',
+                              });
+                              navigation.navigate('ShortCuts' as never);
+                            }}>
                             <View
                               style={[
                                 styles.cardImageContainer,
@@ -1668,14 +1636,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             }),
                           }}
                           onPress={() => {
-                            // Track continue conversation button click
-                            mixpanel.track(
-                              'Home Screen - Continue Conversation Button Clicked',
-                              {
-                                screen: 'Home',
-                                action: 'continue_conversation_button',
-                              },
-                            );
+                            mixpanel.track('Contiuing the conversation', {
+                              source: 'waiting_state_button',
+                            });
                             setWaitingForNextConversation(false); // Exit waiting state immediately
                             playSound(); // This will trigger handleRecord()
                           }}>
@@ -1701,6 +1664,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           ]}
                           resizeMode={FastImage.resizeMode.contain}
                         />
+                        <Text
+                          style={{
+                            fontSize: responsiveValues.transcriptionFontSize,
+                            fontWeight: 'bold',
+                            color: '#FF6B35',
+                            marginTop: 10,
+                          }}>
+                          Transcribing...
+                        </Text>
                       </View>
                     ) : isRecording ? (
                       <View style={{alignItems: 'center'}}>
@@ -1713,6 +1685,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                               : FastImage.resizeMode.contain
                           }
                         />
+                        <Text
+                          style={{
+                            fontSize: responsiveValues.transcriptionFontSize,
+                            fontWeight: 'bold',
+                            color: '#FF0000',
+                            marginTop: 10,
+                          }}>
+                          Recording...
+                        </Text>
                       </View>
                     ) : (
                       <View
@@ -1736,11 +1717,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                               style={{
                                 fontSize:
                                   responsiveValues.transcriptionFontSize * 0.7,
-                                color: '#4CAF50',
+                                color: isUsingLocalWhisper
+                                  ? '#4CAF50'
+                                  : modelNotAvailable
+                                  ? '#FF9800'
+                                  : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
-                              🎤 Voice Recognition
+                              {isUsingLocalWhisper
+                                ? '🔒 Local Whisper'
+                                : modelNotAvailable
+                                ? '☁️ Cloud (Model not downloaded)'
+                                : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
@@ -1799,7 +1788,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             resizeMode={FastImage.resizeMode.contain}
                           />
                         ) : null}
-
                         {finishedTranscribing &&
                         (transcribedText.length === 0 ||
                           transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (

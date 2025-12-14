@@ -40,7 +40,7 @@ export const downloadImage = async (
       );
     }
   } catch (error) {
-    console.error('Error downloading image:', error);
+    
     throw error;
   }
 };
@@ -60,7 +60,7 @@ export const downloadImageForCard = async (
       localImagePath: localPath,
     };
   } catch (error) {
-    console.error(`Failed to download image for card ${card.word}:`, error);
+    
     // Return original card if download fails
     return card;
   }
@@ -75,7 +75,7 @@ export const imageExists = async (localPath: string): Promise<boolean> => {
   try {
     return await RNFS.exists(localPath);
   } catch (error) {
-    console.error('Error checking if image exists:', error);
+    
     return false;
   }
 };
@@ -94,7 +94,7 @@ export const deleteImage = async (localPath: string): Promise<boolean> => {
     }
     return false;
   } catch (error) {
-    console.error('Error deleting image:', error);
+    
     return false;
   }
 };
@@ -148,14 +148,14 @@ export const cleanupOldImages = async (
           await RNFS.unlink(file.path);
           deletedCount++;
         } catch (error) {
-          console.error(`Error deleting old image ${file.path}:`, error);
+          
         }
       }
     }
 
     return deletedCount;
   } catch (error) {
-    console.error('Error cleaning up old images:', error);
+    
     return 0;
   }
 };

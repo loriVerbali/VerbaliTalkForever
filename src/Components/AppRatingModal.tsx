@@ -42,7 +42,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
   onClose,
   onDismiss,
 }) => {
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
   const [state, setState] = useState<RatingModalState>('initial');
   const [selectedFeedback, setSelectedFeedback] = useState<Set<string>>(
     new Set(),
@@ -56,7 +56,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
         const available = await InAppReview.isAvailable();
         setReviewAvailable(available);
       } catch (error) {
-        console.error('Error checking review availability:', error);
         setReviewAvailable(false);
       }
     };
@@ -79,7 +78,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
         resetState();
         return;
       } catch (error) {
-        console.error('Error requesting in-app review:', error);
         // Fallback to showing rating state if review fails
       }
     }
@@ -115,7 +113,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
       onClose();
       resetState();
     } catch (error) {
-      console.error('Error requesting in-app review:', error);
       // On error, just close the modal
       onClose();
       resetState();
@@ -147,8 +144,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
     mixpanel.track('feedback', {
       feedback: feedbackArray,
     });
-
-    console.log('Feedback submitted:', feedbackArray);
 
     setState('confirmation');
   };

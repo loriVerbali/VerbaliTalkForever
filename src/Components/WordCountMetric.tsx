@@ -38,29 +38,26 @@ interface WordCountMetricProps {
 
 const WordCountMetric: React.FC<WordCountMetricProps> = () => {
   const {getWordCountData, isInitialized, isLoading} = useDatabase();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const [wordCounts, setWordCounts] = useState<WordCountData[]>([]);
   const [topX, setTopX] = useState<number>(10);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>({type: 'today'});
   const [filters, setFilters] = useState<AdditionalFilters>({
     source: 'all',
   });
-
-  // Track section entry
-  useEffect(() => {
-    mixpanel.track('Metric Detail - Total Utterances Section Entered', {
-      screen: 'MetricDetail',
-      action: 'section_entered',
-      metric_key: 'metric1',
-      section_name: 'Total Utterances',
-    });
-  }, []);
   const [showTimeRangeModal, setShowTimeRangeModal] = useState(false);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [dateRangeStart, setDateRangeStart] = useState('');
   const [dateRangeEnd, setDateRangeEnd] = useState('');
   const [timeStart, setTimeStart] = useState('07:00');
   const [timeEnd, setTimeEnd] = useState('08:00');
+
+  // Track when this metric component is viewed
+  useEffect(() => {
+    const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+    mixpanel.track('WordCountMetric Viewed', {
+      MetricKey: 'metric1',
+    });
+  }, []);
 
   // Days of week state
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -101,7 +98,6 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
         const data = await getWordCountData(filters);
         setWordCounts(data.slice(0, topX));
       } catch (error) {
-        console.error('Error loading word count data:', error);
         // Fallback to empty data on error
         setWordCounts([]);
       }
@@ -171,14 +167,6 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
   };
 
   const handleTimeFilterChange = (type: TimeFilter['type']) => {
-    // Track filter usage
-    mixpanel.track('Metric Detail - Filter Used', {
-      screen: 'MetricDetail',
-      action: 'filter_used',
-      metric_key: 'metric1',
-      filter_type: 'time_frame',
-      filter_value: type,
-    });
     setTimeFilter({type});
   };
 
@@ -186,14 +174,6 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
     // Parse dates and set filter
     // TODO: Add date validation
     if (dateRangeStart && dateRangeEnd) {
-      mixpanel.track('Metric Detail - Filter Used', {
-        screen: 'MetricDetail',
-        action: 'filter_used',
-        metric_key: 'metric1',
-        filter_type: 'date_range',
-        start_date: dateRangeStart,
-        end_date: dateRangeEnd,
-      });
       setTimeFilter({
         type: 'dateRange',
         startDate: new Date(dateRangeStart),
@@ -204,14 +184,6 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
   };
 
   const handleTimeOfDaySubmit = () => {
-    mixpanel.track('Metric Detail - Filter Used', {
-      screen: 'MetricDetail',
-      action: 'filter_used',
-      metric_key: 'metric1',
-      filter_type: 'time_of_day',
-      time_start: timeStart,
-      time_end: timeEnd,
-    });
     setFilters({
       ...filters,
       timeOfDayStart: timeStart,
@@ -231,13 +203,6 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
   };
 
   const applyDayOfWeekFilter = () => {
-    mixpanel.track('Metric Detail - Filter Used', {
-      screen: 'MetricDetail',
-      action: 'filter_used',
-      metric_key: 'metric1',
-      filter_type: 'days_of_week',
-      selected_days: selectedDays,
-    });
     setFilters({
       ...filters,
       daysOfWeek: selectedDays.length > 0 ? selectedDays : undefined,
@@ -279,7 +244,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={true}>
@@ -342,7 +307,8 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                 <TouchableOpacity
                   style={[
                     styles.filterButton,
-                    timeFilter.type === 'thisMonth' && styles.filterButtonActive,
+                    timeFilter.type === 'thisMonth' &&
+                      styles.filterButtonActive,
                   ]}
                   onPress={() => handleTimeFilterChange('thisMonth')}>
                   <Text
@@ -355,7 +321,9 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.currentFilterText}>{getTimeFilterLabel()}</Text>
+              <Text style={styles.currentFilterText}>
+                {getTimeFilterLabel()}
+              </Text>
             </View>
 
             {/* Additional Filters Column */}
@@ -385,16 +353,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     styles.sourceButton,
                     filters.source === 'all' && styles.sourceButtonActive,
                   ]}
-                  onPress={() => {
-                    mixpanel.track('Metric Detail - Filter Used', {
-                      screen: 'MetricDetail',
-                      action: 'filter_used',
-                      metric_key: 'metric1',
-                      filter_type: 'source',
-                      filter_value: 'all',
-                    });
-                    setFilters({...filters, source: 'all'});
-                  }}>
+                  onPress={() => setFilters({...filters, source: 'all'})}>
                   <Text
                     style={[
                       styles.sourceButtonText,
@@ -408,16 +367,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     styles.sourceButton,
                     filters.source === 'AI Only' && styles.sourceButtonActive,
                   ]}
-                  onPress={() => {
-                    mixpanel.track('Metric Detail - Filter Used', {
-                      screen: 'MetricDetail',
-                      action: 'filter_used',
-                      metric_key: 'metric1',
-                      filter_type: 'source',
-                      filter_value: 'AI Only',
-                    });
-                    setFilters({...filters, source: 'AI Only'});
-                  }}>
+                  onPress={() => setFilters({...filters, source: 'AI Only'})}>
                   <Text
                     style={[
                       styles.sourceButtonText,
@@ -433,16 +383,9 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     filters.source === 'Classic Board' &&
                       styles.sourceButtonActive,
                   ]}
-                  onPress={() => {
-                    mixpanel.track('Metric Detail - Filter Used', {
-                      screen: 'MetricDetail',
-                      action: 'filter_used',
-                      metric_key: 'metric1',
-                      filter_type: 'source',
-                      filter_value: 'Classic Board',
-                    });
-                    setFilters({...filters, source: 'Classic Board'});
-                  }}>
+                  onPress={() =>
+                    setFilters({...filters, source: 'Classic Board'})
+                  }>
                   <Text
                     style={[
                       styles.sourceButtonText,
@@ -466,15 +409,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                       styles.topXButton,
                       topX === num && styles.topXButtonActive,
                     ]}
-                    onPress={() => {
-                      mixpanel.track('Metric Detail - Entries Viewed Changed', {
-                        screen: 'MetricDetail',
-                        action: 'entries_viewed_changed',
-                        metric_key: 'metric1',
-                        entries_count: num,
-                      });
-                      setTopX(num);
-                    }}>
+                    onPress={() => setTopX(num)}>
                     <Text
                       style={[
                         styles.topXButtonText,
@@ -492,7 +427,9 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
         {/* Table */}
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderText, styles.wordColumn]}>Words</Text>
+            <Text style={[styles.tableHeaderText, styles.wordColumn]}>
+              Words
+            </Text>
             <Text style={[styles.tableHeaderText, styles.usageColumn]}>
               Usage Count
             </Text>
@@ -654,7 +591,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fe',
-    flexDirection: 'column',
   },
   scrollView: {
     flex: 1,
@@ -831,6 +767,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tableContainer: {
+    minHeight: 300,
     backgroundColor: '#fff',
     borderRadius: 8,
     borderWidth: 1,
@@ -856,7 +793,7 @@ const styles = StyleSheet.create({
     width: '30%',
   },
   tableBody: {
-    // No longer a ScrollView, just a container for rows
+    // Content will size naturally within the ScrollView
   },
   tableRow: {
     flexDirection: 'row',

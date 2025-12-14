@@ -8,6 +8,8 @@ import React, {
   useRef,
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
+import {validateReceiptOnLaunch} from './recieptValidation';
+import WhisperModelManager from './WhisperModelManager';
 import {sessionManager} from './sessionManager';
 
 interface Preferences {
@@ -39,6 +41,9 @@ interface Preferences {
   conversationMode: string;
   gobackAfterSelection: string;
   wasDeleted: string;
+  isIOSActive: string;
+  isInTrial: string;
+  trialInstallationDate: string;
   pepes: string;
   whisperModelAvailable: string;
   whisperModelLastChecked: string;
@@ -99,6 +104,9 @@ const initialPreferences: Preferences = {
   conversationMode: 'easy',
   gobackAfterSelection: initEnum.false,
   wasDeleted: initEnum.false,
+  isIOSActive: initEnum.false,
+  isInTrial: initEnum.false,
+  trialInstallationDate: initEnum.notSet,
   pepes: '',
   whisperModelAvailable: initEnum.false,
   whisperModelLastChecked: '0',
@@ -142,6 +150,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const [preferences, setPreferences] =
     useState<Preferences>(initialPreferences);
   const initializationRef = useRef(false);
+  const receiptValidationRef = useRef(false);
 
   const setItem = async (
     key: keyof Preferences,
@@ -150,8 +159,11 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
     try {
       await DefaultPreference.set(key, value);
       setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
+      if (key === 'isInTrial') {
+        
+      }
     } catch (error) {
-      console.error('Error setting item in DefaultPreference', error);
+      
     }
   };
 
@@ -160,7 +172,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const item = await DefaultPreference.get(key);
       return item ?? initialPreferences[key];
     } catch (error) {
-      console.error('Error getting item from DefaultPreference', error);
+      
       return initialPreferences[key];
     }
   };
@@ -170,16 +182,18 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       await DefaultPreference.set(key, initEnum.notSet);
       setPreferences(prevPreferences => ({...prevPreferences, [key]: ''}));
     } catch (error) {
-      console.error('Error removing item from DefaultPreference', error);
+      
     }
   };
 
   const initializePreferences = async (): Promise<Preferences> => {
     // Prevent multiple initializations
     if (initializationRef.current) {
+      
       return preferences;
     }
 
+    
     initializationRef.current = true;
 
     try {
@@ -189,15 +203,46 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       for (const key of getKeys) {
         const found = await DefaultPreference.get(key);
         loaded[key] = (found ?? initialPreferences[key]) as any;
+        if (key === 'isInTrial') {
+          
+        }
       }
 
       setPreferences(
         prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
       );
 
+      // Set trial installation date on first app launch (never override)
+      if (loaded.trialInstallationDate === initEnum.notSet) {
+        const currentTimestamp = Date.now().toString();
+        await setItem('trialInstallationDate', currentTimestamp);
+      }
+
+      // validate purchase on launch
+      if (!receiptValidationRef.current) {
+        receiptValidationRef.current = true;
+
+        // Use a single timeout reference to prevent multiple executions
+        const timeoutId = setTimeout(async () => {
+          try {
+            const purchaseValid = await validateReceiptOnLaunch();
+            if (!purchaseValid) {
+              await setItem('isIOSActive', '0');
+            } else {
+              await setItem('isIOSActive', '1');
+            }
+          } catch (error) {
+            
+          }
+        }, 3000);
+
+        // Store the timeout ID so we can clear it if needed
+        (receiptValidationRef as any).timeoutId = timeoutId;
+      }
+
       return loaded as Preferences;
     } catch (error) {
-      console.error('Error initializing preferences', error);
+      
       return initialPreferences;
     }
   };
@@ -220,9 +265,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       // Initialize guest session
       try {
         await sessionManager.ensureValidSession();
-        console.log('Guest session initialized on app start');
+        
       } catch (error) {
-        console.error('Failed to initialize guest session:', error);
+        
       }
     };
 
@@ -230,6 +275,12 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
     return () => {
       initializationRef.current = false;
+      receiptValidationRef.current = false;
+
+      // Clear any pending timeout
+      if ((receiptValidationRef as any).timeoutId) {
+        clearTimeout((receiptValidationRef as any).timeoutId);
+      }
     };
   }, []);
 
@@ -241,7 +292,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       }
       setPreferences(initialPreferences);
     } catch (error) {
-      console.error('Error clearing DefaultPreference', error);
+      
     }
   };
 

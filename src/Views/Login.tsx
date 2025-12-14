@@ -36,6 +36,36 @@ const Login: React.FC = () => {
     return userSub;
   };
 
+  // Helper function to validate and update trial date
+  const validateAndUpdateTrialDate = async (serverCreatedAt: string) => {
+    try {
+      const localTrialDate = await getItem('trialInstallationDate');
+
+      // Skip if no local trial date (shouldn't happen after onboarding)
+      if (!localTrialDate || localTrialDate === 'init.NotSet') {
+        return;
+      }
+
+      // Parse server date (PostgreSQL format: "2025-01-15 10:30:45.123456")
+      const serverDate = new Date(serverCreatedAt.replace(' ', 'T'));
+      const localDate = new Date(parseInt(localTrialDate));
+
+      // Calculate time difference in hours
+      const timeDiffHours =
+        Math.abs(serverDate.getTime() - localDate.getTime()) / (1000 * 60 * 60);
+
+      // If difference is more than 24 hours, update to the later date (more generous)
+      if (timeDiffHours > 24) {
+        const laterDate = serverDate > localDate ? serverDate : localDate;
+        const laterTimestamp = laterDate.getTime().toString();
+
+        await setItem('trialInstallationDate', laterTimestamp);
+      }
+    } catch (error) {
+      
+    }
+  };
+
   // Helper function to get assistant ID for the user
   const getAssistantId = async (userId: string): Promise<void> => {
     try {
@@ -49,9 +79,14 @@ const Login: React.FC = () => {
 
       if (response && response.assistantId) {
         await setItem('assistantId', response.assistantId);
+
+        // Validate and update trial date if server returns createdAt
+        if (response.createdAt) {
+          await validateAndUpdateTrialDate(response.createdAt);
+        }
       }
     } catch (error) {
-      console.error('Error getting assistant ID:', error);
+      
     }
   };
 
@@ -92,7 +127,7 @@ const Login: React.FC = () => {
           // Navigate to Open screen if user is logged in
           navigation.navigate(views.OPEN as never);
         } catch (e) {
-          console.error('Error saving user data:', e);
+          
         }
       } else {
         // Check if user was previously logged in
@@ -114,7 +149,7 @@ const Login: React.FC = () => {
             navigation.navigate(views.OPEN as never);
           }
         } catch (e) {
-          console.error('Error retrieving user data:', e);
+          
         }
       }
     };
@@ -137,7 +172,7 @@ const Login: React.FC = () => {
       }
       // Stop persisting refresh tokens; Auth0 Credentials Manager handles rotation
     } catch (e) {
-      console.error('Authorization error:', e);
+      
     }
   };
 
@@ -149,7 +184,7 @@ const Login: React.FC = () => {
       await setItem('username', '');
       await setItem('token', '');
     } catch (e) {
-      console.error('Log out cancelled:', e);
+      
     }
   };
 

@@ -153,7 +153,7 @@ export const MODEL_CONFIG = {
     name: 'Whisper Tiny Base English',
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
     fileName: 'ggml-tiny.en.bin',
-    size: '77.7MB',
+    size: '75MB',
     description: 'Whisper transcription model for voice-to-text conversion',
   },
   WHISPER_TINY: {

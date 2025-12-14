@@ -6,7 +6,6 @@ import React, {
   useEffect,
 } from 'react';
 import {View, StyleSheet, TextInput, Dimensions, Platform} from 'react-native';
-
 import {useAdmin} from '../contexts/adminContext';
 
 interface InputsProps {
@@ -124,7 +123,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     width: '100%',
-    marginTop: height * 0.02,
+    marginTop: height * 0.04,
   },
   KBinputContainer: {
     flexDirection: 'row',

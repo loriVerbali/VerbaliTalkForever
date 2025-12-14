@@ -59,7 +59,7 @@ export const saveTestSpecialPlaces = async (
   try {
     await setItem('specialPlaces', JSON.stringify(mockSpecialPlaces));
   } catch (error) {
-    console.error('Error saving test special places:', error);
+    
   }
 };
 
@@ -70,6 +70,6 @@ export const clearSpecialPlaces = async (
   try {
     await setItem('specialPlaces', '');
   } catch (error) {
-    console.error('Error clearing special places:', error);
+    
   }
 };

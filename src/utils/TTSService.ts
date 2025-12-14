@@ -17,8 +17,9 @@ class TTSService {
   private static instance: TTSService;
   private initialized: boolean = false;
   private isPlaying: boolean = false;
-  private queue: string[] = [];
+  private queue: Array<{text: string; onComplete?: () => void}> = [];
   private processingQueue: boolean = false;
+  private currentItem: {text: string; onComplete?: () => void} | null = null;
   private ttsBasePath: string = `${RNFS.MainBundlePath}`;
   private ttsConfig = {
     modelPath: `${this.ttsBasePath}/en_US-amy-medium.onnx`,
@@ -41,7 +42,7 @@ class TTSService {
       try {
         await TTSManager.initialize(JSON.stringify(this.ttsConfig));
       } catch (e) {
-        console.error('TTS init failed', e);
+        
       }
     } else {
       // Android - using react-native-tts
@@ -58,6 +59,11 @@ class TTSService {
         Tts.addEventListener('tts-finish', () => {
           this.isPlaying = false;
           this.processingQueue = false;
+          // Call completion callback if set
+          if (this.currentItem?.onComplete) {
+            this.currentItem.onComplete();
+            this.currentItem = null;
+          }
           // Process next in queue if any
           if (this.queue.length > 0) {
             this.processQueue();
@@ -69,7 +75,7 @@ class TTSService {
           this.processingQueue = false;
         });
       } catch (e) {
-        console.error('Android TTS init failed', e);
+        
       }
     }
   }
@@ -107,7 +113,7 @@ class TTSService {
         await Tts.speak(text);
       }
     } catch (e) {
-      console.error('TTS playback failed', e);
+      
       // Clear timeout on error
       if (Platform.OS === 'ios') {
         this.clearIOSPlaybackTimeout();
@@ -120,6 +126,12 @@ class TTSService {
     this.clearIOSPlaybackTimeout();
     this.isPlaying = false;
     this.processingQueue = false;
+
+    // Call completion callback if set
+    if (this.currentItem?.onComplete) {
+      this.currentItem.onComplete();
+      this.currentItem = null;
+    }
 
     // Process next in queue if any
     if (this.queue.length > 0) {
@@ -140,14 +152,18 @@ class TTSService {
       await this.initTTS();
       this.initialized = true;
     } catch (error) {
-      console.error('Failed to initialize TTS:', error);
+      
       this.initialized = false;
     }
   }
 
-  public async speak(text: string, immediate: boolean = false): Promise<void> {
+  public async speak(
+    text: string,
+    immediate: boolean = false,
+    onComplete?: () => void,
+  ): Promise<void> {
     if (!text || text.trim().length === 0) {
-      console.warn('TTS: Attempted to speak empty text');
+      
       return;
     }
 
@@ -155,7 +171,7 @@ class TTSService {
       if (!this.initialized) {
         const initialized = await this.waitForInitialization();
         if (!initialized) {
-          console.error('TTS: Failed to initialize, cannot speak');
+          
           return;
         }
       }
@@ -165,19 +181,19 @@ class TTSService {
         // For iOS, wait a bit longer to ensure previous playback is fully stopped
         const stopDelay = Platform.OS === 'ios' ? 200 : 50;
         setTimeout(() => {
-          this.queue = [text];
+          this.queue = [{text, onComplete}];
           this.processQueue();
         }, stopDelay);
         return;
       } else {
-        this.queue.push(text);
+        this.queue.push({text, onComplete});
       }
 
       if (!this.isPlaying && !this.processingQueue) {
         this.processQueue();
       }
     } catch (error) {
-      console.error('Error in speak method:', error);
+      
     }
   }
 
@@ -188,16 +204,20 @@ class TTSService {
 
     this.processingQueue = true;
     try {
-      const nextText = this.queue.shift();
-      if (nextText) {
+      const nextItem = this.queue.shift();
+      if (nextItem) {
+        this.currentItem = nextItem;
         this.isPlaying = true;
-        await this.speakText(nextText);
+        await this.speakText(nextItem.text);
 
         // For iOS, don't immediately set isPlaying to false
         // Let the timeout handle it
         if (Platform.OS !== 'ios') {
           this.isPlaying = false;
           this.processingQueue = false;
+          // Call completion callback if set (for Android, it's called in tts-finish event)
+          // But we handle it in the event listener, so no need to call here
+          this.currentItem = null;
           // Process next in queue if any
           if (this.queue.length > 0) {
             this.processQueue();
@@ -205,9 +225,10 @@ class TTSService {
         }
       }
     } catch (error) {
-      console.error('Error processing TTS queue:', error);
+      
       this.isPlaying = false;
       this.processingQueue = false;
+      this.currentItem = null;
     }
   }
 
@@ -224,8 +245,9 @@ class TTSService {
       this.isPlaying = false;
       this.queue = [];
       this.processingQueue = false;
+      this.currentItem = null;
     } catch (error) {
-      console.error('Error stopping TTS:', error);
+      
       // Reset state even if stop fails
       this.isPlaying = false;
       this.queue = [];
@@ -238,7 +260,7 @@ class TTSService {
       await this.stop();
       this.initialized = false;
     } catch (error) {
-      console.error('Error shutting down TTS:', error);
+      
       // Reset state even if shutdown fails
       this.initialized = false;
     }
@@ -268,7 +290,7 @@ class TTSService {
       await this.initialize();
       return this.initialized;
     } catch (error) {
-      console.error('Failed to initialize TTS during wait:', error);
+      
       return false;
     }
   }
@@ -288,28 +310,28 @@ class TTSService {
     const modelExists = await RNFS.exists(modelPath);
     if (!modelExists) {
       const msg = `Missing TTS model file: ${modelPath}`;
-      console.error(msg);
+      
       return false;
     }
 
     const tokensExists = await RNFS.exists(tokensPath);
     if (!tokensExists) {
       const msg = `Missing TTS tokens file: ${tokensPath}`;
-      console.error(msg);
+      
       return false;
     }
 
     const dataDirExists = await RNFS.exists(dataDirPath);
     if (!dataDirExists) {
       const msg = `Missing espeak-ng-data folder: ${dataDirPath}`;
-      console.error(msg);
+      
       return false;
     }
 
     const modelCardExists = await RNFS.exists(modelCardPath);
     if (!modelCardExists) {
       const msg = `Missing MODEL_CARD file: ${modelCardPath}`;
-      console.error(msg);
+      
       return false;
     }
 

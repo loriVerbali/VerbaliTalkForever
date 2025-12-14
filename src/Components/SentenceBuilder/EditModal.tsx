@@ -128,7 +128,7 @@ const EditModal: React.FC<EditModalProps> = ({
       const apiResults = await searchWordImages(query);
       setSearchResults(apiResults.results);
     } catch (error) {
-      console.error('Error searching words:', error);
+      
       Alert.alert('Error', 'Failed to search for words. Please try again.');
     } finally {
       setIsSearching(false);
@@ -175,7 +175,7 @@ const EditModal: React.FC<EditModalProps> = ({
             filename,
           );
         } catch (error) {
-          console.error('Error downloading image:', error);
+          
           Alert.alert(
             'Warning',
             'Failed to download image. The item will be saved without an image.',
@@ -213,7 +213,7 @@ const EditModal: React.FC<EditModalProps> = ({
 
       onSave(nodeData);
     } catch (error) {
-      console.error('Error in handleSave:', error);
+      
       Alert.alert('Error', 'Failed to save item. Please try again.');
     }
   };

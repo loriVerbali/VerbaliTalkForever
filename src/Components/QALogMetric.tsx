@@ -82,22 +82,11 @@ const InfoModal = ({
 const QALogMetric: React.FC<QALogMetricProps> = () => {
   const {getAIResolvedData, isInitialized, isLoading} = useDatabase();
   const {preferences} = useAppSettings();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const [qaLogs, setQaLogs] = useState<QALogEntry[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>({
     type: 'last30Days',
   });
   const [showInfoModal, setShowInfoModal] = useState(false);
-
-  // Track section entry
-  useEffect(() => {
-    mixpanel.track('Metric Detail - Overview of questions answered using AI Section Entered', {
-      screen: 'MetricDetail',
-      action: 'section_entered',
-      metric_key: 'metric4',
-      section_name: 'Overview of questions answered using AI',
-    });
-  }, []);
 
   // Build filters based on time filter
   const buildFilters = useCallback(() => {
@@ -156,6 +145,14 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
     };
   }, [timeFilter]);
 
+  // Track when this metric component is viewed
+  useEffect(() => {
+    const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+    mixpanel.track('QALogMetric Viewed', {
+      MetricKey: 'metric4',
+    });
+  }, []);
+
   // Load data from database
   useEffect(() => {
     const loadData = async () => {
@@ -208,7 +205,6 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
         });
         setQaLogs(formattedLogs);
       } catch (error) {
-        console.error('Error loading AI resolved data:', error);
         setQaLogs([]);
       }
     };
@@ -217,13 +213,6 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
   }, [timeFilter, isInitialized, isLoading, buildFilters, getAIResolvedData]);
 
   const handleTimeFilterChange = (type: TimeFilter['type']) => {
-    mixpanel.track('Metric Detail - Filter Used', {
-      screen: 'MetricDetail',
-      action: 'filter_used',
-      metric_key: 'metric4',
-      filter_type: 'time_frame',
-      filter_value: type,
-    });
     setTimeFilter({type});
   };
 
@@ -296,15 +285,7 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
             answer chosen.
           </Text>
           <TouchableOpacity
-            onPress={() => {
-              mixpanel.track('Metric Detail - Info Button Clicked', {
-                screen: 'MetricDetail',
-                action: 'info_button_clicked',
-                metric_key: 'metric4',
-                info_type: 'qa_log_explanation',
-              });
-              setShowInfoModal(true);
-            }}
+            onPress={() => setShowInfoModal(true)}
             style={styles.infoButton}>
             <Text style={styles.infoIcon}>?</Text>
           </TouchableOpacity>

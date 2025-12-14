@@ -13,6 +13,10 @@ class AppDelegate: RCTAppDelegate {
     // You can add your custom initial props in the dictionary below.
     // They will be passed down to the ViewController used by React Native.
     self.initialProps = [:]
+    
+    // Initialize centralized audio session manager
+    // This ensures one consistent audio session configuration for wakeword, Whisper, and TTS
+    AudioSessionManager.sharedInstance().configureAudioSession()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -38,17 +42,5 @@ class AppDelegate: RCTAppDelegate {
   override func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
     return UIInterfaceOrientationMask.landscape
   }
-  
-  private func enableVoiceProcessingSession() {
-      let session = AVAudioSession.sharedInstance()
-      do {
-        try session.setCategory(.playAndRecord,
-                                mode: .voiceChat, // enables NS/AEC/AGC
-                                options: [.defaultToSpeaker, .allowBluetooth])
-        try session.setActive(true)
-      } catch {
-        print("AVAudioSession setup failed: \(error)")
-      }
-    }
   
 }

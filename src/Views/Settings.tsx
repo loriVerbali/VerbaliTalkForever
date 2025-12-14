@@ -76,24 +76,34 @@ const InfoModal = ({
   onClose: () => void;
   title: string;
   description: string;
-}) => (
-  <Modal
-    animationType="fade"
-    transparent={true}
-    visible={visible}
-    supportedOrientations={['landscape-left', 'landscape-right']}
-    onRequestClose={onClose}>
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>{title}</Text>
-        <Text style={styles.modalDescription}>{description}</Text>
-        <TouchableOpacity style={styles.modalButton} onPress={onClose}>
-          <Text style={styles.modalButtonText}>Got it</Text>
-        </TouchableOpacity>
+}) => {
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      supportedOrientations={['landscape-left', 'landscape-right']}
+      onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.modalDescription}>{description}</Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => {
+              mixpanel.track('Settings Info Modal Got It Pressed', {
+                modalTitle: title,
+              });
+              onClose();
+            }}>
+            <Text style={styles.modalButtonText}>Got it</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 // Individual slider components
 const MessagesSlider = ({
@@ -106,6 +116,7 @@ const MessagesSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const {width: windowWidth} = useWindowDimensions();
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -118,7 +129,12 @@ const MessagesSlider = ({
       <View style={styles.labelRow}>
         <Text style={styles.settingLabel}>Amount of messages</Text>
         <TouchableOpacity
-          onPress={() => setShowInfo(true)}
+          onPress={() => {
+            mixpanel.track('Settings Info Button Pressed', {
+              infoType: 'Amount of Messages',
+            });
+            setShowInfo(true);
+          }}
           style={styles.infoButton}>
           <Text style={styles.infoIcon}>?</Text>
         </TouchableOpacity>
@@ -162,6 +178,7 @@ const RangeSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const {width: windowWidth} = useWindowDimensions();
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -174,7 +191,12 @@ const RangeSlider = ({
       <View style={styles.labelRow}>
         <Text style={styles.settingLabel}>{label}</Text>
         <TouchableOpacity
-          onPress={() => setShowInfo(true)}
+          onPress={() => {
+            mixpanel.track('Settings Info Button Pressed', {
+              infoType: label,
+            });
+            setShowInfo(true);
+          }}
           style={styles.infoButton}>
           <Text style={styles.infoIcon}>?</Text>
         </TouchableOpacity>
@@ -247,20 +269,18 @@ const SettingsScreen: React.FC = () => {
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
   const [showAssistantId, setShowAssistantId] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(true);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [watchedVideos, setWatchedVideos] = useState<Set<number>>(new Set());
   const [sessionResetTrigger, setSessionResetTrigger] = useState(0);
   const [showRatingModal, setShowRatingModal] = useState(false);
-  const [videoWatchStartTime, setVideoWatchStartTime] = useState<{
-    [key: number]: number;
-  }>({});
 
   // Video list for navigation - using remote URLs
   const videoList = [
@@ -378,9 +398,7 @@ const SettingsScreen: React.FC = () => {
               }, 500);
             }
           }
-        } catch (error) {
-          console.error('Error checking for rating prompt:', error);
-        }
+        } catch (error) {}
       };
 
       checkForRatingPrompt();
@@ -399,6 +417,10 @@ const SettingsScreen: React.FC = () => {
   // Removed logout functionality - guest sessions don't need logout
 
   const handleLinkPress = (url: string, title: string) => {
+    mixpanel.track('Settings Legal Link Pressed', {
+      linkTitle: title,
+      linkUrl: url,
+    });
     navigation.navigate(
       'WebView' as never,
       {
@@ -438,32 +460,11 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleGobackAfterSelectionToggle = async (value: boolean) => {
-    const oldValue = gobackAfterSelection;
+    mixpanel.track('Settings Go Back After Selection Changed', {
+      enabled: value,
+    });
     setGobackAfterSelection(value);
     await setItem('gobackAfterSelection', value ? '1' : '0');
-
-    // Track Go Back After Selection toggle
-    mixpanel.track('Settings - Go Back After Selection Toggled', {
-      screen: 'Settings',
-      action: 'goback_after_selection_toggled',
-      old_value: oldValue,
-      new_value: value,
-    });
-  };
-
-  const handleUseLocalWhisperToggle = async (value: boolean) => {
-    // If trying to enable local Whisper but model is not available, show alert and prevent toggle
-    if (value && !whisperModelAvailable) {
-      Alert.alert(
-        'Whisper Model Required',
-        'Please download the Whisper model first before enabling local Whisper. You can download it in the section below.',
-        [{text: 'OK'}],
-      );
-      return;
-    }
-
-    setUseLocalWhisper(value);
-    await setItem('useLocalWhisper', value ? '1' : '0');
   };
 
   const handleWhisperDownloadComplete = async () => {
@@ -474,12 +475,15 @@ const SettingsScreen: React.FC = () => {
           setItem,
           getItem,
         );
+      mixpanel.track('Settings Whisper Download Completed', {
+        success: modelStatus.available,
+      });
       setWhisperModelAvailable(modelStatus.available);
     } catch (error) {
-      console.error(
-        'Error checking Whisper model availability after download:',
-        error,
-      );
+      mixpanel.track('Settings Whisper Download Completed', {
+        success: false,
+        error: 'Failed to verify model',
+      });
       setWhisperModelAvailable(false);
       await setItem('whisperModelAvailable', '0');
       await setItem('useLocalWhisper', '0');
@@ -500,21 +504,20 @@ const SettingsScreen: React.FC = () => {
 
     setIsSaving(true);
     try {
-      const oldCode = adminCode;
       await setItem('adminCode', newAdminCode);
+      mixpanel.track('Settings Admin Code Changed', {
+        success: true,
+      });
       setAdminCode(newAdminCode);
       setNewAdminCode('');
       setIsEditingAdminCode(false);
       setAdminCodeError('');
       setIsAdminCodeVisible(false);
-
-      // Track admin code change
-      mixpanel.track('Settings - Admin Code Changed', {
-        screen: 'Settings',
-        action: 'admin_code_changed',
-        had_previous_code: !!oldCode,
-      });
     } catch (e) {
+      mixpanel.track('Settings Admin Code Changed', {
+        success: false,
+        error: 'Failed to save',
+      });
       setAdminCodeError('Failed to save admin code');
     } finally {
       setIsSaving(false);
@@ -522,6 +525,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleDeleteAccount = async () => {
+    mixpanel.track('Settings Reset Installation Prompted');
     Alert.alert(
       'Reset Installation',
       'Are you sure you want to reset your installation? This action is irreversible. All your data will be deleted and you will need to go through onboarding again.',
@@ -530,31 +534,19 @@ const SettingsScreen: React.FC = () => {
           text: 'Cancel',
           style: 'cancel',
           onPress: () => {
-            mixpanel.track('Settings - Reset Installation Cancelled', {
-              screen: 'Settings',
-              action: 'reset_installation_cancelled',
-            });
+            mixpanel.track('Settings Reset Installation Cancelled');
           },
         },
         {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            mixpanel.track('Settings - Reset Installation Confirmed', {
-              screen: 'Settings',
-              action: 'reset_installation_confirmed',
-            });
+            mixpanel.track('Settings Reset Installation Confirmed');
             deleteAccount();
           },
         },
       ],
     );
-
-    // Track that reset installation button was clicked
-    mixpanel.track('Settings - Reset Installation Clicked', {
-      screen: 'Settings',
-      action: 'reset_installation_clicked',
-    });
   };
 
   const deleteAccount = async () => {
@@ -569,9 +561,7 @@ const SettingsScreen: React.FC = () => {
           {},
           {assistantId: preferences.assistantId, userId: 'guest'},
         );
-      } catch (error) {
-        console.error('Error deleting assistant:', error);
-      }
+      } catch (error) {}
     }
 
     Alert.alert(
@@ -624,6 +614,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const cancelAdminCodeEdit = () => {
+    mixpanel.track('Settings Admin Code Edit Cancelled');
     setIsEditingAdminCode(false);
     setNewAdminCode('');
     setAdminCodeError('');
@@ -717,12 +708,14 @@ const SettingsScreen: React.FC = () => {
 
   // Hero name handlers
   const handleEditHeroName = () => {
+    mixpanel.track('Settings Hero Name Edit Started');
     setNewHeroName(heroName === 'Name' ? '' : heroName);
     setIsEditingHeroName(true);
     setHeroNameError('');
   };
 
   const handleCancelHeroNameEdit = () => {
+    mixpanel.track('Settings Hero Name Edit Cancelled');
     Keyboard.dismiss();
     setIsEditingHeroName(false);
     setNewHeroName('');
@@ -737,31 +730,35 @@ const SettingsScreen: React.FC = () => {
     }
     try {
       const oldName = heroName;
-      await setItem('heroName', newHeroName.trim());
-      setHeroName(newHeroName.trim());
+      const newName = newHeroName.trim();
+      await setItem('heroName', newName);
+      mixpanel.track('Settings Hero Name Changed', {
+        oldName: oldName,
+        newName: newName,
+        success: true,
+      });
+      setHeroName(newName);
       setIsEditingHeroName(false);
       setHeroNameError('');
-
-      // Track hero name update
-      mixpanel.track('Settings - Hero Name Updated', {
-        screen: 'Settings',
-        action: 'hero_name_updated',
-        old_name: oldName,
-        new_name: newHeroName.trim(),
-      });
     } catch (e) {
+      mixpanel.track('Settings Hero Name Changed', {
+        success: false,
+        error: 'Failed to save',
+      });
       setHeroNameError('Failed to save name');
     }
   };
 
   // Handshake message handlers
   const handleEditHandshakeMessage = () => {
+    mixpanel.track('Settings Handshake Message Edit Started');
     setNewHandshakeMessage(handshakeMessage);
     setIsEditingHandshakeMessage(true);
     setHandshakeMessageError('');
   };
 
   const handleCancelHandshakeMessageEdit = () => {
+    mixpanel.track('Settings Handshake Message Edit Cancelled');
     Keyboard.dismiss();
     setIsEditingHandshakeMessage(false);
     setNewHandshakeMessage('');
@@ -775,24 +772,26 @@ const SettingsScreen: React.FC = () => {
       return;
     }
     try {
-      const oldMessage = handshakeMessage;
       await setItem('handshakeMessage', newHandshakeMessage.trim());
+      mixpanel.track('Settings Handshake Message Changed', {
+        success: true,
+      });
       setHandshakeMessage(newHandshakeMessage.trim());
       setIsEditingHandshakeMessage(false);
       setHandshakeMessageError('');
-
-      // Track handshake message update
-      mixpanel.track('Settings - Handshake Message Updated', {
-        screen: 'Settings',
-        action: 'handshake_message_updated',
-        message_length: newHandshakeMessage.trim().length,
-      });
     } catch (e) {
+      mixpanel.track('Settings Handshake Message Changed', {
+        success: false,
+        error: 'Failed to save',
+      });
       setHandshakeMessageError('Failed to save handshake message');
     }
   };
 
   const handleVideoCardPress = (videoName: string) => {
+    mixpanel.track('Settings Video Card Pressed', {
+      videoName: videoName,
+    });
     const index = videoList.findIndex(video => video === videoName);
     const videoIndex = index >= 0 ? index : 0;
     setCurrentVideoIndex(videoIndex);
@@ -800,62 +799,11 @@ const SettingsScreen: React.FC = () => {
     setShowVideoModal(true);
     // Mark video as watched when opened
     markVideoAsWatched(videoIndex);
-
-    // Track video tutorial click and start watch time
-    mixpanel.track('Settings - Tutorial Clicked', {
-      screen: 'Settings',
-      action: 'tutorial_clicked',
-      tutorial_name: videoName,
-      tutorial_index: videoIndex,
-    });
-
-    // Record start time for watch duration tracking
-    setVideoWatchStartTime(prev => ({
-      ...prev,
-      [videoIndex]: Date.now(),
-    }));
   };
 
   const handleVideoChange = (index: number) => {
-    // Track watch duration for previous video before switching
-    if (videoWatchStartTime[currentVideoIndex]) {
-      const watchDuration = Date.now() - videoWatchStartTime[currentVideoIndex];
-      const videoName = videoList[currentVideoIndex] || 'unknown';
-      mixpanel.track('Settings - Tutorial Watched', {
-        screen: 'Settings',
-        action: 'tutorial_watched',
-        tutorial_name: videoName,
-        tutorial_index: currentVideoIndex,
-        watch_duration_seconds: Math.round(watchDuration / 1000),
-        watch_duration_minutes:
-          Math.round((watchDuration / 1000 / 60) * 10) / 10,
-      });
-      // Clear the previous video start time
-      setVideoWatchStartTime(prev => {
-        const newState = {...prev};
-        delete newState[currentVideoIndex];
-        return newState;
-      });
-    }
-
     setCurrentVideoIndex(index);
     setSelectedVideoSource(videoList[index]);
-
-    // Start tracking watch time for new video
-    setVideoWatchStartTime(prev => ({
-      ...prev,
-      [index]: Date.now(),
-    }));
-
-    // Track video change
-    mixpanel.track('Settings - Tutorial Changed', {
-      screen: 'Settings',
-      action: 'tutorial_changed',
-      from_tutorial: videoList[currentVideoIndex] || 'unknown',
-      to_tutorial: videoList[index] || 'unknown',
-      from_index: currentVideoIndex,
-      to_index: index,
-    });
   };
 
   // Load watched videos from persistence
@@ -890,7 +838,10 @@ const SettingsScreen: React.FC = () => {
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
-          onPress={() => navigation.navigate(views.OPEN)}>
+          onPress={() => {
+            mixpanel.track('Settings Back Button Pressed');
+            navigation.navigate(views.OPEN);
+          }}>
           <Text style={styles.backButtonText}>←</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
@@ -898,6 +849,13 @@ const SettingsScreen: React.FC = () => {
 
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+          {/* Removed subscription section - this is a paid app */}
+        </View>
+
+        {showAccountSettings && (
+          <>
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
 
               <View style={styles.section}>
@@ -1077,7 +1035,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'Total Utterances',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       Total Utterances
@@ -1090,6 +1053,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'Total Utterances',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1101,7 +1067,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'Classic Words Board',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       Classic Words Board
@@ -1114,6 +1085,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'Classic Words Board',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1125,7 +1099,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'AI Response Time',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       AI Response Time
@@ -1138,6 +1117,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'AI Response Time',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1149,7 +1131,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'AI Questions Answered',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       AI Questions Answered
@@ -1162,6 +1149,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'AI Questions Answered',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1480,10 +1470,8 @@ const SettingsScreen: React.FC = () => {
                     </Text>
                     <TouchableOpacity
                       onPress={() => {
-                        mixpanel.track('Settings - Info Button Clicked', {
-                          screen: 'Settings',
-                          action: 'info_button_clicked',
-                          info_type: 'avatar_selection',
+                        mixpanel.track('Settings Info Button Pressed', {
+                          infoType: 'Gender Selection',
                         });
                         setShowGenderInfo(true);
                       }}
@@ -1511,7 +1499,12 @@ const SettingsScreen: React.FC = () => {
 
                     <TouchableOpacity
                       style={styles.showMoreButton}
-                      onPress={() => setShowAvatarOptions(!showAvatarOptions)}>
+                      onPress={() => {
+                        mixpanel.track('Settings Avatar Options Toggled', {
+                          showOptions: !showAvatarOptions,
+                        });
+                        setShowAvatarOptions(!showAvatarOptions);
+                      }}>
                       <Text style={styles.showMoreButtonText}>
                         {showAvatarOptions ? 'Hide' : 'Show More'}
                       </Text>
@@ -1530,15 +1523,12 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
-                          const oldGender = preferences.gender;
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'white boy',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'white boy');
                           setShowAvatarOptions(false);
-                          mixpanel.track('Settings - Avatar Changed', {
-                            screen: 'Settings',
-                            action: 'avatar_changed',
-                            old_avatar: oldGender || 'none',
-                            new_avatar: 'white boy',
-                          });
                         }}>
                         <View style={styles.avatarOptionWrapper}>
                           {(preferences.gender === 'white boy' ||
@@ -1560,15 +1550,12 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
-                          const oldGender = preferences.gender;
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'black boy',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'black boy');
                           setShowAvatarOptions(false);
-                          mixpanel.track('Settings - Avatar Changed', {
-                            screen: 'Settings',
-                            action: 'avatar_changed',
-                            old_avatar: oldGender || 'none',
-                            new_avatar: 'black boy',
-                          });
                         }}>
                         <View style={styles.avatarOptionWrapper}>
                           {preferences.gender === 'black boy' && (
@@ -1589,15 +1576,12 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
-                          const oldGender = preferences.gender;
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'asian boy',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'asian boy');
                           setShowAvatarOptions(false);
-                          mixpanel.track('Settings - Avatar Changed', {
-                            screen: 'Settings',
-                            action: 'avatar_changed',
-                            old_avatar: oldGender || 'none',
-                            new_avatar: 'asian boy',
-                          });
                         }}>
                         <View style={styles.avatarOptionWrapper}>
                           {preferences.gender === 'asian boy' && (
@@ -1618,15 +1602,12 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
-                          const oldGender = preferences.gender;
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'white girl',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'white girl');
                           setShowAvatarOptions(false);
-                          mixpanel.track('Settings - Avatar Changed', {
-                            screen: 'Settings',
-                            action: 'avatar_changed',
-                            old_avatar: oldGender || 'none',
-                            new_avatar: 'white girl',
-                          });
                         }}>
                         <View style={styles.avatarOptionWrapper}>
                           {preferences.gender === 'white girl' && (
@@ -1647,15 +1628,12 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
-                          const oldGender = preferences.gender;
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'black girl',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'black girl');
                           setShowAvatarOptions(false);
-                          mixpanel.track('Settings - Avatar Changed', {
-                            screen: 'Settings',
-                            action: 'avatar_changed',
-                            old_avatar: oldGender || 'none',
-                            new_avatar: 'black girl',
-                          });
                         }}>
                         <View style={styles.avatarOptionWrapper}>
                           {preferences.gender === 'black girl' && (
@@ -1676,15 +1654,12 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
-                          const oldGender = preferences.gender;
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'asian girl',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'asian girl');
                           setShowAvatarOptions(false);
-                          mixpanel.track('Settings - Avatar Changed', {
-                            screen: 'Settings',
-                            action: 'avatar_changed',
-                            old_avatar: oldGender || 'none',
-                            new_avatar: 'asian girl',
-                          });
                         }}>
                         <View style={styles.avatarOptionWrapper}>
                           {preferences.gender === 'asian girl' && (
@@ -1705,15 +1680,12 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
-                          const oldGender = preferences.gender;
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'other',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'other');
                           setShowAvatarOptions(false);
-                          mixpanel.track('Settings - Avatar Changed', {
-                            screen: 'Settings',
-                            action: 'avatar_changed',
-                            old_avatar: oldGender || 'none',
-                            new_avatar: 'other',
-                          });
                         }}>
                         <View style={styles.avatarOptionWrapper}>
                           {preferences.gender === 'other' && (
@@ -1797,9 +1769,15 @@ const SettingsScreen: React.FC = () => {
                         </Text>
                         <TouchableOpacity
                           style={styles.eyeButton}
-                          onPress={() =>
-                            setIsAdminCodeVisible(!isAdminCodeVisible)
-                          }>
+                          onPress={() => {
+                            mixpanel.track(
+                              'Settings Admin Code Visibility Toggled',
+                              {
+                                visible: !isAdminCodeVisible,
+                              },
+                            );
+                            setIsAdminCodeVisible(!isAdminCodeVisible);
+                          }}>
                           <FastImage
                             source={require('../assets/eye.png')}
                             style={[
@@ -1815,7 +1793,10 @@ const SettingsScreen: React.FC = () => {
                   {!isEditingAdminCode && (
                     <Pressable
                       style={styles.changeButton}
-                      onPress={() => setIsEditingAdminCode(true)}>
+                      onPress={() => {
+                        mixpanel.track('Settings Admin Code Edit Started');
+                        setIsEditingAdminCode(true);
+                      }}>
                       <Text style={styles.changeButtonText}>Change</Text>
                     </Pressable>
                   )}
@@ -1829,10 +1810,8 @@ const SettingsScreen: React.FC = () => {
                   </Text>
                   <TouchableOpacity
                     onPress={() => {
-                      mixpanel.track('Settings - Info Button Clicked', {
-                        screen: 'Settings',
-                        action: 'info_button_clicked',
-                        info_type: 'goback_after_selection',
+                      mixpanel.track('Settings Info Button Pressed', {
+                        infoType: 'Go Back After Selection',
                       });
                       setShowGobackAfterSelectionInfo(true);
                     }}
@@ -1849,7 +1828,7 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
 
-              {/* Whisper Model Download Section
+              {/* Whisper Model Download Section */}
               {(useLocalWhisper || !whisperModelAvailable) && (
                 <View style={styles.whisperDownloadSection}>
                   <Text style={styles.settingLabel}>Whisper Model</Text>
@@ -1872,7 +1851,7 @@ const SettingsScreen: React.FC = () => {
                     </View>
                   )}
                 </View>
-              )} */}
+              )}
             </View>
 
             <View style={styles.section}>
@@ -1887,6 +1866,8 @@ const SettingsScreen: React.FC = () => {
                 <Text style={styles.logoutText}>Reset Installation</Text>
               </TouchableOpacity>
             </View>
+          </>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Legal</Text>
@@ -1936,20 +1917,28 @@ const SettingsScreen: React.FC = () => {
             activeOpacity={0.7}
             onPress={() => {
               if (showAssistantId) return; // Don't increment if already showing
+              mixpanel.track('Settings About Version Tapped');
               setAboutTapCount(prev => {
                 const next = prev + 1;
                 if (next >= 5) {
+                  mixpanel.track('Settings Assistant ID Revealed');
                   setShowAssistantId(true);
                 }
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>MaTalk AI v1.9</Text>
+            <Text style={styles.aboutText}>MaTalk AI v1.8</Text>
           </TouchableOpacity>
 
           {showAssistantId && (
             <>
-              <Text style={styles.aboutText}>Debug mode active</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  mixpanel.track('Settings Reset isIOSActive Pressed');
+                  setItem('isIOSActive', '1');
+                }}>
+                <Text style={styles.aboutText}>Reset isIOSActive</Text>
+              </TouchableOpacity>
             </>
           )}
           <Text style={styles.aboutDescription}>
@@ -1964,21 +1953,36 @@ const SettingsScreen: React.FC = () => {
 
         <InfoModal
           visible={showGobackAfterSelectionInfo}
-          onClose={() => setShowGobackAfterSelectionInfo(false)}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Go Back After Selection',
+            });
+            setShowGobackAfterSelectionInfo(false);
+          }}
           title="Go Back After Selection"
           description="When enabled, the app will automatically navigate back to the main screen after you select an answer. When disabled, you'll stay on the conversation screen and can continue asking questions without returning to the main screen."
         />
 
         <InfoModal
           visible={showGenderInfo}
-          onClose={() => setShowGenderInfo(false)}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Gender Selection',
+            });
+            setShowGenderInfo(false);
+          }}
           title="Gender Selection"
           description="Gender selection is completely optional and is used only for personalization purposes. You don't have to choose a gender if you prefer not to. This setting helps customize your experience but is not required for the app to function."
         />
 
         <InfoModal
           visible={showWhisperInfo}
-          onClose={() => setShowWhisperInfo(false)}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Local Whisper vs Cloud',
+            });
+            setShowWhisperInfo(false);
+          }}
           title="Local Whisper vs Cloud"
           description="When enabled, the app will use the downloaded Whisper model for voice transcription on your device. This provides faster transcription and keeps your audio on your device only. The Whisper model must be downloaded before you can enable local Whisper. If the model is not downloaded, the app will use cloud-based transcription."
         />
@@ -1989,56 +1993,15 @@ const SettingsScreen: React.FC = () => {
           transparent={false}
           visible={showVideoModal}
           supportedOrientations={['landscape-left', 'landscape-right']}
-          onRequestClose={() => {
-            // Track video watch duration when modal closes
-            if (videoWatchStartTime[currentVideoIndex]) {
-              const watchDuration =
-                Date.now() - videoWatchStartTime[currentVideoIndex];
-              const videoName = videoList[currentVideoIndex] || 'unknown';
-              mixpanel.track('Settings - Tutorial Watched', {
-                screen: 'Settings',
-                action: 'tutorial_watched',
-                tutorial_name: videoName,
-                tutorial_index: currentVideoIndex,
-                watch_duration_seconds: Math.round(watchDuration / 1000),
-                watch_duration_minutes:
-                  Math.round((watchDuration / 1000 / 60) * 10) / 10,
-              });
-              // Clear the start time
-              setVideoWatchStartTime(prev => {
-                const newState = {...prev};
-                delete newState[currentVideoIndex];
-                return newState;
-              });
-            }
-            setShowVideoModal(false);
-          }}>
+          onRequestClose={() => setShowVideoModal(false)}>
           <View style={styles.videoModalContainer}>
             <View style={styles.videoModalHeader}>
               <TouchableOpacity
                 style={styles.videoModalCloseButton}
                 onPress={() => {
-                  // Track video watch duration when close button is pressed
-                  if (videoWatchStartTime[currentVideoIndex]) {
-                    const watchDuration =
-                      Date.now() - videoWatchStartTime[currentVideoIndex];
-                    const videoName = videoList[currentVideoIndex] || 'unknown';
-                    mixpanel.track('Settings - Tutorial Watched', {
-                      screen: 'Settings',
-                      action: 'tutorial_watched',
-                      tutorial_name: videoName,
-                      tutorial_index: currentVideoIndex,
-                      watch_duration_seconds: Math.round(watchDuration / 1000),
-                      watch_duration_minutes:
-                        Math.round((watchDuration / 1000 / 60) * 10) / 10,
-                    });
-                    // Clear the start time
-                    setVideoWatchStartTime(prev => {
-                      const newState = {...prev};
-                      delete newState[currentVideoIndex];
-                      return newState;
-                    });
-                  }
+                  mixpanel.track('Settings Video Modal Closed', {
+                    videoName: selectedVideoSource,
+                  });
                   setShowVideoModal(false);
                 }}>
                 <Text style={styles.videoModalCloseText}>✕</Text>

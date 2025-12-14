@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import WordCountMetric from '../Components/WordCountMetric';
 import AIResponseTimeMetric from '../Components/AIResponseTimeMetric';
 import QALogMetric from '../Components/QALogMetric';
 import ClassicBoardMetric from '../Components/ClassicBoardMetric';
-import {Mixpanel} from 'mixpanel-react-native';
 
 const {height} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -23,24 +22,6 @@ const MetricDetailScreen: React.FC = () => {
   const route = useRoute<any>();
   const title = route.params?.title ?? 'Metric';
   const metricKey = route.params?.metricKey ?? '';
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
-
-  // Track section entry based on metric key
-  useEffect(() => {
-    const sectionNames: {[key: string]: string} = {
-      metric1: 'Total Utterances',
-      metric2: 'Overview of answering questions using AI',
-      metric3: 'Average time to create a sentence',
-      metric4: 'Overview of questions answered using AI',
-    };
-
-    mixpanel.track('Metric Detail - Section Entered', {
-      screen: 'MetricDetail',
-      action: 'section_entered',
-      metric_key: metricKey,
-      section_name: sectionNames[metricKey] || 'Unknown',
-    });
-  }, [metricKey]);
 
   const renderMetricComponent = () => {
     switch (metricKey) {

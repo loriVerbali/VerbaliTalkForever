@@ -30,19 +30,16 @@ interface ClassicBoardMetricProps {}
 const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
   const {getClassicData, isInitialized, isLoading} = useDatabase();
   const {preferences} = useAppSettings();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const [entries, setEntries] = useState<ClassicBoardEntry[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>({
     type: 'last30Days',
   });
 
-  // Track section entry
+  // Track when this metric component is viewed
   useEffect(() => {
-    mixpanel.track('Metric Detail - Average time to create a sentence Section Entered', {
-      screen: 'MetricDetail',
-      action: 'section_entered',
-      metric_key: 'metric3',
-      section_name: 'Average time to create a sentence',
+    const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+    mixpanel.track('ClassicBoardMetric Viewed', {
+      MetricKey: 'metric3',
     });
   }, []);
 
@@ -63,7 +60,6 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
         }));
         setEntries(formattedEntries);
       } catch (error) {
-        console.error('Error loading classic data:', error);
         setEntries([]);
       }
     };
@@ -111,13 +107,6 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
   };
 
   const handleTimeFilterChange = (type: TimeFilter['type']) => {
-    mixpanel.track('Metric Detail - Filter Used', {
-      screen: 'MetricDetail',
-      action: 'filter_used',
-      metric_key: 'metric3',
-      filter_type: 'time_frame',
-      filter_value: type,
-    });
     setTimeFilter({type});
   };
 

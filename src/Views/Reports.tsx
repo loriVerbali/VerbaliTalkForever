@@ -51,15 +51,7 @@ const InfoModal = ({
 const ReportsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const {preferences} = useAppSettings();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
-
-  // Track when user enters Reports page
-  useEffect(() => {
-    mixpanel.track('Reports Screen - Entered', {
-      screen: 'Reports',
-      action: 'screen_entered',
-    });
-  }, []);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const {
     isInitialized,
@@ -296,7 +288,6 @@ const ReportsScreen: React.FC = () => {
         }));
       } catch (e) {
         // On error, keep empty snapshot
-        console.error('Error loading AI response time data:', e);
       }
     };
 
@@ -356,7 +347,6 @@ const ReportsScreen: React.FC = () => {
         }));
       } catch (e) {
         // On error, keep empty snapshot
-        console.error('Error loading AI Resolved data:', e);
       }
     };
 
@@ -371,13 +361,12 @@ const ReportsScreen: React.FC = () => {
   ];
 
   const handleViewDetails = (metricKey: string, title: string) => {
-    // Track "View details" button click
-    mixpanel.track('Reports Screen - View Details Clicked', {
-      screen: 'Reports',
-      action: 'view_details_clicked',
-      metric_key: metricKey,
-      metric_title: title,
+    // Track which detailed report was accessed
+    mixpanel.track('Report Detail Viewed', {
+      MetricKey: metricKey,
+      Title: title,
     });
+
     navigation.navigate(views.METRIC_DETAIL, {
       metricKey,
       title,
@@ -426,15 +415,7 @@ const ReportsScreen: React.FC = () => {
                     <View style={styles.labelRow}>
                       <Text style={styles.statLabel}>Observations</Text>
                       <TouchableOpacity
-                        onPress={() => {
-                          mixpanel.track('Reports Screen - Info Button Clicked', {
-                            screen: 'Reports',
-                            action: 'info_button_clicked',
-                            info_type: 'observations',
-                            metric_key: 'metric2',
-                          });
-                          setShowObservationsInfo(true);
-                        }}
+                        onPress={() => setShowObservationsInfo(true)}
                         style={styles.infoButton}>
                         <Text style={styles.infoIcon}>?</Text>
                       </TouchableOpacity>
@@ -447,15 +428,7 @@ const ReportsScreen: React.FC = () => {
                         Median time to answer
                       </Text>
                       <TouchableOpacity
-                        onPress={() => {
-                          mixpanel.track('Reports Screen - Info Button Clicked', {
-                            screen: 'Reports',
-                            action: 'info_button_clicked',
-                            info_type: 'median',
-                            metric_key: 'metric2',
-                          });
-                          setShowMedianInfo(true);
-                        }}
+                        onPress={() => setShowMedianInfo(true)}
                         style={styles.infoButton}>
                         <Text style={styles.infoIcon}>?</Text>
                       </TouchableOpacity>
@@ -470,15 +443,7 @@ const ReportsScreen: React.FC = () => {
                     <View style={styles.labelRow}>
                       <Text style={styles.statLabel}>Insights</Text>
                       <TouchableOpacity
-                        onPress={() => {
-                          mixpanel.track('Reports Screen - Info Button Clicked', {
-                            screen: 'Reports',
-                            action: 'info_button_clicked',
-                            info_type: 'insights',
-                            metric_key: 'metric2',
-                          });
-                          setShowInsightsInfo(true);
-                        }}
+                        onPress={() => setShowInsightsInfo(true)}
                         style={styles.infoButton}>
                         <Text style={styles.infoIcon}>?</Text>
                       </TouchableOpacity>
@@ -672,49 +637,13 @@ const ReportsScreen: React.FC = () => {
               const getInfoHandler = () => {
                 switch (metric.key) {
                   case 'metric1':
-                    return () => {
-                      mixpanel.track('Reports Screen - Info Button Clicked', {
-                        screen: 'Reports',
-                        action: 'info_button_clicked',
-                        info_type: 'total_utterances',
-                        metric_key: 'metric1',
-                        location: 'quick_access',
-                      });
-                      setShowTotalUtterancesInfo(true);
-                    };
+                    return () => setShowTotalUtterancesInfo(true);
                   case 'metric3':
-                    return () => {
-                      mixpanel.track('Reports Screen - Info Button Clicked', {
-                        screen: 'Reports',
-                        action: 'info_button_clicked',
-                        info_type: 'classic_board',
-                        metric_key: 'metric3',
-                        location: 'quick_access',
-                      });
-                      setShowClassicBoardInfo(true);
-                    };
+                    return () => setShowClassicBoardInfo(true);
                   case 'metric2':
-                    return () => {
-                      mixpanel.track('Reports Screen - Info Button Clicked', {
-                        screen: 'Reports',
-                        action: 'info_button_clicked',
-                        info_type: 'ai_response_time',
-                        metric_key: 'metric2',
-                        location: 'quick_access',
-                      });
-                      setShowAIResponseTimeInfo(true);
-                    };
+                    return () => setShowAIResponseTimeInfo(true);
                   case 'metric4':
-                    return () => {
-                      mixpanel.track('Reports Screen - Info Button Clicked', {
-                        screen: 'Reports',
-                        action: 'info_button_clicked',
-                        info_type: 'ai_resolved',
-                        metric_key: 'metric4',
-                        location: 'quick_access',
-                      });
-                      setShowAIResolvedInfo(true);
-                    };
+                    return () => setShowAIResolvedInfo(true);
                   default:
                     return () => {};
                 }
@@ -780,15 +709,7 @@ const ReportsScreen: React.FC = () => {
                       <View style={styles.labelRow}>
                         <Text style={styles.statLabel}>Observations</Text>
                         <TouchableOpacity
-                          onPress={() => {
-                            mixpanel.track('Reports Screen - Info Button Clicked', {
-                              screen: 'Reports',
-                              action: 'info_button_clicked',
-                              info_type: 'observations',
-                              metric_key: 'metric2',
-                            });
-                            setShowObservationsInfo(true);
-                          }}
+                          onPress={() => setShowObservationsInfo(true)}
                           style={styles.infoButton}>
                           <Text style={styles.infoIcon}>?</Text>
                         </TouchableOpacity>
@@ -803,15 +724,7 @@ const ReportsScreen: React.FC = () => {
                           Median time to answer
                         </Text>
                         <TouchableOpacity
-                          onPress={() => {
-                            mixpanel.track('Reports Screen - Info Button Clicked', {
-                              screen: 'Reports',
-                              action: 'info_button_clicked',
-                              info_type: 'median',
-                              metric_key: 'metric2',
-                            });
-                            setShowMedianInfo(true);
-                          }}
+                          onPress={() => setShowMedianInfo(true)}
                           style={styles.infoButton}>
                           <Text style={styles.infoIcon}>?</Text>
                         </TouchableOpacity>
@@ -832,15 +745,7 @@ const ReportsScreen: React.FC = () => {
                       <View style={styles.labelRow}>
                         <Text style={styles.statLabel}>Insights</Text>
                         <TouchableOpacity
-                          onPress={() => {
-                            mixpanel.track('Reports Screen - Info Button Clicked', {
-                              screen: 'Reports',
-                              action: 'info_button_clicked',
-                              info_type: 'insights',
-                              metric_key: 'metric2',
-                            });
-                            setShowInsightsInfo(true);
-                          }}
+                          onPress={() => setShowInsightsInfo(true)}
                           style={styles.infoButton}>
                           <Text style={styles.infoIcon}>?</Text>
                         </TouchableOpacity>
