@@ -11,7 +11,6 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import {useNavigation} from '@react-navigation/native';
 import {useDatabase} from '../contexts/DatabaseContext';
-import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -33,7 +32,6 @@ interface AIResponseTimeMetricProps {}
 const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
   const navigation = useNavigation<any>();
   const {getAIResponseTimeData, isInitialized, isLoading} = useDatabase();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const [stats, setStats] = useState<ResponseTimeStats>({
     observations: 0,
     median: 0,
@@ -42,16 +40,6 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
   });
   const [distribution, setDistribution] = useState<DistributionBucket[]>([]);
   const [timeFrame, setTimeFrame] = useState('thisWeek');
-
-  // Track section entry
-  useEffect(() => {
-    mixpanel.track('Metric Detail - Overview of answering questions using AI Section Entered', {
-      screen: 'MetricDetail',
-      action: 'section_entered',
-      metric_key: 'metric2',
-      section_name: 'Overview of answering questions using AI',
-    });
-  }, []);
   const [responseTimeData, setResponseTimeData] = useState<
     {id: number; responseTime: number; timestamp: string}[]
   >([]);
@@ -71,7 +59,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
         }));
         setResponseTimeData(formattedData);
       } catch (error) {
-        console.error('Error loading AI response time data:', error);
+        
         setResponseTimeData([]);
       }
     };
@@ -277,16 +265,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
                   styles.filterButton,
                   timeFrame === option.key && styles.filterButtonActive,
                 ]}
-                onPress={() => {
-                  mixpanel.track('Metric Detail - Filter Used', {
-                    screen: 'MetricDetail',
-                    action: 'filter_used',
-                    metric_key: 'metric2',
-                    filter_type: 'time_frame',
-                    filter_value: option.key,
-                  });
-                  setTimeFrame(option.key);
-                }}>
+                onPress={() => setTimeFrame(option.key)}>
                 <Text
                   style={[
                     styles.filterButtonText,

@@ -20,6 +20,7 @@ import {useAppSettings} from '../../utils/persistance';
 import {sentenceBuilderSqlite} from '../../utils/sentenceBuilderSqlite';
 import AppConfig from '../../utils/config';
 import TTSService from '../../utils/TTSService';
+import AudioSessionManager from '../../utils/AudioSessionManager';
 import {
   Node,
   FolderStackItem,
@@ -33,7 +34,6 @@ import {views} from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
 import {useDatabase} from '../../contexts/DatabaseContext';
-import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -42,6 +42,10 @@ interface SentenceBuilderGridProps {
   onWordAdded?: (nodeId: string) => void;
   onWordRemoved?: (nodeId: string) => void;
   onSentencePlayed?: (sentenceTokens: string[], nodes: Node[]) => void;
+  onBreadcrumbTapped?: (index: number) => void;
+  onGridSizeChanged?: (size: GridConfigKey) => void;
+  onGridSizeLoaded?: (size: GridConfigKey) => void;
+  onResetDbPressed?: () => void;
 }
 
 const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
@@ -49,11 +53,14 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   onWordAdded,
   onWordRemoved,
   onSentencePlayed,
+  onBreadcrumbTapped,
+  onGridSizeChanged,
+  onGridSizeLoaded,
+  onResetDbPressed,
 }) => {
   const {addUtterance} = useDatabase();
   const {getItem} = useAppSettings();
   const navigation = useNavigation();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // State
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -73,8 +80,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isAdminCodeError, setIsAdminCodeError] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [lastPressTime, setLastPressTime] = useState<number>(0);
-  const [lastPressedNodeId, setLastPressedNodeId] = useState<string>('');
+  const lastPressTimeRef = useRef<number>(0);
+  const lastPressedNodeIdRef = useRef<string>('');
+  const isProcessingPressRef = useRef<boolean>(false);
 
   // Load initial data
   useEffect(() => {
@@ -129,9 +137,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
       if (gridConfigKey) {
         setSelectedGridSize(gridConfigKey);
+        onGridSizeLoaded?.(gridConfigKey);
       }
     } catch (error) {
-      console.error('Error initializing or loading data:', error);
       Alert.alert('Error', 'Failed to initialize sentence builder database');
     } finally {
       setIsLoading(false);
@@ -139,6 +147,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   };
 
   const resetDatabase = async () => {
+    onResetDbPressed?.();
     try {
       setIsLoading(true);
 
@@ -153,7 +162,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         'Database has been reset with new comprehensive word set!',
       );
     } catch (error) {
-      console.error('Error resetting database:', error);
       Alert.alert('Error', 'Failed to reset database');
     } finally {
       setIsLoading(false);
@@ -177,9 +185,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       );
 
       setCurrentNodes(allParentNodes);
-    } catch (error) {
-      console.error('Error updating current nodes:', error);
-    }
+    } catch (error) {}
   };
 
   const getGridConfig = useCallback(() => {
@@ -376,29 +382,12 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   const handleBackPress = () => {
     if (folderStack.length > 0) {
-      // Track screen switching (back navigation)
-      const previousFolder = folderStack[folderStack.length - 1];
-      mixpanel.track('Convo Screen - Screen Switched', {
-        screen: 'Convo',
-        action: 'screen_switched',
-        navigation_type: 'back',
-        from_folder_id: previousFolder.nodeId,
-        from_folder_title: previousFolder.title,
-        folder_stack_depth: folderStack.length - 1,
-      });
       setFolderStack(prev => prev.slice(0, -1));
     }
   };
 
   // Function to go back to root of sentence builder (not navigate away)
   const handleBackToRoot = () => {
-    // Track screen switching (back to root)
-    mixpanel.track('Convo Screen - Screen Switched', {
-      screen: 'Convo',
-      action: 'screen_switched',
-      navigation_type: 'back_to_root',
-      folder_stack_depth: 0,
-    });
     setFolderStack([]);
   };
 
@@ -411,88 +400,87 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         source: 'Convo',
       });
     } catch (error) {
-      console.error('Error logging word selection:', error);
       // Fail silently as requested
     }
   };
 
   // Card handlers
   const handleCardPress = async (node: Node) => {
+    // Prevent concurrent processing - if already processing a press, ignore this one
+    if (isProcessingPressRef.current) {
+      return;
+    }
+
     // Debounce logic to prevent double-tap issues (especially on first tap after launch)
+    // Use refs instead of state for synchronous debounce checking
     const currentTime = Date.now();
     const DEBOUNCE_DELAY = 300; // 300ms debounce delay
 
     if (
-      lastPressedNodeId === node.id &&
-      currentTime - lastPressTime < DEBOUNCE_DELAY
+      lastPressedNodeIdRef.current === node.id &&
+      currentTime - lastPressTimeRef.current < DEBOUNCE_DELAY
     ) {
       return;
     }
 
-    setLastPressTime(currentTime);
-    setLastPressedNodeId(node.id);
+    // Mark as processing immediately
+    isProcessingPressRef.current = true;
+    lastPressTimeRef.current = currentTime;
+    lastPressedNodeIdRef.current = node.id;
 
-    // Handle empty cells from deleted nodes (add new item) - only when in editing mode
-    if (node.id.startsWith('empty-deleted-') && isEditing) {
-      handleAddCardPress(node.orderIndex);
-      return;
-    }
-
-    // Handle regular empty cells (add new item) - only when in editing mode
-    if (node.id.startsWith('empty-') && isEditing) {
-      handleAddCardPress();
-      return;
-    }
-
-    // If not in editing mode and it's an empty cell, do nothing
-    if (
-      (node.id.startsWith('empty-') || node.id.startsWith('empty-deleted-')) &&
-      !isEditing
-    ) {
-      return;
-    }
-
-    // Handle deleted cards (legacy - should not happen with new logic)
-    if (node.id.startsWith('deleted-')) {
-      if (isEditing) {
-        // In editing mode, open edit modal for the original card
-        const originalNodeId = node.id.replace('deleted-', '');
-        // Look in currentNodes (which includes deleted nodes) instead of nodes (which excludes them)
-        const originalNode = currentNodes.find(n => n.id === originalNodeId);
-        if (originalNode) {
-          handleEditCardPress(originalNode);
-        }
+    try {
+      // Handle empty cells from deleted nodes (add new item) - only when in editing mode
+      if (node.id.startsWith('empty-deleted-') && isEditing) {
+        handleAddCardPress(node.orderIndex);
+        return;
       }
-      return;
-    }
 
-    if (isEditing) return;
+      // Handle regular empty cells (add new item) - only when in editing mode
+      if (node.id.startsWith('empty-') && isEditing) {
+        handleAddCardPress();
+        return;
+      }
 
-    if (node.kind === 'folder') {
-      // Track screen switching (folder navigation)
-      mixpanel.track('Convo Screen - Screen Switched', {
-        screen: 'Convo',
-        action: 'screen_switched',
-        folder_id: node.id,
-        folder_title: node.title,
-        folder_stack_depth: folderStack.length + 1,
-      });
-      // Navigate to folder - this should navigate, not add to sentence
-      setFolderStack(prev => [...prev, {nodeId: node.id, title: node.title}]);
-    } else {
-      // Track tile click
-      mixpanel.track('Convo Screen - Tile Clicked', {
-        screen: 'Convo',
-        action: 'tile_clicked',
-        node_id: node.id,
-        node_title: node.title,
-        node_kind: node.kind,
-        node_type: node.type || 'other',
-      });
-      // Add word to sentence
-      try {
+      // If not in editing mode and it's an empty cell, do nothing
+      if (
+        (node.id.startsWith('empty-') ||
+          node.id.startsWith('empty-deleted-')) &&
+        !isEditing
+      ) {
+        return;
+      }
+
+      // Handle deleted cards (legacy - should not happen with new logic)
+      if (node.id.startsWith('deleted-')) {
+        if (isEditing) {
+          // In editing mode, open edit modal for the original card
+          const originalNodeId = node.id.replace('deleted-', '');
+          // Look in currentNodes (which includes deleted nodes) instead of nodes (which excludes them)
+          const originalNode = currentNodes.find(n => n.id === originalNodeId);
+          if (originalNode) {
+            handleEditCardPress(originalNode);
+          }
+        }
+        return;
+      }
+
+      if (isEditing) {
+        return;
+      }
+
+      if (node.kind === 'folder') {
+        // Navigate to folder - this should navigate, not add to sentence
+        setFolderStack(prev => [...prev, {nodeId: node.id, title: node.title}]);
+      } else {
+        // Add word to sentence
         await sentenceBuilderSqlite.addWordToSentence(node.id);
-        setSentenceTokenIds(prev => [...prev, node.id]);
+        setSentenceTokenIds(prev => {
+          // Prevent duplicate additions - if nodeId already exists, don't add it again
+          if (prev.includes(node.id)) {
+            return prev; // Return the previous array without adding the duplicate
+          }
+          return [...prev, node.id];
+        });
 
         // Notify parent component about word addition
         onWordAdded?.(node.id);
@@ -501,13 +489,20 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         const wordToLog = node.ttsText || node.title;
         await logWordSelection(wordToLog);
 
+        // Prepare audio session for TTS to ensure consistent volume
+        await AudioSessionManager.prepareForTTS();
+
         // Speak the word using TTS
         const textToSpeak = node.ttsText || node.title;
         TTSService.speak(textToSpeak, true); // Use immediate=true to prioritize this speech
-      } catch (error) {
-        console.error('Error adding word to sentence:', error);
+      }
+    } catch (error) {
+      if (node.kind !== 'folder') {
         Alert.alert('Error', 'Failed to add word to sentence');
       }
+    } finally {
+      // Always reset processing flag, even if there was an error or early return
+      isProcessingPressRef.current = false;
     }
   };
 
@@ -559,7 +554,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       setAdminCodeInput('');
       setIsAdminCodeError(false);
     } catch (error) {
-      console.error('Error checking admin code:', error);
       Alert.alert('Error', 'Failed to verify admin access');
     }
   };
@@ -582,11 +576,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         adminCodeInput === storedAdminCode ||
         adminCodeInput === AppConfig.masterAdminCode
       ) {
-        // Track board settings (edit mode) entry
-        mixpanel.track('Convo Screen - Board Settings Clicked', {
-          screen: 'Convo',
-          action: 'board_settings_entered',
-        });
         closeAdminCodeModal();
         setIsEditing(true);
       } else {
@@ -597,23 +586,14 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         }, 1000);
       }
     } catch (error) {
-      console.error('Error verifying admin code:', error);
       setIsAdminCodeError(true);
     }
   };
 
   // Grid size change handler
   const handleGridSizeChange = async (newSize: GridConfigKey) => {
+    onGridSizeChanged?.(newSize);
     try {
-      // Track grid size change (board settings)
-      mixpanel.track('Convo Screen - Board Settings Changed', {
-        screen: 'Convo',
-        action: 'board_settings_changed',
-        setting_type: 'grid_size',
-        old_size: selectedGridSize,
-        new_size: newSize,
-      });
-
       setSelectedGridSize(newSize);
       const config = GRID_CONFIGS[newSize];
       await sentenceBuilderSqlite.updateGridSize(config.rows, config.cols);
@@ -624,7 +604,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       // Also refresh current nodes to ensure data is up to date
       await updateCurrentNodes();
     } catch (error) {
-      console.error('Error saving grid size:', error);
       Alert.alert('Error', 'Failed to save grid size setting');
     }
   };
@@ -632,23 +611,12 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   // Sentence bar handlers
   const handleRemoveToken = async (nodeId: string) => {
     try {
-      // Track word deletion by clicking on image
-      const node = nodes.find(n => n.id === nodeId);
-      mixpanel.track('Convo Screen - Word Deleted', {
-        screen: 'Convo',
-        action: 'word_deleted',
-        deletion_method: 'image_click',
-        node_id: nodeId,
-        node_title: node?.title || 'unknown',
-      });
-
       await sentenceBuilderSqlite.removeWordFromSentence(nodeId);
       setSentenceTokenIds(prev => prev.filter(id => id !== nodeId));
 
       // Notify parent component about word removal
       onWordRemoved?.(nodeId);
     } catch (error) {
-      console.error('Error removing token:', error);
       Alert.alert('Error', 'Failed to remove word from sentence');
     }
   };
@@ -670,7 +638,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       await sentenceBuilderSqlite.clearSentence();
       setSentenceTokenIds([]);
     } catch (error) {
-      console.error('Error clearing sentence:', error);
       Alert.alert('Error', 'Failed to clear sentence');
     }
   };
@@ -681,39 +648,16 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   };
 
   const handleTrashPress = () => {
-    // Track word deletion by clicking trash icon
-    mixpanel.track('Convo Screen - Word Deleted', {
-      screen: 'Convo',
-      action: 'word_deleted',
-      deletion_method: 'trash_icon',
-      sentence_length: sentenceTokenIds.length,
-    });
     handleResetSentence();
   };
 
   // Handle breadcrumb folder navigation
   const handleBreadcrumbFolderPress = (index: number) => {
+    onBreadcrumbTapped?.(index);
     if (index === -1) {
-      // Track screen switching (breadcrumb to root)
-      mixpanel.track('Convo Screen - Screen Switched', {
-        screen: 'Convo',
-        action: 'screen_switched',
-        navigation_type: 'breadcrumb_to_root',
-        folder_stack_depth: 0,
-      });
       // Go to root (Mainboard)
       setFolderStack([]);
     } else {
-      // Track screen switching (breadcrumb navigation)
-      const targetFolder = folderStack[index];
-      mixpanel.track('Convo Screen - Screen Switched', {
-        screen: 'Convo',
-        action: 'screen_switched',
-        navigation_type: 'breadcrumb',
-        folder_id: targetFolder?.nodeId,
-        folder_title: targetFolder?.title,
-        folder_stack_depth: index + 1,
-      });
       setFolderStack(prev => prev.slice(0, index + 1));
     }
   };
@@ -753,7 +697,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               }
             }
           } catch (copyError) {
-            console.error('Error in copyFolder:', copyError);
             throw copyError; // Re-throw to be caught by outer try-catch
           }
         } else {
@@ -769,7 +712,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       await initializeAndLoadData();
       setEditModal({isVisible: false});
     } catch (error) {
-      console.error('Error saving node:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
       Alert.alert('Error', `Failed to save changes: ${errorMessage}`);
@@ -781,7 +723,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       await sentenceBuilderSqlite.deleteNode(nodeId);
       await initializeAndLoadData();
     } catch (error) {
-      console.error('Error deleting node:', error);
       Alert.alert('Error', 'Failed to delete item');
     }
   };
@@ -839,7 +780,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       // Reload data to ensure consistency with database
       await updateCurrentNodes();
     } catch (error) {
-      console.error('Error reordering nodes:', error);
       Alert.alert('Error', 'Failed to reorder items');
       // Reload data on error to ensure consistency
       await initializeAndLoadData();

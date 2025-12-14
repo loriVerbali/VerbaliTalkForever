@@ -221,7 +221,7 @@ export class SentenceBuilderDb {
       }
       return JSON.parse(nodesJson);
     } catch (error) {
-      console.error('Error loading nodes:', error);
+      
       return DEFAULT_SEED_NODES;
     }
   }
@@ -230,7 +230,7 @@ export class SentenceBuilderDb {
     try {
       await this.setItem(NODES_KEY, JSON.stringify(nodes));
     } catch (error) {
-      console.error('Error saving nodes:', error);
+      
       throw error;
     }
   }
@@ -342,7 +342,7 @@ export class SentenceBuilderDb {
       }
       return JSON.parse(settingsJson);
     } catch (error) {
-      console.error('Error loading grid settings:', error);
+      
       return DEFAULT_GRID_SETTINGS;
     }
   }
@@ -351,7 +351,7 @@ export class SentenceBuilderDb {
     try {
       await this.setItem(GRID_SETTINGS_KEY, JSON.stringify(settings));
     } catch (error) {
-      console.error('Error saving grid settings:', error);
+      
       throw error;
     }
   }
@@ -372,7 +372,7 @@ export class SentenceBuilderDb {
       }
       return JSON.parse(stateJson);
     } catch (error) {
-      console.error('Error loading sentence state:', error);
+      
       return DEFAULT_SENTENCE_STATE;
     }
   }
@@ -381,7 +381,7 @@ export class SentenceBuilderDb {
     try {
       await this.setItem(SENTENCE_STATE_KEY, JSON.stringify(state));
     } catch (error) {
-      console.error('Error saving sentence state:', error);
+      
       throw error;
     }
   }
@@ -429,7 +429,7 @@ export class SentenceBuilderDb {
 
       return newNode;
     } catch (error) {
-      console.error('Error adding word from search:', error);
+      
       throw error;
     }
   }

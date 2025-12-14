@@ -38,7 +38,7 @@ export const downloadSentenceBuilderImage = async (
       );
     }
   } catch (error) {
-    console.error('Error downloading sentence builder image:', error);
+    
     throw error;
   }
 };
@@ -54,7 +54,7 @@ export const sentenceBuilderImageExists = async (
   try {
     return await RNFS.exists(localPath);
   } catch (error) {
-    console.error('Error checking if sentence builder image exists:', error);
+    
     return false;
   }
 };
@@ -75,7 +75,7 @@ export const deleteSentenceBuilderImage = async (
     }
     return false;
   } catch (error) {
-    console.error('Error deleting sentence builder image:', error);
+    
     return false;
   }
 };
@@ -108,17 +108,14 @@ export const cleanupOldSentenceBuilderImages = async (
           await RNFS.unlink(file.path);
           deletedCount++;
         } catch (error) {
-          console.error(
-            `Error deleting old sentence builder image ${file.path}:`,
-            error,
-          );
+          
         }
       }
     }
 
     return deletedCount;
   } catch (error) {
-    console.error('Error cleaning up old sentence builder images:', error);
+    
     return 0;
   }
 };

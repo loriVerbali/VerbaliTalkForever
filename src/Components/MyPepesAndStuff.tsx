@@ -27,7 +27,6 @@ import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useAppSettings} from '../utils/persistance';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
-import {Mixpanel} from 'mixpanel-react-native';
 
 interface AddressDetails {
   address: string;
@@ -182,7 +181,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const {setItem, getItem} = useAppSettings();
   const {isTablet} = useAdmin();
   const {width, height} = useWindowDimensions();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // Type and relationship options
   const typeOptions = {
@@ -376,7 +374,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         setPepesData(completeData);
       }
     } catch (error) {
-      console.error('Error loading pepes data:', error);
+      
     }
   };
 
@@ -385,7 +383,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem('pepes', JSON.stringify(data));
       setPepesData(data);
     } catch (error) {
-      console.error('Error saving pepes data:', error);
+      
     }
   };
 
@@ -417,7 +415,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      console.warn('Camera permission error:', e);
+      
       return false;
     }
   };
@@ -445,7 +443,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      console.warn('Photo library permission error:', e);
+      
       return false;
     }
   };
@@ -709,36 +707,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     if (selectedCategory === 'Places') {
       syncSpecialPlacesFromItem(newItem);
     }
-    
-    // Track personal image/item addition
-    const isNewItem = !editingItem;
-    mixpanel.track('Settings - Personal Image Added', {
-      screen: 'Settings',
-      action: 'personal_image_added',
-      category: selectedCategory,
-      is_new_item: isNewItem,
-      has_name: !!itemName.trim(),
-      has_aliases: aliases.length > 0,
-      alias_count: aliases.length,
-      is_favorite: itemIsFavorite,
-    });
-    
-    // Special tracking for People category (most important)
-    if (selectedCategory === 'People') {
-      mixpanel.track('Settings - Person Added', {
-        screen: 'Settings',
-        action: 'person_added',
-        has_name: !!itemName.trim(),
-        has_aliases: aliases.length > 0,
-        alias_count: aliases.length,
-        has_type: !!itemType,
-        type: itemType || 'none',
-        has_relationship: !!itemRelationship,
-        relationship: itemRelationship || 'none',
-        is_favorite: itemIsFavorite,
-      });
-    }
-    
     closeModal();
   };
 
@@ -773,24 +741,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
 
   const toggleFavorite = (itemId: string) => {
     const updatedData = {...pepesData};
-    const item = updatedData[selectedCategory].find(item => item.id === itemId);
-    const wasFavorite = item?.isFavorite || false;
-    
     updatedData[selectedCategory] = updatedData[selectedCategory].map(item =>
       item.id === itemId ? {...item, isFavorite: !item.isFavorite} : item,
     );
     savePepesData(updatedData);
-    
-    // Track favorite toggle
-    mixpanel.track('Settings - Image Added to Favorites', {
-      screen: 'Settings',
-      action: 'image_favorite_toggled',
-      category: selectedCategory,
-      item_id: itemId,
-      item_name: item?.name || 'unknown',
-      was_favorite: wasFavorite,
-      is_now_favorite: !wasFavorite,
-    });
   };
 
   const formatAddressToString = (addressDetails?: AddressDetails): string => {
@@ -905,7 +859,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem(`${sType}Address`, formatted);
       await setItem(`${sType}IsCurrentLocation`, isCurr.toString());
     } catch (e) {
-      console.warn('Failed syncing special places:', e);
+      
     }
   };
 
@@ -1023,7 +977,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         };
       }
     } catch (err) {
-      console.warn('Reverse geocoding failed:', err);
+      
     }
     return null;
   };
@@ -1132,7 +1086,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return requestStatus === RESULTS.GRANTED;
       }
     } catch (e) {
-      console.warn('Location permission error:', e);
+      
       return false;
     }
   };
@@ -1180,7 +1134,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         }
       },
       (error: any) => {
-        console.warn('Location error:', error);
+        
         Alert.alert('Location Error', 'Unable to get your location.');
       },
       {
@@ -1415,9 +1369,9 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const currentItems = pepesData[selectedCategory];
 
   // // Debug logging
-  // console.log('Selected category:', selectedCategory);
-  // console.log('Current items:', currentItems);
-  // console.log('Current items length:', currentItems?.length);
+  // 
+  // 
+  // 
 
   const getCategoryLabel = (
     c: 'People' | 'Toys' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places',

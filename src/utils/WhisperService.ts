@@ -2,17 +2,12 @@ import RNFS from 'react-native-fs';
 import {Platform} from 'react-native';
 import {MODEL_CONFIG} from './constants';
 import {detectDeviceCapabilities} from './deviceDetection';
-
-// Import whisper.rn
-let initWhisper: any;
-let releaseAllWhisper: any;
-try {
-  const whisperModule = require('whisper.rn');
-  initWhisper = whisperModule.initWhisper;
-  releaseAllWhisper = whisperModule.releaseAllWhisper;
-} catch (e) {
-  console.error('whisper.rn import failed:', e);
-}
+// @ts-ignore - whisper.rn types exist at runtime
+import {initWhisper, releaseAllWhisper} from 'whisper.rn';
+// @ts-ignore - RN packager doesn't support package exports, use src/ path
+import {RealtimeTranscriber} from 'whisper.rn/src/realtime-transcription';
+// @ts-ignore
+import {AudioPcmStreamAdapter} from 'whisper.rn/src/realtime-transcription/adapters/AudioPcmStreamAdapter';
 
 interface WhisperTranscriptionResult {
   text: string;
@@ -28,7 +23,16 @@ class WhisperService {
   private whisperContext: any = null;
   private useGpu: boolean = true; // Will be determined based on device
   private isLowEndDevice: boolean = false; // Cached device capability
-
+  private realTimeTranscriber: any = null;
+  private isRealTimeCapturing: boolean = false;
+  private realTimeResult: string = '';
+  private realTimeFinalResult: string = '';
+  // Optimization: Cache model file existence check
+  private modelFileCache: {
+    exists: boolean;
+    path: string;
+    lastChecked: number;
+  } | null = null;
   private constructor() {
     // Private constructor for singleton
   }
@@ -56,14 +60,6 @@ class WhisperService {
       // On low-end devices, CPU is often faster than GPU
       // GPU on these devices is usually weak and can cause slowdowns
       this.useGpu = !this.isLowEndDevice;
-
-      console.log(
-        `🔍 Device detection: Model=${capabilities.deviceModel}, Brand=${capabilities.deviceBrand}, ` +
-          `RAM=${capabilities.totalMemoryMB.toFixed(0)}MB, LowEnd=${
-            this.isLowEndDevice
-          }, ` +
-          `UseGPU=${this.useGpu}`,
-      );
     } catch (error) {
       console.warn(
         '⚠️ Error detecting device capabilities, defaulting to CPU:',
@@ -82,11 +78,6 @@ class WhisperService {
     if (this.initialized) return true;
 
     try {
-      if (!initWhisper) {
-        console.error('whisper.rn is not available or not properly imported');
-        return false;
-      }
-
       // Detect device capabilities first
       await this.detectDeviceCapabilities();
 
@@ -96,7 +87,25 @@ class WhisperService {
       );
       this.modelPath = `${RNFS.DocumentDirectoryPath}/${whisperFileName}`;
 
-      const modelExists = await RNFS.exists(this.modelPath);
+      // Optimization: Use cached file check if available and path matches
+      let modelExists: boolean;
+      if (
+        this.modelFileCache &&
+        this.modelFileCache.path === this.modelPath &&
+        this.modelFileCache.exists
+      ) {
+        // Use cached result
+        modelExists = this.modelFileCache.exists;
+      } else {
+        // Check file existence
+        modelExists = await RNFS.exists(this.modelPath);
+        // Cache the result
+        this.modelFileCache = {
+          exists: modelExists,
+          path: this.modelPath,
+          lastChecked: Date.now(),
+        };
+      }
 
       if (!modelExists) {
         console.error('Whisper model file not found at:', this.modelPath);
@@ -104,18 +113,21 @@ class WhisperService {
       }
 
       // Verify model file size (different thresholds for different models)
-      const stats = await RNFS.stat(this.modelPath);
-      const minSize = this.isLowEndDevice
-        ? 50 * 1024 * 1024 // 50MB for tiny model
-        : 100 * 1024 * 1024; // 100MB for small model
-      if (stats.size < minSize) {
-        console.warn(
-          `Whisper model file seems too small (${(
-            stats.size /
-            1024 /
-            1024
-          ).toFixed(2)}MB), might be corrupted`,
-        );
+      // Only check size if not using cache (to avoid redundant I/O)
+      if (!this.modelFileCache || this.modelFileCache.path !== this.modelPath) {
+        const stats = await RNFS.stat(this.modelPath);
+        const minSize = this.isLowEndDevice
+          ? 20 * 1024 * 1024 // 20MB for tiny.en-q5_1 model (~32MB, 10MB buffer)
+          : 60 * 1024 * 1024; // 60MB for tiny model (~75MB, 10MB+ buffer)
+        if (stats.size < minSize) {
+          console.warn(
+            `Whisper model file seems too small (${(
+              stats.size /
+              1024 /
+              1024
+            ).toFixed(2)}MB), might be corrupted`,
+          );
+        }
       }
 
       // Try to initialize with detected GPU preference
@@ -125,12 +137,6 @@ class WhisperService {
 
       while (initAttempts < maxAttempts) {
         try {
-          console.log(
-            `🚀 Initializing Whisper with ${
-              this.useGpu ? 'GPU' : 'CPU'
-            } mode (attempt ${initAttempts + 1})`,
-          );
-
           this.whisperContext = await initWhisper({
             filePath: this.modelPath,
             isBundleAsset: false,
@@ -138,11 +144,6 @@ class WhisperService {
           });
 
           if (this.whisperContext) {
-            console.log(
-              `✅ Whisper initialized successfully with ${
-                this.useGpu ? 'GPU' : 'CPU'
-              }`,
-            );
             this.initialized = true;
             return true;
           }
@@ -155,7 +156,6 @@ class WhisperService {
 
           // If GPU failed and we haven't tried CPU yet, fallback to CPU
           if (this.useGpu && initAttempts < maxAttempts - 1) {
-            console.log('🔄 Falling back to CPU mode...');
             this.useGpu = false;
           }
         }
@@ -178,10 +178,6 @@ class WhisperService {
    * Check if the Whisper model is available and ready to use
    */
   public async isModelAvailable(): Promise<boolean> {
-    if (!initWhisper) {
-      return false;
-    }
-
     // Detect device capabilities to determine which model to check for
     let deviceIsLowEnd = false;
     try {
@@ -197,12 +193,31 @@ class WhisperService {
     const modelPath = `${RNFS.DocumentDirectoryPath}/${whisperFileName}`;
 
     try {
-      const exists = await RNFS.exists(modelPath);
+      // Optimization: Use cached file check if available and path matches
+      let exists: boolean;
+      if (
+        this.modelFileCache &&
+        this.modelFileCache.path === modelPath &&
+        this.modelFileCache.exists
+      ) {
+        // Use cached result
+        exists = this.modelFileCache.exists;
+      } else {
+        // Check file existence
+        exists = await RNFS.exists(modelPath);
+        // Cache the result
+        this.modelFileCache = {
+          exists: exists,
+          path: modelPath,
+          lastChecked: Date.now(),
+        };
+      }
+
       if (exists) {
         const stats = await RNFS.stat(modelPath);
         const minSize = deviceIsLowEnd
-          ? 50 * 1024 * 1024 // 50MB for tiny model
-          : 100 * 1024 * 1024; // 100MB for small model
+          ? 20 * 1024 * 1024 // 20MB for tiny.en-q5_1 model (~32MB, 10MB buffer)
+          : 60 * 1024 * 1024; // 60MB for tiny model (~75MB, 10MB+ buffer)
         const isValidSize = stats.size > minSize;
 
         return isValidSize;
@@ -225,14 +240,6 @@ class WhisperService {
     size?: number;
     downloadInProgress?: boolean;
   }> {
-    if (!initWhisper) {
-      return {
-        available: false,
-        reason: 'Whisper module not available',
-        path: '',
-      };
-    }
-
     // Detect device capabilities to determine which model to check for
     let deviceIsLowEnd = false;
     try {
@@ -252,8 +259,8 @@ class WhisperService {
       if (exists) {
         const stats = await RNFS.stat(modelPath);
         const minSize = deviceIsLowEnd
-          ? 50 * 1024 * 1024 // 50MB for tiny model
-          : 100 * 1024 * 1024; // 100MB for small model
+          ? 20 * 1024 * 1024 // 20MB for tiny.en-q5_1 model (~32MB, 10MB buffer)
+          : 60 * 1024 * 1024; // 60MB for tiny model (~75MB, 10MB+ buffer)
         const isValidSize = stats.size > minSize;
 
         return {
@@ -298,11 +305,8 @@ class WhisperService {
     audioPath: string,
   ): Promise<WhisperTranscriptionResult> {
     try {
-      // Fast path: if already initialized, skip all checks
-      if (this.initialized && this.whisperContext) {
-        // Proceed directly to transcription
-      } else if (!this.initializationChecked) {
-        // Only check initialization if not already checked
+      // Combine validation checks with caching (optimization 4 & 6)
+      if (!this.initializationChecked) {
         if (!this.initialized || !this.whisperContext) {
           const initSuccess = await this.initialize();
           if (!initSuccess || !this.whisperContext) {
@@ -310,19 +314,13 @@ class WhisperService {
           }
         }
         this.initializationChecked = true;
-      } else {
-        // Initialization was checked but failed - don't retry on every call
-        if (!this.initialized || !this.whisperContext) {
-          return {text: '', success: false, error: 'Whisper not available'};
-        }
       }
 
       // Use the original audio path directly since it works
       let transcriptionResult = null;
       let processedAudioPath = audioPath;
 
-      // For iOS, remove file:// prefix if present (only if needed)
-      // For Android, keep file:// prefix as-is since it's already added in transcribeAudioWithWhisper
+      // For iOS, remove file:// prefix if present
       if (Platform.OS === 'ios' && processedAudioPath.startsWith('file://')) {
         processedAudioPath = processedAudioPath.slice(7);
       }
@@ -413,6 +411,11 @@ class WhisperService {
    */
   public async destroy(): Promise<void> {
     try {
+      // Stop real-time transcription if active
+      if (this.realTimeTranscriber) {
+        await this.stopRealTimeTranscription();
+      }
+
       if (this.whisperContext) {
         await this.whisperContext.release();
         this.whisperContext = null;
@@ -433,153 +436,120 @@ class WhisperService {
     };
   }
 
-  /**
-   * Test transcription with a specific audio file
-   */
-  public async testTranscription(audioPath: string): Promise<{
-    success: boolean;
-    text?: string;
-    error?: string;
-    fileInfo?: any;
-  }> {
+  public async startRealTimeTranscription(): Promise<boolean> {
+    if (!this.initialized) {
+      const initSuccess = await this.initialize();
+      if (!initSuccess) {
+        return false;
+      }
+    }
+
     try {
-      // Check if file exists
-      const fileExists = await RNFS.exists(audioPath);
-      if (!fileExists) {
-        return {
-          success: false,
-          error: 'Audio file not found',
-        };
-      }
+      // Reset state
+      this.realTimeResult = '';
+      this.realTimeFinalResult = '';
+      this.isRealTimeCapturing = true;
 
-      // Get file info
-      const fileInfo = await RNFS.stat(audioPath);
+      // Create audio stream adapter
+      const audioStream = new AudioPcmStreamAdapter();
 
-      // Initialize if needed
-      if (!this.initialized) {
-        const initSuccess = await this.initialize();
-        if (!initSuccess) {
-          return {
-            success: false,
-            error: 'Failed to initialize Whisper service',
-            fileInfo,
-          };
-        }
-      }
+      // Create RealtimeTranscriber with proper structure:
+      // 1. dependencies (whisperContext, audioStream)
+      // 2. options (audioSliceSec, audioMinSec, etc.)
+      // 3. callbacks (onTranscribe, onError, etc.)
+      this.realTimeTranscriber = new RealtimeTranscriber(
+        // Dependencies
+        {
+          whisperContext: this.whisperContext,
+          audioStream: audioStream,
+        },
+        // Options
+        {
+          audioSliceSec: 20, // Process audio in 20 second chunks
+          audioMinSec: 2, // Minimum 2 seconds before transcribing
+          audioStreamConfig: {
+            sampleRate: 16000,
+            channels: 1,
+            bitsPerSample: 16,
+            audioSource: Platform.OS === 'ios' ? 0 : 6, // iOS: 0 = default, Android: 6 = VOICE_RECOGNITION
+            bufferSize: 16 * 1024,
+          },
+          transcribeOptions: {
+            language: 'en',
+            translateToEnglish: false,
+            wordTimestamps: false,
+            temperature: 0.0,
+            bestOf: 1,
+          },
+        },
+        // Callbacks
+        {
+          onTranscribe: (event: any) => {
+            if (event.data?.result) {
+              const transcribedText = event.data.result.trim();
 
-      // Try transcription
-      const result = await this.transcribeAudio(audioPath);
+              // Accumulate the results
+              if (transcribedText.length > 0) {
+                this.realTimeResult = transcribedText;
+              }
+            }
+          },
+          onStatusChange: (isRecording: boolean) => {
+            this.isRealTimeCapturing = isRecording;
+          },
+          onError: (error: any) => {
+            console.error('❌ Real-time transcription error:', error);
+          },
+        },
+      );
 
-      return {
-        success: result.success,
-        text: result.text,
-        error: result.error,
-        fileInfo,
-      };
+      // Start the transcriber
+      await this.realTimeTranscriber.start();
+
+      return true;
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      console.error('❌ Error starting real-time transcription:', error);
+      this.isRealTimeCapturing = false;
+      this.realTimeTranscriber = null;
+      return false;
+    }
+  }
+
+  public async stopRealTimeTranscription(): Promise<string> {
+    try {
+      if (this.realTimeTranscriber) {
+        await this.realTimeTranscriber.stop();
+
+        const finalResult = this.realTimeResult.trim();
+        if (finalResult.length > 0) {
+          this.realTimeFinalResult = finalResult;
+        }
+        return finalResult;
+      } else {
+        return '';
+      }
+    } catch (error) {
+      console.error('❌ Error stopping real-time transcription:', error);
+      return '';
+    } finally {
+      this.realTimeTranscriber = null;
+      this.isRealTimeCapturing = false;
+      this.realTimeResult = '';
     }
   }
 
   /**
-   * Test audio file format compatibility
+   * Get the current real-time transcription result
    */
-  public async testAudioFileCompatibility(audioPath: string): Promise<{
-    compatible: boolean;
-    error?: string;
-    fileInfo?: any;
-    testResult?: any;
-  }> {
-    try {
-      // Check if file exists
-      const fileExists = await RNFS.exists(audioPath);
-      if (!fileExists) {
-        return {
-          compatible: false,
-          error: 'Audio file not found',
-        };
-      }
+  public getRealTimeResult(): string {
+    return this.realTimeResult;
+  }
 
-      // Get file info
-      const fileInfo = await RNFS.stat(audioPath);
-
-      // Check file size
-      if (fileInfo.size < 1024) {
-        return {
-          compatible: false,
-          error: 'File too small (less than 1KB)',
-          fileInfo,
-        };
-      }
-
-      // Initialize if needed
-      if (!this.initialized) {
-        const initSuccess = await this.initialize();
-        if (!initSuccess) {
-          return {
-            compatible: false,
-            error: 'Failed to initialize Whisper service',
-            fileInfo,
-          };
-        }
-      }
-
-      // Try a minimal transcription test with optimized options
-      try {
-        const transcriptionOptions = {
-          language: 'en',
-          translateToEnglish: false,
-          wordTimestamps: false,
-          outputFormat: 'text',
-          temperature: 0.0,
-          bestOf: 1,
-          suppressBlank: true,
-          suppressNonSpeechTokens: true,
-          initialPrompt: '',
-        };
-
-        const transcribeJob = this.whisperContext.transcribe(
-          audioPath,
-          transcriptionOptions,
-        );
-
-        const testResult = await transcribeJob.promise;
-
-        // Check if we got any result (even if empty)
-        if (testResult !== null && testResult !== undefined) {
-          return {
-            compatible: true,
-            fileInfo,
-            testResult,
-          };
-        } else {
-          return {
-            compatible: false,
-            error: 'Transcription returned null/undefined',
-            fileInfo,
-            testResult,
-          };
-        }
-      } catch (transcriptionError) {
-        return {
-          compatible: false,
-          error: `Transcription failed: ${
-            transcriptionError instanceof Error
-              ? transcriptionError.message
-              : 'Unknown error'
-          }`,
-          fileInfo,
-        };
-      }
-    } catch (error) {
-      return {
-        compatible: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+  /**
+   * Check if real-time transcription is currently active
+   */
+  public isRealTimeActive(): boolean {
+    return this.isRealTimeCapturing;
   }
 }
 

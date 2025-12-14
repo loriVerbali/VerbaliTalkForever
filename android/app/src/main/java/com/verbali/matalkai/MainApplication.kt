@@ -1,4 +1,4 @@
-package io.verbali.matalkaiforever
+package com.verbali.matalkai
 
 import android.app.Application
 import com.facebook.react.PackageList

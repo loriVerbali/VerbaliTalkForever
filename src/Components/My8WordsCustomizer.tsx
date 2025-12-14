@@ -21,7 +21,6 @@ import {
 } from '../utils/my8wordsUtils';
 import {searchWordImages, WordImageResult} from '../utils/wordImageApi';
 import {downloadImageForCard, getImageSource} from '../utils/imageDownloader';
-import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -39,7 +38,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
     null,
   );
   const [isDownloading, setIsDownloading] = useState(false);
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // Load current my8words data
   useEffect(() => {
@@ -61,7 +59,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
           await setItem('my8words', stringifyMy8Words(parsedData));
         }
       } catch (error) {
-        console.error('Error loading my8words:', error);
+        
       }
     };
     loadMy8Words();
@@ -86,7 +84,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
       const results = await searchWordImages(query);
       setSearchResults(results.results);
     } catch (error) {
-      console.error('Error searching words:', error);
+      
       Alert.alert('Error', 'Failed to search for words. Please try again.');
     } finally {
       setIsSearching(false);
@@ -126,19 +124,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
       // Save to preferences
       await setItem('my8words', stringifyMy8Words(updatedData));
 
-      // Track speed dial tile image update
-      const oldCard = my8WordsData.cards[cardIndex];
-      mixpanel.track('Settings - Speed Dial Tile Image Updated', {
-        screen: 'Settings',
-        action: 'speed_dial_tile_updated',
-        card_index: cardIndex,
-        card_position: cardIndex + 1,
-        old_word: oldCard?.word || 'unknown',
-        new_word: wordImage.word,
-        old_has_custom_image: !!(oldCard?.imageUrl && !oldCard.imageUrl.includes('example.com')),
-        new_has_custom_image: true,
-      });
-
       // Clear search
       setSearchQuery('');
       setSearchResults([]);
@@ -149,7 +134,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
         `Card ${cardIndex + 1} updated with "${wordImage.word}"`,
       );
     } catch (error) {
-      console.error('Error updating card:', error);
+      
       Alert.alert('Error', 'Failed to update card. Please try again.');
     } finally {
       setIsDownloading(false);
@@ -162,16 +147,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
       'Reset to Default',
       'Are you sure you want to reset all cards to default words?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => {
-            mixpanel.track('Settings - Reset Default Cancelled', {
-              screen: 'Settings',
-              action: 'reset_default_cancelled',
-            });
-          },
-        },
+        {text: 'Cancel', style: 'cancel'},
         {
           text: 'Reset',
           style: 'destructive',
@@ -180,30 +156,15 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
               const defaultData = parseMy8Words(''); // This returns default data
               setMy8WordsData(defaultData);
               await setItem('my8words', stringifyMy8Words(defaultData));
-              
-              // Track reset to default
-              mixpanel.track('Settings - Reset Default Clicked', {
-                screen: 'Settings',
-                action: 'reset_default_clicked',
-                confirmed: true,
-              });
-              
               Alert.alert('Success', 'Cards reset to default words');
             } catch (error) {
-              console.error('Error resetting to default:', error);
+              
               Alert.alert('Error', 'Failed to reset cards. Please try again.');
             }
           },
         },
       ],
     );
-    
-    // Track that reset default button was clicked
-    mixpanel.track('Settings - Reset Default Clicked', {
-      screen: 'Settings',
-      action: 'reset_default_clicked',
-      confirmed: false,
-    });
   };
 
   const renderCard = ({item, index}: {item: My8WordsCard; index: number}) => (

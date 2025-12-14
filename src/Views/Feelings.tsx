@@ -14,6 +14,7 @@ import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
+import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
 import {
   GestureHandlerRootView,
@@ -144,7 +145,7 @@ const Feelings = () => {
   const {isTablet} = useAdmin();
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
   type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryKey>('goodBody');
@@ -224,7 +225,10 @@ const Feelings = () => {
     }
   };
 
-  const handleFeelingPress = (feeling: string) => {
+  const handleFeelingPress = async (feeling: string) => {
+    // Prepare audio session for TTS to ensure consistent volume
+    await AudioSessionManager.prepareForTTS();
+
     // Use TTSService to speak the feeling text
     TTSService.speak(feeling, true); // Use immediate=true to prioritize this speech
   };
@@ -244,6 +248,14 @@ const Feelings = () => {
     }
 
     const nextCategory = categoryOrder[nextIndex];
+
+    // Track swipe event
+    mixpanel.track('Feelings Swipe', {
+      Direction: direction,
+      FromCategory: selectedCategory,
+      ToCategory: nextCategory,
+    });
+
     handleCategoryPress(nextCategory);
   };
 

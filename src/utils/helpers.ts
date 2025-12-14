@@ -10,7 +10,7 @@ export const showFiles = async () => {
       const mainBundleFiles = await RNFS.readDir(RNFS.MainBundlePath);
     }
   } catch (err) {
-    console.error('Error reading directories:', err);
+    
   }
 };
 
@@ -23,7 +23,7 @@ export const validateAudioPath = async (path: string) => {
     }
     return exists;
   } catch (error) {
-    console.error('Error validating audio path:', error);
+    
     return false;
   }
 };

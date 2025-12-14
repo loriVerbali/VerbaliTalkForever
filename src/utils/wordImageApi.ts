@@ -84,7 +84,7 @@ export const searchWordImages = async (
       throw new Error(response.error?.message || 'API request failed');
     }
   } catch (error) {
-    console.error('Error searching word images:', error);
+    
 
     // Fallback to mock data if API fails
     const filteredResults = mockWordImages.filter(item =>

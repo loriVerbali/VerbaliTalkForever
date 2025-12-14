@@ -70,7 +70,7 @@ class WhisperModelManager {
         reason: modelStatus.reason,
       };
     } catch (error) {
-      console.error('❌ Error checking Whisper model availability:', error);
+      
 
       // Store error state
       const now = Date.now();
@@ -102,7 +102,7 @@ class WhisperModelManager {
         lastChecked: parseInt(lastChecked) || 0,
       };
     } catch (error) {
-      console.error('Error getting cached model status:', error);
+      
       return {
         available: false,
         lastChecked: 0,

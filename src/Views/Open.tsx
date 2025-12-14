@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   Platform,
   BackHandler,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -22,12 +23,13 @@ import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import AppConfig from '../utils/config';
 import {useConnection} from '../utils/connection';
-import NoInternetConnection from '../Components/NoInternetConnection';
 import ShowAndTell from '../Components/ShowAndTell';
 import {Mixpanel} from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';
+import AudioSessionManager from '../utils/AudioSessionManager';
 import {useAdmin} from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
+import {check, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {
   parseMy8Words,
   My8WordsData,
@@ -90,7 +92,7 @@ const OpenScreen: React.FC = () => {
   const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
   const mixpanel = useRef(
-    new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true),
+    new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true),
   ).current;
   const wakeWordService = WakeWordService.getInstance();
   const handScaleAnim = useRef(new Animated.Value(1)).current;
@@ -100,6 +102,14 @@ const OpenScreen: React.FC = () => {
   const handshakeTappedRef = useRef(false);
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  const loadingModalShownRef = useRef(false);
+  const loadingModalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const loadingModalCheckIntervalRef = useRef<ReturnType<
+    typeof setInterval
+  > | null>(null);
 
   // Track connection state changes
   useEffect(() => {
@@ -124,8 +134,8 @@ const OpenScreen: React.FC = () => {
         const parsedData = parseMy8Words(my8wordsJson);
         setMy8WordsData(parsedData);
 
-        // Show modal only on first launch (when it hasn't been shown before)
-        setStartupModalVisible(modalShown !== '1');
+        // Modal disabled - no longer showing video after onboarding
+        setStartupModalVisible(false);
       } catch (e) {}
     };
     loadStatus();
@@ -225,6 +235,15 @@ const OpenScreen: React.FC = () => {
     settingsTappedOnce,
   ]);
 
+  const askForAdultHelp = async () => {
+    // Prepare audio session for TTS to ensure consistent volume
+    await AudioSessionManager.prepareForTTS();
+    TTSService.speak(
+      'There seems to be a problem , please ask an adult for help',
+    );
+    handleSettingsPress();
+  };
+
   useEffect(() => {
     mixpanel.track('MainScreen', {
       Opened: 'MainScreen',
@@ -237,38 +256,148 @@ const OpenScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
 
+    // Show loading modal on first load after onboarding
+    const showLoadingModalIfNeeded = async () => {
+      const wasOnboarded = await getItem('wasOnboarded');
+      // Only show if onboarding is complete, hasn't been shown before, and wake word isn't already listening
+      if (
+        wasOnboarded === '1' &&
+        !loadingModalShownRef.current &&
+        !wakeWordService.isCurrentlyListening()
+      ) {
+        loadingModalShownRef.current = true;
+        setShowLoadingModal(true);
+
+        // Set 5 second max timeout
+        loadingModalTimeoutRef.current = setTimeout(() => {
+          setShowLoadingModal(false);
+          if (loadingModalCheckIntervalRef.current) {
+            clearInterval(loadingModalCheckIntervalRef.current);
+            loadingModalCheckIntervalRef.current = null;
+          }
+        }, 5000);
+
+        // Poll for wake word readiness
+        loadingModalCheckIntervalRef.current = setInterval(() => {
+          if (wakeWordService.isCurrentlyListening()) {
+            setShowLoadingModal(false);
+            if (loadingModalTimeoutRef.current) {
+              clearTimeout(loadingModalTimeoutRef.current);
+              loadingModalTimeoutRef.current = null;
+            }
+            if (loadingModalCheckIntervalRef.current) {
+              clearInterval(loadingModalCheckIntervalRef.current);
+              loadingModalCheckIntervalRef.current = null;
+            }
+          }
+        }, 100); // Check every 100ms
+      }
+    };
+
+    showLoadingModalIfNeeded();
+
     // Initialize wake word service with proper cleanup and restart
+    // NOTE: LoggedNavigation also initializes wake word, so check if already initialized first
     const initializeWakeWord = async () => {
-      try {
-        // Set up callback for when wake word is detected
-        wakeWordService.setCallback(async (phrase: string) => {
-          // Handle wake word detection
-          if (handshakeTappedRef.current) {
-            handshakeTappedRef.current = false;
-            // If handshake was tapped, don't navigate - user will say "Hey Verby"
+      // First check if onboarding is complete - don't start wakeword during onboarding
+      const wasOnboarded = await getItem('wasOnboarded');
+      if (wasOnboarded !== '1') {
+        return;
+      }
+
+      // CRITICAL: Always set the callback, even if wake word is already listening
+      // LoggedNavigation initializes wake word but doesn't set the callback
+      // The callback must be set here in Open.tsx to handle wake word detections
+      const wakeWordCallback = async (phrase: string) => {
+        // Handle wake word detection
+        if (handshakeTappedRef.current) {
+          handshakeTappedRef.current = false;
+          // If handshake was tapped, don't navigate - user will say "Hey Verby"
+          return;
+        }
+
+        // This is a paid app - always allow navigation
+        navigation.navigate('HOME' as any, {
+          stateof: 'Attention',
+        });
+      };
+
+      wakeWordService.setCallback(wakeWordCallback);
+
+      // Check if wake word is already initialized/listening (LoggedNavigation may have already done this)
+      if (wakeWordService.isCurrentlyListening()) {
+        const status = wakeWordService.getStatus();
+        return;
+      }
+
+      const MAX_RETRIES = 3;
+      const INITIAL_DELAY_MS = 150; // Reduced delay for audio session to be ready (optimization: was 500ms + 1000ms)
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          // Add small delay on first attempt to ensure audio session is ready
+          if (attempt === 0) {
+            await new Promise<void>(resolve =>
+              setTimeout(resolve, INITIAL_DELAY_MS),
+            );
+            // Check again after delay - LoggedNavigation might have initialized it
+            if (wakeWordService.isCurrentlyListening()) {
+              return;
+            }
+          }
+
+          // Check microphone permission before starting (iOS only)
+          // Optimization: Skip if onboarding was completed (permission already granted during onboarding)
+          if (Platform.OS === 'ios') {
+            // Only check permission if onboarding might have been skipped
+            // If wasOnboarded is '1', permission was already granted during onboarding
+            const wasOnboarded = await getItem('wasOnboarded');
+            if (wasOnboarded !== '1') {
+              // Onboarding might have been skipped, check permission
+              const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
+
+              if (micPermission !== RESULTS.GRANTED) {
+                if (micPermission === RESULTS.BLOCKED) {
+                  // Don't retry if permission is blocked
+                  return;
+                }
+                // If denied but not blocked, wait a bit and retry (permission might be processing)
+                if (attempt < MAX_RETRIES - 1) {
+                  const delayMs = INITIAL_DELAY_MS * Math.pow(2, attempt + 1);
+
+                  await new Promise<void>(resolve =>
+                    setTimeout(resolve, delayMs),
+                  );
+                  continue;
+                } else {
+                  return;
+                }
+              }
+            }
+          }
+
+          // Get current values from storage to ensure we have the latest
+          const [isIOSActive, isInTrial, trialInstallationDate] =
+            await Promise.all([
+              getItem('isIOSActive'),
+              getItem('isInTrial'),
+              getItem('trialInstallationDate'),
+            ]);
+
+          // Callback is already set above, just start listening (this will handle initialization if needed)
+          await wakeWordService.startListening();
+
+          return; // Success - exit retry loop
+        } catch (error) {
+          // If this was the last attempt, give up
+          if (attempt === MAX_RETRIES - 1) {
             return;
           }
 
-          // Track wake word detection
-          mixpanel.track('Open Screen - Wake Word Detected', {
-            screen: 'Open',
-            action: 'wake_word_detected',
-            phrase: phrase,
-          });
-
-          navigation.navigate('HOME' as any, {
-            stateof: 'Attention',
-            entryMethod: 'wake_word',
-          });
-        });
-
-        // Start listening (this will handle initialization if needed)
-        await wakeWordService.startListening();
-      } catch (error) {
-        console.error(
-          'Failed to initialize wake word service on Open screen:',
-          error,
-        );
+          // Wait before retrying with exponential backoff
+          const delayMs = INITIAL_DELAY_MS * Math.pow(2, attempt + 1);
+          await new Promise<void>(resolve => setTimeout(resolve, delayMs));
+        }
       }
     };
 
@@ -284,13 +413,14 @@ const OpenScreen: React.FC = () => {
       if (blurTimeoutRef.current) {
         clearTimeout(blurTimeoutRef.current);
       }
+      if (loadingModalTimeoutRef.current) {
+        clearTimeout(loadingModalTimeoutRef.current);
+      }
+      if (loadingModalCheckIntervalRef.current) {
+        clearInterval(loadingModalCheckIntervalRef.current);
+      }
       // Properly stop wake word service to prevent memory leaks
-      wakeWordService.stopListening().catch(error => {
-        console.error(
-          'Error stopping wake word service on Open screen unmount:',
-          error,
-        );
-      });
+      wakeWordService.stopListening().catch(error => {});
     };
   }, []);
 
@@ -298,13 +428,72 @@ const OpenScreen: React.FC = () => {
   useFocusEffect(
     React.useCallback(() => {
       const ensureWakeWordActive = async () => {
-        try {
-          // Check if wake word service is listening, if not, start it
-          if (!wakeWordService.isCurrentlyListening()) {
-            await wakeWordService.startListening();
+        // First check if onboarding is complete - don't start wakeword during onboarding
+        const wasOnboarded = await getItem('wasOnboarded');
+        if (wasOnboarded !== '1') {
+          return;
+        }
+
+        // CRITICAL: Always prepare audio session for wakeword when screen comes into focus
+        // This ensures the audio session is properly configured even if it was changed
+        // by other screens (e.g., Settings video playback)
+        if (Platform.OS === 'ios') {
+          await AudioSessionManager.prepareForWakeword();
+          // Small delay to ensure audio session is ready
+          await new Promise<void>(resolve => setTimeout(resolve, 100));
+        }
+
+        const MAX_RETRIES = 2;
+        const INITIAL_DELAY_MS = 300;
+
+        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+          try {
+            // Check if wake word service is listening, if not, start it
+            if (!wakeWordService.isCurrentlyListening()) {
+              // Add delay on first attempt
+              if (attempt === 0) {
+                await new Promise<void>(resolve =>
+                  setTimeout(resolve, INITIAL_DELAY_MS),
+                );
+              }
+
+              // Check microphone permission before starting (iOS only)
+              if (Platform.OS === 'ios') {
+                const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
+                if (micPermission !== RESULTS.GRANTED) {
+                  if (
+                    micPermission === RESULTS.BLOCKED ||
+                    attempt === MAX_RETRIES - 1
+                  ) {
+                    return; // Don't retry if blocked or last attempt
+                  }
+                  // Wait before retry
+                  await new Promise<void>(resolve =>
+                    setTimeout(
+                      resolve,
+                      INITIAL_DELAY_MS * Math.pow(2, attempt + 1),
+                    ),
+                  );
+                  continue;
+                }
+              }
+
+              await wakeWordService.startListening();
+
+              return; // Success - exit retry loop
+            } else {
+              return; // Already listening
+            }
+          } catch (error) {
+            // If this was the last attempt, give up
+            if (attempt === MAX_RETRIES - 1) {
+              return;
+            }
+
+            // Wait before retrying with exponential backoff
+            const delayMs = INITIAL_DELAY_MS * Math.pow(2, attempt + 1);
+            await new Promise<void>(resolve => setTimeout(resolve, delayMs));
           }
-        } catch (error) {
-          console.error('Error ensuring wake word service is active:', error);
         }
       };
 
@@ -315,11 +504,12 @@ const OpenScreen: React.FC = () => {
   );
 
   const startListening = async () => {
-    // Track microphone button click
-    mixpanel.track('Open Screen - Microphone Button Clicked', {
-      screen: 'Open',
-      action: 'microphone_button',
-    });
+    // Get current values from storage to ensure we have the latest
+    const [isIOSActive, isInTrial, trialInstallationDate] = await Promise.all([
+      getItem('isIOSActive'),
+      getItem('isInTrial'),
+      getItem('trialInstallationDate'),
+    ]);
 
     // Mark microphone as tapped once
     if (!microphoneTappedOnce) {
@@ -329,7 +519,6 @@ const OpenScreen: React.FC = () => {
 
     navigation.navigate('HOME' as any, {
       stateof: 'Attention',
-      entryMethod: 'microphone_button',
     });
   };
 
@@ -354,10 +543,12 @@ const OpenScreen: React.FC = () => {
   }, [handleBackPress]);
 
   const handleNavigation = async (state: string) => {
+    // Get current values from storage to ensure we have the latest
+
     // Start fade out before navigation
     Animated.timing(fadeAnim, {
       toValue: 0,
-      duration: 500,
+      duration: 300,
       useNativeDriver: true,
     }).start(() => {
       if (state === 'Talk') {
@@ -369,18 +560,22 @@ const OpenScreen: React.FC = () => {
   };
 
   const handKeyboard = async () => {
+    // Get current values from storage to ensure we have the latest
+    const [isIOSActive, isInTrial, trialInstallationDate] = await Promise.all([
+      getItem('isIOSActive'),
+      getItem('isInTrial'),
+      getItem('trialInstallationDate'),
+    ]);
+
+    mixpanel.track('Keyboard Pressed');
     navigation.navigate('HOME' as any, {
       stateof: 'Keyboard',
     });
+    // TTSService.speak('Keyboard selected');
   };
 
   const handleSettingsPress = async () => {
-    // Track settings button click
-    mixpanel.track('Open Screen - Settings Button Clicked', {
-      screen: 'Open',
-      action: 'settings_button',
-    });
-
+    mixpanel.track('Settings Pressed');
     setModalVisible(true);
     // Mark settings as tapped once
     if (!settingsTappedOnce) {
@@ -392,19 +587,46 @@ const OpenScreen: React.FC = () => {
   const handleHandshakePress = async () => {
     if (isHandshakeSpeaking) return; // Prevent multiple simultaneous TTS calls
 
-    // Track introduction button click
-    mixpanel.track('Open Screen - Introduction Button Clicked', {
-      screen: 'Open',
-      action: 'introduction_button',
-    });
-
-    // setIsHandshakeSpeaking(true);
+    mixpanel.track('Handshake Pressed');
+    setIsHandshakeSpeaking(true);
     handshakeTappedRef.current = true; // Set flag to prevent navigation on wake word
 
-    // Speak the introduction message
+    // Stop wakeword before speaking to avoid conflicts
+    try {
+      if (wakeWordService.isCurrentlyListening()) {
+        await wakeWordService.stopListening();
+
+        // Small delay to ensure stop is fully complete
+        await new Promise<void>(resolve => setTimeout(resolve, 200));
+      }
+    } catch (error) {}
+
+    // Prepare audio session for TTS (after stopping wakeword)
+    await AudioSessionManager.prepareForTTS();
+
+    // Speak the introduction message with completion callback
     const message = `${preferences?.handshakeMessage}`;
-    await TTSService.speak(message, true);
-    // setIsHandshakeSpeaking(false);
+    await TTSService.speak(message, true, async () => {
+      // Prepare audio session for wakeword (after TTS ends)
+      await AudioSessionManager.prepareForWakeword();
+
+      // Restart wakeword when TTS finishes (only if not already listening)
+      try {
+        const wasOnboarded = await getItem('wasOnboarded');
+        if (wasOnboarded === '1') {
+          // Check if already listening to avoid race conditions
+          if (!wakeWordService.isCurrentlyListening()) {
+            await wakeWordService.startListening();
+          } else {
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      }
+      // Reset flags
+      handshakeTappedRef.current = false;
+      setIsHandshakeSpeaking(false);
+    });
   };
 
   const closeModal = () => {
@@ -448,14 +670,16 @@ const OpenScreen: React.FC = () => {
           style={styles.container}>
           <View style={styles.headerContainer}>
             <Text style={styles.headerText}>Hi {heroName ? heroName : ''}</Text>
-            <TouchableOpacity onPress={handleHandshakePress}>
+            <TouchableOpacity
+              onPress={handleHandshakePress}
+              activeOpacity={0.7}>
               <FastImage
                 source={getAvatarImage(preferences?.gender || '')}
                 style={styles.avatarImage}
                 resizeMode={FastImage.resizeMode.cover}
               />
             </TouchableOpacity>
-            <TouchableOpacity
+            <Pressable
               style={[
                 isTablet ? styles.handshakeButton : styles.handshakeButtonPhone,
                 isHandshakeSpeaking && styles.speakingButton,
@@ -471,7 +695,7 @@ const OpenScreen: React.FC = () => {
                 ]}
                 resizeMode={FastImage.resizeMode.contain}
               />
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <Pressable style={styles.microphoneButton} onPress={startListening}>
@@ -488,7 +712,10 @@ const OpenScreen: React.FC = () => {
 
           {/* Pointing hand with text bubble - only show if microphone not tapped yet */}
           {!microphoneTappedOnce && (
-            <View style={styles.pointHandBubble}>
+            <TouchableOpacity
+              style={styles.pointHandBubble}
+              onPress={startListening}
+              activeOpacity={0.7}>
               <Animated.View style={{transform: [{scale: handScaleAnim}]}}>
                 <FastImage
                   source={require('../assets/pointhand.png')}
@@ -512,7 +739,7 @@ const OpenScreen: React.FC = () => {
                   Tap here or Say Hey Verbi
                 </Text>
               </Animated.View>
-            </View>
+            </TouchableOpacity>
           )}
 
           {showRecognitionStatus && (
@@ -541,9 +768,10 @@ const OpenScreen: React.FC = () => {
 
           {/* Settings pointing hand with text bubble - only show if settings not tapped yet */}
           {!settingsTappedOnce && (
-            <Pressable
+            <TouchableOpacity
               style={styles.settingsPointHandBubble}
-              onPress={handleSettingsPress}>
+              onPress={handleSettingsPress}
+              activeOpacity={0.7}>
               <Animated.View
                 style={[
                   styles.speechBubble,
@@ -567,7 +795,7 @@ const OpenScreen: React.FC = () => {
                   resizeMode={FastImage.resizeMode.contain}
                 />
               </Animated.View>
-            </Pressable>
+            </TouchableOpacity>
           )}
 
           <View style={styles.contentContainer}>
@@ -575,31 +803,16 @@ const OpenScreen: React.FC = () => {
             <View style={styles.leftSideContainer}>
               <View style={styles.wrapper}>
                 <View style={styles.rowContent}>
-                  <Pressable
+                  <TouchableOpacity
                     style={styles.tileWrapper}
-                    onPress={async () => {
-                      // Track quick dial tile click
-                      mixpanel.track('Open Screen - Quick Dial Tile Clicked', {
-                        screen: 'Open',
-                        action: 'quick_dial_tile',
-                        tile_name: 'Start Talking',
-                      });
-                      await handleNavigation('Talk');
-                    }}>
+                    onPress={() => handleNavigation('Talk')}>
                     <View style={styles.imageWrapper}>
-                      {connectionState ? (
-                        <FastImage
-                          key="connected-image"
-                          source={require('../assets/talk.png')}
-                          style={styles.image}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      ) : (
-                        <NoInternetConnection
-                          key="no-connection"
-                          height={'30%'}
-                        />
-                      )}
+                      <FastImage
+                        key="connected-image"
+                        source={require('../assets/talk.png')}
+                        style={styles.image}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
                     </View>
                     <View
                       style={[
@@ -608,20 +821,12 @@ const OpenScreen: React.FC = () => {
                       ]}>
                       <Text style={styles.kidText}>Start Talking</Text>
                     </View>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.rowContent}>
-                  <Pressable
+                  <TouchableOpacity
                     style={styles.tileWrapper}
-                    onPress={() => {
-                      // Track quick dial tile click
-                      mixpanel.track('Open Screen - Quick Dial Tile Clicked', {
-                        screen: 'Open',
-                        action: 'quick_dial_tile',
-                        tile_name: 'Type Here',
-                      });
-                      handKeyboard();
-                    }}>
+                    onPress={handKeyboard}>
                     <View style={styles.imageWrapper}>
                       <View style={styles.imageWrapper}>
                         <FastImage
@@ -638,7 +843,7 @@ const OpenScreen: React.FC = () => {
                       ]}>
                       <Text style={styles.kidText}>Type Here</Text>
                     </View>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -647,12 +852,15 @@ const OpenScreen: React.FC = () => {
                   <Pressable
                     style={styles.tileWrapper}
                     onPress={async () => {
-                      // Track quick dial tile click
-                      mixpanel.track('Open Screen - Quick Dial Tile Clicked', {
-                        screen: 'Open',
-                        action: 'quick_dial_tile',
-                        tile_name: 'How I Feel',
-                      });
+                      // Get current values from storage to ensure we have the latest
+                      const [isIOSActive, isInTrial, trialInstallationDate] =
+                        await Promise.all([
+                          getItem('isIOSActive'),
+                          getItem('isInTrial'),
+                          getItem('trialInstallationDate'),
+                        ]);
+
+                      mixpanel.track('Feelings Pressed');
                       Animated.timing(fadeAnim, {
                         toValue: 0,
                         duration: 500,
@@ -681,12 +889,15 @@ const OpenScreen: React.FC = () => {
                   <Pressable
                     style={styles.tileWrapper}
                     onPress={async () => {
-                      // Track quick dial tile click
-                      mixpanel.track('Open Screen - Quick Dial Tile Clicked', {
-                        screen: 'Open',
-                        action: 'quick_dial_tile',
-                        tile_name: 'ShortCuts',
-                      });
+                      // Get current values from storage to ensure we have the latest
+                      const [isIOSActive, isInTrial, trialInstallationDate] =
+                        await Promise.all([
+                          getItem('isIOSActive'),
+                          getItem('isInTrial'),
+                          getItem('trialInstallationDate'),
+                        ]);
+
+                      mixpanel.track('Shortcuts Pressed');
                       Animated.timing(fadeAnim, {
                         toValue: 0,
                         duration: 500,
@@ -724,14 +935,13 @@ const OpenScreen: React.FC = () => {
                       <TouchableOpacity
                         key={`left-${index}`}
                         style={styles.yesNoCard}
-                        onPress={() => {
-                          // Track quick word button press
-                          mixpanel.track('quickword', {
-                            word: card.word,
-                            screen: 'Open',
-                          });
+                        onPress={async () => {
+                          mixpanel.track('8 Words Pressed');
+                          // Prepare audio session for TTS to ensure consistent volume
+                          await AudioSessionManager.prepareForTTS();
                           TTSService.speak(card.word, true);
-                        }}>
+                        }}
+                        activeOpacity={0.7}>
                         <View style={styles.cardImageContainer}>
                           <FastImage
                             source={getImageSource(card)}
@@ -751,14 +961,13 @@ const OpenScreen: React.FC = () => {
                       <TouchableOpacity
                         key={`right-${index}`}
                         style={styles.yesNoCard}
-                        onPress={() => {
-                          // Track quick word button press
-                          mixpanel.track('quickword', {
-                            word: card.word,
-                            screen: 'Open',
-                          });
+                        onPress={async () => {
+                          mixpanel.track('8 Words Pressed');
+                          // Prepare audio session for TTS to ensure consistent volume
+                          await AudioSessionManager.prepareForTTS();
                           TTSService.speak(card.word, true);
-                        }}>
+                        }}
+                        activeOpacity={0.7}>
                         <View style={styles.cardImageContainer}>
                           <FastImage
                             source={getImageSource(card)}
@@ -855,7 +1064,7 @@ const OpenScreen: React.FC = () => {
         <View style={styles.startupModalOverlay}>
           <View style={styles.startupModalContent}>
             <View style={styles.showAndTellHeader}>
-              <Text style={styles.showAndTellTitle}>Welcome to MatalkForever!</Text>
+              <Text style={styles.showAndTellTitle}>Welcome to Matalk!</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={closeStartupModal}>
@@ -872,6 +1081,29 @@ const OpenScreen: React.FC = () => {
               onPress={closeStartupModal}>
               <Text style={styles.getStartedButtonText}>Get Started!</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Loading Modal - Shows on app launch after onboarding */}
+      <Modal
+        visible={showLoadingModal}
+        transparent={true}
+        animationType="fade"
+        supportedOrientations={['landscape-left', 'landscape-right']}>
+        <View style={styles.loadingModalOverlay} pointerEvents="auto">
+          <View style={styles.loadingModalContent} pointerEvents="auto">
+            <FastImage
+              source={require('../assets/movie/recording.gif')}
+              style={styles.loadingGif}
+              resizeMode={FastImage.resizeMode.contain}
+            />
+            <ActivityIndicator
+              size="large"
+              color="#8B5CF6"
+              style={styles.loadingActivityIndicator}
+            />
+            <Text style={styles.loadingText}>Hi, Loading up my magic</Text>
           </View>
         </View>
       </Modal>
@@ -1323,6 +1555,30 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: height * 0.025,
     fontWeight: 'bold',
+  },
+  loadingModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingModalContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingGif: {
+    width: width * 0.3,
+    height: width * 0.3,
+    marginBottom: height * 0.02,
+  },
+  loadingActivityIndicator: {
+    marginBottom: height * 0.02,
+  },
+  loadingText: {
+    fontSize: height * 0.03,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
 });
 

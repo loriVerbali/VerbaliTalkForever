@@ -72,7 +72,7 @@ export const parseMy8Words = (jsonString: string): My8WordsData => {
     }
     return getDefaultMy8Words();
   } catch (error) {
-    console.error('Error parsing my8words:', error);
+    
     return getDefaultMy8Words();
   }
 };

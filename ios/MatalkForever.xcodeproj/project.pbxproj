@@ -8,15 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		49497859877181AC044F834B /* libPods-MatalkForever.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0ADF8C938A07FF9BA0C9EA81 /* libPods-MatalkForever.a */; };
+		5D669F289B065356B98D707B /* libPods-matalkforever.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B433A4E528A671A012788A0 /* libPods-matalkforever.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */; };
+		8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A69E13E2E2035D600B320B9 /* StoreKit.framework */; };
 		8A75608F2E3005A300A3CC88 /* espeak-ng-data in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608A2E3005A100A3CC88 /* espeak-ng-data */; };
 		8A7560902E3005A300A3CC88 /* en_US-amy-medium.onnx.json in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */; };
 		8A7560912E3005A300A3CC88 /* en_US-amy-medium.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */; };
 		8A7560922E3005A300A3CC88 /* MODEL_CARD in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608D2E3005A300A3CC88 /* MODEL_CARD */; };
 		8A7560932E3005A300A3CC88 /* tokens.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608E2E3005A300A3CC88 /* tokens.txt */; };
+		8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */; };
+		8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */; };
 		8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8A8772E82DC2994E00CD1BDE /* snap.mp3 */; };
 		8D6A173332132F679CB3C6F1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -34,24 +37,28 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0ADF8C938A07FF9BA0C9EA81 /* libPods-MatalkForever.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-MatalkForever.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07F961A680F5B00A75B9A /* MatalkForever.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MatalkForever.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = MatalkForever/Images.xcassets; sourceTree = "<group>"; };
-		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = MatalkForever/Info.plist; sourceTree = "<group>"; };
-		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = MatalkForever/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		396F5FA55085107E92516AA4 /* Pods-MatalkForever.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MatalkForever.release.xcconfig"; path = "Target Support Files/Pods-MatalkForever/Pods-MatalkForever.release.xcconfig"; sourceTree = "<group>"; };
-		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = MatalkForever/AppDelegate.swift; sourceTree = "<group>"; };
-		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = MatalkForever/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		0132851CEDF0830F5A26241A /* Pods-matalkforever.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-matalkforever.debug.xcconfig"; path = "Target Support Files/Pods-matalkforever/Pods-matalkforever.debug.xcconfig"; sourceTree = "<group>"; };
+		0B433A4E528A671A012788A0 /* libPods-matalkforever.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-matalkforever.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07F961A680F5B00A75B9A /* matalkforever.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = matalkforever.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = matalkaiforever.verbali.io/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = matalkaiforever.verbali.io/Info.plist; sourceTree = "<group>"; };
+		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = matalkaiforever.verbali.io/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		5840EF52C0C9F3EE39BE3F6C /* Pods-matalkforever.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-matalkforever.release.xcconfig"; path = "Target Support Files/Pods-matalkforever/Pods-matalkforever.release.xcconfig"; sourceTree = "<group>"; };
+		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = matalkaiforever.verbali.io/AppDelegate.swift; sourceTree = "<group>"; };
+		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = matalkaiforever.verbali.io/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = hey_verbi_v1.onnx; sourceTree = "<group>"; };
+		8A69E13E2E2035D600B320B9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		8A75608A2E3005A100A3CC88 /* espeak-ng-data */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "espeak-ng-data"; sourceTree = "<group>"; };
 		8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "en_US-amy-medium.onnx.json"; sourceTree = "<group>"; };
 		8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = "en_US-amy-medium.onnx"; sourceTree = "<group>"; };
 		8A75608D2E3005A300A3CC88 /* MODEL_CARD */ = {isa = PBXFileReference; lastKnownFileType = text; path = MODEL_CARD; sourceTree = "<group>"; };
 		8A75608E2E3005A300A3CC88 /* tokens.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tokens.txt; sourceTree = "<group>"; };
+		8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
+		8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManagerModule.swift; sourceTree = "<group>"; };
+		8A77B7342EEBD413002F2F7C /* matalkforever-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "matalkforever-Bridging-Header.h"; sourceTree = "<group>"; };
 		8A8772E82DC2994E00CD1BDE /* snap.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snap.mp3; sourceTree = "<group>"; };
 		8A8843322E282F99006C8EA5 /* matalkforever.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = matalkforever.entitlements; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F88E9906B19CA7EED6184CA4 /* Pods-MatalkForever.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MatalkForever.debug.xcconfig"; path = "Target Support Files/Pods-MatalkForever/Pods-MatalkForever.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,14 +66,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				49497859877181AC044F834B /* libPods-MatalkForever.a in Frameworks */,
+				8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */,
+				5D669F289B065356B98D707B /* libPods-matalkforever.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		13B07FAE1A68108700A75B9A /* MatalkForever */ = {
+		13B07FAE1A68108700A75B9A /* matalkaiforever.verbali.io */ = {
 			isa = PBXGroup;
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -75,14 +83,15 @@
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
 			);
-			name = MatalkForever;
+			name = matalkaiforever.verbali.io;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				8A69E13E2E2035D600B320B9 /* StoreKit.framework */,
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				0ADF8C938A07FF9BA0C9EA81 /* libPods-MatalkForever.a */,
+				0B433A4E528A671A012788A0 /* libPods-matalkforever.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -97,6 +106,8 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */,
+				8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */,
 				8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */,
 				8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */,
 				8A75608A2E3005A100A3CC88 /* espeak-ng-data */,
@@ -105,11 +116,12 @@
 				8A8843322E282F99006C8EA5 /* matalkforever.entitlements */,
 				8A69E13C2E1CF2EE00B320B9 /* models */,
 				8A8772E42DC1706600CD1BDE /* Assets */,
-				13B07FAE1A68108700A75B9A /* MatalkForever */,
+				13B07FAE1A68108700A75B9A /* matalkaiforever.verbali.io */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				8A77B7342EEBD413002F2F7C /* matalkforever-Bridging-Header.h */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -119,7 +131,7 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* MatalkForever.app */,
+				13B07F961A680F5B00A75B9A /* matalkforever.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -151,8 +163,8 @@
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				F88E9906B19CA7EED6184CA4 /* Pods-MatalkForever.debug.xcconfig */,
-				396F5FA55085107E92516AA4 /* Pods-MatalkForever.release.xcconfig */,
+				0132851CEDF0830F5A26241A /* Pods-matalkforever.debug.xcconfig */,
+				5840EF52C0C9F3EE39BE3F6C /* Pods-matalkforever.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -160,26 +172,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		13B07F861A680F5B00A75B9A /* MatalkForever */ = {
+		13B07F861A680F5B00A75B9A /* matalkforever */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "MatalkForever" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "matalkforever" */;
 			buildPhases = (
-				D88F695177BF974F437EDD0B /* [CP] Check Pods Manifest.lock */,
+				C44193CA38C81D0AC136AF1E /* [CP] Check Pods Manifest.lock */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				8A3F2C0F2DDEF22500D951DF /* CopyFiles */,
-				718F8C256AA564E3E8075807 /* [CP] Embed Pods Frameworks */,
-				2E9786CB5F563554BF7ACE95 /* [CP] Copy Pods Resources */,
+				E7EA6EAD010129031B775EE1 /* [CP] Embed Pods Frameworks */,
+				DFAAB1B3803446616CB9CD28 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = MatalkForever;
-			productName = MatalkForever;
-			productReference = 13B07F961A680F5B00A75B9A /* MatalkForever.app */;
+			name = matalkforever;
+			productName = matalkforever;
+			productReference = 13B07F961A680F5B00A75B9A /* matalkforever.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -191,7 +203,7 @@
 				LastUpgradeCheck = 1210;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						LastSwiftMigration = 1120;
+						LastSwiftMigration = 2610;
 					};
 				};
 			};
@@ -208,7 +220,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				13B07F861A680F5B00A75B9A /* MatalkForever */,
+				13B07F861A680F5B00A75B9A /* matalkforever */,
 			);
 		};
 /* End PBXProject section */
@@ -250,41 +262,7 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
 		};
-		2E9786CB5F563554BF7ACE95 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MatalkForever/Pods-MatalkForever-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MatalkForever/Pods-MatalkForever-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MatalkForever/Pods-MatalkForever-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		718F8C256AA564E3E8075807 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MatalkForever/Pods-MatalkForever-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MatalkForever/Pods-MatalkForever-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MatalkForever/Pods-MatalkForever-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D88F695177BF974F437EDD0B /* [CP] Check Pods Manifest.lock */ = {
+		C44193CA38C81D0AC136AF1E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -299,11 +277,53 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-MatalkForever-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-matalkforever-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		DFAAB1B3803446616CB9CD28 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E7EA6EAD010129031B775EE1 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -314,6 +334,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */,
+				8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -322,17 +344,17 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F88E9906B19CA7EED6184CA4 /* Pods-MatalkForever.debug.xcconfig */;
+			baseConfigurationReference = 0132851CEDF0830F5A26241A /* Pods-matalkforever.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = matalkforever.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				ENABLE_BITCODE = NO;
-				INFOPLIST_FILE = MatalkForever/Info.plist;
+				INFOPLIST_FILE = matalkaiforever.verbali.io/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
@@ -340,19 +362,20 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = matalkaiforever.verbali.io;
-				PRODUCT_NAME = MatalkForever;
+				PRODUCT_NAME = matalkforever;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "matalkforever-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -362,16 +385,16 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 396F5FA55085107E92516AA4 /* Pods-MatalkForever.release.xcconfig */;
+			baseConfigurationReference = 5840EF52C0C9F3EE39BE3F6C /* Pods-matalkforever.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = matalkforever.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
-				INFOPLIST_FILE = MatalkForever/Info.plist;
+				INFOPLIST_FILE = matalkaiforever.verbali.io/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
@@ -379,19 +402,20 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = matalkaiforever.verbali.io;
-				PRODUCT_NAME = MatalkForever;
+				PRODUCT_NAME = matalkforever;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "matalkforever-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -467,10 +491,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -539,10 +560,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
@@ -553,7 +571,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "MatalkForever" */ = {
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "matalkforever" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,

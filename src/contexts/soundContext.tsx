@@ -24,7 +24,7 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
         // For Android, load from res/raw (without .mp3 extension)
         const sound = new Sound('snap', Sound.MAIN_BUNDLE, error => {
           if (error) {
-            console.error('Failed to load Android sound:', error);
+            
             return;
           }
           sound.setVolume(1.0);
@@ -35,7 +35,7 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
         // For iOS, use the standard approach
         const sound = new Sound('snap.mp3', Sound.MAIN_BUNDLE, error => {
           if (error) {
-            console.error('Failed to load iOS sound:', error);
+            
             return;
           }
           sound.setVolume(1.0);
@@ -54,47 +54,34 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
 
   const playAttention = (): Promise<boolean> => {
     return new Promise(resolve => {
-      if (!soundRef.current) {
-        resolve(false);
-        return;
-      }
+      if (soundRef.current) {
+        soundRef.current.stop(() => {
+          // Get the duration of the sound
+          const duration = soundRef.current?.getDuration() || 0;
 
-      const sound = soundRef.current;
-      
-      // Stop any current playback without waiting for callback
-      // This prevents blocking on the stop operation
-      try {
-        sound.stop(() => {
-          // Stop callback - continue with play
-        });
-      } catch (e) {
-        // Ignore stop errors - sound might not be playing
-      }
+          // Reset sound to beginning and set loops
+          if (soundRef.current) {
+            soundRef.current.setNumberOfLoops(0);
+            soundRef.current.setCurrentTime(0);
 
-      // Use a minimal delay to ensure stop completes, then play immediately
-      // This is much faster than waiting for the stop callback
-      setTimeout(() => {
-        if (!soundRef.current) {
-          resolve(false);
-          return;
-        }
+            soundRef.current.play(success => {
+              if (!success) {
+                resolve(false);
+                return;
+              }
 
-        // Reset sound to beginning and set loops
-        soundRef.current.setNumberOfLoops(0);
-        soundRef.current.setCurrentTime(0);
-
-        // Start playing immediately
-        soundRef.current.play(success => {
-          if (!success) {
+              // Wait for the full sound duration before resolving
+              setTimeout(() => {
+                resolve(true);
+              }, Math.max(100, duration * 1000)); // Convert to milliseconds
+            });
+          } else {
             resolve(false);
-            return;
           }
-
-          // Resolve immediately after play starts (don't wait for full duration)
-          // This allows recording to start faster
-          resolve(true);
         });
-      }, 10); // Very short delay to let stop complete if needed
+      } else {
+        resolve(false);
+      }
     });
   };
 

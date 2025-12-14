@@ -13,15 +13,9 @@ const {width, height} = Dimensions.get('window');
 
 interface TermsAndConditionsProps {
   onAgree: (agreed: boolean) => void;
-  onScrollToBottom?: () => void;
-  onViewManual?: () => void;
 }
 
-const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({
-  onAgree,
-  onScrollToBottom,
-  onViewManual,
-}) => {
+const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
   const {isTablet} = useAdmin();
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
@@ -87,10 +81,6 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({
 
     if (isScrolledToBottom && !hasScrolledToBottom) {
       setHasScrolledToBottom(true);
-      // Track when user scrolls to bottom of terms
-      if (onScrollToBottom) {
-        onScrollToBottom();
-      }
     }
   };
 
@@ -134,13 +124,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({
         ]}
         onScroll={handleScroll}
         scrollEventThrottle={16}
-        showsVerticalScrollIndicator={true}
-        onScrollBeginDrag={() => {
-          // Track when user starts viewing/scrolling the manual
-          if (onViewManual) {
-            onViewManual();
-          }
-        }}>
+        showsVerticalScrollIndicator={true}>
         <Text
           style={[
             styles.title,

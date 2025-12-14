@@ -1,12 +1,15 @@
-import React, {useState, useRef, useCallback, useEffect} from 'react';
+import React, {useState, useRef, useCallback} from 'react';
 import {View, StyleSheet} from 'react-native';
 import SentenceBuilderGrid from '../Components/SentenceBuilder/SentenceBuilderGrid';
 import {useDatabase} from '../contexts/DatabaseContext';
 import {Mixpanel} from 'mixpanel-react-native';
+import {GridConfigKey} from '../types/sentenceBuilder';
 
 const Convo = () => {
   const {addClassicEntry} = useDatabase();
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const mixpanel = useRef(
+    new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true),
+  );
   const [sentenceStartTime, setSentenceStartTime] = useState<number | null>(
     null,
   );
@@ -15,14 +18,6 @@ const Convo = () => {
     [],
   );
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Track when user enters the Convo section
-  useEffect(() => {
-    mixpanel.track('Convo Screen - Entered', {
-      screen: 'Convo',
-      action: 'screen_entered',
-    });
-  }, []);
 
   // Start timer when first word is added
   const handleFirstWordAdded = useCallback(() => {
@@ -60,6 +55,9 @@ const Convo = () => {
     async (sentenceTokens: string[], nodes: any[]) => {
       if (sentenceStartTime === null) return;
 
+      // Track play button tap
+      mixpanel.current.track('Convo Play Tapped');
+
       try {
         // Calculate time taken
         const endTime = Date.now();
@@ -87,7 +85,6 @@ const Convo = () => {
           timetobuild: timeToBuild,
         });
       } catch (error) {
-        console.error('Error saving sentence to database:', error);
         // Don't show error to user - fail silently as requested
       } finally {
         // Reset timer and counters
@@ -112,12 +109,36 @@ const Convo = () => {
     };
   }, []);
 
+  // Track breadcrumb tap
+  const handleBreadcrumbTapped = useCallback((index: number) => {
+    mixpanel.current.track('Convo Breadcrumb Tapped', {index});
+  }, []);
+
+  // Track grid size change
+  const handleGridSizeChanged = useCallback((size: GridConfigKey) => {
+    mixpanel.current.track('Convo Grid Size Changed', {size});
+  }, []);
+
+  // Track grid size value
+  const handleGridSizeLoaded = useCallback((size: GridConfigKey) => {
+    mixpanel.current.track('Convo Grid Size', {size});
+  }, []);
+
+  // Track reset DB tap
+  const handleResetDbPressed = useCallback(() => {
+    mixpanel.current.track('Convo Reset DB Tapped');
+  }, []);
+
   return (
     <View style={styles.container}>
       <SentenceBuilderGrid
         onWordAdded={handleWordAdded}
         onWordRemoved={handleWordRemoved}
         onSentencePlayed={handleSentencePlayed}
+        onBreadcrumbTapped={handleBreadcrumbTapped}
+        onGridSizeChanged={handleGridSizeChanged}
+        onGridSizeLoaded={handleGridSizeLoaded}
+        onResetDbPressed={handleResetDbPressed}
       />
     </View>
   );

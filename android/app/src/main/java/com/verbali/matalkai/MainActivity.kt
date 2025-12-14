@@ -1,4 +1,4 @@
-package io.verbali.matalkaiforever
+package com.verbali.matalkai
 
 import android.os.Bundle
 import androidx.core.view.WindowCompat
