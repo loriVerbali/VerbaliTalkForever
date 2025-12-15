@@ -29,7 +29,6 @@ class SessionManager {
       if (installationGuid === 'init.NotSet' || !installationGuid) {
         installationGuid = this.generateGuid();
         await setItem('installationGuid', installationGuid);
-        console.log('Generated new installation GUID:', installationGuid);
       }
 
       // Initialize guest session with installation GUID
@@ -45,16 +44,12 @@ class SessionManager {
 
       if (data.ok && data.token) {
         await setItem('sessionToken', data.token);
-        console.log(
-          'Guest session initialized for installation:',
-          installationGuid,
-        );
+
         return data.token;
       }
 
       throw new Error('Failed to initialize session');
     } catch (error) {
-      console.error('Session initialization failed:', error);
       return null;
     }
   }
@@ -65,7 +60,6 @@ class SessionManager {
       const token = await getItem('sessionToken');
       return token === 'init.NotSet' ? null : token;
     } catch (error) {
-      console.error('Error getting session token:', error);
       return null;
     }
   }
@@ -76,7 +70,6 @@ class SessionManager {
       const guid = await getItem('installationGuid');
       return guid === 'init.NotSet' ? null : guid;
     } catch (error) {
-      console.error('Error getting installation GUID:', error);
       return null;
     }
   }
@@ -103,7 +96,6 @@ class SessionManager {
           return await this.refreshSession(token);
         }
       } catch (error) {
-        console.error('Session validation failed:', error);
         // If validation fails, try to refresh anyway
         return await this.refreshSession(token);
       }
@@ -152,17 +144,12 @@ class SessionManager {
       if (data.ok && data.token) {
         const {setItem} = await this.getAppSettings();
         await setItem('sessionToken', data.token);
-        console.log(
-          'Session refreshed for installation:',
-          await this.getInstallationGuid(),
-        );
         return data.token;
       }
 
       // If refresh fails, initialize new session
       return await this.initializeSession();
     } catch (error) {
-      console.error('Session refresh failed:', error);
       return await this.initializeSession();
     } finally {
       this.refreshInFlight = false;
@@ -174,7 +161,6 @@ class SessionManager {
     const {setItem} = await this.getAppSettings();
     await setItem('sessionToken', 'init.NotSet');
     await setItem('lastRefreshCheck', '0');
-    console.log('Session cleared, installation GUID preserved');
   }
 
   async resetInstallation(): Promise<void> {
@@ -183,7 +169,6 @@ class SessionManager {
     await setItem('installationGuid', 'init.NotSet');
     await setItem('sessionToken', 'init.NotSet');
     await setItem('lastRefreshCheck', '0');
-    console.log('Installation reset - new GUID will be generated on next init');
   }
 
   private generateGuid(): string {

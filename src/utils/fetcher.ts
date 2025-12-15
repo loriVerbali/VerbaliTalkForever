@@ -64,7 +64,7 @@ const fetchWithRetry = async (
 
     return Promise.reject(`Request failed with status ${response.status}`);
   } catch (error) {
-    console.error('Network or parsing error:', error);
+    
     throw error;
   }
 };
@@ -88,9 +88,7 @@ const fetchHelper = async (
       if (sessionToken) {
         headers['Authorization'] = 'Bearer ' + sessionToken;
       } else {
-        console.warn(
-          `No valid session token found for authenticated method: ${methodName}`,
-        );
+        
         return Promise.reject('No valid session token');
       }
     }
@@ -140,9 +138,9 @@ const fetchHelper = async (
   }
 
   if (methodName === METHODTODEBUG) {
-    // console.log({url});
-    // console.log({methodName});
-    // console.log({request});
+    // 
+    // 
+    // 
   }
 
   // Use fetchWithRetry for the request

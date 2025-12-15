@@ -59,7 +59,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
         }));
         setResponseTimeData(formattedData);
       } catch (error) {
-        console.error('Error loading AI response time data:', error);
+        
         setResponseTimeData([]);
       }
     };

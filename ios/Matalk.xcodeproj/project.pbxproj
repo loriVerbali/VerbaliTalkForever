@@ -18,6 +18,8 @@
 		8A7560912E3005A300A3CC88 /* en_US-amy-medium.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */; };
 		8A7560922E3005A300A3CC88 /* MODEL_CARD in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608D2E3005A300A3CC88 /* MODEL_CARD */; };
 		8A7560932E3005A300A3CC88 /* tokens.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608E2E3005A300A3CC88 /* tokens.txt */; };
+		8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */; };
+		8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */; };
 		8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8A8772E82DC2994E00CD1BDE /* snap.mp3 */; };
 		8A91D8F12E9363EC000789B3 /* MaTalkStore.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 8A91D8F02E9363EC000789B3 /* MaTalkStore.storekit */; };
 		8D6A173332132F679CB3C6F1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
@@ -52,6 +54,9 @@
 		8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = "en_US-amy-medium.onnx"; sourceTree = "<group>"; };
 		8A75608D2E3005A300A3CC88 /* MODEL_CARD */ = {isa = PBXFileReference; lastKnownFileType = text; path = MODEL_CARD; sourceTree = "<group>"; };
 		8A75608E2E3005A300A3CC88 /* tokens.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tokens.txt; sourceTree = "<group>"; };
+		8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
+		8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManagerModule.swift; sourceTree = "<group>"; };
+		8A77B7342EEBD413002F2F7C /* Matalk-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Matalk-Bridging-Header.h"; sourceTree = "<group>"; };
 		8A8772E82DC2994E00CD1BDE /* snap.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snap.mp3; sourceTree = "<group>"; };
 		8A8843322E282F99006C8EA5 /* matalk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = matalk.entitlements; sourceTree = "<group>"; };
 		8A91D8F02E9363EC000789B3 /* MaTalkStore.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = MaTalkStore.storekit; sourceTree = "<group>"; };
@@ -103,6 +108,8 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */,
+				8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */,
 				8A91D8F02E9363EC000789B3 /* MaTalkStore.storekit */,
 				8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */,
 				8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */,
@@ -117,6 +124,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				8A77B7342EEBD413002F2F7C /* Matalk-Bridging-Header.h */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -198,7 +206,7 @@
 				LastUpgradeCheck = 1210;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						LastSwiftMigration = 1120;
+						LastSwiftMigration = 2610;
 					};
 				};
 			};
@@ -288,9 +296,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Matalk/Pods-Matalk-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Matalk/Pods-Matalk-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -305,9 +317,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Matalk/Pods-Matalk-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Matalk/Pods-Matalk-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -322,6 +338,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */,
+				8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -337,7 +355,7 @@
 				CODE_SIGN_ENTITLEMENTS = matalk.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Matalk/Info.plist;
@@ -348,7 +366,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 19;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -361,6 +379,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Matalk-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -377,7 +396,7 @@
 				CODE_SIGN_ENTITLEMENTS = matalk.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				INFOPLIST_FILE = Matalk/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI";
@@ -387,7 +406,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.8;
+				MARKETING_VERSION = 19;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -400,6 +419,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Matalk-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -475,10 +495,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -547,10 +564,7 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

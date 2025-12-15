@@ -64,7 +64,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
     navigation.navigate(views.OPEN as never);
   };
 
-  const handlePlaySentence = () => {
+  const handlePlaySentence = async () => {
     if (sentenceTokenIds.length === 0) return;
 
     // Build the sentence text from the tokens
@@ -77,8 +77,14 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       .join(' ');
 
     if (sentenceText.trim()) {
-      // Import and use TTS service
+      // Import services
       const TTSService = require('../../utils/TTSService').default;
+      const AudioSessionManager = require('../../utils/AudioSessionManager').default;
+      
+      // Prepare audio session for TTS to ensure consistent volume
+      await AudioSessionManager.prepareForTTS();
+      
+      // Speak the sentence
       TTSService.speak(sentenceText, true);
 
       // Call the onPlayPress handler to delete the sentence after playing

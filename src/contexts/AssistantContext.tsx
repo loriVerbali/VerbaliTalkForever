@@ -66,7 +66,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         );
       }
     } catch (error) {
-      console.error('Error generating answers:', error);
+      
       throw error;
     }
   };

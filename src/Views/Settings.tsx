@@ -78,24 +78,34 @@ const InfoModal = ({
   onClose: () => void;
   title: string;
   description: string;
-}) => (
-  <Modal
-    animationType="fade"
-    transparent={true}
-    visible={visible}
-    supportedOrientations={['landscape-left', 'landscape-right']}
-    onRequestClose={onClose}>
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>{title}</Text>
-        <Text style={styles.modalDescription}>{description}</Text>
-        <TouchableOpacity style={styles.modalButton} onPress={onClose}>
-          <Text style={styles.modalButtonText}>Got it</Text>
-        </TouchableOpacity>
+}) => {
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      supportedOrientations={['landscape-left', 'landscape-right']}
+      onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.modalDescription}>{description}</Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => {
+              mixpanel.track('Settings Info Modal Got It Pressed', {
+                modalTitle: title,
+              });
+              onClose();
+            }}>
+            <Text style={styles.modalButtonText}>Got it</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
+};
 
 // Individual slider components
 const MessagesSlider = ({
@@ -108,6 +118,7 @@ const MessagesSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const {width: windowWidth} = useWindowDimensions();
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -120,7 +131,12 @@ const MessagesSlider = ({
       <View style={styles.labelRow}>
         <Text style={styles.settingLabel}>Amount of messages</Text>
         <TouchableOpacity
-          onPress={() => setShowInfo(true)}
+          onPress={() => {
+            mixpanel.track('Settings Info Button Pressed', {
+              infoType: 'Amount of Messages',
+            });
+            setShowInfo(true);
+          }}
           style={styles.infoButton}>
           <Text style={styles.infoIcon}>?</Text>
         </TouchableOpacity>
@@ -164,6 +180,7 @@ const RangeSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const {width: windowWidth} = useWindowDimensions();
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -176,7 +193,12 @@ const RangeSlider = ({
       <View style={styles.labelRow}>
         <Text style={styles.settingLabel}>{label}</Text>
         <TouchableOpacity
-          onPress={() => setShowInfo(true)}
+          onPress={() => {
+            mixpanel.track('Settings Info Button Pressed', {
+              infoType: label,
+            });
+            setShowInfo(true);
+          }}
           style={styles.infoButton}>
           <Text style={styles.infoIcon}>?</Text>
         </TouchableOpacity>
@@ -418,7 +440,7 @@ const SettingsScreen: React.FC = () => {
             }
           }
         } catch (error) {
-          console.error('Error checking for rating prompt:', error);
+          
         }
       };
 
@@ -438,6 +460,10 @@ const SettingsScreen: React.FC = () => {
   // Removed logout functionality - guest sessions don't need logout
 
   const handleLinkPress = (url: string, title: string) => {
+    mixpanel.track('Settings Legal Link Pressed', {
+      linkTitle: title,
+      linkUrl: url,
+    });
     navigation.navigate(
       'WebView' as never,
       {
@@ -477,23 +503,11 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleGobackAfterSelectionToggle = async (value: boolean) => {
+    mixpanel.track('Settings Go Back After Selection Changed', {
+      enabled: value,
+    });
     setGobackAfterSelection(value);
     await setItem('gobackAfterSelection', value ? '1' : '0');
-  };
-
-  const handleUseLocalWhisperToggle = async (value: boolean) => {
-    // If trying to enable local Whisper but model is not available, show alert and prevent toggle
-    if (value && !whisperModelAvailable) {
-      Alert.alert(
-        'Whisper Model Required',
-        'Please download the Whisper model first before enabling local Whisper. You can download it in the section below.',
-        [{text: 'OK'}],
-      );
-      return;
-    }
-
-    setUseLocalWhisper(value);
-    await setItem('useLocalWhisper', value ? '1' : '0');
   };
 
   const handleWhisperDownloadComplete = async () => {
@@ -504,12 +518,15 @@ const SettingsScreen: React.FC = () => {
           setItem,
           getItem,
         );
+      mixpanel.track('Settings Whisper Download Completed', {
+        success: modelStatus.available,
+      });
       setWhisperModelAvailable(modelStatus.available);
     } catch (error) {
-      console.error(
-        'Error checking Whisper model availability after download:',
-        error,
-      );
+      mixpanel.track('Settings Whisper Download Completed', {
+        success: false,
+        error: 'Failed to verify model',
+      });
       setWhisperModelAvailable(false);
       await setItem('whisperModelAvailable', '0');
       await setItem('useLocalWhisper', '0');
@@ -531,12 +548,19 @@ const SettingsScreen: React.FC = () => {
     setIsSaving(true);
     try {
       await setItem('adminCode', newAdminCode);
+      mixpanel.track('Settings Admin Code Changed', {
+        success: true,
+      });
       setAdminCode(newAdminCode);
       setNewAdminCode('');
       setIsEditingAdminCode(false);
       setAdminCodeError('');
       setIsAdminCodeVisible(false);
     } catch (e) {
+      mixpanel.track('Settings Admin Code Changed', {
+        success: false,
+        error: 'Failed to save',
+      });
       setAdminCodeError('Failed to save admin code');
     } finally {
       setIsSaving(false);
@@ -544,15 +568,23 @@ const SettingsScreen: React.FC = () => {
   };
 
   const handleDeleteAccount = async () => {
+    mixpanel.track('Settings Reset Installation Prompted');
     Alert.alert(
       'Reset Installation',
       'Are you sure you want to reset your installation? This action is irreversible. All your data will be deleted and you will need to go through onboarding again.',
       [
-        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Cancel',
+          style: 'cancel',
+          onPress: () => {
+            mixpanel.track('Settings Reset Installation Cancelled');
+          },
+        },
         {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
+            mixpanel.track('Settings Reset Installation Confirmed');
             deleteAccount();
           },
         },
@@ -573,7 +605,7 @@ const SettingsScreen: React.FC = () => {
           {assistantId: preferences.assistantId, userId: 'guest'},
         );
       } catch (error) {
-        console.error('Error deleting assistant:', error);
+        
       }
     }
 
@@ -627,6 +659,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   const cancelAdminCodeEdit = () => {
+    mixpanel.track('Settings Admin Code Edit Cancelled');
     setIsEditingAdminCode(false);
     setNewAdminCode('');
     setAdminCodeError('');
@@ -720,12 +753,14 @@ const SettingsScreen: React.FC = () => {
 
   // Hero name handlers
   const handleEditHeroName = () => {
+    mixpanel.track('Settings Hero Name Edit Started');
     setNewHeroName(heroName === 'Name' ? '' : heroName);
     setIsEditingHeroName(true);
     setHeroNameError('');
   };
 
   const handleCancelHeroNameEdit = () => {
+    mixpanel.track('Settings Hero Name Edit Cancelled');
     Keyboard.dismiss();
     setIsEditingHeroName(false);
     setNewHeroName('');
@@ -739,23 +774,36 @@ const SettingsScreen: React.FC = () => {
       return;
     }
     try {
-      await setItem('heroName', newHeroName.trim());
-      setHeroName(newHeroName.trim());
+      const oldName = heroName;
+      const newName = newHeroName.trim();
+      await setItem('heroName', newName);
+      mixpanel.track('Settings Hero Name Changed', {
+        oldName: oldName,
+        newName: newName,
+        success: true,
+      });
+      setHeroName(newName);
       setIsEditingHeroName(false);
       setHeroNameError('');
     } catch (e) {
+      mixpanel.track('Settings Hero Name Changed', {
+        success: false,
+        error: 'Failed to save',
+      });
       setHeroNameError('Failed to save name');
     }
   };
 
   // Handshake message handlers
   const handleEditHandshakeMessage = () => {
+    mixpanel.track('Settings Handshake Message Edit Started');
     setNewHandshakeMessage(handshakeMessage);
     setIsEditingHandshakeMessage(true);
     setHandshakeMessageError('');
   };
 
   const handleCancelHandshakeMessageEdit = () => {
+    mixpanel.track('Settings Handshake Message Edit Cancelled');
     Keyboard.dismiss();
     setIsEditingHandshakeMessage(false);
     setNewHandshakeMessage('');
@@ -770,15 +818,25 @@ const SettingsScreen: React.FC = () => {
     }
     try {
       await setItem('handshakeMessage', newHandshakeMessage.trim());
+      mixpanel.track('Settings Handshake Message Changed', {
+        success: true,
+      });
       setHandshakeMessage(newHandshakeMessage.trim());
       setIsEditingHandshakeMessage(false);
       setHandshakeMessageError('');
     } catch (e) {
+      mixpanel.track('Settings Handshake Message Changed', {
+        success: false,
+        error: 'Failed to save',
+      });
       setHandshakeMessageError('Failed to save handshake message');
     }
   };
 
   const handleVideoCardPress = (videoName: string) => {
+    mixpanel.track('Settings Video Card Pressed', {
+      videoName: videoName,
+    });
     const index = videoList.findIndex(video => video === videoName);
     const videoIndex = index >= 0 ? index : 0;
     setCurrentVideoIndex(videoIndex);
@@ -825,7 +883,10 @@ const SettingsScreen: React.FC = () => {
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
-          onPress={() => navigation.navigate(views.OPEN)}>
+          onPress={() => {
+            mixpanel.track('Settings Back Button Pressed');
+            navigation.navigate(views.OPEN);
+          }}>
           <Text style={styles.backButtonText}>←</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
@@ -862,9 +923,21 @@ const SettingsScreen: React.FC = () => {
           </View>
           {preferences.isIOSActive !== '1' && (
             <View
-              style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}>
+              style={{backgroundColor: '#fff', padding: 10, marginBottom: 10}}
+              onLayout={() => {
+                mixpanel.track('Settings Subscription Section Viewed', {
+                  context: 'settings',
+                });
+              }}>
               <Subscription
-                setGotSubscription={setShowSubscription}
+                setGotSubscription={(gotSubscription: boolean) => {
+                  if (gotSubscription) {
+                    mixpanel.track('Settings Subscription Upgrade Successful', {
+                      context: 'settings',
+                    });
+                  }
+                  setShowSubscription(gotSubscription);
+                }}
                 context="settings"
               />
             </View>
@@ -1054,7 +1127,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'Total Utterances',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       Total Utterances
@@ -1067,6 +1145,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'Total Utterances',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1078,7 +1159,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'Classic Words Board',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       Classic Words Board
@@ -1091,6 +1177,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'Classic Words Board',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1102,7 +1191,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'AI Response Time',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       AI Response Time
@@ -1115,6 +1209,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'AI Response Time',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1126,7 +1223,12 @@ const SettingsScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.reportsCard}
                   activeOpacity={0.7}
-                  onPress={() => navigation.navigate(views.REPORTS)}>
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'AI Questions Answered',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
                   <View style={styles.reportsCardContent}>
                     <Text style={styles.reportsCardTitle}>
                       AI Questions Answered
@@ -1139,6 +1241,9 @@ const SettingsScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={e => {
                         e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'AI Questions Answered',
+                        });
                         navigation.navigate(views.REPORTS);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
@@ -1456,7 +1561,12 @@ const SettingsScreen: React.FC = () => {
                       Your Hero's Avatar(optional)
                     </Text>
                     <TouchableOpacity
-                      onPress={() => setShowGenderInfo(true)}
+                      onPress={() => {
+                        mixpanel.track('Settings Info Button Pressed', {
+                          infoType: 'Gender Selection',
+                        });
+                        setShowGenderInfo(true);
+                      }}
                       style={styles.infoButton}>
                       <Text style={styles.infoIcon}>?</Text>
                     </TouchableOpacity>
@@ -1481,7 +1591,12 @@ const SettingsScreen: React.FC = () => {
 
                     <TouchableOpacity
                       style={styles.showMoreButton}
-                      onPress={() => setShowAvatarOptions(!showAvatarOptions)}>
+                      onPress={() => {
+                        mixpanel.track('Settings Avatar Options Toggled', {
+                          showOptions: !showAvatarOptions,
+                        });
+                        setShowAvatarOptions(!showAvatarOptions);
+                      }}>
                       <Text style={styles.showMoreButtonText}>
                         {showAvatarOptions ? 'Hide' : 'Show More'}
                       </Text>
@@ -1500,6 +1615,10 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'white boy',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'white boy');
                           setShowAvatarOptions(false);
                         }}>
@@ -1523,6 +1642,10 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'black boy',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'black boy');
                           setShowAvatarOptions(false);
                         }}>
@@ -1545,6 +1668,10 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'asian boy',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'asian boy');
                           setShowAvatarOptions(false);
                         }}>
@@ -1567,6 +1694,10 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'white girl',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'white girl');
                           setShowAvatarOptions(false);
                         }}>
@@ -1589,6 +1720,10 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'black girl',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'black girl');
                           setShowAvatarOptions(false);
                         }}>
@@ -1611,6 +1746,10 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'asian girl',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'asian girl');
                           setShowAvatarOptions(false);
                         }}>
@@ -1633,6 +1772,10 @@ const SettingsScreen: React.FC = () => {
                             styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'other',
+                            previousAvatar: preferences.gender || 'none',
+                          });
                           setItem('gender', 'other');
                           setShowAvatarOptions(false);
                         }}>
@@ -1718,9 +1861,12 @@ const SettingsScreen: React.FC = () => {
                         </Text>
                         <TouchableOpacity
                           style={styles.eyeButton}
-                          onPress={() =>
-                            setIsAdminCodeVisible(!isAdminCodeVisible)
-                          }>
+                          onPress={() => {
+                            mixpanel.track('Settings Admin Code Visibility Toggled', {
+                              visible: !isAdminCodeVisible,
+                            });
+                            setIsAdminCodeVisible(!isAdminCodeVisible);
+                          }}>
                           <FastImage
                             source={require('../assets/eye.png')}
                             style={[
@@ -1736,7 +1882,10 @@ const SettingsScreen: React.FC = () => {
                   {!isEditingAdminCode && (
                     <Pressable
                       style={styles.changeButton}
-                      onPress={() => setIsEditingAdminCode(true)}>
+                      onPress={() => {
+                        mixpanel.track('Settings Admin Code Edit Started');
+                        setIsEditingAdminCode(true);
+                      }}>
                       <Text style={styles.changeButtonText}>Change</Text>
                     </Pressable>
                   )}
@@ -1749,7 +1898,12 @@ const SettingsScreen: React.FC = () => {
                     Go Back After Selection
                   </Text>
                   <TouchableOpacity
-                    onPress={() => setShowGobackAfterSelectionInfo(true)}
+                    onPress={() => {
+                      mixpanel.track('Settings Info Button Pressed', {
+                        infoType: 'Go Back After Selection',
+                      });
+                      setShowGobackAfterSelectionInfo(true);
+                    }}
                     style={styles.infoButton}>
                     <Text style={styles.infoIcon}>?</Text>
                   </TouchableOpacity>
@@ -1852,9 +2006,11 @@ const SettingsScreen: React.FC = () => {
             activeOpacity={0.7}
             onPress={() => {
               if (showAssistantId) return; // Don't increment if already showing
+              mixpanel.track('Settings About Version Tapped');
               setAboutTapCount(prev => {
                 const next = prev + 1;
                 if (next >= 5) {
+                  mixpanel.track('Settings Assistant ID Revealed');
                   setShowAssistantId(true);
                 }
                 return next;
@@ -1867,6 +2023,7 @@ const SettingsScreen: React.FC = () => {
             <>
               <TouchableOpacity
                 onPress={() => {
+                  mixpanel.track('Settings Reset isIOSActive Pressed');
                   setItem('isIOSActive', '1');
                 }}>
                 <Text style={styles.aboutText}>Reset isIOSActive</Text>
@@ -1885,21 +2042,36 @@ const SettingsScreen: React.FC = () => {
 
         <InfoModal
           visible={showGobackAfterSelectionInfo}
-          onClose={() => setShowGobackAfterSelectionInfo(false)}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Go Back After Selection',
+            });
+            setShowGobackAfterSelectionInfo(false);
+          }}
           title="Go Back After Selection"
           description="When enabled, the app will automatically navigate back to the main screen after you select an answer. When disabled, you'll stay on the conversation screen and can continue asking questions without returning to the main screen."
         />
 
         <InfoModal
           visible={showGenderInfo}
-          onClose={() => setShowGenderInfo(false)}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Gender Selection',
+            });
+            setShowGenderInfo(false);
+          }}
           title="Gender Selection"
           description="Gender selection is completely optional and is used only for personalization purposes. You don't have to choose a gender if you prefer not to. This setting helps customize your experience but is not required for the app to function."
         />
 
         <InfoModal
           visible={showWhisperInfo}
-          onClose={() => setShowWhisperInfo(false)}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Local Whisper vs Cloud',
+            });
+            setShowWhisperInfo(false);
+          }}
           title="Local Whisper vs Cloud"
           description="When enabled, the app will use the downloaded Whisper model for voice transcription on your device. This provides faster transcription and keeps your audio on your device only. The Whisper model must be downloaded before you can enable local Whisper. If the model is not downloaded, the app will use cloud-based transcription."
         />
@@ -1915,7 +2087,12 @@ const SettingsScreen: React.FC = () => {
             <View style={styles.videoModalHeader}>
               <TouchableOpacity
                 style={styles.videoModalCloseButton}
-                onPress={() => setShowVideoModal(false)}>
+                onPress={() => {
+                  mixpanel.track('Settings Video Modal Closed', {
+                    videoName: selectedVideoSource,
+                  });
+                  setShowVideoModal(false);
+                }}>
                 <Text style={styles.videoModalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>

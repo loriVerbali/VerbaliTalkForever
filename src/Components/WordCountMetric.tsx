@@ -10,6 +10,7 @@ import {
   TextInput,
 } from 'react-native';
 import {useDatabase} from '../contexts/DatabaseContext';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -50,6 +51,14 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
   const [timeStart, setTimeStart] = useState('07:00');
   const [timeEnd, setTimeEnd] = useState('08:00');
 
+  // Track when this metric component is viewed
+  useEffect(() => {
+    const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+    mixpanel.track('WordCountMetric Viewed', {
+      MetricKey: 'metric1',
+    });
+  }, []);
+
   // Days of week state
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
 
@@ -89,7 +98,6 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
         const data = await getWordCountData(filters);
         setWordCounts(data.slice(0, topX));
       } catch (error) {
-        console.error('Error loading word count data:', error);
         // Fallback to empty data on error
         setWordCounts([]);
       }
@@ -236,211 +244,221 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
 
   return (
     <View style={styles.container}>
-      {/* Time Frame Filter Section */}
-      <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>Explanation:</Text>
-        <View style={styles.timeFilterButtons}>
-          <Text>
-            {' '}
-            This view gives a detailed analysis of the different utterances
-            used. It includes both AI and Classic Board utterances.
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.filterSection}>
-        <View style={styles.filterHeader}>
-          <Text style={styles.filterLabel}>Time Frame & Filters:</Text>
-          {hasActiveFilters() && (
-            <TouchableOpacity onPress={clearFilters}>
-              <Text style={styles.clearFiltersText}>Clear Filters</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <View style={styles.sideBySideFilters}>
-          {/* Time Frame Column */}
-          <View style={styles.filterColumn}>
-            <Text style={styles.filterLabelSmall}>Time Frame:</Text>
-            <View style={styles.timeFilterButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  timeFilter.type === 'today' && styles.filterButtonActive,
-                ]}
-                onPress={() => handleTimeFilterChange('today')}>
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    timeFilter.type === 'today' &&
-                      styles.filterButtonTextActive,
-                  ]}>
-                  Today
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  timeFilter.type === 'thisWeek' && styles.filterButtonActive,
-                ]}
-                onPress={() => handleTimeFilterChange('thisWeek')}>
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    timeFilter.type === 'thisWeek' &&
-                      styles.filterButtonTextActive,
-                  ]}>
-                  This Week
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  timeFilter.type === 'thisMonth' && styles.filterButtonActive,
-                ]}
-                onPress={() => handleTimeFilterChange('thisMonth')}>
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    timeFilter.type === 'thisMonth' &&
-                      styles.filterButtonTextActive,
-                  ]}>
-                  This Month
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.currentFilterText}>{getTimeFilterLabel()}</Text>
-          </View>
-
-          {/* Additional Filters Column */}
-          <View style={styles.filterColumn}>
-            <Text style={styles.filterLabelSmall}>Additional Filters:</Text>
-            <TouchableOpacity
-              style={styles.filtersButton}
-              onPress={() => setShowFiltersModal(true)}>
-              <Text style={styles.filtersButtonText}>
-                {hasActiveFilters() ? 'Filters Applied' : 'Add Filters'}
-              </Text>
-              <Text style={styles.linkArrow}>→</Text>
-            </TouchableOpacity>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={true}>
+        {/* Time Frame Filter Section */}
+        <View style={styles.filterSection}>
+          <Text style={styles.filterLabel}>Explanation:</Text>
+          <View style={styles.timeFilterButtons}>
+            <Text>
+              {' '}
+              This view gives a detailed analysis of the different utterances
+              used. It includes both AI and Classic Board utterances.
+            </Text>
           </View>
         </View>
-      </View>
 
-      {/* Source and Show Top Selector */}
-      <View style={styles.filterSection}>
-        <View style={styles.combinedFiltersRow}>
-          {/* Source Filter */}
-          <View style={styles.sourceFilterInline}>
-            <Text style={styles.filterLabelInline}>Source:</Text>
-            <View style={styles.sourceButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.sourceButton,
-                  filters.source === 'all' && styles.sourceButtonActive,
-                ]}
-                onPress={() => setFilters({...filters, source: 'all'})}>
-                <Text
-                  style={[
-                    styles.sourceButtonText,
-                    filters.source === 'all' && styles.sourceButtonTextActive,
-                  ]}>
-                  All
-                </Text>
+        <View style={styles.filterSection}>
+          <View style={styles.filterHeader}>
+            <Text style={styles.filterLabel}>Time Frame & Filters:</Text>
+            {hasActiveFilters() && (
+              <TouchableOpacity onPress={clearFilters}>
+                <Text style={styles.clearFiltersText}>Clear Filters</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.sourceButton,
-                  filters.source === 'AI Only' && styles.sourceButtonActive,
-                ]}
-                onPress={() => setFilters({...filters, source: 'AI Only'})}>
-                <Text
-                  style={[
-                    styles.sourceButtonText,
-                    filters.source === 'AI Only' &&
-                      styles.sourceButtonTextActive,
-                  ]}>
-                  AI Only
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.sourceButton,
-                  filters.source === 'Classic Board' &&
-                    styles.sourceButtonActive,
-                ]}
-                onPress={() =>
-                  setFilters({...filters, source: 'Classic Board'})
-                }>
-                <Text
-                  style={[
-                    styles.sourceButtonText,
-                    filters.source === 'Classic Board' &&
-                      styles.sourceButtonTextActive,
-                  ]}>
-                  Classic Board
-                </Text>
-              </TouchableOpacity>
-            </View>
+            )}
           </View>
-
-          {/* Top X Selector */}
-          <View style={styles.topXFilterInline}>
-            <Text style={styles.filterLabelInline}>Show Top:</Text>
-            <View style={styles.topXButtons}>
-              {[5, 10, 20, 50].map(num => (
+          <View style={styles.sideBySideFilters}>
+            {/* Time Frame Column */}
+            <View style={styles.filterColumn}>
+              <Text style={styles.filterLabelSmall}>Time Frame:</Text>
+              <View style={styles.timeFilterButtons}>
                 <TouchableOpacity
-                  key={num}
                   style={[
-                    styles.topXButton,
-                    topX === num && styles.topXButtonActive,
+                    styles.filterButton,
+                    timeFilter.type === 'today' && styles.filterButtonActive,
                   ]}
-                  onPress={() => setTopX(num)}>
+                  onPress={() => handleTimeFilterChange('today')}>
                   <Text
                     style={[
-                      styles.topXButtonText,
-                      topX === num && styles.topXButtonTextActive,
+                      styles.filterButtonText,
+                      timeFilter.type === 'today' &&
+                        styles.filterButtonTextActive,
                     ]}>
-                    {num}
+                    Today
                   </Text>
                 </TouchableOpacity>
-              ))}
+                <TouchableOpacity
+                  style={[
+                    styles.filterButton,
+                    timeFilter.type === 'thisWeek' && styles.filterButtonActive,
+                  ]}
+                  onPress={() => handleTimeFilterChange('thisWeek')}>
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      timeFilter.type === 'thisWeek' &&
+                        styles.filterButtonTextActive,
+                    ]}>
+                    This Week
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.filterButton,
+                    timeFilter.type === 'thisMonth' &&
+                      styles.filterButtonActive,
+                  ]}
+                  onPress={() => handleTimeFilterChange('thisMonth')}>
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      timeFilter.type === 'thisMonth' &&
+                        styles.filterButtonTextActive,
+                    ]}>
+                    This Month
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.currentFilterText}>
+                {getTimeFilterLabel()}
+              </Text>
+            </View>
+
+            {/* Additional Filters Column */}
+            <View style={styles.filterColumn}>
+              <Text style={styles.filterLabelSmall}>Additional Filters:</Text>
+              <TouchableOpacity
+                style={styles.filtersButton}
+                onPress={() => setShowFiltersModal(true)}>
+                <Text style={styles.filtersButtonText}>
+                  {hasActiveFilters() ? 'Filters Applied' : 'Add Filters'}
+                </Text>
+                <Text style={styles.linkArrow}>→</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
-      </View>
 
-      {/* Table */}
-      <View style={styles.tableContainer}>
-        <View style={styles.tableHeader}>
-          <Text style={[styles.tableHeaderText, styles.wordColumn]}>Words</Text>
-          <Text style={[styles.tableHeaderText, styles.usageColumn]}>
-            Usage Count
-          </Text>
-        </View>
-        <ScrollView style={styles.tableBody}>
-          {wordCounts.length > 0 ? (
-            wordCounts.map((item, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.tableRow,
-                  index % 2 === 0 && styles.tableRowEven,
-                ]}>
-                <Text style={[styles.tableCell, styles.wordColumn]}>
-                  {item.word}
-                </Text>
-                <Text style={[styles.tableCell, styles.usageColumn]}>
-                  {item.count}
-                </Text>
+        {/* Source and Show Top Selector */}
+        <View style={styles.filterSection}>
+          <View style={styles.combinedFiltersRow}>
+            {/* Source Filter */}
+            <View style={styles.sourceFilterInline}>
+              <Text style={styles.filterLabelInline}>Source:</Text>
+              <View style={styles.sourceButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.sourceButton,
+                    filters.source === 'all' && styles.sourceButtonActive,
+                  ]}
+                  onPress={() => setFilters({...filters, source: 'all'})}>
+                  <Text
+                    style={[
+                      styles.sourceButtonText,
+                      filters.source === 'all' && styles.sourceButtonTextActive,
+                    ]}>
+                    All
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.sourceButton,
+                    filters.source === 'AI Only' && styles.sourceButtonActive,
+                  ]}
+                  onPress={() => setFilters({...filters, source: 'AI Only'})}>
+                  <Text
+                    style={[
+                      styles.sourceButtonText,
+                      filters.source === 'AI Only' &&
+                        styles.sourceButtonTextActive,
+                    ]}>
+                    AI Only
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.sourceButton,
+                    filters.source === 'Classic Board' &&
+                      styles.sourceButtonActive,
+                  ]}
+                  onPress={() =>
+                    setFilters({...filters, source: 'Classic Board'})
+                  }>
+                  <Text
+                    style={[
+                      styles.sourceButtonText,
+                      filters.source === 'Classic Board' &&
+                        styles.sourceButtonTextActive,
+                    ]}>
+                    Classic Board
+                  </Text>
+                </TouchableOpacity>
               </View>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>No data available</Text>
             </View>
-          )}
-        </ScrollView>
-      </View>
+
+            {/* Top X Selector */}
+            <View style={styles.topXFilterInline}>
+              <Text style={styles.filterLabelInline}>Show Top:</Text>
+              <View style={styles.topXButtons}>
+                {[5, 10, 20, 50].map(num => (
+                  <TouchableOpacity
+                    key={num}
+                    style={[
+                      styles.topXButton,
+                      topX === num && styles.topXButtonActive,
+                    ]}
+                    onPress={() => setTopX(num)}>
+                    <Text
+                      style={[
+                        styles.topXButtonText,
+                        topX === num && styles.topXButtonTextActive,
+                      ]}>
+                      {num}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Table */}
+        <View style={styles.tableContainer}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderText, styles.wordColumn]}>
+              Words
+            </Text>
+            <Text style={[styles.tableHeaderText, styles.usageColumn]}>
+              Usage Count
+            </Text>
+          </View>
+          <View style={styles.tableBody}>
+            {wordCounts.length > 0 ? (
+              wordCounts.map((item, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.tableRow,
+                    index % 2 === 0 && styles.tableRowEven,
+                  ]}>
+                  <Text style={[styles.tableCell, styles.wordColumn]}>
+                    {item.word}
+                  </Text>
+                  <Text style={[styles.tableCell, styles.usageColumn]}>
+                    {item.count}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No data available</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </ScrollView>
 
       {/* Date Range Modal */}
       <Modal
@@ -573,6 +591,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fe',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
     padding: 20,
   },
   filterSection: {
@@ -744,12 +767,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tableContainer: {
-    flex: 1,
+    minHeight: 300,
     backgroundColor: '#fff',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e1e1e1',
     overflow: 'hidden',
+    marginBottom: 20,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -769,7 +793,7 @@ const styles = StyleSheet.create({
     width: '30%',
   },
   tableBody: {
-    flex: 1,
+    // Content will size naturally within the ScrollView
   },
   tableRow: {
     flexDirection: 'row',

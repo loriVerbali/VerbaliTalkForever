@@ -159,8 +159,11 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
     try {
       await DefaultPreference.set(key, value);
       setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
+      if (key === 'isInTrial') {
+        
+      }
     } catch (error) {
-      console.error('Error setting item in DefaultPreference', error);
+      
     }
   };
 
@@ -169,7 +172,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const item = await DefaultPreference.get(key);
       return item ?? initialPreferences[key];
     } catch (error) {
-      console.error('Error getting item from DefaultPreference', error);
+      
       return initialPreferences[key];
     }
   };
@@ -179,16 +182,18 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       await DefaultPreference.set(key, initEnum.notSet);
       setPreferences(prevPreferences => ({...prevPreferences, [key]: ''}));
     } catch (error) {
-      console.error('Error removing item from DefaultPreference', error);
+      
     }
   };
 
   const initializePreferences = async (): Promise<Preferences> => {
     // Prevent multiple initializations
     if (initializationRef.current) {
+      
       return preferences;
     }
 
+    
     initializationRef.current = true;
 
     try {
@@ -198,6 +203,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       for (const key of getKeys) {
         const found = await DefaultPreference.get(key);
         loaded[key] = (found ?? initialPreferences[key]) as any;
+        if (key === 'isInTrial') {
+          
+        }
       }
 
       setPreferences(
@@ -224,7 +232,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
               await setItem('isIOSActive', '1');
             }
           } catch (error) {
-            console.error('Receipt validation error:', error);
+            
           }
         }, 3000);
 
@@ -234,7 +242,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
       return loaded as Preferences;
     } catch (error) {
-      console.error('Error initializing preferences', error);
+      
       return initialPreferences;
     }
   };
@@ -257,9 +265,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       // Initialize guest session
       try {
         await sessionManager.ensureValidSession();
-        console.log('Guest session initialized on app start');
+        
       } catch (error) {
-        console.error('Failed to initialize guest session:', error);
+        
       }
     };
 
@@ -284,7 +292,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       }
       setPreferences(initialPreferences);
     } catch (error) {
-      console.error('Error clearing DefaultPreference', error);
+      
     }
   };
 

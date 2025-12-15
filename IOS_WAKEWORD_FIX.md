@@ -194,3 +194,5 @@ If issues persist after following all troubleshooting steps:
 - `ios/Matalk/AppDelegate.swift` - Added audio session initialization
 - `src/utils/wakewordService.ts` - Enhanced error handling and logging
 
+
+

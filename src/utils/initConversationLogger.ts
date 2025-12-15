@@ -30,7 +30,7 @@ export const logInitConversation = async (
       },
     );
   } catch (error) {
-    console.error('Failed to log init conversation:', error);
+    
     // Don't throw error to avoid disrupting user experience
   }
 };

@@ -14,6 +14,7 @@ import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import {useDatabase} from '../contexts/DatabaseContext';
 import {useAppSettings} from '../utils/persistance';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -50,6 +51,7 @@ const InfoModal = ({
 const ReportsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const {preferences} = useAppSettings();
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   const {
     isInitialized,
@@ -286,7 +288,7 @@ const ReportsScreen: React.FC = () => {
         }));
       } catch (e) {
         // On error, keep empty snapshot
-        console.error('Error loading AI response time data:', e);
+        
       }
     };
 
@@ -346,7 +348,7 @@ const ReportsScreen: React.FC = () => {
         }));
       } catch (e) {
         // On error, keep empty snapshot
-        console.error('Error loading AI Resolved data:', e);
+        
       }
     };
 
@@ -361,6 +363,12 @@ const ReportsScreen: React.FC = () => {
   ];
 
   const handleViewDetails = (metricKey: string, title: string) => {
+    // Track which detailed report was accessed
+    mixpanel.track('Report Detail Viewed', {
+      MetricKey: metricKey,
+      Title: title,
+    });
+    
     navigation.navigate(views.METRIC_DETAIL, {
       metricKey,
       title,

@@ -56,7 +56,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
         const available = await InAppReview.isAvailable();
         setReviewAvailable(available);
       } catch (error) {
-        console.error('Error checking review availability:', error);
+        
         setReviewAvailable(false);
       }
     };
@@ -79,7 +79,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
         resetState();
         return;
       } catch (error) {
-        console.error('Error requesting in-app review:', error);
+        
         // Fallback to showing rating state if review fails
       }
     }
@@ -115,7 +115,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
       onClose();
       resetState();
     } catch (error) {
-      console.error('Error requesting in-app review:', error);
+      
       // On error, just close the modal
       onClose();
       resetState();
@@ -148,7 +148,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
       feedback: feedbackArray,
     });
 
-    console.log('Feedback submitted:', feedbackArray);
+    
 
     setState('confirmation');
   };

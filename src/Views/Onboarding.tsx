@@ -38,6 +38,8 @@ import {useAdmin} from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
 import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
+import WhisperService from '../utils/WhisperService';
+import WhisperModelManager from '../utils/WhisperModelManager';
 
 const {width, height} = Dimensions.get('window');
 
@@ -85,7 +87,7 @@ const onboardingSteps = [
   },
   {
     id: 'on-device-whisper',
-    question: 'For your privacy Transcribe Audio on Device',
+    question: 'Give us a minute to setup the magic in your app',
     additionalComponents: 'on-device-whisper',
     buttonText: 'Next',
   },
@@ -131,6 +133,7 @@ const OnboardingScreen: React.FC = () => {
   // Removed isLoggedIn state - guest sessions are always "authenticated"
   const [gotSubscription, setGotSubscription] = useState(false);
   const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
+  const [whisperModelInvoked, setWhisperModelInvoked] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
@@ -148,9 +151,7 @@ const OnboardingScreen: React.FC = () => {
         setConversationMode(
           (savedConversationMode as 'easy' | 'advanced') || 'easy',
         );
-      } catch (error) {
-        console.error('Error loading conversation mode:', error);
-      }
+      } catch (error) {}
     };
     loadConversationMode();
   }, []);
@@ -181,6 +182,8 @@ const OnboardingScreen: React.FC = () => {
   // Removed handleLogout - guest sessions don't need logout
 
   const handleBack = () => {
+    const fromScreen = onboardingSteps[currentStep]?.id || 'unknown';
+    
     // Handle going back while skipping family members in easy mode
     const shouldSkipBackFromAdminCode =
       conversationMode === 'easy' &&
@@ -192,12 +195,18 @@ const OnboardingScreen: React.FC = () => {
         step => step.id === 'gender',
       );
       if (genderIndex !== -1) {
+        mixpanel.track('Onboarding Back Navigation', {
+          from_screen: fromScreen,
+        });
         setCurrentStep(genderIndex);
         return;
       }
     }
 
     if (currentStep > 0) {
+      mixpanel.track('Onboarding Back Navigation', {
+        from_screen: fromScreen,
+      });
       setCurrentStep(currentStep - 1);
     }
   };
@@ -434,7 +443,14 @@ const OnboardingScreen: React.FC = () => {
                   },
                   selectedGender === 'white boy' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('white boy')}>
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('white boy');
+                }}>
                 <View style={genderWrapperStyle}>
                   {selectedGender === 'white boy' && (
                     <Text style={styles.heartOverlay}>♥</Text>
@@ -455,7 +471,14 @@ const OnboardingScreen: React.FC = () => {
                   },
                   selectedGender === 'black boy' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('black boy')}>
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('black boy');
+                }}>
                 <View style={genderWrapperStyle}>
                   {selectedGender === 'black boy' && (
                     <Text style={styles.heartOverlay}>♥</Text>
@@ -476,7 +499,14 @@ const OnboardingScreen: React.FC = () => {
                   },
                   selectedGender === 'asian boy' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('asian boy')}>
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('asian boy');
+                }}>
                 <View style={genderWrapperStyle}>
                   {selectedGender === 'asian boy' && (
                     <Text style={styles.heartOverlay}>♥</Text>
@@ -497,7 +527,14 @@ const OnboardingScreen: React.FC = () => {
                   },
                   selectedGender === 'white girl' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('white girl')}>
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('white girl');
+                }}>
                 <View style={genderWrapperStyle}>
                   {selectedGender === 'white girl' && (
                     <Text style={styles.heartOverlay}>♥</Text>
@@ -518,7 +555,14 @@ const OnboardingScreen: React.FC = () => {
                   },
                   selectedGender === 'black girl' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('black girl')}>
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('black girl');
+                }}>
                 <View style={genderWrapperStyle}>
                   {selectedGender === 'black girl' && (
                     <Text style={styles.heartOverlay}>♥</Text>
@@ -539,7 +583,14 @@ const OnboardingScreen: React.FC = () => {
                   },
                   selectedGender === 'asian girl' && styles.selectedGender,
                 ]}
-                onPress={() => setSelectedGender('asian girl')}>
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('asian girl');
+                }}>
                 <View style={genderWrapperStyle}>
                   {selectedGender === 'asian girl' && (
                     <Text style={styles.heartOverlay}>♥</Text>
@@ -795,30 +846,42 @@ const OnboardingScreen: React.FC = () => {
         return (
           <View style={{width: '100%', flex: 1}}>
             <WhisperDownload
-              onComplete={async () => {
+              isModelInvoked={whisperModelInvoked}
+              onComplete={async (modelName?: string) => {
+                // Track which whisper model was given to the user
+                if (modelName) {
+                  mixpanel.track('Onboarding Whisper Model Assigned', {
+                    screen_label: 'on-device-whisper',
+                    whisper_model: modelName,
+                  });
+                }
+
                 // Check if model is available after download and adjust settings accordingly
                 try {
-                  const WhisperModelManager = await import(
-                    '../utils/WhisperModelManager'
-                  );
-                  await WhisperModelManager.default.checkModelAvailabilityAndAdjustSettings(
+                  await WhisperModelManager.checkModelAvailabilityAndAdjustSettings(
                     setItem,
                     getItem,
                   );
+                } catch (error) {}
+
+                // CRITICAL: Do NOT initialize WhisperService during onboarding
+                // Whisper initialization will happen in LoggedNavigation AFTER wake word is initialized
+                // This ensures wake word gets access to ONNX Runtime/CoreML resources first
+                try {
+                  await setItem('useLocalWhisper', '1');
+                  // Mark model as downloaded (but not initialized yet)
+                  setWhisperModelInvoked(true);
+                  // Wait a moment to show "magic ready" message
+                  setTimeout(() => {
+                    setWhisperDownloadComplete(true);
+                    // Auto-advance to next step after showing "magic ready"
+                    handleNext();
+                  }, 1500);
                 } catch (error) {
-                  console.error(
-                    'Error checking Whisper model availability:',
-                    error,
-                  );
-                  // If there's an error, set useLocalWhisper to false to be safe
-                  await setItem('useLocalWhisper', '0');
+                  // Still mark as complete even if there was an error
+                  setWhisperDownloadComplete(true);
+                  handleNext();
                 }
-
-                // Mark download as complete
-                setWhisperDownloadComplete(true);
-
-                // Auto-advance to next step when download completes
-                handleNext();
               }}
             />
           </View>
@@ -873,6 +936,10 @@ const OnboardingScreen: React.FC = () => {
           setPermissionsGranted(true);
           setPermissionsDenied(false);
           setPermissionsPermanentlyDenied(false);
+          mixpanel.track('Onboarding Permissions Requested', {
+            screen_label: 'Permissions',
+            permission_granted: 'yes',
+          });
           return true;
         }
 
@@ -890,12 +957,19 @@ const OnboardingScreen: React.FC = () => {
         setPermissionsGranted(granted);
         setPermissionsDenied(!granted);
         setPermissionsPermanentlyDenied(permanentlyDenied);
+        mixpanel.track('Onboarding Permissions Requested', {
+          screen_label: 'Permissions',
+          permission_granted: granted ? 'yes' : 'no',
+        });
         return granted;
       } catch (err) {
-        console.warn(err);
         setPermissionsGranted(false);
         setPermissionsDenied(true);
         setPermissionsPermanentlyDenied(false);
+        mixpanel.track('Onboarding Permissions Requested', {
+          screen_label: 'Permissions',
+          permission_granted: 'no',
+        });
         return false;
       }
     }
@@ -909,6 +983,10 @@ const OnboardingScreen: React.FC = () => {
         setPermissionsGranted(true);
         setPermissionsDenied(false);
         setPermissionsPermanentlyDenied(false);
+        mixpanel.track('Onboarding Permissions Requested', {
+          screen_label: 'Permissions',
+          permission_granted: 'yes',
+        });
         return true;
       }
 
@@ -921,12 +999,20 @@ const OnboardingScreen: React.FC = () => {
       setPermissionsGranted(granted);
       setPermissionsDenied(!granted);
       setPermissionsPermanentlyDenied(permanentlyDenied);
+      mixpanel.track('Onboarding Permissions Requested', {
+        screen_label: 'Permissions',
+        permission_granted: granted ? 'yes' : 'no',
+      });
       return {mic, speech};
     }
 
     setPermissionsGranted(true);
     setPermissionsDenied(false);
     setPermissionsPermanentlyDenied(false);
+    mixpanel.track('Onboarding Permissions Requested', {
+      screen_label: 'Permissions',
+      permission_granted: 'yes',
+    });
     return true;
   };
 
@@ -940,6 +1026,10 @@ const OnboardingScreen: React.FC = () => {
         if (locationStatus === RESULTS.GRANTED) {
           setLocationGranted(true);
           setLocationPermissionSuccess(true);
+          mixpanel.track('Onboarding Permissions Requested', {
+            screen_label: 'Optional Permissions',
+            permission_granted: 'yes',
+          });
           return true;
         }
 
@@ -955,13 +1045,20 @@ const OnboardingScreen: React.FC = () => {
             RESULTS.GRANTED;
         setLocationGranted(isGranted);
         setLocationPermissionSuccess(isGranted);
+        mixpanel.track('Onboarding Permissions Requested', {
+          screen_label: 'Optional Permissions',
+          permission_granted: isGranted ? 'yes' : 'no',
+        });
         if (isGranted) {
           setItem('wasLocationOnboarded', '1');
         }
       } catch (err) {
-        console.warn('Location permission error:', err);
         setLocationGranted(false);
         setLocationPermissionSuccess(false);
+        mixpanel.track('Onboarding Permissions Requested', {
+          screen_label: 'Optional Permissions',
+          permission_granted: 'no',
+        });
       }
     }
     if (Platform.OS === 'ios') {
@@ -970,15 +1067,22 @@ const OnboardingScreen: React.FC = () => {
         const isGranted = granted === RESULTS.GRANTED;
         setLocationGranted(isGranted);
         setLocationPermissionSuccess(isGranted);
+        mixpanel.track('Onboarding Permissions Requested', {
+          screen_label: 'Optional Permissions',
+          permission_granted: isGranted ? 'yes' : 'no',
+        });
         if (isGranted) {
           setItem('wasLocationOnboarded', '1');
         } else {
           setLocationPermissionSuccess(false);
         }
       } catch (err) {
-        console.warn('Location permission error:', err);
         setLocationGranted(false);
         setLocationPermissionSuccess(false);
+        mixpanel.track('Onboarding Permissions Requested', {
+          screen_label: 'Optional Permissions',
+          permission_granted: 'no',
+        });
       }
     }
   };
@@ -992,9 +1096,9 @@ const OnboardingScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    mixpanel.track('Onboarding', {
-      Opened: 'Onboarding',
-      Step: currentStep,
+    const screenLabel = onboardingSteps[currentStep]?.id || 'unknown';
+    mixpanel.track('Onboarding Screen View', {
+      screen_label: screenLabel,
     });
   }, [currentStep]);
 
@@ -1109,7 +1213,7 @@ const OnboardingScreen: React.FC = () => {
                 {currentStepData.id === 'on-device-whisper'
                   ? whisperDownloadComplete
                     ? 'Continue'
-                    : 'Download Required'
+                    : 'Getting Magic Ready'
                   : currentStepData.buttonText}
               </Text>
             </TouchableOpacity>
