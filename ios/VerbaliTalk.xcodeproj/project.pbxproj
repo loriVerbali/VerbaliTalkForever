@@ -1,0 +1,611 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 70;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		5D0BDE0BB7593FDB20E99988 /* libPods-VerbaliTalk.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FA67A1A5981C5855ECEB4B94 /* libPods-VerbaliTalk.a */; };
+		8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */; };
+		8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A69E13E2E2035D600B320B9 /* StoreKit.framework */; };
+		8A75608F2E3005A300A3CC88 /* espeak-ng-data in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608A2E3005A100A3CC88 /* espeak-ng-data */; };
+		8A7560902E3005A300A3CC88 /* en_US-amy-medium.onnx.json in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */; };
+		8A7560912E3005A300A3CC88 /* en_US-amy-medium.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */; };
+		8A7560922E3005A300A3CC88 /* MODEL_CARD in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608D2E3005A300A3CC88 /* MODEL_CARD */; };
+		8A7560932E3005A300A3CC88 /* tokens.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608E2E3005A300A3CC88 /* tokens.txt */; };
+		8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */; };
+		8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */; };
+		8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8A8772E82DC2994E00CD1BDE /* snap.mp3 */; };
+		8AB51D032F031A8900700AAC /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB51CFB2F031A8900700AAC /* AppDelegate.swift */; };
+		8AB51D052F031A8900700AAC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D022F031A8900700AAC /* PrivacyInfo.xcprivacy */; };
+		8AB51D062F031A8900700AAC /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */; };
+		8AB51D072F031A8900700AAC /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51CFF2F031A8900700AAC /* Images.xcassets */; };
+		8AB51D192F0322C300700AAC /* VerbaliTalk.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D182F0322C300700AAC /* VerbaliTalk.storekit */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8A3F2C0F2DDEF22500D951DF /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 7;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0132851CEDF0830F5A26241A /* Pods-Matalk.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Matalk.debug.xcconfig"; path = "Target Support Files/Pods-Matalk/Pods-Matalk.debug.xcconfig"; sourceTree = "<group>"; };
+		13B07F961A680F5B00A75B9A /* Matalk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Matalk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		22707ECD0AD1CBB4999A91ED /* Pods-VerbaliTalk.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VerbaliTalk.debug.xcconfig"; path = "Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk.debug.xcconfig"; sourceTree = "<group>"; };
+		5840EF52C0C9F3EE39BE3F6C /* Pods-Matalk.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Matalk.release.xcconfig"; path = "Target Support Files/Pods-Matalk/Pods-Matalk.release.xcconfig"; sourceTree = "<group>"; };
+		805D439150FBA76FF2559646 /* Pods-VerbaliTalk.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VerbaliTalk.release.xcconfig"; path = "Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk.release.xcconfig"; sourceTree = "<group>"; };
+		8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = hey_verbi_v1.onnx; sourceTree = "<group>"; };
+		8A69E13E2E2035D600B320B9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		8A75608A2E3005A100A3CC88 /* espeak-ng-data */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "espeak-ng-data"; sourceTree = "<group>"; };
+		8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "en_US-amy-medium.onnx.json"; sourceTree = "<group>"; };
+		8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = "en_US-amy-medium.onnx"; sourceTree = "<group>"; };
+		8A75608D2E3005A300A3CC88 /* MODEL_CARD */ = {isa = PBXFileReference; lastKnownFileType = text; path = MODEL_CARD; sourceTree = "<group>"; };
+		8A75608E2E3005A300A3CC88 /* tokens.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tokens.txt; sourceTree = "<group>"; };
+		8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
+		8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManagerModule.swift; sourceTree = "<group>"; };
+		8A77B7342EEBD413002F2F7C /* Matalk-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Matalk-Bridging-Header.h"; sourceTree = "<group>"; };
+		8A8772E82DC2994E00CD1BDE /* snap.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snap.mp3; sourceTree = "<group>"; };
+		8A8843322E282F99006C8EA5 /* matalk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = matalk.entitlements; sourceTree = "<group>"; };
+		8AB51CFB2F031A8900700AAC /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		8AB51CFF2F031A8900700AAC /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
+		8AB51D002F031A8900700AAC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8AB51D022F031A8900700AAC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		8AB51D182F0322C300700AAC /* VerbaliTalk.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = VerbaliTalk.storekit; sourceTree = "<group>"; };
+		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		FA67A1A5981C5855ECEB4B94 /* libPods-VerbaliTalk.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VerbaliTalk.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		8AB51CFE2F031A8900700AAC /* Assets 2 */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "Assets 2"; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */,
+				5D0BDE0BB7593FDB20E99988 /* libPods-VerbaliTalk.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		13B07FAE1A68108700A75B9A /* VerbaliTalk */ = {
+			isa = PBXGroup;
+			children = (
+				8AB51CFB2F031A8900700AAC /* AppDelegate.swift */,
+				8AB51CFE2F031A8900700AAC /* Assets 2 */,
+				8AB51CFF2F031A8900700AAC /* Images.xcassets */,
+				8AB51D002F031A8900700AAC /* Info.plist */,
+				8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */,
+				8AB51D022F031A8900700AAC /* PrivacyInfo.xcprivacy */,
+			);
+			name = VerbaliTalk;
+			sourceTree = "<group>";
+		};
+		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8A69E13E2E2035D600B320B9 /* StoreKit.framework */,
+				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
+				FA67A1A5981C5855ECEB4B94 /* libPods-VerbaliTalk.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Libraries;
+			sourceTree = "<group>";
+		};
+		83CBB9F61A601CBA00E9B192 = {
+			isa = PBXGroup;
+			children = (
+				8AB51D182F0322C300700AAC /* VerbaliTalk.storekit */,
+				8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */,
+				8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */,
+				8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */,
+				8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */,
+				8A75608A2E3005A100A3CC88 /* espeak-ng-data */,
+				8A75608D2E3005A300A3CC88 /* MODEL_CARD */,
+				8A75608E2E3005A300A3CC88 /* tokens.txt */,
+				8A8843322E282F99006C8EA5 /* matalk.entitlements */,
+				8A69E13C2E1CF2EE00B320B9 /* models */,
+				8A8772E42DC1706600CD1BDE /* Assets */,
+				13B07FAE1A68108700A75B9A /* VerbaliTalk */,
+				832341AE1AAA6A7D00B99B32 /* Libraries */,
+				83CBBA001A601CBA00E9B192 /* Products */,
+				2D16E6871FA4F8E400B85C8A /* Frameworks */,
+				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				8A77B7342EEBD413002F2F7C /* Matalk-Bridging-Header.h */,
+			);
+			indentWidth = 2;
+			sourceTree = "<group>";
+			tabWidth = 2;
+			usesTabs = 0;
+		};
+		83CBBA001A601CBA00E9B192 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				13B07F961A680F5B00A75B9A /* Matalk.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8A69E13C2E1CF2EE00B320B9 /* models */ = {
+			isa = PBXGroup;
+			children = (
+				8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */,
+			);
+			path = models;
+			sourceTree = "<group>";
+		};
+		8A8772E32DC1706600CD1BDE /* sounds */ = {
+			isa = PBXGroup;
+			children = (
+				8A8772E82DC2994E00CD1BDE /* snap.mp3 */,
+			);
+			path = sounds;
+			sourceTree = "<group>";
+		};
+		8A8772E42DC1706600CD1BDE /* Assets */ = {
+			isa = PBXGroup;
+			children = (
+				8A8772E32DC1706600CD1BDE /* sounds */,
+			);
+			path = Assets;
+			sourceTree = "<group>";
+		};
+		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				0132851CEDF0830F5A26241A /* Pods-Matalk.debug.xcconfig */,
+				5840EF52C0C9F3EE39BE3F6C /* Pods-Matalk.release.xcconfig */,
+				22707ECD0AD1CBB4999A91ED /* Pods-VerbaliTalk.debug.xcconfig */,
+				805D439150FBA76FF2559646 /* Pods-VerbaliTalk.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		13B07F861A680F5B00A75B9A /* VerbaliTalk */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "VerbaliTalk" */;
+			buildPhases = (
+				C44193CA38C81D0AC136AF1E /* [CP] Check Pods Manifest.lock */,
+				13B07F871A680F5B00A75B9A /* Sources */,
+				13B07F8C1A680F5B00A75B9A /* Frameworks */,
+				13B07F8E1A680F5B00A75B9A /* Resources */,
+				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
+				8A3F2C0F2DDEF22500D951DF /* CopyFiles */,
+				E7EA6EAD010129031B775EE1 /* [CP] Embed Pods Frameworks */,
+				DFAAB1B3803446616CB9CD28 /* [CP] Copy Pods Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8AB51CFE2F031A8900700AAC /* Assets 2 */,
+			);
+			name = VerbaliTalk;
+			productName = VerbaliTalk;
+			productReference = 13B07F961A680F5B00A75B9A /* Matalk.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		83CBB9F71A601CBA00E9B192 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1210;
+				TargetAttributes = {
+					13B07F861A680F5B00A75B9A = {
+						LastSwiftMigration = 2610;
+					};
+				};
+			};
+			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "VerbaliTalk" */;
+			compatibilityVersion = "Xcode 12.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 83CBB9F61A601CBA00E9B192;
+			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				13B07F861A680F5B00A75B9A /* VerbaliTalk */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		13B07F8E1A680F5B00A75B9A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8AB51D192F0322C300700AAC /* VerbaliTalk.storekit in Resources */,
+				8A75608F2E3005A300A3CC88 /* espeak-ng-data in Resources */,
+				8A7560902E3005A300A3CC88 /* en_US-amy-medium.onnx.json in Resources */,
+				8A7560912E3005A300A3CC88 /* en_US-amy-medium.onnx in Resources */,
+				8A7560922E3005A300A3CC88 /* MODEL_CARD in Resources */,
+				8A7560932E3005A300A3CC88 /* tokens.txt in Resources */,
+				8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */,
+				8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */,
+				8AB51D052F031A8900700AAC /* PrivacyInfo.xcprivacy in Resources */,
+				8AB51D062F031A8900700AAC /* LaunchScreen.storyboard in Resources */,
+				8AB51D072F031A8900700AAC /* Images.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/.xcode.env",
+			);
+			name = "Bundle React Native code and images";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
+		};
+		C44193CA38C81D0AC136AF1E /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-VerbaliTalk-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		DFAAB1B3803446616CB9CD28 /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E7EA6EAD010129031B775EE1 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			inputPaths = (
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalk/Pods-VerbaliTalk-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		13B07F871A680F5B00A75B9A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8AB51D032F031A8900700AAC /* AppDelegate.swift in Sources */,
+				8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */,
+				8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		13B07F941A680F5B00A75B9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 22707ECD0AD1CBB4999A91ED /* Pods-VerbaliTalk.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = matalk.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 5H8P29SJNH;
+				ENABLE_BITCODE = NO;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "VerbaliTalk Forever";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-lc++",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = verbalitalkforever.verbali.io;
+				PRODUCT_NAME = Matalk;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Matalk-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		13B07F951A680F5B00A75B9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 805D439150FBA76FF2559646 /* Pods-VerbaliTalk.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = matalk.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 5H8P29SJNH;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "VerbaliTalk Forever";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-ObjC",
+					"-lc++",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = verbalitalkforever.verbali.io;
+				PRODUCT_NAME = Matalk;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_OBJC_BRIDGING_HEADER = "Matalk-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		83CBBA201A601CBA00E9B192 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SDKROOT)/usr/lib/swift\"",
+					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
+					"\"$(inherited)\"",
+				);
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-DFOLLY_NO_CONFIG",
+					"-DFOLLY_MOBILE=1",
+					"-DFOLLY_USE_LIBCPP=1",
+					"-DFOLLY_CFG_NO_COROUTINES=1",
+					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+				);
+				OTHER_LDFLAGS = "$(inherited)  ";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				USE_HERMES = true;
+			};
+			name = Debug;
+		};
+		83CBBA211A601CBA00E9B192 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"\"$(SDKROOT)/usr/lib/swift\"",
+					"\"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)\"",
+					"\"$(inherited)\"",
+				);
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-DFOLLY_NO_CONFIG",
+					"-DFOLLY_MOBILE=1",
+					"-DFOLLY_USE_LIBCPP=1",
+					"-DFOLLY_CFG_NO_COROUTINES=1",
+					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+				);
+				OTHER_LDFLAGS = "$(inherited)  ";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
+				SDKROOT = iphoneos;
+				USE_HERMES = true;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "VerbaliTalk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				13B07F941A680F5B00A75B9A /* Debug */,
+				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "VerbaliTalk" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				83CBBA201A601CBA00E9B192 /* Debug */,
+				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 83CBB9F71A601CBA00E9B192 /* Project object */;
+}

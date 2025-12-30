@@ -1,0 +1,107 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "en_US",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "3BCA2203",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "6751908196",
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_developerTeamID" : "5H8P29SJNH",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 788734662.41390502,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21773670",
+      "localizations" : [
+
+      ],
+      "name" : "verbaliTalk",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "6751989019",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "verbalitalk.annual",
+              "displayName" : "verbalitalk.annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "verbalitalk.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "verbalitalk.annual",
+          "subscriptionGroupID" : "21773670",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "6751988898",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "VerbaliTalk Monthly",
+              "displayName" : "VerbaliTalk Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "verbalitalk.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "verbalitalk.monthly",
+          "subscriptionGroupID" : "21773670",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

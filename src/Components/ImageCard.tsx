@@ -1,0 +1,369 @@
+import React from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Dimensions,
+  Image,
+} from 'react-native';
+import FastImage from 'react-native-fast-image';
+import Config from '../utils/config';
+import {useAppSettings} from '../utils/persistance';
+import {useNavigation} from '@react-navigation/native';
+import {views} from '../utils/constants';
+import {useAdmin} from '../contexts/adminContext';
+import TTSService from '../utils/TTSService';
+import AudioSessionManager from '../utils/AudioSessionManager';
+
+// Ma-Talk logo URL - if image matches this, show word text instead
+const MA_TALK_LOGO_URL = 'https://matalkcdn.win/Ma-Talk%20logo.jpg';
+
+// Add interface for error event
+interface ImageErrorEvent {
+  nativeEvent: {
+    error: string;
+  };
+}
+
+export interface ImageCardProps {
+  images: Array<{url: {url: string}; prompt: string; isMoreButton?: boolean}>;
+  width?: number;
+  height?: number;
+  onRefresh?: () => void;
+  retryCount?: number;
+  maxRetries?: number;
+  onAnswerSelected?: (answer: string) => void;
+  ttsService: typeof TTSService;
+}
+const {width} = Dimensions.get('window');
+
+const ImageCard: React.FC<ImageCardProps> = ({
+  images,
+  width = 200,
+  height = 200,
+  onRefresh,
+  retryCount = 0,
+  maxRetries = 3,
+  onAnswerSelected,
+  ttsService,
+}) => {
+  const {preferences} = useAppSettings();
+  const navigation = useNavigation();
+  const {isTablet} = useAdmin();
+
+  // Responsive values based on device type - now calculated from screen dimensions
+  const responsiveValues = {
+    // Container dimensions and spacing - calculated from screen dimensions
+    containerMarginBottom: isTablet ? height * 0.02 : height * 0.01,
+    containerMarginVertical: isTablet ? height * 0.012 : height * 0.006,
+    containerBorderRadius: isTablet ? width * 0.045 : width * 0.04,
+
+    // Image border radius - calculated from screen dimensions
+    imageBorderRadius: isTablet ? width * 0.045 : width * 0.04,
+
+    // Label container - calculated from screen dimensions
+    labelPaddingVertical: isTablet ? height * 0.012 : height * 0.007,
+    labelBorderRadius: isTablet ? width * 0.045 : width * 0.04,
+
+    // Typography - calculated from screen dimensions
+    labelFontSize: isTablet ? width * 0.075 : width * 0.06,
+    cardLabelFontSize: isTablet ? width * 0.144 : width * 0.1,
+    questionMarkFontSize: isTablet ? width * 0.255 : width * 0.075,
+    centralQuestionMarkFontSize: isTablet ? width * 0.51 : width * 0.15,
+
+    // Shadow properties - calculated from screen dimensions
+    shadowRadius: isTablet ? width * 0.015 : width * 0.012,
+    shadowOffset: isTablet
+      ? {width: 0, height: height * 0.012}
+      : {width: 0, height: height * 0.01},
+    elevation: isTablet ? 10 : 8,
+
+    // Question mark positioning - calculated from screen dimensions
+    questionMarkTop: isTablet ? height * 0.015 : height * 0.012,
+    questionMarkLeft: isTablet ? width * 0.045 : width * 0.037,
+  };
+
+  const sayAnswer = async (prompt: string) => {
+    // Put the session in playback mode with speaker override
+    await AudioSessionManager.prepareForTTS();
+
+    try {
+      await ttsService.speak(prompt, true); // ensure this resolves when playback ends
+    } finally {
+      // Always clear the flag after playback completes
+      // If your native module exposes endTTS() (we added it), prefer that:
+      // await AudioSessionManagerModule.endTTS();
+      AudioSessionManager.setTTSActive(false);
+      await AudioSessionManager.prepareForWakeword();
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (retryCount >= maxRetries) {
+      // Navigate to shortcuts view when max retries reached
+      await AudioSessionManager.prepareForTTS();
+      ttsService.speak('Let me show you some shortcuts instead', true);
+      navigation.navigate(views.SHORTCUTS as never);
+    } else if (onRefresh) {
+      // Provide audio feedback to the user
+      await AudioSessionManager.prepareForTTS();
+      ttsService.speak('Getting more answers for you', true);
+      onRefresh();
+    }
+  };
+
+  return (
+    <View
+      style={[
+        styles.container,
+        {marginVertical: responsiveValues.containerMarginVertical},
+      ]}>
+      {images.map((image, index) => {
+        // Handle the "More" button specially
+        if (image.isMoreButton) {
+          const isMaxRetries = retryCount >= maxRetries;
+          return (
+            <Pressable
+              key={index}
+              style={[
+                styles.imageContainer,
+                {
+                  borderRadius: responsiveValues.containerBorderRadius,
+                  shadowRadius: responsiveValues.shadowRadius,
+                  shadowOffset: responsiveValues.shadowOffset,
+                  elevation: responsiveValues.elevation,
+                  marginBottom: responsiveValues.containerMarginBottom,
+                },
+              ]}
+              onPress={async () => {
+                await handleRefresh();
+                // Log the "More Answers" selection
+                onAnswerSelected?.('MoreAnswers');
+              }}
+              disabled={image.url.url === 'placeholder'}>
+              <View style={{flexDirection: 'column', alignItems: 'center'}}>
+                <FastImage
+                  source={
+                    isMaxRetries
+                      ? require('../assets/shortCuts.jpg')
+                      : require('../assets/cantfindIt.png')
+                  }
+                  style={[
+                    {
+                      width: width,
+                      height: height,
+                      backgroundColor: '#f0f0f0',
+                    },
+                    {
+                      borderTopLeftRadius: responsiveValues.imageBorderRadius,
+                      borderTopRightRadius: responsiveValues.imageBorderRadius,
+                    },
+                  ]}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+              </View>
+              <View
+                style={[
+                  styles.labelContainer,
+                  {
+                    paddingVertical: responsiveValues.labelPaddingVertical,
+                    borderBottomLeftRadius: responsiveValues.labelBorderRadius,
+                    borderBottomRightRadius: responsiveValues.labelBorderRadius,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.label,
+                    {fontSize: responsiveValues.labelFontSize},
+                  ]}>
+                  {isMaxRetries ? 'Try shortcuts' : 'Get more answers'}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        }
+
+        return (
+          <Pressable
+            key={index}
+            style={[
+              styles.imageContainer,
+              {
+                borderRadius: responsiveValues.containerBorderRadius,
+                shadowRadius: responsiveValues.shadowRadius,
+                shadowOffset: responsiveValues.shadowOffset,
+                elevation: responsiveValues.elevation,
+                marginBottom: responsiveValues.containerMarginBottom,
+              },
+            ]}
+            onPress={async () => {
+              sayAnswer(image.prompt);
+              // Call the callback to log the conversation
+              onAnswerSelected?.(image.prompt);
+            }}>
+            <View style={{flexDirection: 'column', alignItems: 'center'}}>
+              {/* Check if the URL is a placeholder */}
+              {image.url.url === 'placeholder' ? (
+                <>
+                  <Image
+                    source={require('../assets/welcome.png')}
+                    style={[
+                      {
+                        width: width,
+                        height: height,
+                        backgroundColor: '#f0f0f0',
+                      },
+                      {
+                        borderTopLeftRadius: responsiveValues.imageBorderRadius,
+                        borderTopRightRadius:
+                          responsiveValues.imageBorderRadius,
+                      },
+                    ]}
+                    resizeMode="cover"
+                  />
+                </>
+              ) : image.url.url === MA_TALK_LOGO_URL ||
+                decodeURIComponent(image.url.url || '') ===
+                  'https://matalkcdn.win/Ma-Talk logo.jpg' ? (
+                // If image is Ma-Talk logo, show word text centered in the card
+                <View
+                  style={[
+                    {
+                      width: width,
+                      height: height,
+                      backgroundColor: '#f0f0f0',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    },
+                    {
+                      borderTopLeftRadius: responsiveValues.imageBorderRadius,
+                      borderTopRightRadius: responsiveValues.imageBorderRadius,
+                    },
+                  ]}>
+                  <Text
+                    style={[
+                      styles.label,
+                      {
+                        fontSize: responsiveValues.cardLabelFontSize,
+                        color: '#333',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                      },
+                    ]}>
+                    {image.prompt}
+                  </Text>
+                </View>
+              ) : (
+                // Otherwise, show the image
+                <FastImage
+                  source={{
+                    uri: typeof image.url.url === 'string' ? image.url.url : '',
+                  }}
+                  style={[
+                    {
+                      width: width,
+                      height: height,
+                      backgroundColor: '#f0f0f0',
+                    },
+                    {
+                      borderTopLeftRadius: responsiveValues.imageBorderRadius,
+                      borderTopRightRadius: responsiveValues.imageBorderRadius,
+                    },
+                  ]}
+                  resizeMode={FastImage.resizeMode.cover}
+                />
+              )}
+            </View>
+            {/* Only show label for remote images (not Ma-Talk logo or placeholder) */}
+            {image.url.url !== 'placeholder' &&
+            image.url.url !== MA_TALK_LOGO_URL &&
+            decodeURIComponent(image.url.url || '') !==
+              'https://matalkcdn.win/Ma-Talk logo.jpg' ? (
+              <View
+                style={[
+                  styles.labelContainer,
+                  {
+                    paddingVertical: responsiveValues.labelPaddingVertical,
+                    borderBottomLeftRadius: responsiveValues.labelBorderRadius,
+                    borderBottomRightRadius: responsiveValues.labelBorderRadius,
+                  },
+                ]}>
+                <Text
+                  style={[
+                    styles.label,
+                    {fontSize: responsiveValues.labelFontSize},
+                  ]}>
+                  {image.prompt}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-evenly',
+    width: '100%',
+  },
+  imageContainer: {
+    flexDirection: 'column',
+    overflow: 'visible',
+    shadowColor: 'gray',
+    shadowOpacity: 0.8,
+    backgroundColor: 'white',
+  },
+  labelContainer: {
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+  },
+  moreButton: {
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    display: 'flex',
+    position: 'relative',
+  },
+  questionMark: {
+    color: '#3A89FF',
+    fontWeight: 'bold',
+    position: 'absolute',
+  },
+  centralQuestionMark: {
+    color: '#3A89FF',
+    fontWeight: 'bold',
+  },
+  boyImageContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  label: {
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: '600',
+    width: '100%',
+  },
+  disabledContainer: {
+    backgroundColor: '#f0f0f0',
+  },
+  disabledImage: {
+    opacity: 0.5,
+  },
+  disabledLabelContainer: {
+    backgroundColor: '#f0f0f0',
+  },
+  disabledLabel: {
+    color: '#999',
+  },
+});
+
+export default ImageCard;
