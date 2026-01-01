@@ -374,7 +374,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         setPepesData(completeData);
       }
     } catch (error) {
-      console.error('Error loading pepes data:', error);
+      
     }
   };
 
@@ -383,7 +383,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem('pepes', JSON.stringify(data));
       setPepesData(data);
     } catch (error) {
-      console.error('Error saving pepes data:', error);
+      
     }
   };
 
@@ -415,7 +415,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      console.warn('Camera permission error:', e);
+      
       return false;
     }
   };
@@ -443,7 +443,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      console.warn('Photo library permission error:', e);
+      
       return false;
     }
   };
@@ -859,7 +859,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem(`${sType}Address`, formatted);
       await setItem(`${sType}IsCurrentLocation`, isCurr.toString());
     } catch (e) {
-      console.warn('Failed syncing special places:', e);
+      
     }
   };
 
@@ -977,7 +977,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         };
       }
     } catch (err) {
-      console.warn('Reverse geocoding failed:', err);
+      
     }
     return null;
   };
@@ -1086,7 +1086,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return requestStatus === RESULTS.GRANTED;
       }
     } catch (e) {
-      console.warn('Location permission error:', e);
+      
       return false;
     }
   };
@@ -1134,7 +1134,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         }
       },
       (error: any) => {
-        console.warn('Location error:', error);
+        
         Alert.alert('Location Error', 'Unable to get your location.');
       },
       {
@@ -1369,9 +1369,9 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const currentItems = pepesData[selectedCategory];
 
   // // Debug logging
-  // console.log('Selected category:', selectedCategory);
-  // console.log('Current items:', currentItems);
-  // console.log('Current items length:', currentItems?.length);
+  // 
+  // 
+  // 
 
   const getCategoryLabel = (
     c: 'People' | 'Toys' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places',

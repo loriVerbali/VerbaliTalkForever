@@ -14,6 +14,7 @@ import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
+import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
 import {useAdmin} from '../contexts/adminContext';
 import {
@@ -266,7 +267,10 @@ const ShortCuts = () => {
     }
   };
 
-  const handleFeelingPress = (feeling: string) => {
+  const handleFeelingPress = async (feeling: string) => {
+    // Prepare audio session for TTS to ensure consistent volume
+    await AudioSessionManager.prepareForTTS();
+    
     // Use TTSService to speak the feeling text
     TTSService.speak(feeling, true); // Use immediate=true to prioritize this speech
   };
@@ -286,6 +290,14 @@ const ShortCuts = () => {
     }
 
     const nextCategory = categoryOrder[nextIndex];
+    
+    // Track swipe event
+    mixpanel.track('Shortcuts Swipe', {
+      Direction: direction,
+      FromCategory: selectedCategory,
+      ToCategory: nextCategory,
+    });
+    
     handleCategoryPress(nextCategory);
   };
 

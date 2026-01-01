@@ -24,7 +24,7 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
         // For Android, load from res/raw (without .mp3 extension)
         const sound = new Sound('snap', Sound.MAIN_BUNDLE, error => {
           if (error) {
-            console.error('Failed to load Android sound:', error);
+            
             return;
           }
           sound.setVolume(1.0);
@@ -35,7 +35,7 @@ export const SoundProvider: React.FC<{children: React.ReactNode}> = ({
         // For iOS, use the standard approach
         const sound = new Sound('snap.mp3', Sound.MAIN_BUNDLE, error => {
           if (error) {
-            console.error('Failed to load iOS sound:', error);
+            
             return;
           }
           sound.setVolume(1.0);

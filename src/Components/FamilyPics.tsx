@@ -56,7 +56,7 @@ const FamilyPics: React.FC<FamilyPicsProps> = ({onFamilyMemberSelect}) => {
         setFamilyMembers(parsedData);
       }
     } catch (error) {
-      console.error('Error loading family data:', error);
+      
     }
   };
 
@@ -64,7 +64,7 @@ const FamilyPics: React.FC<FamilyPicsProps> = ({onFamilyMemberSelect}) => {
     try {
       await setItem('familyPicsData', JSON.stringify(familyMembers));
     } catch (error) {
-      console.error('Error saving family data:', error);
+      
     }
   };
 

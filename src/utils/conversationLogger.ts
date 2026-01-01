@@ -20,7 +20,7 @@ export const logConversation = async (
       },
     );
   } catch (error) {
-    console.error('Failed to log conversation:', error);
+    
     // Don't throw error to avoid disrupting user experience
   }
 };

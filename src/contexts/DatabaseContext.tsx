@@ -80,12 +80,12 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
       setError(null);
       await initDatabase();
       setIsInitialized(true);
-      console.log('Database context initialized');
+      
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to initialize database';
       setError(errorMessage);
-      console.error('Database initialization error:', err);
+      
     } finally {
       setIsLoading(false);
     }
@@ -102,7 +102,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await insertUtterance(utterance);
     } catch (err) {
-      console.error('Error adding utterance:', err);
+      
       throw err;
     }
   };
@@ -113,7 +113,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await insertClassic(entry);
     } catch (err) {
-      console.error('Error adding classic entry:', err);
+      
       throw err;
     }
   };
@@ -124,7 +124,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await insertAIResponseTime(record);
     } catch (err) {
-      console.error('Error adding AI response time:', err);
+      
       throw err;
     }
   };
@@ -135,7 +135,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await insertAIResolved(record);
     } catch (err) {
-      console.error('Error adding AI resolved:', err);
+      
       throw err;
     }
   };
@@ -147,7 +147,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await getUtterances(filters);
     } catch (err) {
-      console.error('Error getting utterances:', err);
+      
       throw err;
     }
   };
@@ -156,7 +156,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await getClassicEntries(filters);
     } catch (err) {
-      console.error('Error getting classic data:', err);
+      
       throw err;
     }
   };
@@ -167,7 +167,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await getAIResponseTimes(filters);
     } catch (err) {
-      console.error('Error getting AI response time data:', err);
+      
       throw err;
     }
   };
@@ -178,7 +178,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await getAIResolved(filters);
     } catch (err) {
-      console.error('Error getting AI resolved data:', err);
+      
       throw err;
     }
   };
@@ -189,7 +189,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await getWordCounts(filters);
     } catch (err) {
-      console.error('Error getting word count data:', err);
+      
       throw err;
     }
   };
@@ -199,7 +199,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       return await getDatabaseStats();
     } catch (err) {
-      console.error('Error getting database stats:', err);
+      
       throw err;
     }
   };
@@ -208,7 +208,7 @@ export const DatabaseProvider: React.FC<DatabaseProviderProps> = ({
     try {
       await clearAllData();
     } catch (err) {
-      console.error('Error clearing data:', err);
+      
       throw err;
     }
   };

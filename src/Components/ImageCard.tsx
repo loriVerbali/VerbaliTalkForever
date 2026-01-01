@@ -15,6 +15,7 @@ import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import {useAdmin} from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
+import AudioSessionManager from '../utils/AudioSessionManager';
 
 // Add interface for error event
 interface ImageErrorEvent {
@@ -80,17 +81,30 @@ const ImageCard: React.FC<ImageCardProps> = ({
     questionMarkLeft: isTablet ? width * 0.045 : width * 0.037,
   };
 
-  const sayAnswer = (prompt: string) => {
-    ttsService.speak(prompt, true);
+  const sayAnswer = async (prompt: string) => {
+    // Put the session in playback mode with speaker override
+    await AudioSessionManager.prepareForTTS();
+
+    try {
+      await ttsService.speak(prompt, true); // ensure this resolves when playback ends
+    } finally {
+      // Always clear the flag after playback completes
+      // If your native module exposes endTTS() (we added it), prefer that:
+      // await AudioSessionManagerModule.endTTS();
+      AudioSessionManager.setTTSActive(false);
+      await AudioSessionManager.prepareForWakeword();
+    }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     if (retryCount >= maxRetries) {
       // Navigate to shortcuts view when max retries reached
+      await AudioSessionManager.prepareForTTS();
       ttsService.speak('Let me show you some shortcuts instead', true);
       navigation.navigate(views.SHORTCUTS as never);
     } else if (onRefresh) {
       // Provide audio feedback to the user
+      await AudioSessionManager.prepareForTTS();
       ttsService.speak('Getting more answers for you', true);
       onRefresh();
     }
@@ -119,8 +133,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
                   marginBottom: responsiveValues.containerMarginBottom,
                 },
               ]}
-              onPress={() => {
-                handleRefresh();
+              onPress={async () => {
+                await handleRefresh();
                 // Log the "More Answers" selection
                 onAnswerSelected?.('MoreAnswers');
               }}
@@ -180,7 +194,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 marginBottom: responsiveValues.containerMarginBottom,
               },
             ]}
-            onPress={() => {
+            onPress={async () => {
               sayAnswer(image.prompt);
               // Call the callback to log the conversation
               onAnswerSelected?.(image.prompt);

@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {useDatabase} from '../contexts/DatabaseContext';
 import {useAppSettings} from '../utils/persistance';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -34,6 +35,14 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
     type: 'last30Days',
   });
 
+  // Track when this metric component is viewed
+  useEffect(() => {
+    const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+    mixpanel.track('ClassicBoardMetric Viewed', {
+      MetricKey: 'metric3',
+    });
+  }, []);
+
   // Load data from database
   useEffect(() => {
     const loadData = async () => {
@@ -51,7 +60,7 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
         }));
         setEntries(formattedEntries);
       } catch (error) {
-        console.error('Error loading classic data:', error);
+        
         setEntries([]);
       }
     };

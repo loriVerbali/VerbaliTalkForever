@@ -1201,6 +1201,11 @@
     xmlbuilder "^14.0.0"
     xmldom "~0.5.0"
 
+"@fugood/react-native-audio-pcm-stream@^1.1.4":
+  version "1.1.4"
+  resolved "https://registry.yarnpkg.com/@fugood/react-native-audio-pcm-stream/-/react-native-audio-pcm-stream-1.1.4.tgz#f7781773fac8a0ad82e60cc6e80d20b4778bd694"
+  integrity sha512-M6H6ay4ea0vpioII9T/C9qXFPeGpxGN24nl0REP2/wtsorZXg3zzHjZbf3UUUwjf6lEEHMlGCJfXUsxwC/vV8w==
+
 "@google/genai@^0.12.0":
   version "0.12.0"
   resolved "https://registry.npmjs.org/@google/genai/-/genai-0.12.0.tgz"
@@ -5451,11 +5456,6 @@ human-signals@^4.3.0, human-signals@^4.3.1:
   resolved "https://registry.npmjs.org/human-signals/-/human-signals-4.3.1.tgz"
   integrity sha512-nZXjEF2nbo7lIw3mgYjItAfgQXog3OjJogSbKa2CQIIvSGWcKgeJnQlNXip6NglNzYH45nSRiEVimMvYL8DDqQ==
 
-hyochan-welcome@^1.0.0:
-  version "1.0.1"
-  resolved "https://registry.npmjs.org/hyochan-welcome/-/hyochan-welcome-1.0.1.tgz"
-  integrity sha512-WRZNH5grESkOXP/r7xc7TMhO9cUqxaJIuZcQDAjzHWs6viGP+sWtVbiBigxc9YVRrw3hnkESQWwzqg+oOga65A==
-
 iconv-lite@^0.4.24:
   version "0.4.24"
   resolved "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz"
@@ -8582,16 +8582,6 @@ react-is@^19.0.0, react-is@^19.1.0:
   resolved "https://registry.npmjs.org/react-is/-/react-is-19.1.1.tgz"
   integrity sha512-tr41fA15Vn8p4X9ntI+yCyeGSf1TlYaY5vlTZfQmeLBrFo3psOPX6HhTDnFNL9uj3EhP0KAQ80cugCl4b4BERA==
 
-react-native-audio-record@^0.2.2:
-  version "0.2.2"
-  resolved "https://registry.npmjs.org/react-native-audio-record/-/react-native-audio-record-0.2.2.tgz"
-  integrity sha512-+JEY3AWz21xylePbXZ81DLHcqU5oJYztn3Uel3ay53P3ZrvJlwfmOmyOuoavA9boPV1O0dLLQIu9gC7xbKwNvQ==
-
-"react-native-audio-recorder-player@file:.yalc/react-native-audio-recorder-player":
-  version "3.6.12"
-  dependencies:
-    hyochan-welcome "^1.0.0"
-
 react-native-config@^1.5.5:
   version "1.5.6"
   resolved "https://registry.npmjs.org/react-native-config/-/react-native-config-1.5.6.tgz"
@@ -11311,10 +11301,10 @@ which@^4.0.0:
   dependencies:
     isexe "^3.1.1"
 
-whisper.rn@0.5.2:
-  version "0.5.2"
-  resolved "https://registry.yarnpkg.com/whisper.rn/-/whisper.rn-0.5.2.tgz#24d357934a76e9b4ade449d70d284ce5d6929f81"
-  integrity sha512-728K/5ePGfIW8BbXlN8+zFn2D9qwgV5SElrRVllvYw2uDAQ91TIoPFOP2K89DiGLdsQbZ4WC79AVjA18nH9lHw==
+whisper.rn@^0.5.4:
+  version "0.5.4"
+  resolved "https://registry.yarnpkg.com/whisper.rn/-/whisper.rn-0.5.4.tgz#9352a9bcef4f4d0304024fdb062188a24fd6105d"
+  integrity sha512-4G3MFnC/EQoUFqv1k6EahERI6W3vAgfau2uyLidq0/axZPuHC4ZMhPEtTYaGljUN8OzD2W8erLRm/sA3jR5FBQ==
   dependencies:
     safe-buffer "^5.2.1"
 

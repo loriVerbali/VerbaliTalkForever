@@ -79,10 +79,10 @@ export const initDatabase = async (): Promise<SQLite.SQLiteDatabase> => {
     await db.executeSql(CREATE_AI_RESPONSE_TIME_TABLE);
     await db.executeSql(CREATE_AI_RESOLVED_TABLE);
 
-    console.log('Database initialized successfully');
+    
     return db;
   } catch (error) {
-    console.error('Database initialization failed:', error);
+    
     throw error;
   }
 };
@@ -100,7 +100,7 @@ export const closeDatabase = async (): Promise<void> => {
   if (db) {
     await db.close();
     db = null;
-    console.log('Database closed');
+    
   }
 };
 
@@ -482,7 +482,7 @@ export const clearAllData = async (): Promise<void> => {
   await database.executeSql('DELETE FROM classic');
   await database.executeSql('DELETE FROM ai_response_time');
   await database.executeSql('DELETE FROM ai_resolved');
-  console.log('All data cleared');
+  
 };
 
 export const getDatabaseStats = async (): Promise<{

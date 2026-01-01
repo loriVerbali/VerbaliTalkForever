@@ -37,11 +37,6 @@ export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
     // 2. Less than 2GB RAM (common threshold for low-end devices)
     const isLowEndDevice = isKnownLowEnd || totalMemoryMB < 2048;
 
-    console.log(
-      `🔍 Device detection: Model=${deviceModel}, Brand=${deviceBrand}, ` +
-        `RAM=${totalMemoryMB.toFixed(0)}MB, LowEnd=${isLowEndDevice}`,
-    );
-
     return {
       isLowEndDevice,
       deviceModel,
@@ -49,10 +44,6 @@ export async function detectDeviceCapabilities(): Promise<DeviceCapabilities> {
       totalMemoryMB,
     };
   } catch (error) {
-    console.warn(
-      '⚠️ Error detecting device capabilities, defaulting to low-end:',
-      error,
-    );
     // Default to low-end on error to be safe
     return {
       isLowEndDevice: true,

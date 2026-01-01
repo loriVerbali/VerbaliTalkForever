@@ -32,6 +32,7 @@ import {useToast} from '../contexts/ToastContext';
 import {validateSubscription} from '../utils/recieptValidation';
 import {useAppSettings} from '../utils/persistance';
 import {shouldShowTrialCard} from '../utils/trialUtils';
+import {Mixpanel} from 'mixpanel-react-native';
 
 const {width, height} = Dimensions.get('window');
 
@@ -54,6 +55,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
   setGotSubscription,
   context = 'onboarding',
 }) => {
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const {isTablet} = useAdmin();
   const {showError} = useToast();
 
@@ -169,10 +171,6 @@ const Subscription: React.FC<SubscriptionProps> = ({
       }
     } catch (error) {
       console.error('initializeIAP: IAP initialization failed:', error);
-      console.error(
-        'initializeIAP: Error details:',
-        JSON.stringify(error, null, 2),
-      );
     }
   };
 
@@ -258,6 +256,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
     // Directly proceed with purchase since parental gate was already passed
     setSelectedPlan(plan);
 
+    mixpanel.track('Onboarding Subscription Selected', {
+      screen_label: 'subscription',
+      selection_type: plan === 'monthly' ? 'monthly' : 'yearly',
+    });
+
     if (isIAPInitialized) {
       await purchaseSubscription(plan);
     } else {
@@ -269,6 +272,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
     try {
       setIsLoading(true);
       setSelectedPlan('trial');
+
+      mixpanel.track('Onboarding Subscription Selected', {
+        screen_label: 'subscription',
+        selection_type: 'trial',
+      });
 
       // Set trial status and grant access
       await setItem('isInTrial', '1');
