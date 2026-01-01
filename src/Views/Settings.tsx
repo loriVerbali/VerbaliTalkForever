@@ -439,9 +439,7 @@ const SettingsScreen: React.FC = () => {
               }, 500);
             }
           }
-        } catch (error) {
-          
-        }
+        } catch (error) {}
       };
 
       checkForRatingPrompt();
@@ -604,9 +602,7 @@ const SettingsScreen: React.FC = () => {
           {},
           {assistantId: preferences.assistantId, userId: 'guest'},
         );
-      } catch (error) {
-        
-      }
+      } catch (error) {}
     }
 
     Alert.alert(
@@ -1283,6 +1279,7 @@ const SettingsScreen: React.FC = () => {
                         muted={true}
                         repeat={false}
                         controls={false}
+                        disableAudioSessionManagement={true}
                       />
                       {watchedVideos.has(0) && (
                         <View
@@ -1324,6 +1321,7 @@ const SettingsScreen: React.FC = () => {
                         muted={true}
                         repeat={false}
                         controls={false}
+                        disableAudioSessionManagement={true}
                       />
                       {watchedVideos.has(1) && (
                         <View
@@ -1365,6 +1363,7 @@ const SettingsScreen: React.FC = () => {
                         muted={true}
                         repeat={false}
                         controls={false}
+                        disableAudioSessionManagement={true}
                       />
                       {watchedVideos.has(2) && (
                         <View
@@ -1406,6 +1405,7 @@ const SettingsScreen: React.FC = () => {
                         muted={true}
                         repeat={false}
                         controls={false}
+                        disableAudioSessionManagement={true}
                       />
                       {watchedVideos.has(3) && (
                         <View
@@ -1447,6 +1447,7 @@ const SettingsScreen: React.FC = () => {
                         muted={true}
                         repeat={false}
                         controls={false}
+                        disableAudioSessionManagement={true}
                       />
                       {watchedVideos.has(4) && (
                         <View
@@ -1488,6 +1489,7 @@ const SettingsScreen: React.FC = () => {
                         muted={true}
                         repeat={false}
                         controls={false}
+                        disableAudioSessionManagement={true}
                       />
                       {watchedVideos.has(5) && (
                         <View
@@ -1862,9 +1864,12 @@ const SettingsScreen: React.FC = () => {
                         <TouchableOpacity
                           style={styles.eyeButton}
                           onPress={() => {
-                            mixpanel.track('Settings Admin Code Visibility Toggled', {
-                              visible: !isAdminCodeVisible,
-                            });
+                            mixpanel.track(
+                              'Settings Admin Code Visibility Toggled',
+                              {
+                                visible: !isAdminCodeVisible,
+                              },
+                            );
                             setIsAdminCodeVisible(!isAdminCodeVisible);
                           }}>
                           <FastImage
@@ -2016,7 +2021,7 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>MaTalk AI v1.8</Text>
+            <Text style={styles.aboutText}>MaTalk AI v2.0</Text>
           </TouchableOpacity>
 
           {showAssistantId && (
