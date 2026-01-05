@@ -928,7 +928,7 @@ const SettingsScreen: React.FC = () => {
               <Subscription
                 setGotSubscription={(gotSubscription: boolean) => {
                   if (gotSubscription) {
-                    mixpanel.track('Settings Subscription Upgrade Successful', {
+                    mixpanel.track('Settings:Subscription is active', {
                       context: 'settings',
                     });
                   }

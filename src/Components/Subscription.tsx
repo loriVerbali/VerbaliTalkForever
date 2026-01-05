@@ -320,6 +320,10 @@ const Subscription: React.FC<SubscriptionProps> = ({
         if (purchaseResult) {
           setPurchaseSuccess(true);
           setGotSubscription(true);
+          mixpanel.track('Subscription Purchased', {
+            screen_label: 'subscription',
+            selection_type: plan === 'monthly' ? 'monthly' : 'yearly',
+          });
         }
       } else {
         // Android - Google Play Billing v6+ requires subscriptionOffers with offerToken
