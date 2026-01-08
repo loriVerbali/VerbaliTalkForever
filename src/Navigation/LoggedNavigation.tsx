@@ -1,4 +1,5 @@
 import React, {useEffect} from 'react';
+import {Platform} from 'react-native';
 import {createStackNavigator} from '@react-navigation/stack';
 import HomeScreen from '../Views/Home';
 import {views} from '../utils/constants';
@@ -15,6 +16,7 @@ import MetricDetailScreen from '../Views/MetricDetail';
 import WhisperService from '../utils/WhisperService';
 import WakeWordService from '../utils/wakewordService';
 import {useAppSettings} from '../utils/persistance';
+import Voice from '@dev-amirzubair/react-native-voice';
 
 const HomeStack = createStackNavigator();
 
@@ -45,7 +47,9 @@ function LoggedNavigation() {
         const wakeWordService = WakeWordService.getInstance();
 
         while (waited < maxWaitTime) {
-          await new Promise(resolve => setTimeout(resolve, checkInterval));
+          await new Promise<void>(resolve =>
+            setTimeout(resolve, checkInterval),
+          );
           waited += checkInterval;
 
           const status = wakeWordService.getStatus();
@@ -54,31 +58,59 @@ function LoggedNavigation() {
           }
         }
 
-        if (waited >= maxWaitTime) {
-        }
-
-        // Step 2: Initialize WhisperService AFTER wake word is ready (initialized by Open.tsx)
-        const modelAvailable = await WhisperService.isModelAvailable();
-        if (modelAvailable) {
-          const initSuccess = await WhisperService.initialize();
-          if (initSuccess) {
-            // CRITICAL: Restart wake word detection after Whisper initializes
-            // Whisper may change the audio session configuration, which can break wake word detection
-            // Restarting wake word ensures it has proper access to the audio session
-
-            try {
-              const wakeWordService = WakeWordService.getInstance();
-              if (wakeWordService.isCurrentlyListening()) {
-                // Stop and restart to reacquire audio session
-                await wakeWordService.stopListening();
-                // Optimization: Reduced delay from 300ms to 100ms
-                await new Promise(resolve => setTimeout(resolve, 100)); // Brief delay (optimization: was 300ms)
-                await wakeWordService.startListening();
+        // Step 2: Platform-specific service initialization
+        // WhisperService is iOS-only, Voice is Android-only
+        if (Platform.OS === 'ios') {
+          // iOS: Initialize WhisperService AFTER wake word is ready
+          const modelAvailable = await WhisperService.isModelAvailable();
+          if (modelAvailable) {
+            const initSuccess = await WhisperService.initialize();
+            if (initSuccess) {
+              // CRITICAL: Restart wake word detection after Whisper initializes
+              // Whisper may change the audio session configuration, which can break wake word detection
+              // Restarting wake word ensures it has proper access to the audio session
+              try {
+                const wakeWordService = WakeWordService.getInstance();
+                if (wakeWordService.isCurrentlyListening()) {
+                  // Stop and restart to reacquire audio session
+                  await wakeWordService.stopListening();
+                  // Optimization: Reduced delay from 300ms to 100ms
+                  await new Promise<void>(resolve => setTimeout(resolve, 100)); // Brief delay (optimization: was 300ms)
+                  await wakeWordService.startListening();
+                }
+              } catch (error) {
+                console.log(
+                  '[LoggedNavigation] Error restarting wakeword on iOS:',
+                  error,
+                );
               }
-            } catch (error) {}
-          } else {
+            }
           }
-        } else {
+        } else if (Platform.OS === 'android') {
+          // Android: Check if Voice recognition is currently active before restarting wake word
+          // If Voice is recognizing, don't restart wakeword as it will steal the microphone
+          try {
+            const isVoiceRecognizing = await Voice.isRecognizing();
+            if (isVoiceRecognizing) {
+              console.log(
+                '[LoggedNavigation] Voice is recognizing, skipping wakeword restart',
+              );
+              return;
+            }
+
+            const wakeWordService = WakeWordService.getInstance();
+            if (wakeWordService.isCurrentlyListening()) {
+              // Stop and restart to reacquire audio session
+              await wakeWordService.stopListening();
+              await new Promise<void>(resolve => setTimeout(resolve, 100));
+              await wakeWordService.startListening();
+            }
+          } catch (error) {
+            console.log(
+              '[LoggedNavigation] Error restarting wakeword on Android:',
+              error,
+            );
+          }
         }
       } catch (error) {}
     };

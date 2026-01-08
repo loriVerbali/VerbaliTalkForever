@@ -334,11 +334,19 @@ const OpenScreen: React.FC = () => {
           currentIsInTrial || '0',
           currentTrialInstallationDate || 'init.NotSet',
         );
-        !haveappAccess
-          ? askForAdultHelp()
-          : navigation.navigate('HOME' as any, {
-              stateof: 'Attention',
-            });
+        if (!haveappAccess) {
+          askForAdultHelp();
+        } else {
+          // CRITICAL: Stop WakeWordService before navigating to release microphone
+          try {
+            await wakeWordService.stopListening();
+          } catch (error) {
+            console.error('Error stopping wake word service:', error);
+          }
+          navigation.navigate('HOME' as any, {
+            stateof: 'Attention',
+          });
+        }
       };
 
       wakeWordService.setCallback(wakeWordCallback);
@@ -459,6 +467,23 @@ const OpenScreen: React.FC = () => {
           return;
         }
 
+        // CRITICAL: Check if Voice recognition is currently active
+        // If Voice is recognizing, don't start wakeword as it will steal the microphone
+        if (Platform.OS === 'android') {
+          try {
+            const Voice = require('@dev-amirzubair/react-native-voice').default;
+            const isVoiceRecognizing = await Voice.isRecognizing();
+            if (isVoiceRecognizing) {
+              console.log(
+                '[Open] Voice is recognizing, skipping wakeword start',
+              );
+              return;
+            }
+          } catch (error) {
+            // Voice module might not be available, continue
+          }
+        }
+
         // CRITICAL: Always prepare audio session for wakeword when screen comes into focus
         // This ensures the audio session is properly configured even if it was changed
         // by other screens (e.g., Settings video playback)
@@ -549,6 +574,16 @@ const OpenScreen: React.FC = () => {
     if (!microphoneTappedOnce) {
       setMicrophoneTappedOnce(true);
       await setItem('microphoneTappedOnce', '1');
+    }
+
+    // CRITICAL: Stop WakeWordService before navigating to Home with 'Attention'
+    // This releases the microphone so Voice recognition can use it
+    try {
+      if (wakeWordService.isCurrentlyListening()) {
+        await wakeWordService.stopListening();
+      }
+    } catch (error) {
+      console.error('Error stopping wake word service:', error);
     }
 
     navigation.navigate('HOME' as any, {
