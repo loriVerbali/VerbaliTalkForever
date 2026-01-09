@@ -1184,6 +1184,7 @@ const SettingsScreen: React.FC = () => {
                     onPress={() => handleVideoCardPress('homescreen')}>
                     <View style={styles.videoContainer}>
                       <Video
+                        disableAudioSessionManagement={true}
                         source={getVideoUrl('homescreen')}
                         style={styles.video}
                         resizeMode="cover"
@@ -1225,6 +1226,7 @@ const SettingsScreen: React.FC = () => {
                     onPress={() => handleVideoCardPress('question')}>
                     <View style={styles.videoContainer}>
                       <Video
+                        disableAudioSessionManagement={true}
                         source={getVideoUrl('question')}
                         style={styles.video}
                         resizeMode="cover"
@@ -1266,6 +1268,7 @@ const SettingsScreen: React.FC = () => {
                     onPress={() => handleVideoCardPress('convo')}>
                     <View style={styles.videoContainer}>
                       <Video
+                        disableAudioSessionManagement={true}
                         source={getVideoUrl('convo')}
                         style={styles.video}
                         resizeMode="cover"
@@ -1307,6 +1310,7 @@ const SettingsScreen: React.FC = () => {
                     onPress={() => handleVideoCardPress('reports')}>
                     <View style={styles.videoContainer}>
                       <Video
+                        disableAudioSessionManagement={true}
                         source={getVideoUrl('reports')}
                         style={styles.video}
                         resizeMode="cover"
@@ -1348,6 +1352,7 @@ const SettingsScreen: React.FC = () => {
                     onPress={() => handleVideoCardPress('personalization')}>
                     <View style={styles.videoContainer}>
                       <Video
+                        disableAudioSessionManagement={true}
                         source={getVideoUrl('personalization')}
                         style={styles.video}
                         resizeMode="cover"
@@ -1389,6 +1394,7 @@ const SettingsScreen: React.FC = () => {
                     onPress={() => handleVideoCardPress('boardCustomize')}>
                     <View style={styles.videoContainer}>
                       <Video
+                        disableAudioSessionManagement={true}
                         source={getVideoUrl('boardCustomize')}
                         style={styles.video}
                         resizeMode="cover"
