@@ -392,6 +392,20 @@ const AppConfig: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    searchGoogleImages: {
+      description: 'searchGoogleImages',
+      isAuthenticated: true,
+      verb: 'GET',
+      sendDeviceKey: false,
+      jsonMethod: false,
+      suffixUrl: '/api/google-images/search?q={q}&limit={limit}',
+      mustStringify: false,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
   },
 };
 

@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,11 @@ import {
   TextInput,
   Linking,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
-import {DraggableGrid} from 'react-native-draggable-grid';
-import {useAppSettings} from '../../utils/persistance';
-import {sentenceBuilderSqlite} from '../../utils/sentenceBuilderSqlite';
+import { DraggableGrid } from 'react-native-draggable-grid';
+import { useAppSettings } from '../../utils/persistance';
+import { sentenceBuilderSqlite } from '../../utils/sentenceBuilderSqlite';
 import AppConfig from '../../utils/config';
 import TTSService from '../../utils/TTSService';
 import AudioSessionManager from '../../utils/AudioSessionManager';
@@ -29,13 +29,21 @@ import {
   GRID_CONFIGS,
   GridConfigKey,
 } from '../../types/sentenceBuilder';
-import {resolveImageSource} from '../../utils/imageSourceResolver';
-import {views} from '../../utils/constants';
+import { resolveImageSource } from '../../utils/imageSourceResolver';
+import { views } from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
-import {useDatabase} from '../../contexts/DatabaseContext';
+import { useDatabase } from '../../contexts/DatabaseContext';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+type RootStackParamList = {
+  HOME: { stateof?: string };
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 
 interface SentenceBuilderGridProps {
   isTablet?: boolean;
@@ -58,9 +66,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   onGridSizeLoaded,
   onResetDbPressed,
 }) => {
-  const {addUtterance} = useDatabase();
-  const {getItem} = useAppSettings();
-  const navigation = useNavigation();
+  const { addUtterance } = useDatabase();
+  const { getItem } = useAppSettings();
+  const navigation = useNavigation<NavigationProp>();
 
   // State
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -185,7 +193,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       );
 
       setCurrentNodes(allParentNodes);
-    } catch (error) {}
+    } catch (error) { }
   };
 
   const getGridConfig = useCallback(() => {
@@ -226,22 +234,22 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       // Very small mobile devices - make cards 1.25x height and narrower
       const finalWidth = Math.min(cardWidth, 100); // Much narrower width
       const finalHeight = Math.min(cardHeight * 1.25, 400); // 1.25x height with max of 400px
-      return {width: finalWidth, height: finalHeight};
+      return { width: finalWidth, height: finalHeight };
     } else if (isMobile) {
       // Regular mobile devices - make cards 1.25x height and narrower
       const finalWidth = Math.min(cardWidth, 120); // Much narrower width
       const finalHeight = Math.min(cardHeight * 1.25, 450); // 1.25x height with max of 450px
-      return {width: finalWidth, height: finalHeight};
+      return { width: finalWidth, height: finalHeight };
     } else if (isTabletDevice) {
       // Tablets - use slightly rectangular cards but not too wide
       const finalWidth = Math.min(cardWidth, 220); // Increased from 200px to 220px
       const finalHeight = Math.min(cardHeight, 200); // Increased from 180px to 200px
-      return {width: finalWidth, height: finalHeight};
+      return { width: finalWidth, height: finalHeight };
     } else {
       // Desktop - use the original logic but with better proportions
       const finalWidth = Math.min(cardWidth, 240); // Increased from 220px to 240px
       const finalHeight = Math.min(cardHeight, 220); // Increased from 200px to 220px
-      return {width: finalWidth, height: finalHeight};
+      return { width: finalWidth, height: finalHeight };
     }
   }, [getGridConfig, isEditing]);
 
@@ -251,11 +259,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     }
     return DEFAULT_COLOR_MAP[node.type || 'other'];
   }, []);
-
-  const needsScrolling = useCallback(() => {
-    const gridConfig = getGridConfig();
-    return gridConfig.rows > 6; // 7x7 and 8x8 need scrolling
-  }, [getGridConfig]);
 
   // Generate full grid with empty cells
   const getFullGridData = useCallback(() => {
@@ -298,20 +301,20 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
     // Only show additional empty cells when in editing mode
     const additionalEmptyCells: Node[] = isEditing
-      ? Array.from({length: additionalEmptyCellsNeeded}, (_, index) => ({
-          id: `empty-${index}`,
-          parentId: null,
-          kind: 'word' as const,
-          title: '',
-          type: 'other' as const,
-          orderIndex: filledCells + index,
-          isSeed: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          key: `empty-${index}`,
-          disabledDrag: false, // Allow dragging in edit mode so cards can swap with empty spaces
-          disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
-        }))
+      ? Array.from({ length: additionalEmptyCellsNeeded }, (_, index) => ({
+        id: `empty-${index}`,
+        parentId: null,
+        kind: 'word' as const,
+        title: '',
+        type: 'other' as const,
+        orderIndex: filledCells + index,
+        isSeed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        key: `empty-${index}`,
+        disabledDrag: false, // Allow dragging in edit mode so cards can swap with empty spaces
+        disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
+      }))
       : [];
 
     // Combine all nodes and sort by orderIndex
@@ -341,13 +344,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     return processedActiveNodes.sort((a, b) => a.orderIndex - b.orderIndex);
   }, [currentNodes, isEditing]);
 
-  // Calculate if we need multiple grids
-  const needsMultipleGrids = useCallback(() => {
-    const totalItems = getFullGridData().length;
-    const gridCapacity = getGridConfig().rows * getGridConfig().cols;
-    return totalItems > gridCapacity;
-  }, [getFullGridData, getGridConfig]);
-
   // Split data into multiple grids
   const getGridDataChunks = useCallback(() => {
     const allData = getFullGridData();
@@ -360,19 +356,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
     return chunks;
   }, [getFullGridData, getGridConfig]);
-
-  // Split drag and drop data into multiple grids
-  const getDragDropDataChunks = useCallback(() => {
-    const dragDropData = getDragDropData();
-    const gridCapacity = getGridConfig().rows * getGridConfig().cols;
-    const chunks = [];
-
-    for (let i = 0; i < dragDropData.length; i += gridCapacity) {
-      chunks.push(dragDropData.slice(i, i + gridCapacity));
-    }
-
-    return chunks;
-  }, [getDragDropData, getGridConfig]);
 
   // Navigation handlers
   const handleHomePress = () => {
@@ -470,7 +453,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
       if (node.kind === 'folder') {
         // Navigate to folder - this should navigate, not add to sentence
-        setFolderStack(prev => [...prev, {nodeId: node.id, title: node.title}]);
+        setFolderStack(prev => [...prev, { nodeId: node.id, title: node.title }]);
       } else {
         // Add word to sentence
         await sentenceBuilderSqlite.addWordToSentence(node.id);
@@ -644,7 +627,11 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   // New handler functions for NavigationBar
   const handleMicrophonePress = () => {
-    // TODO: Implement microphone functionality
+
+    navigation.navigate("HOME", {
+      stateof: 'Attention',
+    });
+
   };
 
   const handleTrashPress = () => {
@@ -664,7 +651,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   // Edit modal handlers
   const handleEditModalClose = () => {
-    setEditModal({isVisible: false});
+    setEditModal({ isVisible: false });
   };
 
   const handleEditModalSave = async (nodeData: Partial<Node>) => {
@@ -710,7 +697,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
       // Reload data
       await initializeAndLoadData();
-      setEditModal({isVisible: false});
+      setEditModal({ isVisible: false });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
@@ -750,17 +737,17 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           : null;
 
       // Track the actual position in the grid for each node (including empty cells)
-      const nodeUpdates: Array<{id: string; orderIndex: number}> = [];
+      const nodeUpdates: Array<{ id: string; orderIndex: number }> = [];
 
       newSortedData.forEach((node, index) => {
         // Check if it's an empty cell from a deleted node FIRST (before checking for 'empty-')
         if (node.id.startsWith('empty-deleted-')) {
           // Extract the original node ID
           const originalNodeId = node.id.replace('empty-deleted-', '');
-          nodeUpdates.push({id: originalNodeId, orderIndex: index});
+          nodeUpdates.push({ id: originalNodeId, orderIndex: index });
         } else if (!node.id.startsWith('empty-')) {
           // Regular node (not an empty placeholder)
-          nodeUpdates.push({id: node.id, orderIndex: index});
+          nodeUpdates.push({ id: node.id, orderIndex: index });
         }
       });
 
@@ -803,9 +790,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     return (
       <View
         style={[
-          {margin: 2},
-          {width: cardDimensions.width, height: cardDimensions.height},
-          {backgroundColor: 'transparent'}, // Ensure outer container is transparent
+          { margin: 2 },
+          { width: cardDimensions.width, height: cardDimensions.height },
+          { backgroundColor: 'transparent' }, // Ensure outer container is transparent
         ]}>
         <View
           style={[
@@ -819,7 +806,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               // shadowColor: isEmptyCell || isDeletedCard ? 'red' : color,
               // shadowOpacity: 0.9,
               //shadowRadius: 10,
-              shadowOffset: {width: 0, height: 6},
+              shadowOffset: { width: 0, height: 6 },
               elevation: 12,
               borderWidth: 3,
               borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : color,
@@ -845,8 +832,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                 e.stopPropagation();
                 handleEditCardPress(node);
               }}
-              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-              <Text style={{color: '#fff', fontSize: 12, fontWeight: 'bold'}}>
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
                 ✏️
               </Text>
             </TouchableOpacity>
@@ -965,7 +952,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                       borderBottomLeftRadius: isMobile ? 8 : 0,
                       borderBottomRightRadius: isMobile ? 8 : 0,
                     }}>
-                    <Text style={{fontSize: cardDimensions.width * 0.2}}>
+                    <Text style={{ fontSize: cardDimensions.width * 0.2 }}>
                       📁
                     </Text>
                   </View>
@@ -996,7 +983,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                     color: '#000',
                     textAlign: 'center',
                     textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: {width: 1, height: 1},
+                    textShadowOffset: { width: 1, height: 1 },
                     textShadowRadius: 2,
                   }}
                   numberOfLines={2}>
@@ -1022,7 +1009,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007bff" />
-        <Text style={{marginTop: 10, color: '#666'}}>
+        <Text style={{ marginTop: 10, color: '#666' }}>
           Loading Sentence Builder...
         </Text>
       </View>
@@ -1042,7 +1029,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         nodes={nodes}
         sentenceTokenIds={sentenceTokenIds}
         onRemoveToken={handleRemoveToken}
-        onEditToken={handleEditToken}
         folderStack={folderStack}
         onFolderPress={handleBreadcrumbFolderPress}
         onBackPress={handleBackPress}
@@ -1067,7 +1053,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                     style={[
                       styles.gridSizeButtonText,
                       selectedGridSize === size &&
-                        styles.gridSizeButtonTextActive,
+                      styles.gridSizeButtonTextActive,
                     ]}>
                     {size}
                   </Text>
@@ -1089,18 +1075,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           bounces={true} // Enable bouncing for better mobile experience
           scrollEventThrottle={16} // Smooth scrolling
           nestedScrollEnabled={true} // Enable nested scrolling for mobile
-          scrollEnabled={
-            !isDragging &&
-            ((isEditing &&
-              (selectedGridSize === '5x6' ||
-                selectedGridSize === '6x6' ||
-                selectedGridSize === '7x7' ||
-                selectedGridSize === '8x8')) ||
-              (!isEditing &&
-                (selectedGridSize === '7x7' || selectedGridSize === '8x8')) ||
-              // Enable scrolling for all grid sizes when there are words in the input
-              sentenceTokenIds.length > 0)
-          }>
+          scrollEnabled={isEditing}>
           {getGridDataChunks().map((chunk, chunkIndex) => {
             // Always use full grid data to show empty cells in both editing and non-editing modes
             const dataToUse = chunk;
