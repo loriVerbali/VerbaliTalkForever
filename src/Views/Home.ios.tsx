@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,17 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  TextInput,
 } from 'react-native';
 
-import {useNavigation, RouteProp} from '@react-navigation/native';
-import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import { useNavigation, RouteProp } from '@react-navigation/native';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
-import Inputs, {InputsRef} from '../Components/Inputs';
+import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
-import {useAssistant} from '../contexts/AssistantContext';
-import {useSound} from '../contexts/soundContext';
+import { useAssistant } from '../contexts/AssistantContext';
+import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -25,20 +26,20 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import {Mixpanel} from 'mixpanel-react-native';
-import {logConversation} from '../utils/conversationLogger';
-import {useAdmin} from '../contexts/adminContext';
-import {views} from '../utils/constants';
-import {useAppSettings} from '../utils/persistance';
+import { Mixpanel } from 'mixpanel-react-native';
+import { logConversation } from '../utils/conversationLogger';
+import { useAdmin } from '../contexts/adminContext';
+import { views } from '../utils/constants';
+import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import WhisperService from '../utils/WhisperService';
-import {useDatabase} from '../contexts/DatabaseContext';
+import { useDatabase } from '../contexts/DatabaseContext';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: {stateof?: 'Attention' | 'Keyboard' | string};
+  Home: { stateof?: 'Attention' | 'Keyboard' | string };
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -51,12 +52,12 @@ const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was your practice today?';
 
-const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {generateAnswers} = useAssistant();
-  const {weather, location} = useChatContext();
-  const {isTablet} = useAdmin();
-  const {getItem, preferences} = useAppSettings();
-  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
+const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
+  const { generateAnswers } = useAssistant();
+  const { weather, location } = useChatContext();
+  const { isTablet } = useAdmin();
+  const { getItem, preferences } = useAppSettings();
+  const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
 
@@ -91,7 +92,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           }
         }
       }
-    } catch (error) {}
+    } catch (error) { }
 
     return fallbackUrl || '';
   };
@@ -118,7 +119,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setConversationHistory(prev => {
       const newHistory = [
         ...prev,
-        {role: 'user' as const, content: userMessage, timestamp: Date.now()},
+        { role: 'user' as const, content: userMessage, timestamp: Date.now() },
         {
           role: 'assistant' as const,
           content: assistantResponse,
@@ -137,12 +138,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
-    Array<{word: string; imageUrl?: string}>
+    Array<{ word: string; imageUrl?: string }>
   >([]);
 
   // Conversation history state
   const [conversationHistory, setConversationHistory] = useState<
-    Array<{role: 'user' | 'assistant'; content: string; timestamp: number}>
+    Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>
   >([]);
 
   // AI Resolved tracking state
@@ -161,12 +162,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const responsiveValues = {
     // Icon sizes
     microphoneSize: isTablet
-      ? {width: 45, height: 45}
-      : {width: 35, height: 35},
+      ? { width: 45, height: 45 }
+      : { width: 35, height: 35 },
     fetchingSize: isTablet
-      ? {width: 200, height: 200}
-      : {width: 150, height: 150},
-    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
+      ? { width: 200, height: 200 }
+      : { width: 150, height: 150 },
+    matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
 
     // Layout dimensions
     inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
@@ -180,11 +181,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
-      ? {width: width * 0.3, height: width * 0.3}
-      : {width: width * 0.25, height: width * 0.25},
+      ? { width: width * 0.3, height: width * 0.3 }
+      : { width: width * 0.25, height: width * 0.25 },
     recordingIconSize: isTablet
-      ? {width: width * 0.4, height: width * 0.4}
-      : {width: width * 0.35, height: width * 0.2},
+      ? { width: width * 0.4, height: width * 0.4 }
+      : { width: width * 0.35, height: width * 0.2 },
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -196,8 +197,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Button dimensions
     keyboardButtonPadding: isTablet
-      ? {vertical: 14, horizontal: 35}
-      : {vertical: 12, horizontal: 30},
+      ? { vertical: 14, horizontal: 35 }
+      : { vertical: 12, horizontal: 30 },
     keyboardButtonMinWidth: isTablet ? 120 : 100,
     keyboardButtonBorderRadius: isTablet ? 28 : 25,
 
@@ -214,16 +215,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     navigationCardBorderRadius: isTablet ? 15 : 12,
     navigationCardPadding: isTablet ? 18 : 15,
     navigationCardImageSize: isTablet
-      ? {width: 70, height: 70}
-      : {width: 60, height: 60},
+      ? { width: 70, height: 70 }
+      : { width: 60, height: 60 },
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? {width: 50, height: 50}
-      : {width: 40, height: 40},
+      ? { width: 50, height: 50 }
+      : { width: 40, height: 40 },
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
+    shadowOffset: isTablet ? { width: 0, height: 3 } : { width: 0, height: 2 },
     elevation: isTablet ? 6 : 4,
 
     // Waiting for next conversation
@@ -261,7 +262,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const {playAttention} = useSound();
+  const { playAttention } = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
@@ -281,7 +282,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   let currentRecordingURI: string | null = null;
 
   // AI response timer state
@@ -310,7 +311,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) {}
+        } catch (error) { }
       }
 
       setResponseTimerStart(null);
@@ -329,7 +330,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) {}
+      } catch (error) { }
     };
 
     // Load the setting
@@ -361,7 +362,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
       // Only cleanup Whisper service when component actually unmounts
       // Don't destroy it when just waiting for next conversation
-      WhisperService.destroy().catch(error => {});
+      WhisperService.destroy().catch(error => { });
 
       // Cleanup response timer
       if (responseTimerRef.current) {
@@ -432,11 +433,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       // Kill any audio that might hold the session
       try {
         await TTSService.stop?.();
-      } catch {}
+      } catch { }
       try {
         const w = WakeWordService.getInstance();
         w.stopListening();
-      } catch {}
+      } catch { }
 
       // Prepare audio session for Whisper (after stopping wakeword)
       await AudioSessionManager.prepareForWhisper();
@@ -745,7 +746,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       const whisperResult = await WhisperService.transcribeAudio(audioUri);
 
       if (whisperResult.success && whisperResult.text.trim().length > 0) {
-        return {text: whisperResult.text.trim(), isLocal: true};
+        return { text: whisperResult.text.trim(), isLocal: true };
       } else {
         // No fallback to cloud - throw error if local fails
         setIsUsingLocalWhisper(false);
@@ -785,16 +786,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     const fileObj =
       Platform.OS === 'android'
         ? {
-            uri: audioUri,
-            type: 'audio/mp3',
-            name: 'sound.mp3',
-            filename: 'sound.mp3', // Add filename for Android
-          }
+          uri: audioUri,
+          type: 'audio/mp3',
+          name: 'sound.mp3',
+          filename: 'sound.mp3', // Add filename for Android
+        }
         : {
-            uri: audioUri,
-            type: 'audio/x-m4a',
-            name: 'recording.m4a',
-          };
+          uri: audioUri,
+          type: 'audio/x-m4a',
+          name: 'recording.m4a',
+        };
 
     formData.append('file', fileObj);
     formData.append('model', 'whisper-1');
@@ -846,7 +847,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           return;
         }
       } else {
-        transcribeResponse = {text: DEBUGTRANSCRIPTION};
+        transcribeResponse = { text: DEBUGTRANSCRIPTION };
       }
 
       if (transcribeResponse?.text) {
@@ -1077,7 +1078,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Update AI Resolved record with the selected answer
     if (currentAIRecord) {
-      const updatedRecord = {...currentAIRecord};
+      const updatedRecord = { ...currentAIRecord };
 
       if (currentAIRecord.currentRound === 1) {
         updatedRecord.round1Picked = selectedAnswer;
@@ -1104,7 +1105,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) {}
+        } catch (error) { }
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1206,7 +1207,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       setIsSubmittingKeyboard(true);
 
       // Simply display what was written without making API calls
-      TTSService.speak(inputText, true);
+      // Use the new onComplete callback support in TTSService
+      await TTSService.speak(inputText, true, () => {
+        if (stateof === 'Keyboard') {
+          // Clear input when speech finishes
+          setKeyboardInput('');
+          setDebouncedKeyboardInput('');
+
+          if (inputsRef.current) {
+            inputsRef.current.clearInput();
+          }
+        }
+      });
     } catch (error) {
     } finally {
       setIsSubmittingKeyboard(false);
@@ -1246,104 +1258,107 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
-  // Child component for keyboard input
-  const KeyboardInputComponent = () => {
+  // Render function for keyboard input
+  const renderKeyboardInput = () => {
     const hasText = debouncedKeyboardInput.trim().length > 0;
 
     return (
       <View
         style={[
           styles.keyboardInputContainer,
-          {padding: responsiveValues.keyboardInputPadding},
+          { padding: responsiveValues.keyboardInputPadding },
         ]}>
-        {/* Show waiting message or what's being typed */}
-        {keyboardInput.length === 0 ? (
-          <FastImage
-            source={require('../assets/waitforKB.png')}
-            style={responsiveValues.keyboardIconSize}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        ) : (
-          <View
+        {/* Show buttons always - MOVED TO TOP */}
+        <View style={styles.keyboardButtonsContainer}>
+          <TouchableOpacity
             style={[
-              styles.typingDisplay,
+              styles.keyboardButton,
+              styles.cancelButton,
               {
-                padding: responsiveValues.typingDisplayPadding,
-                minHeight: responsiveValues.typingDisplayMinHeight,
+                paddingVertical:
+                  responsiveValues.keyboardButtonPadding.vertical,
+                paddingHorizontal:
+                  responsiveValues.keyboardButtonPadding.horizontal,
+                minWidth: responsiveValues.keyboardButtonMinWidth,
+                borderRadius: responsiveValues.keyboardButtonBorderRadius,
               },
-            ]}>
+            ]}
+            onPress={handleKeyboardCancel}
+            disabled={isSubmittingKeyboard}>
             <Text
               style={[
-                styles.typingDisplayText,
-                {fontSize: responsiveValues.keyboardTypingFontSize},
+                styles.cancelButtonText,
+                { fontSize: responsiveValues.buttonFontSize },
               ]}>
-              {keyboardInput}
+              Cancel
             </Text>
-          </View>
-        )}
-
-        {/* Show buttons only when there's debounced text */}
-        {hasText && (
-          <View style={styles.keyboardButtonsContainer}>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.cancelButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardCancel}
-              disabled={isSubmittingKeyboard}>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.keyboardButton,
+              styles.submitButton,
+              {
+                paddingVertical:
+                  responsiveValues.keyboardButtonPadding.vertical,
+                paddingHorizontal:
+                  responsiveValues.keyboardButtonPadding.horizontal,
+                minWidth: responsiveValues.keyboardButtonMinWidth,
+                borderRadius: responsiveValues.keyboardButtonBorderRadius,
+              },
+            ]}
+            onPress={handleKeyboardSubmit}
+            disabled={
+              isSubmittingKeyboard ||
+              debouncedKeyboardInput.trim().length === 0
+            }>
+            {isSubmittingKeyboard ? (
+              <FastImage
+                source={require('../assets/movie/output.gif')}
+                style={[styles.iconSize, responsiveValues.fetchingSize]}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            ) : (
               <Text
                 style={[
-                  styles.cancelButtonText,
-                  {fontSize: responsiveValues.buttonFontSize},
+                  styles.submitButtonText,
+                  { fontSize: responsiveValues.buttonFontSize },
                 ]}>
-                Cancel
+                Submit
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.submitButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardSubmit}
-              disabled={
-                isSubmittingKeyboard ||
-                debouncedKeyboardInput.trim().length === 0
-              }>
-              {isSubmittingKeyboard ? (
-                <FastImage
-                  source={require('../assets/movie/output.gif')}
-                  style={[styles.iconSize, responsiveValues.fetchingSize]}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.submitButtonText,
-                    {fontSize: responsiveValues.buttonFontSize},
-                  ]}>
-                  Submit
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Direct Text Input */}
+        <View
+          style={[
+            styles.typingDisplay,
+            {
+              padding: responsiveValues.typingDisplayPadding,
+              minHeight: responsiveValues.typingDisplayMinHeight,
+              backgroundColor: '#FFFFFF', // Ensure background is white for input
+              width: '100%',
+            },
+          ]}>
+          <TextInput
+            style={[
+              styles.typingDisplayText,
+              {
+                fontSize: responsiveValues.keyboardTypingFontSize,
+                width: '100%',
+                minHeight: responsiveValues.typingDisplayMinHeight,
+                textAlignVertical: 'top', // For Android-like behavior on multiline if needed later
+              },
+            ]}
+            value={keyboardInput}
+            onChangeText={handleKeyboardInputChange}
+            placeholder="Type your message..."
+            placeholderTextColor="#999"
+            multiline={true}
+            autoFocus={true}
+            blurOnSubmit={false}
+          />
+        </View>
       </View>
     );
   };
@@ -1354,7 +1369,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         colors={['#FFF8E7', '#FFFFFF']}
         style={[
           styles.container,
-          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
+          Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1390,10 +1405,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             stateof === 'Keyboard'
               ? false
               : isRecording ||
-                isProcessingAnswer ||
-                isRetrying ||
-                isSubmittingKeyboard ||
-                (!finishedTranscribing && !waitingForNextConversation)
+              isProcessingAnswer ||
+              isRetrying ||
+              isSubmittingKeyboard ||
+              (!finishedTranscribing && !waitingForNextConversation)
           }
         />
 
@@ -1406,16 +1421,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <View
           style={[
             styles.inputNavigationContainer,
-            {height: responsiveValues.inputNavigationHeight},
+            stateof === 'Keyboard'
+              ? { height: 0, opacity: 0 }
+              : { height: responsiveValues.inputNavigationHeight },
           ]}>
-          <Inputs
-            ref={inputsRef}
-            mode={stateof}
-            onInputChange={handleKeyboardInputChange}
-          />
+          {stateof !== 'Keyboard' && (
+            <Inputs
+              ref={inputsRef}
+              mode={stateof}
+              onInputChange={handleKeyboardInputChange}
+            />
+          )}
         </View>
 
-        <View style={{flex: 1, width: '100%'}}>
+        <View style={{ flex: 1, width: '100%' }}>
           <View
             style={[
               styles.contentContainer,
@@ -1426,7 +1445,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, {zIndex: 10}]}
+              style={[styles.imageCardContainer, { zIndex: 10 }]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1444,7 +1463,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       try {
                         // Handle direct answers format
                         return {
-                          url: {url: item.imageUrl || ''},
+                          url: { url: item.imageUrl || '' },
                           prompt: item.word || '',
                         };
                       } catch (err) {
@@ -1452,7 +1471,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       }
                     })
                     .filter(
-                      (item): item is {url: {url: string}; prompt: string} =>
+                      (item): item is { url: { url: string }; prompt: string } =>
                         item !== null,
                     );
 
@@ -1462,7 +1481,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         <Text
                           style={[
                             styles.errorText,
-                            {fontSize: responsiveValues.errorFontSize},
+                            { fontSize: responsiveValues.errorFontSize },
                           ]}>
                           We have an issue. Please be patient.
                         </Text>
@@ -1514,7 +1533,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
                               ShortCuts
                             </Text>
@@ -1564,7 +1583,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
                               Feelings
                             </Text>
@@ -1604,7 +1623,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       <View
                         style={[
                           styles.waitingForNextContainer,
-                          {padding: responsiveValues.waitingContainerPadding},
+                          { padding: responsiveValues.waitingContainerPadding },
                         ]}>
                         <Text
                           style={[
@@ -1616,7 +1635,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             },
                           ]}>
                           Say{' '}
-                          <Text style={{fontWeight: 'bold', color: 'blue'}}>
+                          <Text style={{ fontWeight: 'bold', color: 'blue' }}>
                             Hey Verbi
                           </Text>{' '}
                           to continue the conversation or tap below
@@ -1653,9 +1672,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </TouchableOpacity>
                       </View>
                     ) : stateof === 'Keyboard' ? (
-                      <KeyboardInputComponent />
+                      renderKeyboardInput()
                     ) : isTranscribing ? (
-                      <View style={{alignItems: 'center'}}>
+                      <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
                           style={[
@@ -1675,7 +1694,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </Text>
                       </View>
                     ) : isRecording ? (
-                      <View style={{alignItems: 'center'}}>
+                      <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/recording.gif')}
                           style={responsiveValues.recordingIconSize}
@@ -1703,7 +1722,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <View style={{alignItems: 'center', marginBottom: 20}}>
+                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
                           <Text
                             style={{
                               fontSize: responsiveValues.transcriptionFontSize,
@@ -1720,23 +1739,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                 color: isUsingLocalWhisper
                                   ? '#4CAF50'
                                   : modelNotAvailable
-                                  ? '#FF9800'
-                                  : '#2196F3',
+                                    ? '#FF9800'
+                                    : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
                               {isUsingLocalWhisper
                                 ? '🔒 Local Whisper'
                                 : modelNotAvailable
-                                ? '☁️ Cloud (Model not downloaded)'
-                                : '☁️ Cloud'}
+                                  ? '☁️ Cloud (Model not downloaded)'
+                                  : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
 
                         {/* Show different loading states based on processing phase */}
                         {isRetrying ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1758,7 +1777,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             </Text>
                           </View>
                         ) : isProcessingAnswer ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1789,8 +1808,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           />
                         ) : null}
                         {finishedTranscribing &&
-                        (transcribedText.length === 0 ||
-                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                          (transcribedText.length === 0 ||
+                            transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
                           <HomeButton
                             navigation={navigation}
                             onReset={resetLocalStates}
@@ -1821,6 +1840,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 60
   },
   recordingContainer: {
     width: height * 0.4,
@@ -1984,7 +2004,7 @@ const styles = StyleSheet.create({
   keyboardInputContainer: {
     width: '100%',
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
 

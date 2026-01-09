@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState, useCallback} from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,27 +15,27 @@ import {
   BackHandler,
   ActivityIndicator,
 } from 'react-native';
-import {useNavigation, useFocusEffect} from '@react-navigation/native';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
-import {views} from '../utils/constants';
+import { views } from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
-import {useAppSettings} from '../utils/persistance';
+import { useAppSettings } from '../utils/persistance';
 import AppConfig from '../utils/config';
-import {useConnection} from '../utils/connection';
+import { useConnection } from '../utils/connection';
 import ShowAndTell from '../Components/ShowAndTell';
-import {Mixpanel} from 'mixpanel-react-native';
+import { Mixpanel } from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';
 import AudioSessionManager from '../utils/AudioSessionManager';
-import {useAdmin} from '../contexts/adminContext';
+import { useAdmin } from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
-import {check, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import { check, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import {
   parseMy8Words,
   My8WordsData,
   getDefaultMy8Words,
 } from '../utils/my8wordsUtils';
-import {getImageSource} from '../utils/imageDownloader';
+import { getImageSource } from '../utils/imageDownloader';
 
 // Function to get avatar image based on selected gender
 const getAvatarImage = (gender: string) => {
@@ -60,7 +60,7 @@ const getAvatarImage = (gender: string) => {
 
 type RootStackParamList = {
   LOGIN: undefined;
-  HOME: {stateof?: string};
+  HOME: { stateof?: string };
   FEELINGS: undefined;
   SHORTCUTS: undefined;
   CONVO: undefined;
@@ -69,12 +69,12 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const {height, width} = Dimensions.get('window');
+const { height, width } = Dimensions.get('window');
 
 const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
-  const {isTablet} = useAdmin();
+  const { isTablet } = useAdmin();
   const [recognizedText, setRecognizedText] = useState('');
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [adminCodeInput, setAdminCodeInput] = useState('');
@@ -82,9 +82,9 @@ const OpenScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
   const [startupModalVisible, setStartupModalVisible] = useState(false);
-  const {isConnected} = useConnection();
+  const { isConnected } = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
-  const {preferences, getItem, setItem} = useAppSettings();
+  const { preferences, getItem, setItem } = useAppSettings();
   const heroName = preferences?.heroName;
   const [settingsTappedOnce, setSettingsTappedOnce] = useState(false);
   const [microphoneTappedOnce, setMicrophoneTappedOnce] = useState(false);
@@ -136,7 +136,7 @@ const OpenScreen: React.FC = () => {
 
         // Modal disabled - no longer showing video after onboarding
         setStartupModalVisible(false);
-      } catch (e) {}
+      } catch (e) { }
     };
     loadStatus();
   }, [getItem]);
@@ -420,7 +420,7 @@ const OpenScreen: React.FC = () => {
         clearInterval(loadingModalCheckIntervalRef.current);
       }
       // Properly stop wake word service to prevent memory leaks
-      wakeWordService.stopListening().catch(error => {});
+      wakeWordService.stopListening().catch(error => { });
     };
   }, []);
 
@@ -522,7 +522,7 @@ const OpenScreen: React.FC = () => {
     });
   };
 
-  useEffect(() => {}, [modalVisible]);
+  useEffect(() => { }, [modalVisible]);
 
   // Handle Android back button when modal is visible
   const handleBackPress = useCallback(() => {
@@ -599,7 +599,7 @@ const OpenScreen: React.FC = () => {
         // Small delay to ensure stop is fully complete
         await new Promise<void>(resolve => setTimeout(resolve, 200));
       }
-    } catch (error) {}
+    } catch (error) { }
 
     // Prepare audio session for TTS (after stopping wakeword)
     await AudioSessionManager.prepareForTTS();
@@ -664,7 +664,7 @@ const OpenScreen: React.FC = () => {
 
   return (
     <>
-      <Animated.View style={[{flex: 1, opacity: fadeAnim}]}>
+      <Animated.View style={[{ flex: 1, opacity: fadeAnim }]}>
         <LinearGradient
           colors={['#FFF8E7', '#FFFFFF']}
           style={styles.container}>
@@ -691,7 +691,7 @@ const OpenScreen: React.FC = () => {
                   isTablet
                     ? styles.microphoneImage
                     : styles.microphoneImagePhone,
-                  isHandshakeSpeaking && {opacity: 0.7},
+                  isHandshakeSpeaking && { opacity: 0.7 },
                 ]}
                 resizeMode={FastImage.resizeMode.contain}
               />
@@ -705,7 +705,7 @@ const OpenScreen: React.FC = () => {
                   ? require('../assets/michrophone.gif')
                   : require('../assets/noMic.png')
               }
-              style={[styles.iconSize, isListening.current && {opacity: 0.5}]}
+              style={[styles.iconSize, isListening.current && { opacity: 0.5 }]}
               resizeMode={FastImage.resizeMode.contain}
             />
           </Pressable>
@@ -716,7 +716,7 @@ const OpenScreen: React.FC = () => {
               style={styles.pointHandBubble}
               onPress={startListening}
               activeOpacity={0.7}>
-              <Animated.View style={{transform: [{scale: handScaleAnim}]}}>
+              <Animated.View style={{ transform: [{ scale: handScaleAnim }] }}>
                 <FastImage
                   source={require('../assets/pointhand.png')}
                   style={styles.pointHandImage}
@@ -727,7 +727,7 @@ const OpenScreen: React.FC = () => {
                 style={[
                   styles.speechBubble,
                   {
-                    transform: [{scale: bubbleScaleAnim}],
+                    transform: [{ scale: bubbleScaleAnim }],
                     borderColor: bubbleScaleAnim.interpolate({
                       inputRange: [1, 1.1],
                       outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
@@ -776,7 +776,7 @@ const OpenScreen: React.FC = () => {
                 style={[
                   styles.speechBubble,
                   {
-                    transform: [{scale: settingsBubbleScaleAnim}],
+                    transform: [{ scale: settingsBubbleScaleAnim }],
                     borderColor: settingsBubbleScaleAnim.interpolate({
                       inputRange: [1, 1.1],
                       outputRange: ['rgba(0, 0, 0, 0.1)', '#8B5CF6'],
@@ -788,7 +788,7 @@ const OpenScreen: React.FC = () => {
                 <Text style={styles.speechBubbleText}>Personalization!!</Text>
               </Animated.View>
               <Animated.View
-                style={{transform: [{scale: settingsHandScaleAnim}]}}>
+                style={{ transform: [{ scale: settingsHandScaleAnim }] }}>
                 <FastImage
                   source={require('../assets/pointhandRight.png')}
                   style={styles.pointHandImage}
@@ -817,7 +817,7 @@ const OpenScreen: React.FC = () => {
                     <View
                       style={[
                         styles.labelContainer,
-                        {backgroundColor: 'rgba(20, 108, 240, 0.25)'},
+                        { backgroundColor: 'rgba(20, 108, 240, 0.25)' },
                       ]}>
                       <Text style={styles.kidText}>Start Talking</Text>
                     </View>
@@ -839,7 +839,7 @@ const OpenScreen: React.FC = () => {
                     <View
                       style={[
                         styles.labelContainer,
-                        {backgroundColor: 'rgba(47, 183, 111, 0.25)'},
+                        { backgroundColor: 'rgba(47, 183, 111, 0.25)' },
                       ]}>
                       <Text style={styles.kidText}>Type Here</Text>
                     </View>
@@ -879,7 +879,7 @@ const OpenScreen: React.FC = () => {
                     <View
                       style={[
                         styles.labelContainer,
-                        {backgroundColor: 'rgba(229, 72, 72, 0.25)'},
+                        { backgroundColor: 'rgba(229, 72, 72, 0.25)' },
                       ]}>
                       <Text style={[styles.kidText]}>How I Feel</Text>
                     </View>
@@ -916,7 +916,7 @@ const OpenScreen: React.FC = () => {
                     <View
                       style={[
                         styles.labelContainer,
-                        {backgroundColor: 'rgba(124, 58, 237, 0.25)'},
+                        { backgroundColor: 'rgba(124, 58, 237, 0.25)' },
                       ]}>
                       <Text style={styles.kidText}>ShortCuts</Text>
                     </View>
@@ -947,7 +947,7 @@ const OpenScreen: React.FC = () => {
                             source={getImageSource(card)}
                             style={styles.cardImage}
                             resizeMode={FastImage.resizeMode.cover}
-                            onError={() => {}}
+                            onError={() => { }}
                           />
                         </View>
                         <Text style={styles.yesNoTextSmall}>{card.word}</Text>
@@ -973,7 +973,7 @@ const OpenScreen: React.FC = () => {
                             source={getImageSource(card)}
                             style={styles.cardImage}
                             resizeMode={FastImage.resizeMode.cover}
-                            onError={() => {}}
+                            onError={() => { }}
                           />
                         </View>
                         <Text style={styles.yesNoTextSmall}>{card.word}</Text>
@@ -1156,9 +1156,10 @@ const styles = StyleSheet.create({
   },
   wrapper: {
     flexDirection: 'row',
-    height: height * 0.42,
-    justifyContent: 'center',
+    height: height * 0.38,
+    justifyContent: 'space-between',
     marginTop: height * 0.01,
+    marginBottom: height * 0.01,
     width: '100%',
   },
   imageWrapper: {
@@ -1176,11 +1177,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     height: '100%',
-    marginHorizontal: '1%',
   },
   tileWrapper: {
     width: '100%',
-    height: '92%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'visible',
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
     shadowColor: 'rgba(0, 0, 0, 0.50)',
     shadowOpacity: 8,
     shadowRadius: 4,
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     elevation: 8,
     backgroundColor: 'white',
   },
@@ -1215,7 +1215,7 @@ const styles = StyleSheet.create({
     shadowColor: 'rgba(0, 0, 0, 0.50)',
     shadowOpacity: 8,
     shadowRadius: 4,
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     elevation: 8,
     backgroundColor: 'white',
   },
