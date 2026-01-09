@@ -156,6 +156,7 @@ const ShowAndTell: React.FC<ShowAndTellProps> = ({
               <Video
                 ref={videoRef}
                 source={getCurrentVideoSource()}
+                disableAudioSessionManagement={true}
                 style={styles.video}
                 paused={paused}
                 rate={rate}
