@@ -1,6 +1,6 @@
-import {Platform} from 'react-native';
+import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
-import {NativeEventEmitter, NativeModules} from 'react-native';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 
 // Platform-specific imports
 let TTSManager: any;
@@ -17,9 +17,9 @@ class TTSService {
   private static instance: TTSService;
   private initialized: boolean = false;
   private isPlaying: boolean = false;
-  private queue: Array<{text: string; onComplete?: () => void}> = [];
+  private queue: Array<{ text: string; onComplete?: () => void }> = [];
   private processingQueue: boolean = false;
-  private currentItem: {text: string; onComplete?: () => void} | null = null;
+  private currentItem: { text: string; onComplete?: () => void } | null = null;
   private ttsBasePath: string = `${RNFS.MainBundlePath}`;
   private ttsConfig = {
     modelPath: `${this.ttsBasePath}/en_US-amy-medium.onnx`,
@@ -42,7 +42,7 @@ class TTSService {
       try {
         await TTSManager.initialize(JSON.stringify(this.ttsConfig));
       } catch (e) {
-        
+
       }
     } else {
       // Android - using react-native-tts
@@ -75,7 +75,7 @@ class TTSService {
           this.processingQueue = false;
         });
       } catch (e) {
-        
+
       }
     }
   }
@@ -113,7 +113,7 @@ class TTSService {
         await Tts.speak(text);
       }
     } catch (e) {
-      
+
       // Clear timeout on error
       if (Platform.OS === 'ios') {
         this.clearIOSPlaybackTimeout();
@@ -152,7 +152,7 @@ class TTSService {
       await this.initTTS();
       this.initialized = true;
     } catch (error) {
-      
+
       this.initialized = false;
     }
   }
@@ -163,7 +163,7 @@ class TTSService {
     onComplete?: () => void,
   ): Promise<void> {
     if (!text || text.trim().length === 0) {
-      
+
       return;
     }
 
@@ -171,29 +171,29 @@ class TTSService {
       if (!this.initialized) {
         const initialized = await this.waitForInitialization();
         if (!initialized) {
-          
           return;
         }
       }
+
 
       if (immediate) {
         await this.stop();
         // For iOS, wait a bit longer to ensure previous playback is fully stopped
         const stopDelay = Platform.OS === 'ios' ? 200 : 50;
         setTimeout(() => {
-          this.queue = [{text, onComplete}];
+          this.queue = [{ text, onComplete }];
           this.processQueue();
         }, stopDelay);
         return;
       } else {
-        this.queue.push({text, onComplete});
+        this.queue.push({ text, onComplete });
       }
 
       if (!this.isPlaying && !this.processingQueue) {
         this.processQueue();
       }
     } catch (error) {
-      
+
     }
   }
 
@@ -225,7 +225,7 @@ class TTSService {
         }
       }
     } catch (error) {
-      
+
       this.isPlaying = false;
       this.processingQueue = false;
       this.currentItem = null;
@@ -247,7 +247,7 @@ class TTSService {
       this.processingQueue = false;
       this.currentItem = null;
     } catch (error) {
-      
+
       // Reset state even if stop fails
       this.isPlaying = false;
       this.queue = [];
@@ -260,7 +260,7 @@ class TTSService {
       await this.stop();
       this.initialized = false;
     } catch (error) {
-      
+
       // Reset state even if shutdown fails
       this.initialized = false;
     }
@@ -290,7 +290,7 @@ class TTSService {
       await this.initialize();
       return this.initialized;
     } catch (error) {
-      
+
       return false;
     }
   }
@@ -310,28 +310,28 @@ class TTSService {
     const modelExists = await RNFS.exists(modelPath);
     if (!modelExists) {
       const msg = `Missing TTS model file: ${modelPath}`;
-      
+
       return false;
     }
 
     const tokensExists = await RNFS.exists(tokensPath);
     if (!tokensExists) {
       const msg = `Missing TTS tokens file: ${tokensPath}`;
-      
+
       return false;
     }
 
     const dataDirExists = await RNFS.exists(dataDirPath);
     if (!dataDirExists) {
       const msg = `Missing espeak-ng-data folder: ${dataDirPath}`;
-      
+
       return false;
     }
 
     const modelCardExists = await RNFS.exists(modelCardPath);
     if (!modelCardExists) {
       const msg = `Missing MODEL_CARD file: ${modelCardPath}`;
-      
+
       return false;
     }
 
@@ -343,7 +343,7 @@ class TTSService {
     const emitter = new NativeEventEmitter(
       NativeModules.TTSManager || NativeModules.TTS,
     );
-    const subscription = emitter.addListener('VolumeUpdate', () => {});
+    const subscription = emitter.addListener('VolumeUpdate', () => { });
     return () => subscription.remove();
   }
 }

@@ -12,8 +12,11 @@ import {
   Modal,
   TextInput,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+
 import FastImage from 'react-native-fast-image';
 import { DraggableGrid } from 'react-native-draggable-grid';
 import { useAppSettings } from '../../utils/persistance';
@@ -111,6 +114,13 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     updateCurrentNodes();
   }, [nodes, folderStack]);
 
+  // Reset sentence whenever the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      handleResetSentence();
+    }, []),
+  );
+
   // Force re-render when grid size changes
   useEffect(() => {
     // This effect will trigger when selectedGridSize changes, ensuring all grid calculations are updated
@@ -133,6 +143,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       setNodes(allNodes);
       setSentenceTokenIds(sentenceState.tokenIds);
       setAllFolders(allFoldersData);
+
+      // Reset sentence on initial load
+      await handleResetSentence();
 
       // Load grid size from settings
       const gridConfigKey = Object.keys(GRID_CONFIGS).find(key => {
@@ -196,6 +209,10 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     } catch (error) { }
   };
 
+
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   const getGridConfig = useCallback(() => {
     return GRID_CONFIGS[selectedGridSize];
   }, [selectedGridSize]);
@@ -205,52 +222,57 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     // In landscape mode: width is the longer dimension (screen width), height is the shorter dimension (screen height)
     const availableWidth = width - 8; // Reduced padding for more width (4px on each side)
 
-    // Responsive breakpoints for different device types - using height as the reference for mobile detection
-    const isSmallMobile = height < 480; // Very small phones (height is shorter dimension in landscape)
-    const isMobile = height < 768; // Regular phones
-    const isTabletDevice = height >= 768 && height < 1024; // Tablets
+    // Responsive breakpoints for different device types
+    // Use prop if available, otherwise fallback to height check. Inclusive of 1024 for iPad Pro 12.9"
+    const isTabletDevice = isTablet !== undefined ? isTablet : (height >= 768);
+    const isSmallMobile = height < 480;
 
     // Calculate UI elements height dynamically
-    const navigationBarHeight = height * 0.055; // Navigation bar minHeight
-    const breadcrumbHeight = isTabletDevice ? 40 : 32; // Breadcrumb height (8px padding + content)
+    const navigationBarHeight = height * 0.055; // Navigation bar minHeight (approx 5.5% of height)
     const gridSizeSelectorHeight = isEditing ? 48 : 0; // Grid size selector (only in edit mode)
-    const gridPadding = 8; // Grid container padding
+
+    // Adaptive padding and buffer
+    const gridPadding = isTabletDevice ? 8 : 2;
+    // Increased safety buffer to account for potential accumulation of small pixel differences or other UI elements
+    // Mobile: reduced from 10 back to 2 to reclaim space per user feedback ("insets are to much")
+    const safetyBuffer = isTabletDevice ? 40 : 2;
+
+    // Calculate insets to subtract
+    // On tablet: subtract both top and bottom safe areas
+    // On mobile: only subtract bottom safe area (home indicator) to maximize vertical space
+    // We ignore top inset on mobile assuming landscape/immersive mode where we want to use that space
+    const insetsToSubtract = isTabletDevice ? (insets.top + insets.bottom) : insets.bottom;
+
     const totalUIHeight =
       navigationBarHeight +
-      breadcrumbHeight +
       gridSizeSelectorHeight +
       gridPadding +
-      20; // Extra buffer to ensure 5th row fits
+      safetyBuffer +
+      insetsToSubtract; // ACCOUNT FOR SAFE AREA INSETS (Optimized)
 
     const availableHeight = height - totalUIHeight;
     const cardMargin = 2; // Much bigger gap between cards for visibility
     const cardSpacing = cardMargin * 2; // Total spacing between cards
     const cardWidth =
       (availableWidth - (gridConfig.cols - 1) * cardSpacing) / gridConfig.cols;
-    const cardHeight =
+
+    // Calculate card height based on available height, ensuring we don't exceed it
+    const rawCardHeight =
       (availableHeight - (gridConfig.rows - 1) * cardSpacing) / gridConfig.rows;
 
-    if (isSmallMobile) {
-      // Very small mobile devices - make cards 1.25x height and narrower
-      const finalWidth = Math.min(cardWidth, 100); // Much narrower width
-      const finalHeight = Math.min(cardHeight * 1.25, 400); // 1.25x height with max of 400px
-      return { width: finalWidth, height: finalHeight };
-    } else if (isMobile) {
-      // Regular mobile devices - make cards 1.25x height and narrower
-      const finalWidth = Math.min(cardWidth, 120); // Much narrower width
-      const finalHeight = Math.min(cardHeight * 1.25, 450); // 1.25x height with max of 450px
-      return { width: finalWidth, height: finalHeight };
-    } else if (isTabletDevice) {
-      // Tablets - use slightly rectangular cards but not too wide
-      const finalWidth = Math.min(cardWidth, 220); // Increased from 200px to 220px
-      const finalHeight = Math.min(cardHeight, 200); // Increased from 180px to 200px
-      return { width: finalWidth, height: finalHeight };
+    const cardHeight = Math.floor(rawCardHeight);
+
+    if (!isTabletDevice) {
+      // Mobile devices (both small and regular)
+      return { width: Math.floor(cardWidth), height: cardHeight };
     } else {
-      // Desktop - use the original logic but with better proportions
-      const finalWidth = Math.min(cardWidth, 240); // Increased from 220px to 240px
-      const finalHeight = Math.min(cardHeight, 220); // Increased from 200px to 220px
+      // Tablets
+      const finalWidth = Math.min(cardWidth, 220);
+      // Ensure we don't accidentally make cards taller than calculated available space per row
+      const finalHeight = Math.min(cardHeight, 200);
       return { width: finalWidth, height: finalHeight };
     }
+
   }, [getGridConfig, isEditing]);
 
   const getColorForNode = useCallback((node: Node): string => {
@@ -613,6 +635,12 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   const handleResetSentence = async () => {
     try {
+      // Prevent errors if DB is not yet initialized
+      if (!sentenceBuilderSqlite.isInitialized()) {
+        setSentenceTokenIds([]);
+        return;
+      }
+
       // Notify parent component about sentence being played before clearing
       if (sentenceTokenIds.length > 0) {
         onSentencePlayed?.(sentenceTokenIds, nodes);
