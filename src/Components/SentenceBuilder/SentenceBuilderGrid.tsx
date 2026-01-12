@@ -228,7 +228,10 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     const isSmallMobile = height < 480;
 
     // Calculate UI elements height dynamically
-    const navigationBarHeight = height * 0.055; // Navigation bar minHeight (approx 5.5% of height)
+    // Calculate UI elements height dynamically
+    // Navigation bar height is approx 11-12% on mobile (9.5% token + padding)
+    const navBarRatio = isTabletDevice ? 0.10 : 0.12;
+    const navigationBarHeight = height * navBarRatio;
     const gridSizeSelectorHeight = isEditing ? 48 : 0; // Grid size selector (only in edit mode)
 
     // Adaptive padding and buffer
@@ -499,7 +502,14 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
         // Speak the word using TTS
         const textToSpeak = node.ttsText || node.title;
-        TTSService.speak(textToSpeak, true); // Use immediate=true to prioritize this speech
+        const onPlaybackComplete = async () => {
+          // Always clear the flag after playback completes
+          // If your native module exposes endTTS() (we added it), prefer that:
+          // await AudioSessionManagerModule.endTTS();
+          AudioSessionManager.setTTSActive(false);
+        };
+        // Calling speak with immediate=true and our completion callback
+        await TTSService.speak(textToSpeak, true, onPlaybackComplete);
       }
     } catch (error) {
       if (node.kind !== 'folder') {
