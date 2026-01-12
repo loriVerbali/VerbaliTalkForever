@@ -10,7 +10,7 @@ import { WordImageResult, WordImageSearchResponse } from './wordImageApi';
  */
 export const searchGoogleImages = async (
     query: string,
-    limit: number = 5,
+    limit: number = 10,
 ): Promise<WordImageSearchResponse> => {
     try {
         const response = await fetchHelper(

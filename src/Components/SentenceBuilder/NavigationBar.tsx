@@ -53,11 +53,14 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
     tokenSize: isTablet ? height * 0.0612 : height * 0.068, // 15% smaller
     tokenBorderRadius: isTablet ? height * 0.0306 : height * 0.034,
     tokenImageBorderRadius: isTablet ? height * 0.0306 - 2 : height * 0.034 - 2,
-    playButtonSize: isTablet ? height * 0.045 : height * 0.05,
+    playButtonSize: isTablet ? height * 0.045 : height * 0.06,
     playButtonBorderRadius: isTablet ? height * 0.0225 : height * 0.025,
     // Total token height including label (token + label + spacing)
     tokenTotalHeight: isTablet ? height * 0.085 : height * 0.095,
     tokenLabelHeight: isTablet ? height * 0.018 : height * 0.02,
+    trashIconSize: isTablet ? height * 0.04 : height * 0.06,
+    playIconSize: isTablet ? height * 0.04 : height * 0.06,
+
   };
 
   // Go to mainboard (root) - same as Breadcrumb behavior
@@ -194,7 +197,14 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
         </ScrollView>
 
         {/* Play Button */}
-        <View style={{ borderLeftWidth: 3, borderLeftColor: '#4A90D9', flexDirection: 'row', paddingLeft: 10, paddingRight: 5 }}>
+        <View
+          style={{
+            borderLeftWidth: 3,
+            borderLeftColor: '#4A90D9',
+            flexDirection: 'row',
+            paddingLeft: 10,
+            paddingRight: 5,
+          }}>
           {sentenceTokenIds.length > 0 && (
             <TouchableOpacity
               style={[
@@ -206,15 +216,33 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
                 },
               ]}
               onPress={handlePlaySentence}>
-              <Text style={styles.playButtonText}>▶</Text>
+              <FastImage
+                source={require('../../assets/playKeyboard.png')}
+                style={{
+                  width: responsiveValues.playButtonSize,
+                  height: responsiveValues.playButtonSize,
+                }}
+                resizeMode={FastImage.resizeMode.contain}
+              />
             </TouchableOpacity>
           )}
 
           {/* Trashcan Icon */}
-          <TouchableOpacity style={styles.trashButton} onPress={onTrashPress}>
+
+          <TouchableOpacity style={[
+            styles.playButton,
+            {
+              width: responsiveValues.playButtonSize,
+              height: responsiveValues.playButtonSize,
+              borderRadius: responsiveValues.playButtonBorderRadius,
+            },
+          ]} onPress={onTrashPress}>
             <FastImage
               source={require('../../assets/trash.png')}
-              style={styles.trashIconSize}
+              style={{
+                width: responsiveValues.trashIconSize,
+                height: responsiveValues.trashIconSize,
+              }}
               resizeMode={FastImage.resizeMode.contain}
             />
           </TouchableOpacity>
@@ -348,13 +376,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 8,
-    backgroundColor: '#28a745',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
-
   },
   playButtonText: {
     fontSize: height * 0.025,
@@ -366,7 +392,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 6,
-
   },
   exitButton: {
     width: 44,

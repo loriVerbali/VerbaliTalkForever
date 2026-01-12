@@ -474,9 +474,6 @@ const OpenScreen: React.FC = () => {
             const Voice = require('@dev-amirzubair/react-native-voice').default;
             const isVoiceRecognizing = await Voice.isRecognizing();
             if (isVoiceRecognizing) {
-              console.log(
-                '[Open] Voice is recognizing, skipping wakeword start',
-              );
               return;
             }
           } catch (error) {
@@ -897,19 +894,13 @@ const OpenScreen: React.FC = () => {
                     style={styles.tileWrapper}
                     onPress={() => handleNavigation('Talk')}>
                     <View style={styles.imageWrapper}>
-                      {connectionState ? (
-                        <FastImage
-                          key="connected-image"
-                          source={require('../assets/talk.png')}
-                          style={styles.image}
-                          resizeMode={FastImage.resizeMode.contain}
-                        />
-                      ) : (
-                        <NoInternetConnection
-                          key="no-connection"
-                          height={'30%'}
-                        />
-                      )}
+
+                      <FastImage
+                        key="connected-image"
+                        source={require('../assets/talk.png')}
+                        style={styles.image}
+                        resizeMode={FastImage.resizeMode.contain}
+                      />
                     </View>
                     <View
                       style={[
