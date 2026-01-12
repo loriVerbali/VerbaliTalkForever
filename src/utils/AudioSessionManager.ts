@@ -1,6 +1,6 @@
-import {NativeModules, NativeEventEmitter, Platform} from 'react-native';
+import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 
-const {AudioSessionManagerModule} = NativeModules;
+const { AudioSessionManagerModule } = NativeModules;
 
 interface AudioSessionStatus {
   category: string;
@@ -116,7 +116,6 @@ class AudioSessionManagerService {
 
     try {
       const result = await AudioSessionManagerModule.prepareForWakeword();
-
       return result;
     } catch (error) {
       return false;
@@ -133,7 +132,6 @@ class AudioSessionManagerService {
 
     try {
       const result = await AudioSessionManagerModule.prepareForWhisper();
-
       return result;
     } catch (error) {
       return false;

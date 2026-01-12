@@ -406,6 +406,20 @@ const AppConfig: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    polishApi: {
+      description: 'polishApi',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/polish-text',
+      mustStringify: true,
+      isFlatResponse: false,
+      openAi: false,
+      isBeta: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
   },
 };
 

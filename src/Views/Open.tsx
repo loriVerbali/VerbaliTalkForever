@@ -376,14 +376,6 @@ const OpenScreen: React.FC = () => {
             }
           }
 
-          // Get current values from storage to ensure we have the latest
-          const [isIOSActive, isInTrial, trialInstallationDate] =
-            await Promise.all([
-              getItem('isIOSActive'),
-              getItem('isInTrial'),
-              getItem('trialInstallationDate'),
-            ]);
-
           // Callback is already set above, just start listening (this will handle initialization if needed)
           await wakeWordService.startListening();
 
@@ -504,12 +496,7 @@ const OpenScreen: React.FC = () => {
   );
 
   const startListening = async () => {
-    // Get current values from storage to ensure we have the latest
-    const [isIOSActive, isInTrial, trialInstallationDate] = await Promise.all([
-      getItem('isIOSActive'),
-      getItem('isInTrial'),
-      getItem('trialInstallationDate'),
-    ]);
+
 
     // Mark microphone as tapped once
     if (!microphoneTappedOnce) {
@@ -561,11 +548,6 @@ const OpenScreen: React.FC = () => {
 
   const handKeyboard = async () => {
     // Get current values from storage to ensure we have the latest
-    const [isIOSActive, isInTrial, trialInstallationDate] = await Promise.all([
-      getItem('isIOSActive'),
-      getItem('isInTrial'),
-      getItem('trialInstallationDate'),
-    ]);
 
     mixpanel.track('Keyboard Pressed');
     navigation.navigate('HOME' as any, {
@@ -853,12 +835,7 @@ const OpenScreen: React.FC = () => {
                     style={styles.tileWrapper}
                     onPress={async () => {
                       // Get current values from storage to ensure we have the latest
-                      const [isIOSActive, isInTrial, trialInstallationDate] =
-                        await Promise.all([
-                          getItem('isIOSActive'),
-                          getItem('isInTrial'),
-                          getItem('trialInstallationDate'),
-                        ]);
+
 
                       mixpanel.track('Feelings Pressed');
                       Animated.timing(fadeAnim, {
@@ -890,12 +867,6 @@ const OpenScreen: React.FC = () => {
                     style={styles.tileWrapper}
                     onPress={async () => {
                       // Get current values from storage to ensure we have the latest
-                      const [isIOSActive, isInTrial, trialInstallationDate] =
-                        await Promise.all([
-                          getItem('isIOSActive'),
-                          getItem('isInTrial'),
-                          getItem('trialInstallationDate'),
-                        ]);
 
                       mixpanel.track('Shortcuts Pressed');
                       Animated.timing(fadeAnim, {

@@ -35,6 +35,7 @@ import WakeWordService from '../utils/wakewordService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import WhisperService from '../utils/WhisperService';
 import { useDatabase } from '../contexts/DatabaseContext';
+import { polishText } from '../utils/polishApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -1258,78 +1259,29 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
+  // Function to handle keyboard input cancellation
+  const handlePolish = () => {
+
+    polishText(keyboardInput)
+      .then((response) => {
+        setKeyboardInput(response);
+      })
+      .catch((error) => {
+        console.error(error);
+      })
+
+  };
+
   // Render function for keyboard input
   const renderKeyboardInput = () => {
-    const hasText = debouncedKeyboardInput.trim().length > 0;
-
     return (
       <View
         style={[
           styles.keyboardInputContainer,
           { padding: responsiveValues.keyboardInputPadding },
         ]}>
-        {/* Show buttons always - MOVED TO TOP */}
-        <View style={styles.keyboardButtonsContainer}>
-          <TouchableOpacity
-            style={[
-              styles.keyboardButton,
-              styles.cancelButton,
-              {
-                paddingVertical:
-                  responsiveValues.keyboardButtonPadding.vertical,
-                paddingHorizontal:
-                  responsiveValues.keyboardButtonPadding.horizontal,
-                minWidth: responsiveValues.keyboardButtonMinWidth,
-                borderRadius: responsiveValues.keyboardButtonBorderRadius,
-              },
-            ]}
-            onPress={handleKeyboardCancel}
-            disabled={isSubmittingKeyboard}>
-            <Text
-              style={[
-                styles.cancelButtonText,
-                { fontSize: responsiveValues.buttonFontSize },
-              ]}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.keyboardButton,
-              styles.submitButton,
-              {
-                paddingVertical:
-                  responsiveValues.keyboardButtonPadding.vertical,
-                paddingHorizontal:
-                  responsiveValues.keyboardButtonPadding.horizontal,
-                minWidth: responsiveValues.keyboardButtonMinWidth,
-                borderRadius: responsiveValues.keyboardButtonBorderRadius,
-              },
-            ]}
-            onPress={handleKeyboardSubmit}
-            disabled={
-              isSubmittingKeyboard ||
-              debouncedKeyboardInput.trim().length === 0
-            }>
-            {isSubmittingKeyboard ? (
-              <FastImage
-                source={require('../assets/movie/output.gif')}
-                style={[styles.iconSize, responsiveValues.fetchingSize]}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.submitButtonText,
-                  { fontSize: responsiveValues.buttonFontSize },
-                ]}>
-                Submit
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
 
-        {/* Direct Text Input */}
+        {/* Direct Text Input Container with Split Layout */}
         <View
           style={[
             styles.typingDisplay,
@@ -1338,16 +1290,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               minHeight: responsiveValues.typingDisplayMinHeight,
               backgroundColor: '#FFFFFF', // Ensure background is white for input
               width: '100%',
+              flexDirection: 'row', // Split layout
+              alignItems: 'stretch',
             },
           ]}>
+
+          {/* Left Side: Text Input */}
           <TextInput
             style={[
               styles.typingDisplayText,
               {
+                flex: 1, // Take available space
                 fontSize: responsiveValues.keyboardTypingFontSize,
-                width: '100%',
                 minHeight: responsiveValues.typingDisplayMinHeight,
-                textAlignVertical: 'top', // For Android-like behavior on multiline if needed later
+                textAlignVertical: 'top', // For Android-like behavior on multiline
+                textAlign: 'left', // Align text to left
+                marginRight: 10,
               },
             ]}
             value={keyboardInput}
@@ -1358,6 +1316,75 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             autoFocus={true}
             blurOnSubmit={false}
           />
+
+          {/* Divider */}
+          <View style={{ width: 4, backgroundColor: '#3518dcff', height: '100%', marginHorizontal: 5 }} />
+
+          {/* Right Side: Buttons */}
+          <View style={{ flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', marginLeft: 5 }}>
+            {/* Play/Submit Button */}
+            <TouchableOpacity
+              style={{
+                width: isTablet ? 50 : 40,
+                height: isTablet ? 50 : 40,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 15,
+              }}
+              onPress={handleKeyboardSubmit}
+              disabled={
+                isSubmittingKeyboard ||
+                debouncedKeyboardInput.trim().length === 0
+              }>
+              {isSubmittingKeyboard ? (
+                <FastImage
+                  source={require('../assets/movie/output.gif')}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              ) : (
+                <FastImage
+                  source={require('../assets/playKeyboard.png')}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              )}
+            </TouchableOpacity>
+
+            {/* Cancel/Undo Button */}
+            <TouchableOpacity
+              style={{
+                width: isTablet ? 50 : 40,
+                height: isTablet ? 50 : 40,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 15,
+              }}
+              onPress={handleKeyboardCancel}
+              disabled={isSubmittingKeyboard}>
+              <FastImage
+                source={require('../assets/undo.png')}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </TouchableOpacity>
+            {/* Polish Button */}
+            <TouchableOpacity
+              style={{
+                width: isTablet ? 50 : 40,
+                height: isTablet ? 50 : 40,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={handlePolish}
+              disabled={isSubmittingKeyboard}>
+              <FastImage
+                source={require('../assets/polish.png')}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );

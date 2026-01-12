@@ -34,6 +34,7 @@ import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice from '@dev-amirzubair/react-native-voice';
 import { useDatabase } from '../contexts/DatabaseContext';
+import { polishText } from '../utils/polishApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -377,18 +378,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Set up final results handler
     // Note: event.value is an array of recognized text strings
     Voice.onSpeechResults = (event: any) => {
-      console.log('Voice: onSpeechResults', event);
       if (event.value && event.value.length > 0) {
         // event.value is already an array of results
         setVoiceResults(event.value[0]);
         voiceResultsRef.current = event.value;
-        console.log('Voice: Set voiceResultsRef to', event.value);
       }
     };
 
     // Set up partial results handler for streaming text
     Voice.onSpeechPartialResults = (event: any) => {
-      console.log('Voice: onSpeechPartialResults', event);
       let partialText = '';
 
       // event.value is an array of partial results
@@ -418,7 +416,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
         // Set new silence timer - if no new partial results for 2 seconds, stop recording
         silenceTimerRef.current = setTimeout(async () => {
-          console.log('Voice: Silence detected, auto-stopping recording');
           // Only stop if we have some text and are still recording
           if (partialResultRef.current.trim().length > 0) {
             await stopRecording();
@@ -484,9 +481,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   const handleRecord = async () => {
     // Prevent multiple simultaneous recordings using ref (sync check)
-    console.log('handleRecord: isRecordingRef =', isRecordingRef.current);
     if (isRecordingRef.current) {
-      console.log('handleRecord: Already recording, ignoring duplicate call');
       return;
     }
 
@@ -501,29 +496,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     try {
       const wakeWordService = WakeWordService.getInstance();
       const status = wakeWordService.getStatus();
-      console.log(
-        'handleRecord: WakeWordService status =',
-        JSON.stringify(status),
-      );
 
       // Use cleanup() which:
       // 1. Waits for any pending startingPromise
       // 2. Waits for any pending initializingPromise (CRITICAL for first launch!)
       // 3. Calls stopListening()
       // 4. Releases all native resources
-      console.log(
-        'handleRecord: Cleaning up WakeWordService to release microphone',
-      );
+
       await wakeWordService.cleanup();
-      console.log('handleRecord: WakeWordService cleanup complete');
 
       // Longer delay on Android to ensure microphone is fully released
       // Android audio system can take time to release resources
-      console.log('handleRecord: Waiting for microphone release...');
       await new Promise<void>(resolve => setTimeout(resolve, 800));
-      console.log('handleRecord: Microphone should be released now');
     } catch (error) {
-      console.log('handleRecord: Error cleaning up WakeWordService', error);
       // Even if there's an error, wait longer before trying Voice
       await new Promise<void>(resolve => setTimeout(resolve, 500));
     }
@@ -565,19 +550,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setIsUsingLocalWhisper(true); // Voice uses device recognition
 
       const availableServices = await Voice.getSpeechRecognitionServices();
-      console.log('Available speech services:', availableServices);
 
       // Start Voice recognition with locale
       // NOTE: Don't force RECOGNIZER_ENGINE - let Android choose the best available
       // Using 'en-US' format (with hyphen) which is more widely supported
-      console.log('Starting Voice recognition...');
       await Voice.start('en-US', {
         EXTRA_PARTIAL_RESULTS: true,
         EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 5000,
         EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
         EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
       });
-      console.log('Voice recognition started successfully');
 
       // Set timer to stop recording after 20 seconds
       recordingTimer.current = setTimeout(async () => {
@@ -602,7 +584,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   const stopRecording = async () => {
     try {
-      console.log('stopRecording: Stopping...');
       // Clear timer first to prevent multiple calls
       if (recordingTimer.current) {
         clearTimeout(recordingTimer.current);
@@ -626,15 +607,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Process the voice results using refs (which are captured synchronously)
       // Small delay to allow any final onResults event to fire
       setTimeout(() => {
-        console.log('stopRecording: Processing voice results after delay');
-        console.log(
-          'stopRecording: voiceResultsRef =',
-          voiceResultsRef.current,
-        );
-        console.log(
-          'stopRecording: partialResultRef =',
-          partialResultRef.current,
-        );
         processVoiceResults();
       }, 300); // Small delay to ensure results are captured
     } catch (error) {
@@ -656,15 +628,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const currentVoiceResults = voiceResultsRef.current;
       const currentPartialResult = partialResultRef.current;
 
-      console.log(
-        'processVoiceResults: voiceResultsRef =',
-        currentVoiceResults,
-      );
-      console.log(
-        'processVoiceResults: partialResultRef =',
-        currentPartialResult,
-      );
-
       // Get the best result from voiceResults, fallback to partialResult if voiceResults is empty
       let transcribedText = '';
       if (currentVoiceResults.length > 0) {
@@ -674,7 +637,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         transcribedText = currentPartialResult.trim();
       }
 
-      console.log('processVoiceResults: transcribedText =', transcribedText);
 
       if (
         transcribedText.length === 0 ||
@@ -685,7 +647,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         transcribedText === '. .' ||
         transcribedText === '.'
       ) {
-        console.log('processVoiceResults: Empty or false positive detected');
         setFinishedTranscribing(true);
         setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
         TTSService.speak("I couldn't hear you. Tap Home to retry", true);
@@ -1086,38 +1047,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           // NOTE: handleRecord() called cleanup() earlier, so WakeWordService needs to reinitialize
           try {
             // IMPORTANT: Destroy Voice to fully release the microphone before starting wake word
-            console.log(
-              'handleAnswerSelected: Destroying Voice to release microphone...',
-            );
+
             await Voice.destroy();
-            console.log('handleAnswerSelected: Voice destroyed');
 
             // Longer delay to ensure Android has fully released the microphone
             await new Promise<void>(resolve => setTimeout(resolve, 800));
 
             const wakeWordService = WakeWordService.getInstance();
-            console.log(
-              'handleAnswerSelected: WakeWordService status before restart:',
-              JSON.stringify(wakeWordService.getStatus()),
-            );
+
 
             // Set callback first
             wakeWordService.setCallback((phrase: string) => {
-              console.log('WakeWord detected in waiting state:', phrase);
               // When wake word detected, start new conversation
               setWaitingForNextConversation(false);
               playSound(); // This will trigger handleRecord()
             });
 
             // Start listening - this will reinitialize the service since cleanup() was called
-            console.log('handleAnswerSelected: Starting WakeWordService...');
             await wakeWordService.startListening();
 
             const statusAfter = wakeWordService.getStatus();
-            console.log(
-              'handleAnswerSelected: WakeWordService started, status:',
-              JSON.stringify(statusAfter),
-            );
+
 
             // Verify it's actually listening
             if (!wakeWordService.isCurrentlyListening()) {
@@ -1201,78 +1151,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
+  // Function to handle keyboard input cancellation
+  const handlePolish = () => {
+    polishText(keyboardInput)
+      .then((response) => {
+        setKeyboardInput(response);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  };
+
   // Render function for keyboard input
   const renderKeyboardInput = () => {
-    const hasText = debouncedKeyboardInput.trim().length > 0;
-
     return (
       <View
         style={[
           styles.keyboardInputContainer,
           { padding: responsiveValues.keyboardInputPadding },
         ]}>
-        {/* Show buttons always - MOVED TO TOP */}
-        <View style={styles.keyboardButtonsContainer}>
-          <TouchableOpacity
-            style={[
-              styles.keyboardButton,
-              styles.cancelButton,
-              {
-                paddingVertical:
-                  responsiveValues.keyboardButtonPadding.vertical,
-                paddingHorizontal:
-                  responsiveValues.keyboardButtonPadding.horizontal,
-                minWidth: responsiveValues.keyboardButtonMinWidth,
-                borderRadius: responsiveValues.keyboardButtonBorderRadius,
-              },
-            ]}
-            onPress={handleKeyboardCancel}
-            disabled={isSubmittingKeyboard}>
-            <Text
-              style={[
-                styles.cancelButtonText,
-                { fontSize: responsiveValues.buttonFontSize },
-              ]}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.keyboardButton,
-              styles.submitButton,
-              {
-                paddingVertical:
-                  responsiveValues.keyboardButtonPadding.vertical,
-                paddingHorizontal:
-                  responsiveValues.keyboardButtonPadding.horizontal,
-                minWidth: responsiveValues.keyboardButtonMinWidth,
-                borderRadius: responsiveValues.keyboardButtonBorderRadius,
-              },
-            ]}
-            onPress={handleKeyboardSubmit}
-            disabled={
-              isSubmittingKeyboard ||
-              debouncedKeyboardInput.trim().length === 0
-            }>
-            {isSubmittingKeyboard ? (
-              <FastImage
-                source={require('../assets/movie/output.gif')}
-                style={[styles.iconSize, responsiveValues.fetchingSize]}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.submitButtonText,
-                  { fontSize: responsiveValues.buttonFontSize },
-                ]}>
-                Submit
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
 
-        {/* Direct Text Input */}
+        {/* Direct Text Input Container with Split Layout */}
         <View
           style={[
             styles.typingDisplay,
@@ -1281,16 +1180,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               minHeight: responsiveValues.typingDisplayMinHeight,
               backgroundColor: '#FFFFFF', // Ensure background is white for input
               width: '100%',
+              flexDirection: 'row', // Split layout
+              alignItems: 'stretch',
             },
           ]}>
+
+          {/* Left Side: Text Input */}
           <TextInput
             style={[
               styles.typingDisplayText,
               {
+                flex: 1, // Take available space
                 fontSize: responsiveValues.keyboardTypingFontSize,
-                width: '100%',
                 minHeight: responsiveValues.typingDisplayMinHeight,
                 textAlignVertical: 'top', // For Android
+                textAlign: 'left', // Align text to left
+                marginRight: 10,
               },
             ]}
             value={keyboardInput}
@@ -1301,6 +1206,75 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             autoFocus={true}
             blurOnSubmit={false}
           />
+
+          {/* Divider */}
+          <View style={{ width: 1, backgroundColor: '#E0E0E0', height: '100%', marginHorizontal: 5 }} />
+
+          {/* Right Side: Buttons */}
+          <View style={{ flexDirection: 'column', justifyContent: 'center', alignItems: 'center', marginLeft: 5 }}>
+            {/* Play/Submit Button */}
+            <TouchableOpacity
+              style={{
+                width: isTablet ? 60 : 50,
+                height: isTablet ? 60 : 50,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 10,
+              }}
+              onPress={handleKeyboardSubmit}
+              disabled={
+                isSubmittingKeyboard ||
+                debouncedKeyboardInput.trim().length === 0
+              }>
+              {isSubmittingKeyboard ? (
+                <FastImage
+                  source={require('../assets/movie/output.gif')}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              ) : (
+                <FastImage
+                  source={require('../assets/playKeyboard.png')}
+                  style={{ width: '100%', height: '100%' }}
+                  resizeMode={FastImage.resizeMode.contain}
+                />
+              )}
+            </TouchableOpacity>
+
+            {/* Cancel/Undo Button */}
+            <TouchableOpacity
+              style={{
+                width: isTablet ? 50 : 40,
+                height: isTablet ? 50 : 40,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 15,
+              }}
+              onPress={handleKeyboardCancel}
+              disabled={isSubmittingKeyboard}>
+              <FastImage
+                source={require('../assets/undo.png')}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </TouchableOpacity>
+            {/* Polish Button */}
+            <TouchableOpacity
+              style={{
+                width: isTablet ? 50 : 40,
+                height: isTablet ? 50 : 40,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={handlePolish}
+              disabled={isSubmittingKeyboard}>
+              <FastImage
+                source={require('../assets/polish.png')}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -1335,6 +1309,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
         {/* Home Button */}
         <HomeButton navigation={navigation} onReset={resetLocalStates} />
+
+
 
         {/* Matalk Icon */}
         <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
