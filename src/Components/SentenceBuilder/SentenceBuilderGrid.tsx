@@ -51,7 +51,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 interface SentenceBuilderGridProps {
   isTablet?: boolean;
   onWordAdded?: (nodeId: string) => void;
-  onWordRemoved?: (nodeId: string) => void;
+  onWordRemoved?: (nodeId: string, index: number) => void;
   onSentencePlayed?: (sentenceTokens: string[], nodes: Node[]) => void;
   onBreadcrumbTapped?: (index: number) => void;
   onGridSizeChanged?: (size: GridConfigKey) => void;
@@ -480,36 +480,32 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         // Navigate to folder - this should navigate, not add to sentence
         setFolderStack(prev => [...prev, { nodeId: node.id, title: node.title }]);
       } else {
-        // Add word to sentence
-        await sentenceBuilderSqlite.addWordToSentence(node.id);
-        setSentenceTokenIds(prev => {
-          // Prevent duplicate additions - if nodeId already exists, don't add it again
-          if (prev.includes(node.id)) {
-            return prev; // Return the previous array without adding the duplicate
-          }
-          return [...prev, node.id];
-        });
-
-        // Notify parent component about word addition
-        onWordAdded?.(node.id);
-
-        // Log word selection to database
-        const wordToLog = node.ttsText || node.title;
-        await logWordSelection(wordToLog);
-
-        // Prepare audio session for TTS to ensure consistent volume
-        await AudioSessionManager.prepareForTTS();
-
-        // Speak the word using TTS
+        // Speak the word using TTS (always speak, even if it's a consecutive duplicate)
         const textToSpeak = node.ttsText || node.title;
         const onPlaybackComplete = async () => {
-          // Always clear the flag after playback completes
-          // If your native module exposes endTTS() (we added it), prefer that:
-          // await AudioSessionManagerModule.endTTS();
           AudioSessionManager.setTTSActive(false);
         };
-        // Calling speak with immediate=true and our completion callback
+        await AudioSessionManager.prepareForTTS();
         await TTSService.speak(textToSpeak, true, onPlaybackComplete);
+
+        // Logic for adding to sentence: block consecutive duplicates
+        const isConsecutiveDuplicate =
+          sentenceTokenIds.length > 0 &&
+          sentenceTokenIds[sentenceTokenIds.length - 1] === node.id;
+
+        if (!isConsecutiveDuplicate) {
+          // Add word to sentence database
+          await sentenceBuilderSqlite.addWordToSentence(node.id);
+
+          // Update local state
+          setSentenceTokenIds(prev => [...prev, node.id]);
+
+          // Notify parent component about word addition
+          onWordAdded?.(node.id);
+
+          // Log word selection to database (analytics/history)
+          await logWordSelection(textToSpeak);
+        }
       }
     } catch (error) {
       if (node.kind !== 'folder') {
@@ -624,13 +620,17 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   };
 
   // Sentence bar handlers
-  const handleRemoveToken = async (nodeId: string) => {
+  const handleRemoveToken = async (nodeId: string, index: number) => {
     try {
-      await sentenceBuilderSqlite.removeWordFromSentence(nodeId);
-      setSentenceTokenIds(prev => prev.filter(id => id !== nodeId));
+      await sentenceBuilderSqlite.removeWordFromSentence(index);
+      setSentenceTokenIds(prev => {
+        const newState = [...prev];
+        newState.splice(index, 1);
+        return newState;
+      });
 
       // Notify parent component about word removal
-      onWordRemoved?.(nodeId);
+      onWordRemoved?.(nodeId, index);
     } catch (error) {
       Alert.alert('Error', 'Failed to remove word from sentence');
     }

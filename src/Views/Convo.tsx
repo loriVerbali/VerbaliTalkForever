@@ -44,8 +44,12 @@ const Convo = () => {
     [handleFirstWordAdded],
   );
 
-  const handleWordRemoved = useCallback((nodeId: string) => {
-    setCurrentSentenceTokens(prev => prev.filter(id => id !== nodeId));
+  const handleWordRemoved = useCallback((nodeId: string, index: number) => {
+    setCurrentSentenceTokens(prev => {
+      const newState = [...prev];
+      newState.splice(index, 1);
+      return newState;
+    });
     // Note: We don't decrease totalWordsAdded to track deleted words
   }, []);
 
