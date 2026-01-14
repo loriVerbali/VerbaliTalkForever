@@ -1,12 +1,12 @@
-import React, {useState, useRef, useCallback} from 'react';
-import {View, StyleSheet} from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import SentenceBuilderGrid from '../Components/SentenceBuilder/SentenceBuilderGrid';
-import {useDatabase} from '../contexts/DatabaseContext';
-import {Mixpanel} from 'mixpanel-react-native';
-import {GridConfigKey} from '../types/sentenceBuilder';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { Mixpanel } from 'mixpanel-react-native';
+import { GridConfigKey } from '../types/sentenceBuilder';
 
 const Convo = () => {
-  const {addClassicEntry} = useDatabase();
+  const { addClassicEntry } = useDatabase();
   const mixpanel = useRef(new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true));
   const [sentenceStartTime, setSentenceStartTime] = useState<number | null>(
     null,
@@ -36,6 +36,7 @@ const Convo = () => {
   // Track word additions and deletions
   const handleWordAdded = useCallback(
     (nodeId: string) => {
+      console.log('[Convo] handleWordAdded:', nodeId);
       setTotalWordsAdded(prev => prev + 1);
       setCurrentSentenceTokens(prev => [...prev, nodeId]);
       handleFirstWordAdded();
@@ -83,7 +84,7 @@ const Convo = () => {
           timetobuild: timeToBuild,
         });
       } catch (error) {
-        
+
         // Don't show error to user - fail silently as requested
       } finally {
         // Reset timer and counters
@@ -110,17 +111,17 @@ const Convo = () => {
 
   // Track breadcrumb tap
   const handleBreadcrumbTapped = useCallback((index: number) => {
-    mixpanel.current.track('Convo Breadcrumb Tapped', {index});
+    mixpanel.current.track('Convo Breadcrumb Tapped', { index });
   }, []);
 
   // Track grid size change
   const handleGridSizeChanged = useCallback((size: GridConfigKey) => {
-    mixpanel.current.track('Convo Grid Size Changed', {size});
+    mixpanel.current.track('Convo Grid Size Changed', { size });
   }, []);
 
   // Track grid size value
   const handleGridSizeLoaded = useCallback((size: GridConfigKey) => {
-    mixpanel.current.track('Convo Grid Size', {size});
+    mixpanel.current.track('Convo Grid Size', { size });
   }, []);
 
   // Track reset DB tap

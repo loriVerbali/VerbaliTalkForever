@@ -22,6 +22,7 @@
 		8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */; };
 		8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8A8772E82DC2994E00CD1BDE /* snap.mp3 */; };
 		8A91D8F12E9363EC000789B3 /* MaTalkStore.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 8A91D8F02E9363EC000789B3 /* MaTalkStore.storekit */; };
+		8A958B792F15E74B0087E85B /* AudioSessionManagerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A958B782F15E74B0087E85B /* AudioSessionManagerModule.m */; };
 		8D6A173332132F679CB3C6F1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -60,6 +61,7 @@
 		8A8772E82DC2994E00CD1BDE /* snap.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snap.mp3; sourceTree = "<group>"; };
 		8A8843322E282F99006C8EA5 /* matalk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = matalk.entitlements; sourceTree = "<group>"; };
 		8A91D8F02E9363EC000789B3 /* MaTalkStore.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = MaTalkStore.storekit; sourceTree = "<group>"; };
+		8A958B782F15E74B0087E85B /* AudioSessionManagerModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AudioSessionManagerModule.m; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -108,6 +110,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				8A958B782F15E74B0087E85B /* AudioSessionManagerModule.m */,
 				8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */,
 				8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */,
 				8A91D8F02E9363EC000789B3 /* MaTalkStore.storekit */,
@@ -338,6 +341,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				8A958B792F15E74B0087E85B /* AudioSessionManagerModule.m in Sources */,
 				8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */,
 				8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */,
 			);
