@@ -499,7 +499,14 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
         // Speak the word using TTS
         const textToSpeak = node.ttsText || node.title;
-        TTSService.speak(textToSpeak, true); // Use immediate=true to prioritize this speech
+        const onPlaybackComplete = async () => {
+          // Always clear the flag after playback completes
+          // If your native module exposes endTTS() (we added it), prefer that:
+          // await AudioSessionManagerModule.endTTS();
+          AudioSessionManager.setTTSActive(false);
+        };
+        // Calling speak with immediate=true and our completion callback
+        await TTSService.speak(textToSpeak, true, onPlaybackComplete);
       }
     } catch (error) {
       if (node.kind !== 'folder') {
