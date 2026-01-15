@@ -223,10 +223,10 @@ class AudioSessionManager: NSObject {
                                   (category == .playAndRecord && (currentCategory == .playback || currentCategory == .record))
       
       // We are lenient with modes: if in voiceChat or default, they usually work for both
+      // But we are strict moving between .measurement and .default because TTS engine needs specific state
       let isModeCompatible = (currentMode == mode) ||
                              (mode == .default && currentMode == .voiceChat) ||
-                             (mode == .measurement && currentMode == .default) ||
-                             (mode == .default && currentMode == .measurement)
+                             (mode == .voiceChat && currentMode == .default)
       
       // Check for essential options
       let essentialOptions: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetooth, .allowBluetoothHFP]

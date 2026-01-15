@@ -107,13 +107,24 @@ class TTSService {
           this.handleIOSPlaybackFinished();
         }, this.iosTTSEstimatedDuration);
 
-        await TTSManager.generateAndPlay(text, speakerId, speed);
+        // DELAY AND RETRY LOGIC FOR IOS
+        // Give the audio session a moment to settle after preparation
+        await new Promise<void>(resolve => setTimeout(resolve, 100));
+
+        try {
+          await TTSManager.generateAndPlay(text, speakerId, speed);
+        } catch (error) {
+          console.warn('[TTSService] First TTS attempt failed, retrying...', error);
+          // Wait a bit longer and retry once
+          await new Promise<void>(resolve => setTimeout(resolve, 200));
+          await TTSManager.generateAndPlay(text, speakerId, speed);
+        }
       } else {
         // Android - using react-native-tts
         await Tts.speak(text);
       }
     } catch (e) {
-
+      console.error('[TTSService] speakText error after retries:', e);
       // Clear timeout on error
       if (Platform.OS === 'ios') {
         this.clearIOSPlaybackTimeout();
