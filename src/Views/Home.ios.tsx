@@ -6,8 +6,8 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useNavigation, RouteProp } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
@@ -57,6 +57,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const { generateAnswers } = useAssistant();
   const { weather, location } = useChatContext();
   const { isTablet } = useAdmin();
+  const insets = useSafeAreaInsets();
   const { getItem, preferences } = useAppSettings();
   const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
   const stateof = route?.params?.stateof ?? '';
@@ -256,9 +257,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   }, [weather, location, cachedContextInfo, lastContextUpdate]);
 
   // Add keyboard input state
-  const [keyboardInput, setKeyboardInput] = useState('');
-  const [debouncedKeyboardInput, setDebouncedKeyboardInput] = useState('');
-  const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
@@ -283,7 +281,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
   let currentRecordingURI: string | null = null;
 
   // AI response timer state
@@ -892,9 +890,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsProcessingAnswer(false); // Reset processing state
     setIsTranscribing(false); // Reset transcription state
     setIsRecording(false); // Reset recording state
-    setKeyboardInput(''); // Reset keyboard input
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
+    setIsRecording(false); // Reset recording state
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
@@ -1153,9 +1149,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           setIsProcessingAnswer(false);
           setIsTranscribing(false);
           setIsRecording(false);
-          setKeyboardInput('');
-          setDebouncedKeyboardInput('');
-          setIsSubmittingKeyboard(false);
           setIsUsingLocalWhisper(false);
           setModelNotAvailable(false);
 
@@ -1196,198 +1189,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-  // Function to handle keyboard input submission
-  const handleKeyboardSubmit = async () => {
-    const inputText = keyboardInput.trim();
-
-    if (!inputText || isSubmittingKeyboard) {
-      return;
-    }
-
-    try {
-      setIsSubmittingKeyboard(true);
-
-      // Simply display what was written without making API calls
-      // Use the new onComplete callback support in TTSService
-      await TTSService.speak(inputText, true, () => {
-        if (stateof === 'Keyboard') {
-          // Clear input when speech finishes
-          setKeyboardInput('');
-          setDebouncedKeyboardInput('');
-
-          if (inputsRef.current) {
-            inputsRef.current.clearInput();
-          }
-        }
-      });
-    } catch (error) {
-    } finally {
-      setIsSubmittingKeyboard(false);
-    }
-  };
-
-  // Debounced input handler
-  const handleKeyboardInputChange = useCallback((text: string) => {
-    setKeyboardInput(text);
-
-    // Clear existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // Set new timer for debounced update
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedKeyboardInput(text);
-    }, 300); // 300ms debounce
-  }, []);
-
-  // Function to handle keyboard input cancellation
-  const handleKeyboardCancel = () => {
-    setKeyboardInput('');
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
-
-    // Clear the input in the Inputs component
-    if (inputsRef.current) {
-      inputsRef.current.clearInput();
-    }
-
-    // Clear debounce timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = null;
-    }
-  };
-
-  // Function to handle keyboard input cancellation
   const handlePolish = () => {
-
-    polishText(keyboardInput)
-      .then((response) => {
-        setKeyboardInput(response);
-      })
-      .catch((error) => {
-        console.error(error);
-      })
-
-  };
-
-  // Render function for keyboard input
-  const renderKeyboardInput = () => {
-    return (
-      <View
-        style={[
-          styles.keyboardInputContainer,
-          { padding: responsiveValues.keyboardInputPadding },
-        ]}>
-
-        {/* Direct Text Input Container with Split Layout */}
-        <View
-          style={[
-            styles.typingDisplay,
-            {
-              padding: responsiveValues.typingDisplayPadding,
-              minHeight: responsiveValues.typingDisplayMinHeight,
-              backgroundColor: '#FFFFFF', // Ensure background is white for input
-              width: '100%',
-              flexDirection: 'row', // Split layout
-              alignItems: 'stretch',
-            },
-          ]}>
-
-          {/* Left Side: Text Input */}
-          <TextInput
-            style={[
-              styles.typingDisplayText,
-              {
-                flex: 1, // Take available space
-                fontSize: responsiveValues.keyboardTypingFontSize,
-                minHeight: responsiveValues.typingDisplayMinHeight,
-                textAlignVertical: 'top', // For Android-like behavior on multiline
-                textAlign: 'left', // Align text to left
-                marginRight: 10,
-              },
-            ]}
-            value={keyboardInput}
-            onChangeText={handleKeyboardInputChange}
-            placeholder="Type your message..."
-            placeholderTextColor="#999"
-            multiline={true}
-            autoFocus={true}
-            blurOnSubmit={false}
-          />
-
-          {/* Divider */}
-          <View style={{ width: 4, backgroundColor: '#3518dcff', height: '100%', marginHorizontal: 5 }} />
-
-          {/* Right Side: Buttons */}
-          <View style={{ flexDirection: 'column', justifyContent: 'flex-start', alignItems: 'flex-start', marginLeft: 5 }}>
-            {/* Play/Submit Button */}
-            <TouchableOpacity
-              style={{
-                width: isTablet ? 50 : 40,
-                height: isTablet ? 50 : 40,
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 15,
-              }}
-              onPress={handleKeyboardSubmit}
-              disabled={
-                isSubmittingKeyboard ||
-                debouncedKeyboardInput.trim().length === 0
-              }>
-              {isSubmittingKeyboard ? (
-                <FastImage
-                  source={require('../assets/movie/output.gif')}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              ) : (
-                <FastImage
-                  source={require('../assets/playKeyboard.png')}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              )}
-            </TouchableOpacity>
-
-            {/* Cancel/Undo Button */}
-            <TouchableOpacity
-              style={{
-                width: isTablet ? 50 : 40,
-                height: isTablet ? 50 : 40,
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 15,
-              }}
-              onPress={handleKeyboardCancel}
-              disabled={isSubmittingKeyboard}>
-              <FastImage
-                source={require('../assets/undo.png')}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-            </TouchableOpacity>
-            {/* Polish Button */}
-            <TouchableOpacity
-              style={{
-                width: isTablet ? 50 : 40,
-                height: isTablet ? 50 : 40,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-              onPress={handlePolish}
-              disabled={isSubmittingKeyboard}>
-              <FastImage
-                source={require('../assets/polish.png')}
-                style={{ width: '100%', height: '100%' }}
-                resizeMode={FastImage.resizeMode.contain}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    );
+    // Moved to KeyboardHome
   };
 
   return (
@@ -1429,13 +1232,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           navigation={navigation}
           onReset={resetLocalStates}
           disabled={
-            stateof === 'Keyboard'
-              ? false
-              : isRecording ||
-              isProcessingAnswer ||
-              isRetrying ||
-              isSubmittingKeyboard ||
-              (!finishedTranscribing && !waitingForNextConversation)
+            isRecording ||
+            isProcessingAnswer ||
+            isRetrying ||
+            (!finishedTranscribing && !waitingForNextConversation)
           }
         />
 
@@ -1444,19 +1244,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           <MatalkIcon />
         </View>
 
-        {/* Input and Navigation Section */}
         <View
           style={[
             styles.inputNavigationContainer,
             stateof === 'Keyboard'
               ? { height: 0, opacity: 0 }
-              : { height: responsiveValues.inputNavigationHeight },
+              : {
+                height: responsiveValues.inputNavigationHeight,
+                marginTop: Math.max(insets.top, 10)
+              },
           ]}>
           {stateof !== 'Keyboard' && (
             <Inputs
               ref={inputsRef}
               mode={stateof}
-              onInputChange={handleKeyboardInputChange}
             />
           )}
         </View>
@@ -1699,7 +1500,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         </TouchableOpacity>
                       </View>
                     ) : stateof === 'Keyboard' ? (
-                      renderKeyboardInput()
+                      null // Keyboard mode handled by KeyboardHome view
                     ) : isTranscribing ? (
                       <View style={{ alignItems: 'center' }}>
                         <FastImage
@@ -1867,7 +1668,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 60
   },
   recordingContainer: {
     width: height * 0.4,

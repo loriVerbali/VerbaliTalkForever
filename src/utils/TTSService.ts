@@ -107,13 +107,24 @@ class TTSService {
           this.handleIOSPlaybackFinished();
         }, this.iosTTSEstimatedDuration);
 
-        await TTSManager.generateAndPlay(text, speakerId, speed);
+        // DELAY AND RETRY LOGIC FOR IOS
+        // Give the audio session a moment to settle after preparation
+        await new Promise<void>(resolve => setTimeout(resolve, 100));
+
+        try {
+          await TTSManager.generateAndPlay(text, speakerId, speed);
+        } catch (error) {
+          console.warn('[TTSService] First TTS attempt failed, retrying...', error);
+          // Wait a bit longer and retry once
+          await new Promise<void>(resolve => setTimeout(resolve, 200));
+          await TTSManager.generateAndPlay(text, speakerId, speed);
+        }
       } else {
         // Android - using react-native-tts
         await Tts.speak(text);
       }
     } catch (e) {
-
+      console.error('[TTSService] speakText error after retries:', e);
       // Clear timeout on error
       if (Platform.OS === 'ios') {
         this.clearIOSPlaybackTimeout();
@@ -163,7 +174,6 @@ class TTSService {
     onComplete?: () => void,
   ): Promise<void> {
     if (!text || text.trim().length === 0) {
-
       return;
     }
 
@@ -191,9 +201,10 @@ class TTSService {
 
       if (!this.isPlaying && !this.processingQueue) {
         this.processQueue();
+      } else {
       }
     } catch (error) {
-
+      console.error('[TTSService] speak error:', error);
     }
   }
 
@@ -225,7 +236,7 @@ class TTSService {
         }
       }
     } catch (error) {
-
+      console.error('[TTSService] processQueue error:', error);
       this.isPlaying = false;
       this.processingQueue = false;
       this.currentItem = null;
@@ -247,7 +258,7 @@ class TTSService {
       this.processingQueue = false;
       this.currentItem = null;
     } catch (error) {
-
+      console.error('[TTSService] stop error:', error);
       // Reset state even if stop fails
       this.isPlaying = false;
       this.queue = [];
@@ -260,7 +271,7 @@ class TTSService {
       await this.stop();
       this.initialized = false;
     } catch (error) {
-
+      console.error('[TTSService] shutdown error:', error);
       // Reset state even if shutdown fails
       this.initialized = false;
     }
