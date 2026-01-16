@@ -14,7 +14,8 @@
     "openStudio": "open -a 'Android Studio' .",
     "runAndroid": "npx @react-native-community/cli run-android",
     "deleteDerivedData": "rm -rf ~/Library/Developer/Xcode/DerivedData/matalkforever-*",
-    "cleanIos": "cd ios && rm -rf build && pod install && cd .."
+    "cleanIos": "cd ios && rm -rf build && pod install && cd ..",
+    "shake": "adb shell input keyevent 82"
   },
   "dependencies": {
     "@dev-amirzubair/react-native-voice": "^1.0.4",

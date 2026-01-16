@@ -550,7 +550,7 @@ const OpenScreen: React.FC = () => {
     // Get current values from storage to ensure we have the latest
 
     mixpanel.track('Keyboard Pressed');
-    navigation.navigate('HOME' as any, {
+    navigation.navigate(views.KEYBOARD_HOME as any, {
       stateof: 'Keyboard',
     });
     // TTSService.speak('Keyboard selected');

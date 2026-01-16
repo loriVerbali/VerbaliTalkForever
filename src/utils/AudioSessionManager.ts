@@ -38,9 +38,9 @@ class AudioSessionManagerService {
 
     try {
       const result = await NativeModules.AudioSessionManagerModule.configure();
-
       return result;
     } catch (error) {
+      console.error('[AudioSessionManager] configure error:', error);
       return false;
     }
   }
@@ -58,6 +58,7 @@ class AudioSessionManagerService {
 
       return result;
     } catch (error) {
+      console.error('[AudioSessionManager] reactivate error:', error);
       return false;
     }
   }
@@ -102,6 +103,7 @@ class AudioSessionManagerService {
       const status = await AudioSessionManagerModule.getStatus();
       return status as AudioSessionStatus;
     } catch (error) {
+      console.error('[AudioSessionManager] getStatus error:', error);
       return null;
     }
   }
@@ -118,6 +120,7 @@ class AudioSessionManagerService {
       const result = await AudioSessionManagerModule.prepareForWakeword();
       return result;
     } catch (error) {
+      console.error('[AudioSessionManager] prepareForWakeword error:', error);
       return false;
     }
   }
@@ -134,6 +137,7 @@ class AudioSessionManagerService {
       const result = await AudioSessionManagerModule.prepareForWhisper();
       return result;
     } catch (error) {
+      console.error('[AudioSessionManager] prepareForWhisper error:', error);
       return false;
     }
   }

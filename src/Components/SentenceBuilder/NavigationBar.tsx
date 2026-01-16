@@ -25,7 +25,7 @@ interface NavigationBarProps {
   onPlayPress: () => void;
   nodes: Node[];
   sentenceTokenIds: string[];
-  onRemoveToken: (nodeId: string) => void;
+  onRemoveToken: (nodeId: string, index: number) => void;
   folderStack: FolderStackItem[];
   onFolderPress: (index: number) => void;
   onBackPress?: () => void;
@@ -118,7 +118,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
             node.kind === 'word' && styles.wordToken,
             node.kind === 'folder' && styles.folderToken,
           ]}
-          onPress={() => onRemoveToken(nodeId)}>
+          onPress={() => onRemoveToken(nodeId, index)}>
           {node.imageUri ? (
             <FastImage
               source={

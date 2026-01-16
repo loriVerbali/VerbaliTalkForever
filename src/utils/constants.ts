@@ -1,5 +1,5 @@
 import React from 'react';
-import {Dimensions, ImageSourcePropType} from 'react-native';
+import { Dimensions, ImageSourcePropType } from 'react-native';
 import FastImage from 'react-native-fast-image';
 
 // Define types for views and stacks
@@ -22,6 +22,7 @@ type Views = {
   SHORTCUTS: string;
   CONVO: string;
   LOGIN: string;
+  KEYBOARD_HOME: string;
 };
 
 type Stacks = {
@@ -63,6 +64,7 @@ export const views: Views = {
   SHORTCUTS: 'SHORTCUTS',
   CONVO: 'Convo',
   LOGIN: 'LOGIN',
+  KEYBOARD_HOME: 'view.KEYBOARD_HOME',
 };
 
 export const stacks: Stacks = {

@@ -6,9 +6,9 @@ import {
 } from 'react-native-wakeword';
 import Config from 'react-native-config';
 import DeviceInfo from 'react-native-device-info';
-import {Platform} from 'react-native';
+import { Platform } from 'react-native';
 import AudioSessionManager from './AudioSessionManager';
-import {Mixpanel} from 'mixpanel-react-native';
+import { Mixpanel } from 'mixpanel-react-native';
 
 interface InstanceConfig {
   id: string;
@@ -53,7 +53,7 @@ class WakeWordService {
 
   private constructor() {
     // Private constructor for singleton
-    this.mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+    this.mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
     this.detectDevice();
   }
 
@@ -565,9 +565,8 @@ class WakeWordService {
         } catch (error) {
           return {
             success: false,
-            error: `Failed to start/stop listening: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            error: `Failed to start/stop listening: ${error instanceof Error ? error.message : String(error)
+              }`,
             details: {
               ...status,
               testError: error,
@@ -586,9 +585,8 @@ class WakeWordService {
     } catch (error) {
       return {
         success: false,
-        error: `Test failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        error: `Test failed: ${error instanceof Error ? error.message : String(error)
+          }`,
         details: this.getStatus(),
       };
     }
