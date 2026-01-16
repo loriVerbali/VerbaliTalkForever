@@ -6,8 +6,6 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
-  TextInput,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

@@ -17,7 +17,6 @@ import HomeButton from '../Components/HomeButton';
 import MatalkIcon from '../Components/MatalkIcon';
 import TTSService from '../utils/TTSService';
 import { polishText } from '../utils/polishApi';
-import { views } from '../utils/constants';
 import { useAdmin } from '../contexts/adminContext';
 import AudioSessionManager from '../utils/AudioSessionManager';
 

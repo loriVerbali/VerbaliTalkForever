@@ -24,7 +24,6 @@ import { useAppSettings } from '../utils/persistance';
 import AppConfig from '../utils/config';
 import { hasAppAccess } from '../utils/trialUtils';
 import { useConnection } from '../utils/connection';
-import NoInternetConnection from '../Components/NoInternetConnection';
 import ShowAndTell from '../Components/ShowAndTell';
 import { Mixpanel } from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';

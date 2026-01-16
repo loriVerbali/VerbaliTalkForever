@@ -173,25 +173,20 @@ class TTSService {
     immediate: boolean = false,
     onComplete?: () => void,
   ): Promise<void> {
-    console.log('[TTSService] speak called', { text, immediate });
     if (!text || text.trim().length === 0) {
-      console.log('[TTSService] speak: empty text, ignoring');
       return;
     }
 
     try {
       if (!this.initialized) {
-        console.log('[TTSService] speak: not initialized, waiting...');
         const initialized = await this.waitForInitialization();
         if (!initialized) {
-          console.log('[TTSService] speak: initialization failed');
           return;
         }
       }
 
 
       if (immediate) {
-        console.log('[TTSService] speak: immediate requested, stopping current');
         await this.stop();
         // For iOS, wait a bit longer to ensure previous playback is fully stopped
         const stopDelay = Platform.OS === 'ios' ? 200 : 50;
@@ -201,15 +196,12 @@ class TTSService {
         }, stopDelay);
         return;
       } else {
-        console.log('[TTSService] speak: adding to queue');
         this.queue.push({ text, onComplete });
       }
 
       if (!this.isPlaying && !this.processingQueue) {
-        console.log('[TTSService] speak: starting queue processing');
         this.processQueue();
       } else {
-        console.log('[TTSService] speak: already playing or processing', { isPlaying: this.isPlaying, processingQueue: this.processingQueue });
       }
     } catch (error) {
       console.error('[TTSService] speak error:', error);
@@ -217,7 +209,6 @@ class TTSService {
   }
 
   private async processQueue(): Promise<void> {
-    console.log('[TTSService] processQueue called', { processing: this.processingQueue, playing: this.isPlaying, queueLen: this.queue.length });
     if (this.processingQueue || this.isPlaying || this.queue.length === 0) {
       return;
     }
@@ -228,7 +219,6 @@ class TTSService {
       if (nextItem) {
         this.currentItem = nextItem;
         this.isPlaying = true;
-        console.log('[TTSService] processQueue: speaking next item', nextItem.text);
         await this.speakText(nextItem.text);
 
         // For iOS, don't immediately set isPlaying to false
@@ -254,7 +244,6 @@ class TTSService {
   }
 
   public async stop(): Promise<void> {
-    console.log('[TTSService] stop called');
     try {
       if (Platform.OS === 'android' && Tts) {
         await Tts.stop();
@@ -268,7 +257,6 @@ class TTSService {
       this.queue = [];
       this.processingQueue = false;
       this.currentItem = null;
-      console.log('[TTSService] stop completed');
     } catch (error) {
       console.error('[TTSService] stop error:', error);
       // Reset state even if stop fails
@@ -279,7 +267,6 @@ class TTSService {
   }
 
   public async shutdown(): Promise<void> {
-    console.log('[TTSService] shutdown called');
     try {
       await this.stop();
       this.initialized = false;

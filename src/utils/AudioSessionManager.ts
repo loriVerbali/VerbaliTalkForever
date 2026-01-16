@@ -37,10 +37,7 @@ class AudioSessionManagerService {
     }
 
     try {
-      console.log('[AudioSessionManager] configure calling native...');
       const result = await NativeModules.AudioSessionManagerModule.configure();
-      console.log('[AudioSessionManager] configure result:', result);
-
       return result;
     } catch (error) {
       console.error('[AudioSessionManager] configure error:', error);
@@ -57,9 +54,7 @@ class AudioSessionManagerService {
     }
 
     try {
-      console.log('[AudioSessionManager] reactivate calling native...');
       const result = await AudioSessionManagerModule.reactivate();
-      console.log('[AudioSessionManager] reactivate result:', result);
 
       return result;
     } catch (error) {
@@ -74,7 +69,6 @@ class AudioSessionManagerService {
    */
   setWakewordActive(active: boolean): void {
     if (Platform.OS === 'ios' && AudioSessionManagerModule) {
-      console.log('[AudioSessionManager] setWakewordActive:', active);
       AudioSessionManagerModule.setWakewordActive(active);
     }
   }
@@ -84,7 +78,6 @@ class AudioSessionManagerService {
    */
   setWhisperActive(active: boolean): void {
     if (Platform.OS === 'ios' && AudioSessionManagerModule) {
-      console.log('[AudioSessionManager] setWhisperActive:', active);
       AudioSessionManagerModule.setWhisperActive(active);
     }
   }
@@ -94,7 +87,6 @@ class AudioSessionManagerService {
    */
   setTTSActive(active: boolean): void {
     if (Platform.OS === 'ios' && AudioSessionManagerModule) {
-      console.log('[AudioSessionManager] setTTSActive:', active);
       AudioSessionManagerModule.setTTSActive(active);
     }
   }
@@ -109,7 +101,6 @@ class AudioSessionManagerService {
 
     try {
       const status = await AudioSessionManagerModule.getStatus();
-      console.log('[AudioSessionManager] getStatus:', status);
       return status as AudioSessionStatus;
     } catch (error) {
       console.error('[AudioSessionManager] getStatus error:', error);
@@ -126,9 +117,7 @@ class AudioSessionManagerService {
     }
 
     try {
-      console.log('[AudioSessionManager] prepareForWakeword calling native...');
       const result = await AudioSessionManagerModule.prepareForWakeword();
-      console.log('[AudioSessionManager] prepareForWakeword result:', result);
       return result;
     } catch (error) {
       console.error('[AudioSessionManager] prepareForWakeword error:', error);
@@ -145,9 +134,7 @@ class AudioSessionManagerService {
     }
 
     try {
-      console.log('[AudioSessionManager] prepareForWhisper calling native...');
       const result = await AudioSessionManagerModule.prepareForWhisper();
-      console.log('[AudioSessionManager] prepareForWhisper result:', result);
       return result;
     } catch (error) {
       console.error('[AudioSessionManager] prepareForWhisper error:', error);
@@ -164,12 +151,9 @@ class AudioSessionManagerService {
     }
 
     try {
-      console.log('[AudioSessionManager] prepareForTTS calling native...');
       const result = await AudioSessionManagerModule.prepareForTTS();
-      console.log('[AudioSessionManager] prepareForTTS result:', result);
       return result;
     } catch (error) {
-      console.error('[AudioSessionManager] prepareForTTS error:', error);
       return false;
     }
   }
@@ -179,7 +163,6 @@ class AudioSessionManagerService {
    */
   removeListeners(): void {
     if (this.eventEmitter) {
-      console.log('[AudioSessionManager] removeListeners');
       this.eventEmitter.removeAllListeners('audioSessionInterruptionEnded');
     }
   }

@@ -2,8 +2,6 @@ import React, {
   useState,
   forwardRef,
   useImperativeHandle,
-  useRef,
-  useEffect,
 } from 'react';
 import { View, StyleSheet, TextInput, Dimensions, Platform } from 'react-native';
 import { useAdmin } from '../contexts/adminContext';
