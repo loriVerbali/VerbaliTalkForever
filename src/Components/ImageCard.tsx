@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -49,6 +49,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const { preferences } = useAppSettings();
   const navigation = useNavigation();
   const { isTablet } = useAdmin();
+  const isDebouncing = useRef(false);
 
   // Responsive values based on device type - now calculated from screen dimensions
   const responsiveValues = {
@@ -141,6 +142,12 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 },
               ]}
               onPress={async () => {
+                if (isDebouncing.current) return;
+                isDebouncing.current = true;
+                setTimeout(() => {
+                  isDebouncing.current = false;
+                }, 1000);
+
                 await handleRefresh();
                 // Log the "More Answers" selection
                 onAnswerSelected?.('MoreAnswers');
@@ -202,6 +209,12 @@ const ImageCard: React.FC<ImageCardProps> = ({
               },
             ]}
             onPress={async () => {
+              if (isDebouncing.current) return;
+              isDebouncing.current = true;
+              setTimeout(() => {
+                isDebouncing.current = false;
+              }, 1000);
+
               sayAnswer(image.prompt);
               // Call the callback to log the conversation
               onAnswerSelected?.(image.prompt);
