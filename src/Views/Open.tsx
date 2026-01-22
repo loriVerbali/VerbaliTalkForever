@@ -111,6 +111,7 @@ const OpenScreen: React.FC = () => {
   const loadingModalCheckIntervalRef = useRef<ReturnType<
     typeof setInterval
   > | null>(null);
+  const isDebouncing = useRef(false);
 
   // Track connection state changes
   useEffect(() => {
@@ -677,15 +678,7 @@ const OpenScreen: React.FC = () => {
     setIsHandshakeSpeaking(true);
     handshakeTappedRef.current = true; // Set flag to prevent navigation on wake word
 
-    // Stop wakeword before speaking to avoid conflicts
-    try {
-      if (wakeWordService.isCurrentlyListening()) {
-        await wakeWordService.stopListening();
 
-        // Small delay to ensure stop is fully complete
-        await new Promise<void>(resolve => setTimeout(resolve, 200));
-      }
-    } catch (error) { }
 
     // Prepare audio session for TTS (after stopping wakeword)
     await AudioSessionManager.prepareForTTS();
@@ -693,6 +686,9 @@ const OpenScreen: React.FC = () => {
     // Speak the introduction message with completion callback
     const message = `${preferences?.handshakeMessage}`;
     await TTSService.speak(message, true, async () => {
+      // Always clear the flag after playback completes
+      AudioSessionManager.setTTSActive(false);
+
       // Prepare audio session for wakeword (after TTS ends)
       await AudioSessionManager.prepareForWakeword();
 
@@ -1037,6 +1033,12 @@ const OpenScreen: React.FC = () => {
                         key={`left-${index}`}
                         style={styles.yesNoCard}
                         onPress={async () => {
+                          if (isDebouncing.current) return;
+                          isDebouncing.current = true;
+                          setTimeout(() => {
+                            isDebouncing.current = false;
+                          }, 1000);
+
                           mixpanel.track('8 Words Pressed');
                           // Prepare audio session for TTS to ensure consistent volume
                           await AudioSessionManager.prepareForTTS();
@@ -1063,6 +1065,12 @@ const OpenScreen: React.FC = () => {
                         key={`right-${index}`}
                         style={styles.yesNoCard}
                         onPress={async () => {
+                          if (isDebouncing.current) return;
+                          isDebouncing.current = true;
+                          setTimeout(() => {
+                            isDebouncing.current = false;
+                          }, 1000);
+
                           mixpanel.track('8 Words Pressed');
                           // Prepare audio session for TTS to ensure consistent volume
                           await AudioSessionManager.prepareForTTS();
