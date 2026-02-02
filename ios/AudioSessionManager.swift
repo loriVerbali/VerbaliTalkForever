@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import UIKit
 
 @objc(AudioSessionManager)
 class AudioSessionManager: NSObject {
@@ -176,7 +177,8 @@ class AudioSessionManager: NSObject {
       category: .playAndRecord,
       mode: .measurement,
       options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothHFP, .allowAirPlay],
-      overrideOutputPort: nil
+      overrideOutputPort: nil,
+      force: false
     )
   }
   
@@ -186,17 +188,26 @@ class AudioSessionManager: NSObject {
       category: .playAndRecord,
       mode: .measurement,
       options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothHFP, .allowAirPlay],
-      overrideOutputPort: nil
+      overrideOutputPort: nil,
+      force: false
     )
   }
   
   @objc func prepareForTTS() {
     log("prepareForTTS requested")
+    
+    // iPhones treat .playAndRecord differently than iPads.
+    // iPhones engage "Voice Processing" (AGC/Ear-piece routing) in communication modes.
+    // Switching to .measurement mode on iPhone bypasses most AGC/signal processing.
+    let mode: AVAudioSession.Mode = (UIDevice.current.userInterfaceIdiom == .pad) ? .videoChat : .measurement
+    log("prepareForTTS device=\(UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone") mode=\(mode.rawValue)")
+    
     apply(
       category: .playAndRecord,
-      mode: .default,
-      options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothHFP, .allowAirPlay],
-      overrideOutputPort: .speaker
+      mode: mode,
+      options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothHFP, .allowAirPlay, .mixWithOthers],
+      overrideOutputPort: .speaker,
+      force: true
     )
   }
   
@@ -206,9 +217,11 @@ class AudioSessionManager: NSObject {
     category: AVAudioSession.Category,
     mode: AVAudioSession.Mode,
     options: AVAudioSession.CategoryOptions,
-    overrideOutputPort: AVAudioSession.PortOverride?
+    overrideOutputPort: AVAudioSession.PortOverride?,
+    force: Bool
   ) {
-    log("apply REQUEST: category=\(category.rawValue) mode=\(mode.rawValue) opts=\(options.rawValue)")
+    let sysVol = AVAudioSession.sharedInstance().outputVolume
+    log("apply REQUEST: category=\(category.rawValue) mode=\(mode.rawValue) opts=\(options.rawValue) force=\(force) systemVol=\(sysVol)")
     
     audioQueue.sync {
       let s = AVAudioSession.sharedInstance()
@@ -217,10 +230,14 @@ class AudioSessionManager: NSObject {
       let currentMode = s.mode
       let currentOptions = s.categoryOptions
       
+      // bitmask check for options
+      let hasRequiredOptions = (currentOptions.rawValue & options.rawValue) == options.rawValue
+      
       // LAZY RECONFIGURATION LOGIC
       // We are lenient with category matches to avoid engine-killing transitions
       let isCategoryCompatible = (currentCategory == category) ||
-                                  (category == .playAndRecord && (currentCategory == .playback || currentCategory == .record))
+                                  (category == .playAndRecord && currentCategory == .record) ||
+                                  (category == .record && currentCategory == .playAndRecord)
       
       // We are lenient with modes: if in voiceChat or default, they usually work for both
       // But we are strict moving between .measurement and .default because TTS engine needs specific state
@@ -228,11 +245,7 @@ class AudioSessionManager: NSObject {
                              (mode == .default && currentMode == .voiceChat) ||
                              (mode == .voiceChat && currentMode == .default)
       
-      // Check for essential options
-      let essentialOptions: AVAudioSession.CategoryOptions = [.defaultToSpeaker, .allowBluetooth, .allowBluetoothHFP]
-      let hasEssentialOptions = currentOptions.contains(options.intersection(essentialOptions))
-      
-      let needsReconfiguration = !isCategoryCompatible || !isModeCompatible || !hasEssentialOptions
+      let needsReconfiguration = force || !isCategoryCompatible || !isModeCompatible || !hasRequiredOptions
       
       log("current: \(currentCategory.rawValue)/\(currentMode.rawValue) opts=\(currentOptions.rawValue) -> needsReconfiguration=\(needsReconfiguration)")
       

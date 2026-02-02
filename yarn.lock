@@ -9376,10 +9376,10 @@ react-native-video@6.16.0:
   resolved "https://registry.npmjs.org/react-native-video/-/react-native-video-6.16.0.tgz"
   integrity sha512-FS9lb7qCd5wN6KAifziXH8PogAkAPy5YD8lJ2t/1FkBG+09hD+CsP4C7EfWFzvY/RxhO30iVZ1g5ZquofKIzrg==
 
-react-native-wakeword@^1.1.15:
-  version "1.1.27"
-  resolved "https://registry.npmjs.org/react-native-wakeword/-/react-native-wakeword-1.1.27.tgz"
-  integrity sha512-EsFwvuaa5TiN/1e8vwTED4+2SNnF1Udgg2vITnoK4HhyWr8ZsogK0szh7euRCyo7hgE9+pQWU4BfgS9HQ579Ng==
+react-native-wakeword@^1.1.56:
+  version "1.1.56"
+  resolved "https://registry.yarnpkg.com/react-native-wakeword/-/react-native-wakeword-1.1.56.tgz#ae8bf91dc3ce7c834aa4579df5de3384812c2df8"
+  integrity sha512-qfuw8u9lGw4+dSWtNUSfplsJ6rNJIRMSZEjrq1TkLcfNnvvgXv5pMnp/5L0gEuPehCFMuODJQeaiE21t06Zocw==
 
 react-native-webview@^13.13.5:
   version "13.15.0"
@@ -11136,10 +11136,10 @@ which@^4.0.0:
   dependencies:
     isexe "^3.1.1"
 
-whisper.rn@^0.5.4:
-  version "0.5.4"
-  resolved "https://registry.yarnpkg.com/whisper.rn/-/whisper.rn-0.5.4.tgz#9352a9bcef4f4d0304024fdb062188a24fd6105d"
-  integrity sha512-4G3MFnC/EQoUFqv1k6EahERI6W3vAgfau2uyLidq0/axZPuHC4ZMhPEtTYaGljUN8OzD2W8erLRm/sA3jR5FBQ==
+whisper.rn@^0.5.5:
+  version "0.5.5"
+  resolved "https://registry.yarnpkg.com/whisper.rn/-/whisper.rn-0.5.5.tgz#4991369f7903df0a3e9f18ce2de545654e52c842"
+  integrity sha512-awFE+ImMtRdGhA+hjm3GEwnSvyEVP1sdhMb+MyCa5bVdoOCpaxrwVwXDo9U46Qwkhwml3PCFaauTsGmRkTyhdw==
   dependencies:
     safe-buffer "^5.2.1"
 
