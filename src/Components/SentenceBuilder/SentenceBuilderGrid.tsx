@@ -91,9 +91,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isAdminCodeError, setIsAdminCodeError] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const lastPressTimeRef = useRef<number>(0);
-  const lastPressedNodeIdRef = useRef<string>('');
   const isProcessingPressRef = useRef<boolean>(false);
+  const isDebouncing = useRef(false);
 
   // Load initial data
   useEffect(() => {
@@ -414,27 +413,19 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   // Card handlers
   const handleCardPress = async (node: Node) => {
+    if (isDebouncing.current) return;
+    isDebouncing.current = true;
+    setTimeout(() => {
+      isDebouncing.current = false;
+    }, 1000);
+
     // Prevent concurrent processing - if already processing a press, ignore this one
     if (isProcessingPressRef.current) {
       return;
     }
 
-    // Debounce logic to prevent double-tap issues (especially on first tap after launch)
-    // Use refs instead of state for synchronous debounce checking
-    const currentTime = Date.now();
-    const DEBOUNCE_DELAY = 300; // 300ms debounce delay
-
-    if (
-      lastPressedNodeIdRef.current === node.id &&
-      currentTime - lastPressTimeRef.current < DEBOUNCE_DELAY
-    ) {
-      return;
-    }
-
     // Mark as processing immediately
     isProcessingPressRef.current = true;
-    lastPressTimeRef.current = currentTime;
-    lastPressedNodeIdRef.current = node.id;
 
     try {
       // Handle empty cells from deleted nodes (add new item) - only when in editing mode
