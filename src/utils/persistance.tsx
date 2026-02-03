@@ -8,9 +8,9 @@ import React, {
   useRef,
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
-// Receipt validation removed - paid app
+import { validateReceiptOnLaunch } from './recieptValidation';
 import WhisperModelManager from './WhisperModelManager';
-import {sessionManager} from './sessionManager';
+import { sessionManager } from './sessionManager';
 
 interface Preferences {
   loggedIn: string;
@@ -41,7 +41,9 @@ interface Preferences {
   conversationMode: string;
   gobackAfterSelection: string;
   wasDeleted: string;
-  // isIOSActive, isInTrial, trialInstallationDate removed - paid app
+  isIOSActive: string;
+  isInTrial: string;
+  trialInstallationDate: string;
   pepes: string;
   whisperModelAvailable: string;
   whisperModelLastChecked: string;
@@ -102,7 +104,9 @@ const initialPreferences: Preferences = {
   conversationMode: 'easy',
   gobackAfterSelection: initEnum.false,
   wasDeleted: initEnum.false,
-  // isIOSActive, isInTrial, trialInstallationDate removed - paid app
+  isIOSActive: initEnum.false,
+  isInTrial: initEnum.false,
+  trialInstallationDate: initEnum.notSet,
   pepes: '',
   whisperModelAvailable: initEnum.false,
   whisperModelLastChecked: '0',
@@ -146,7 +150,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const [preferences, setPreferences] =
     useState<Preferences>(initialPreferences);
   const initializationRef = useRef(false);
-  // receiptValidationRef removed - paid app
+  const receiptValidationRef = useRef(false);
 
   const setItem = async (
     key: keyof Preferences,
@@ -154,9 +158,12 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   ): Promise<void> => {
     try {
       await DefaultPreference.set(key, value);
-      setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
+      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: value }));
+      if (key === 'isInTrial') {
+
+      }
     } catch (error) {
-      
+
     }
   };
 
@@ -165,7 +172,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const item = await DefaultPreference.get(key);
       return item ?? initialPreferences[key];
     } catch (error) {
-      
+
       return initialPreferences[key];
     }
   };
@@ -173,20 +180,20 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const removeItem = async (key: keyof Preferences): Promise<void> => {
     try {
       await DefaultPreference.set(key, initEnum.notSet);
-      setPreferences(prevPreferences => ({...prevPreferences, [key]: ''}));
+      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: '' }));
     } catch (error) {
-      
+
     }
   };
 
   const initializePreferences = async (): Promise<Preferences> => {
     // Prevent multiple initializations
     if (initializationRef.current) {
-      
+
       return preferences;
     }
 
-    
+
     initializationRef.current = true;
 
     try {
@@ -197,18 +204,45 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         const found = await DefaultPreference.get(key);
         loaded[key] = (found ?? initialPreferences[key]) as any;
         if (key === 'isInTrial') {
-          
+
         }
       }
 
       setPreferences(
-        prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
+        prevPreferences => ({ ...prevPreferences, ...loaded } as Preferences),
       );
 
-      // Receipt validation removed - paid app
+      // Set trial installation date on first app launch (never override)
+      if (loaded.trialInstallationDate === initEnum.notSet) {
+        const currentTimestamp = Date.now().toString();
+        await setItem('trialInstallationDate', currentTimestamp);
+      }
+
+      // validate purchase on launch
+      if (!receiptValidationRef.current) {
+        receiptValidationRef.current = true;
+
+        // Use a single timeout reference to prevent multiple executions
+        const timeoutId = setTimeout(async () => {
+          try {
+            const purchaseValid = await validateReceiptOnLaunch();
+            if (!purchaseValid) {
+              await setItem('isIOSActive', '0');
+            } else {
+              await setItem('isIOSActive', '1');
+            }
+          } catch (error) {
+
+          }
+        }, 3000);
+
+        // Store the timeout ID so we can clear it if needed
+        (receiptValidationRef as any).timeoutId = timeoutId;
+      }
+
       return loaded as Preferences;
     } catch (error) {
-      
+
       return initialPreferences;
     }
   };
@@ -231,9 +265,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       // Initialize guest session
       try {
         await sessionManager.ensureValidSession();
-        
+
       } catch (error) {
-        
+
       }
     };
 
@@ -241,7 +275,12 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
     return () => {
       initializationRef.current = false;
-      // Receipt validation cleanup removed - paid app
+      receiptValidationRef.current = false;
+
+      // Clear any pending timeout
+      if ((receiptValidationRef as any).timeoutId) {
+        clearTimeout((receiptValidationRef as any).timeoutId);
+      }
     };
   }, []);
 
@@ -253,7 +292,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       }
       setPreferences(initialPreferences);
     } catch (error) {
-      
+
     }
   };
 

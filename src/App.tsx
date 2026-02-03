@@ -32,7 +32,7 @@ const App = () => {
   // Orientation.lockToLandscapeLeft();
 
   const trackAutomaticEvents = false;
-  const mixpanelToken = '48186fefd3c06e4f4b0c4ad87d1555d2';
+  const mixpanelToken = 'f88f7a27585868c53b1e08c06f5226bd';
 
   const mixpanel = new Mixpanel(mixpanelToken, trackAutomaticEvents);
   mixpanel.init();

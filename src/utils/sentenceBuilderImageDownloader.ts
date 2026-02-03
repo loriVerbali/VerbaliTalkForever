@@ -20,7 +20,22 @@ export const downloadSentenceBuilderImage = async (
 
     // Generate unique filename to avoid conflicts
     const timestamp = Date.now();
-    const extension = imageUrl.split('.').pop() || 'png';
+
+    // Robust extension detection
+    let extension = 'png';
+    try {
+      const urlWithoutParams = imageUrl.split('?')[0];
+      const parts = urlWithoutParams.split('.');
+      if (parts.length > 1) {
+        const ext = parts.pop()?.toLowerCase();
+        if (ext && ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) {
+          extension = ext;
+        }
+      }
+    } catch (e) {
+      // Keep default 'png'
+    }
+
     const localFilename = `${filename}_${timestamp}.${extension}`;
     const localPath = `${sentenceBuilderDir}/${localFilename}`;
 
@@ -38,7 +53,7 @@ export const downloadSentenceBuilderImage = async (
       );
     }
   } catch (error) {
-    
+
     throw error;
   }
 };
@@ -54,7 +69,7 @@ export const sentenceBuilderImageExists = async (
   try {
     return await RNFS.exists(localPath);
   } catch (error) {
-    
+
     return false;
   }
 };
@@ -75,7 +90,7 @@ export const deleteSentenceBuilderImage = async (
     }
     return false;
   } catch (error) {
-    
+
     return false;
   }
 };
@@ -108,14 +123,14 @@ export const cleanupOldSentenceBuilderImages = async (
           await RNFS.unlink(file.path);
           deletedCount++;
         } catch (error) {
-          
+
         }
       }
     }
 
     return deletedCount;
   } catch (error) {
-    
+
     return 0;
   }
 };

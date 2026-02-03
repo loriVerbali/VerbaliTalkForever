@@ -1,4 +1,4 @@
-// wakeWord.ts  – Type‑safe, singleton Wake‑Word listener for "Hey Verbi"
+// wakeWord.ts  – Type‑safe, singleton Wake‑Word listener for "Hey Matalk"
 
 import {
   KeyWordRNBridgeInstance,
@@ -6,9 +6,9 @@ import {
 } from 'react-native-wakeword';
 import Config from 'react-native-config';
 import DeviceInfo from 'react-native-device-info';
-import {Platform} from 'react-native';
+import { Platform } from 'react-native';
 import AudioSessionManager from './AudioSessionManager';
-import {Mixpanel} from 'mixpanel-react-native';
+import { Mixpanel } from 'mixpanel-react-native';
 
 interface InstanceConfig {
   id: string;
@@ -53,7 +53,7 @@ class WakeWordService {
 
   private constructor() {
     // Private constructor for singleton
-    this.mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+    this.mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
     this.detectDevice();
   }
 
@@ -181,16 +181,6 @@ class WakeWordService {
               await this.keywordInstance.setKeywordDetectionLicense(
                 this.license,
               );
-
-            console.log(
-              `[WakeWord] License is valid?: ${isLicensed ? 'YES' : 'NO'}`,
-            );
-
-            if (!isLicensed) {
-              throw new Error(
-                'License validation failed. Please check your WAKEWORD_LICENSE.',
-              );
-            }
 
             this.isInitialized = true;
 
@@ -380,19 +370,6 @@ class WakeWordService {
           if (this.statusCheckInterval) {
             clearInterval(this.statusCheckInterval);
           }
-          // this.statusCheckInterval = setInterval(() => {
-          //   if (this.isListening) {
-          //     console.log(
-          //       '[WakeWord] 💓 Heartbeat - still listening, status:',
-          //       {
-          //         isListening: this.isListening,
-          //         hasInstance: !!this.keywordInstance,
-          //         hasEventListener: !!this.eventListener,
-          //         hasCallback: !!this.wakeWordCallback,
-          //       },
-          //     );
-          //   }
-          // }, 10000); // Log every 10 seconds
         } catch (detectionError) {
           console.error(
             '[WakeWord] Error starting wake word detection:',
@@ -575,9 +552,8 @@ class WakeWordService {
         } catch (error) {
           return {
             success: false,
-            error: `Failed to start/stop listening: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            error: `Failed to start/stop listening: ${error instanceof Error ? error.message : String(error)
+              }`,
             details: {
               ...status,
               testError: error,
@@ -596,9 +572,8 @@ class WakeWordService {
     } catch (error) {
       return {
         success: false,
-        error: `Test failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        error: `Test failed: ${error instanceof Error ? error.message : String(error)
+          }`,
         details: this.getStatus(),
       };
     }

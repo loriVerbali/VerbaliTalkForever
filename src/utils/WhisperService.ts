@@ -2,7 +2,6 @@ import RNFS from 'react-native-fs';
 import {Platform} from 'react-native';
 import {MODEL_CONFIG} from './constants';
 import {detectDeviceCapabilities} from './deviceDetection';
-import DeviceInfo from 'react-native-device-info';
 // @ts-ignore - whisper.rn types exist at runtime
 import {initWhisper, releaseAllWhisper} from 'whisper.rn';
 // @ts-ignore - RN packager doesn't support package exports, use src/ path
@@ -57,34 +56,6 @@ class WhisperService {
     try {
       const capabilities = await detectDeviceCapabilities();
       this.isLowEndDevice = capabilities.isLowEndDevice;
-
-      // CRITICAL FIX: Force CPU mode on iPhone 17+ due to Metal/GPU backend incompatibility
-      // The iPhone 17 (and potentially newer models) uses a new GPU architecture that
-      // the whisper.cpp GGML Metal backend doesn't support yet, causing abort() crash
-      // during backend scheduler initialization
-      if (Platform.OS === 'ios') {
-        try {
-          const deviceId = await DeviceInfo.getDeviceId();
-          // iPhone 17 series: iPhone18,1 (Plus), iPhone18,2 (Pro), iPhone18,3 (Pro Max), iPhone18,4 (base)
-          // Also check for iPhone19,x (future iPhone 18) and beyond to be safe
-          const isNewHardware = /iPhone(18|19|[2-9][0-9]),/.test(deviceId);
-          
-          if (isNewHardware) {
-            console.warn(
-              `⚠️ ${deviceId} detected - forcing CPU mode for Whisper to avoid Metal backend crash on new hardware`,
-            );
-            this.useGpu = false;
-            this.isLowEndDevice = true; // Treat as low-end to use appropriate model
-            return;
-          }
-        } catch (deviceError) {
-          console.warn(
-            '⚠️ Could not detect device model, will try GPU mode:',
-            deviceError,
-          );
-          // If we can't detect device model, proceed with normal GPU detection
-        }
-      }
 
       // On low-end devices, CPU is often faster than GPU
       // GPU on these devices is usually weak and can cause slowdowns
@@ -164,16 +135,8 @@ class WhisperService {
       let initAttempts = 0;
       const maxAttempts = this.isLowEndDevice ? 1 : 2; // Only try GPU once on low-end, allow retry on others
 
-      console.log(
-        `🎤 Initializing Whisper: useGpu=${this.useGpu}, isLowEndDevice=${this.isLowEndDevice}, modelPath=${this.modelPath}`,
-      );
-
       while (initAttempts < maxAttempts) {
         try {
-          console.log(
-            `🔄 Whisper init attempt ${initAttempts + 1}/${maxAttempts} with ${this.useGpu ? 'GPU' : 'CPU'} backend`,
-          );
-
           this.whisperContext = await initWhisper({
             filePath: this.modelPath,
             isBundleAsset: false,
@@ -181,22 +144,18 @@ class WhisperService {
           });
 
           if (this.whisperContext) {
-            console.log(
-              `✅ Whisper initialized successfully with ${this.useGpu ? 'GPU' : 'CPU'} backend`,
-            );
             this.initialized = true;
             return true;
           }
         } catch (gpuError) {
           console.warn(
-            `⚠️ Whisper initialization failed (attempt ${initAttempts + 1}/${maxAttempts}): ${
+            `⚠️ GPU initialization failed: ${
               gpuError instanceof Error ? gpuError.message : 'Unknown error'
             }`,
           );
 
           // If GPU failed and we haven't tried CPU yet, fallback to CPU
           if (this.useGpu && initAttempts < maxAttempts - 1) {
-            console.log('🔄 Falling back to CPU backend...');
             this.useGpu = false;
           }
         }

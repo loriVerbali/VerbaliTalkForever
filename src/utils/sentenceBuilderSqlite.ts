@@ -5,9 +5,9 @@ import {
   SentenceState,
   DEFAULT_COLOR_MAP,
 } from '../types/sentenceBuilder';
-import {WordImageResult} from './wordImageApi';
-import {downloadImage} from './imageDownloader';
-import {COMPREHENSIVE_SEED_NODES} from './sentenceBuilderSeedData';
+import { WordImageResult } from './wordImageApi';
+import { downloadImage } from './imageDownloader';
+import { COMPREHENSIVE_SEED_NODES } from './sentenceBuilderSeedData';
 
 // Enable promise-based API
 SQLite.enablePromise(true);
@@ -347,8 +347,7 @@ export class SentenceBuilderSqlite {
     const [result] = await this.db.executeSql(
       `
       SELECT * FROM nodes 
-      WHERE parentId ${
-        parentId === null ? 'IS NULL' : '= ?'
+      WHERE parentId ${parentId === null ? 'IS NULL' : '= ?'
       } AND (deleted IS NULL OR deleted = 0)
       ORDER BY orderIndex
     `,
@@ -695,19 +694,19 @@ export class SentenceBuilderSqlite {
     if (!this.db) throw new Error('Database not initialized');
 
     const currentState = await this.getSentenceState();
-    // Prevent duplicate additions - only add if not already in the array
-    if (!currentState.tokenIds.includes(nodeId)) {
-      currentState.tokenIds.push(nodeId);
-      await this.saveSentenceState(currentState);
-    }
+    // Allow duplicate additions
+    currentState.tokenIds.push(nodeId);
+    await this.saveSentenceState(currentState);
   }
 
-  async removeWordFromSentence(nodeId: string): Promise<void> {
+  async removeWordFromSentence(index: number): Promise<void> {
     if (!this.db) throw new Error('Database not initialized');
 
     const currentState = await this.getSentenceState();
-    currentState.tokenIds = currentState.tokenIds.filter(id => id !== nodeId);
-    await this.saveSentenceState(currentState);
+    if (index >= 0 && index < currentState.tokenIds.length) {
+      currentState.tokenIds.splice(index, 1);
+      await this.saveSentenceState(currentState);
+    }
   }
 
   async clearSentence(): Promise<void> {
