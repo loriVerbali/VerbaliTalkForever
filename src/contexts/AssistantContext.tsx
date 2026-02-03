@@ -35,7 +35,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       countMax = 5,
       genderType = 'white boy',
     } = options;
-    debugger;
+
     try {
       const response = await fetchHelper(
         'generateAnswers',
@@ -57,7 +57,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
           },
         },
       );
-      debugger;
+
       if (response && response.results) {
         return response.results; // Array of { word, imageUrl } objects
       } else {
@@ -66,6 +66,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
         );
       }
     } catch (error) {
+      
       throw error;
     }
   };
