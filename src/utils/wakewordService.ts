@@ -370,19 +370,6 @@ class WakeWordService {
           if (this.statusCheckInterval) {
             clearInterval(this.statusCheckInterval);
           }
-          // this.statusCheckInterval = setInterval(() => {
-          //   if (this.isListening) {
-          //     console.log(
-          //       '[WakeWord] 💓 Heartbeat - still listening, status:',
-          //       {
-          //         isListening: this.isListening,
-          //         hasInstance: !!this.keywordInstance,
-          //         hasEventListener: !!this.eventListener,
-          //         hasCallback: !!this.wakeWordCallback,
-          //       },
-          //     );
-          //   }
-          // }, 10000); // Log every 10 seconds
         } catch (detectionError) {
           console.error(
             '[WakeWord] Error starting wake word detection:',
