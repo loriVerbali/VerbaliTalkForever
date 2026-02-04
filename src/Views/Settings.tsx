@@ -1,4 +1,4 @@
-import React, {useRef, useEffect, useState, useCallback, memo} from 'react';
+import React, { useRef, useEffect, useState, useCallback, memo } from 'react';
 import {
   View,
   StyleSheet,
@@ -24,23 +24,23 @@ import {
 } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
-import {useAppSettings} from '../utils/persistance';
-import {sessionManager} from '../utils/sessionManager';
-import {useAdmin} from '../contexts/adminContext';
-import {stacks, views} from '../utils/constants';
+import { useAppSettings } from '../utils/persistance';
+import { sessionManager } from '../utils/sessionManager';
+import { useAdmin } from '../contexts/adminContext';
+import { stacks, views } from '../utils/constants';
 import Slider from '@react-native-community/slider';
-import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
+import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
-import {Mixpanel} from 'mixpanel-react-native';
+import { Mixpanel } from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
 import NetInfo from '@react-native-community/netinfo';
 
-const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
+const { height, width: SCREEN_WIDTH } = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
 
 // Base URL for remote video assets
@@ -51,7 +51,7 @@ const VIDEO_BASE_URL = 'https://pub-478619cacb0f41448d8ea23825356593.r2.dev/';
  * @param videoName - The name of the video file (e.g., "homescreen", "reports")
  * @returns Video source object with URI for react-native-video
  */
-const getVideoUrl = (videoName: string): {uri: string} => {
+const getVideoUrl = (videoName: string): { uri: string } => {
   return {
     uri: `${VIDEO_BASE_URL}${videoName}.mp4`,
   };
@@ -116,7 +116,7 @@ const MessagesSlider = ({
 }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
-  const {width: windowWidth} = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
@@ -126,7 +126,7 @@ const MessagesSlider = ({
   }, [value]);
 
   return (
-    <View style={[styles.sliderContainer, {width: windowWidth * 0.42}]}>
+    <View style={[styles.sliderContainer, { width: windowWidth * 0.42 }]}>
       <View style={styles.labelRow}>
         <Text style={styles.settingLabel}>Amount of messages</Text>
         <TouchableOpacity
@@ -142,7 +142,7 @@ const MessagesSlider = ({
       </View>
       <View style={styles.sliderRow}>
         <Slider
-          style={[styles.slider, {width: sliderWidth}]}
+          style={[styles.slider, { width: sliderWidth }]}
           value={localValue}
           minimumValue={5}
           maximumValue={15}
@@ -178,8 +178,8 @@ const RangeSlider = ({
 }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
-  const {width: windowWidth} = useWindowDimensions();
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+  const { width: windowWidth } = useWindowDimensions();
+  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -188,7 +188,7 @@ const RangeSlider = ({
   }, [value]);
 
   return (
-    <View style={[styles.sliderContainer, {width: windowWidth * 0.42}]}>
+    <View style={[styles.sliderContainer, { width: windowWidth * 0.42 }]}>
       <View style={styles.labelRow}>
         <Text style={styles.settingLabel}>{label}</Text>
         <TouchableOpacity
@@ -204,7 +204,7 @@ const RangeSlider = ({
       </View>
       <View style={styles.sliderRow}>
         <Slider
-          style={[styles.slider, {width: sliderWidth}]}
+          style={[styles.slider, { width: sliderWidth }]}
           value={localValue}
           minimumValue={4}
           maximumValue={8}
@@ -230,9 +230,9 @@ const RangeSlider = ({
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute();
-  const {preferences, setItem, getItem, clear} = useAppSettings();
+  const { preferences, setItem, getItem, clear } = useAppSettings();
   // Removed Auth0 - using guest sessions
-  const {isTablet} = useAdmin();
+  const { isTablet } = useAdmin();
   const [isConnected, setIsConnected] = useState(true);
 
   const [returnedMessages, setReturnedMessages] = useState(5);
@@ -271,7 +271,7 @@ const SettingsScreen: React.FC = () => {
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
@@ -296,7 +296,7 @@ const SettingsScreen: React.FC = () => {
 
   const genderWrapperStyle = [
     styles.genderImageWrapper,
-    {transform: [{scale: 0.7}]},
+    { transform: [{ scale: 0.7 }] },
   ];
 
   // Helper function to get avatar source based on gender
@@ -386,7 +386,7 @@ const SettingsScreen: React.FC = () => {
         );
         setUseLocalWhisper(savedUseLocalWhisper === '1');
         setWhisperModelAvailable(preferences.whisperModelAvailable === '1');
-      } catch (e) {}
+      } catch (e) { }
     };
 
     loadSettings();
@@ -427,7 +427,7 @@ const SettingsScreen: React.FC = () => {
               }, 500);
             }
           }
-        } catch (error) {}
+        } catch (error) { }
       };
 
       checkForRatingPrompt();
@@ -588,9 +588,9 @@ const SettingsScreen: React.FC = () => {
         await fetchHelper(
           'deleteAccount',
           {},
-          {assistantId: preferences.assistantId, userId: 'guest'},
+          { assistantId: preferences.assistantId, userId: 'guest' },
         );
-      } catch (error) {}
+      } catch (error) { }
     }
 
     Alert.alert(
@@ -843,7 +843,7 @@ const SettingsScreen: React.FC = () => {
         const watchedArray = JSON.parse(watchedVideosString);
         setWatchedVideos(new Set(watchedArray));
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // Save watched videos to persistence
@@ -851,7 +851,7 @@ const SettingsScreen: React.FC = () => {
     try {
       const watchedArray = Array.from(watchedSet);
       await setItem('watchedVideos', JSON.stringify(watchedArray));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   // Mark video as watched
@@ -898,7 +898,7 @@ const SettingsScreen: React.FC = () => {
                       marginBottom: 10,
                     }}>
                     <TextInput
-                      style={[styles.codeInput, {flex: 1}]}
+                      style={[styles.codeInput, { flex: 1 }]}
                       value={newHeroName}
                       onChangeText={setNewHeroName}
                       placeholder="Name"
@@ -912,7 +912,7 @@ const SettingsScreen: React.FC = () => {
                       style={[
                         styles.adminButton,
                         styles.submitButton,
-                        {marginLeft: 8},
+                        { marginLeft: 8 },
                       ]}
                       onPress={handleSaveHeroName}>
                       <Text style={styles.buttonText}>Save</Text>
@@ -921,7 +921,7 @@ const SettingsScreen: React.FC = () => {
                       style={[
                         styles.adminButton,
                         styles.cancelButton,
-                        {marginLeft: 8},
+                        { marginLeft: 8 },
                       ]}
                       onPress={handleCancelHeroNameEdit}>
                       <Text style={styles.buttonText}>Cancel</Text>
@@ -934,14 +934,14 @@ const SettingsScreen: React.FC = () => {
                       alignItems: 'center',
                       marginBottom: 10,
                     }}>
-                    <Text style={{fontSize: 16, color: '#333', flex: 1}}>
+                    <Text style={{ fontSize: 16, color: '#333', flex: 1 }}>
                       {heroName}
                     </Text>
                     <TouchableOpacity
                       style={[
                         styles.adminButton,
                         styles.submitButton,
-                        {marginLeft: 8},
+                        { marginLeft: 8 },
                       ]}
                       onPress={handleEditHeroName}>
                       <Text style={styles.buttonText}>Edit</Text>
@@ -964,7 +964,7 @@ const SettingsScreen: React.FC = () => {
                       marginBottom: 10,
                     }}>
                     <TextInput
-                      style={[styles.codeInput, {flex: 1}]}
+                      style={[styles.codeInput, { flex: 1 }]}
                       value={newHandshakeMessage}
                       onChangeText={setNewHandshakeMessage}
                       placeholder="Enter handshake message"
@@ -980,7 +980,7 @@ const SettingsScreen: React.FC = () => {
                       style={[
                         styles.adminButton,
                         styles.submitButton,
-                        {marginLeft: 8},
+                        { marginLeft: 8 },
                       ]}
                       onPress={handleSaveHandshakeMessage}>
                       <Text style={styles.buttonText}>Save</Text>
@@ -989,7 +989,7 @@ const SettingsScreen: React.FC = () => {
                       style={[
                         styles.adminButton,
                         styles.cancelButton,
-                        {marginLeft: 8},
+                        { marginLeft: 8 },
                       ]}
                       onPress={handleCancelHandshakeMessageEdit}>
                       <Text style={styles.buttonText}>Cancel</Text>
@@ -1002,14 +1002,14 @@ const SettingsScreen: React.FC = () => {
                       alignItems: 'center',
                       marginBottom: 10,
                     }}>
-                    <Text style={{fontSize: 16, color: '#333', flex: 1}}>
+                    <Text style={{ fontSize: 16, color: '#333', flex: 1 }}>
                       {handshakeMessage}
                     </Text>
                     <TouchableOpacity
                       style={[
                         styles.adminButton,
                         styles.submitButton,
-                        {marginLeft: 8},
+                        { marginLeft: 8 },
                       ]}
                       onPress={handleEditHandshakeMessage}>
                       <Text style={styles.buttonText}>Edit</Text>
@@ -1470,13 +1470,13 @@ const SettingsScreen: React.FC = () => {
               </Text>
 
               <View style={styles.myPepesSection}>
-                <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
+                <Text style={[styles.settingLabel, { fontWeight: '600' }]}>
                   My People & Stuff
                 </Text>
                 <Text style={styles.myPepesDescription}>
                   Your people, stuff, food, drinks, places, and tv shows with
                   images, names, and aliases for better conversation context.
-                  <Text style={{fontWeight: '800', color: '#666'}}>
+                  <Text style={{ fontWeight: '800', color: '#666' }}>
                     All Images are kept on your device only.
                   </Text>
                 </Text>
@@ -1484,14 +1484,14 @@ const SettingsScreen: React.FC = () => {
               </View>
 
               <View style={styles.my8WordsSection}>
-                <Text style={[styles.settingLabel, {fontWeight: '600'}]}>
+                <Text style={[styles.settingLabel, { fontWeight: '600' }]}>
                   My 8 Words
                 </Text>
                 <Text style={styles.my8WordsDescription}>
                   Customize the 8 words that appear on your main screen cards.
                   Search for words and their images to personalize your
                   experience.
-                  <Text style={{fontWeight: '800', color: '#666'}}>
+                  <Text style={{ fontWeight: '800', color: '#666' }}>
                     Images are downloaded and stored on your device only.
                   </Text>
                 </Text>
@@ -1555,7 +1555,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'old black man' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1581,7 +1581,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'old white woman' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1607,7 +1607,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'old black woman' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1633,7 +1633,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'asian old woman' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1659,7 +1659,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'old man' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1686,7 +1686,7 @@ const SettingsScreen: React.FC = () => {
                           styles.avatarOption,
                           (preferences.gender === 'white boy' ||
                             preferences.gender === 'boy') &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1699,8 +1699,8 @@ const SettingsScreen: React.FC = () => {
                         <View style={styles.avatarOptionWrapper}>
                           {(preferences.gender === 'white boy' ||
                             preferences.gender === 'boy') && (
-                            <Text style={styles.avatarHeartOverlay}>♥</Text>
-                          )}
+                              <Text style={styles.avatarHeartOverlay}>♥</Text>
+                            )}
                           <FastImage
                             source={require('../assets/gender/wboy.jpg')}
                             style={styles.avatarOptionImage}
@@ -1713,7 +1713,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'black boy' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1739,7 +1739,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'asian boy' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1765,7 +1765,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'white man' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1791,7 +1791,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'white woman' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1817,7 +1817,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'black woman' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1843,7 +1843,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'asian woman' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1869,7 +1869,7 @@ const SettingsScreen: React.FC = () => {
                         style={[
                           styles.avatarOption,
                           preferences.gender === 'other' &&
-                            styles.selectedAvatarOption,
+                          styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
@@ -1940,7 +1940,7 @@ const SettingsScreen: React.FC = () => {
                               styles.adminButton,
                               styles.submitButton,
                               (newAdminCode.length !== 4 || isSaving) &&
-                                styles.disabledButton,
+                              styles.disabledButton,
                             ]}
                             onPress={handleAdminCodeChange}
                             disabled={newAdminCode.length !== 4 || isSaving}>
@@ -1956,8 +1956,8 @@ const SettingsScreen: React.FC = () => {
                           {isAdminCodeVisible
                             ? adminCode
                             : adminCode
-                            ? '••••'
-                            : 'Not set'}
+                              ? '••••'
+                              : 'Not set'}
                         </Text>
                         <TouchableOpacity
                           style={styles.eyeButton}
@@ -2012,7 +2012,7 @@ const SettingsScreen: React.FC = () => {
                   </TouchableOpacity>
                 </View>
                 <Switch
-                  trackColor={{false: '#767577', true: '#8E24AA'}}
+                  trackColor={{ false: '#767577', true: '#8E24AA' }}
                   thumbColor={gobackAfterSelection ? '#fff' : '#f4f3f4'}
                   ios_backgroundColor="#3e3e3e"
                   onValueChange={handleGobackAfterSelectionToggle}
@@ -2406,7 +2406,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     elevation: 4,
     borderWidth: 2,
     borderColor: '#B3E5FC',
@@ -2648,7 +2648,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
   myPepesSection: {
@@ -2736,7 +2736,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   currentAvatarImage: {
@@ -2801,7 +2801,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 3,
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   avatarOptionImage: {
@@ -2817,7 +2817,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#FF3B30',
     textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
     pointerEvents: 'none',
   },
@@ -2861,7 +2861,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
     borderWidth: 1,
     borderColor: '#f0f0f0',
@@ -2940,14 +2940,14 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
   videoHeartIcon: {
     fontSize: 12,
     color: '#FF3B30',
     textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
   videoHeartOverlayTablet: {

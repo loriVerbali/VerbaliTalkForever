@@ -1,14 +1,14 @@
-import React, {useState, useRef, useCallback} from 'react';
-import {View, StyleSheet} from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import { View, StyleSheet } from 'react-native';
 import SentenceBuilderGrid from '../Components/SentenceBuilder/SentenceBuilderGrid';
-import {useDatabase} from '../contexts/DatabaseContext';
-import {Mixpanel} from 'mixpanel-react-native';
-import {GridConfigKey} from '../types/sentenceBuilder';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { Mixpanel } from 'mixpanel-react-native';
+import { GridConfigKey } from '../types/sentenceBuilder';
 
 const Convo = () => {
-  const {addClassicEntry} = useDatabase();
+  const { addClassicEntry } = useDatabase();
   const mixpanel = useRef(
-    new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true),
+    new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true),
   );
   const [sentenceStartTime, setSentenceStartTime] = useState<number | null>(
     null,
@@ -115,17 +115,17 @@ const Convo = () => {
 
   // Track breadcrumb tap
   const handleBreadcrumbTapped = useCallback((index: number) => {
-    mixpanel.current.track('Convo Breadcrumb Tapped', {index});
+    mixpanel.current.track('Convo Breadcrumb Tapped', { index });
   }, []);
 
   // Track grid size change
   const handleGridSizeChanged = useCallback((size: GridConfigKey) => {
-    mixpanel.current.track('Convo Grid Size Changed', {size});
+    mixpanel.current.track('Convo Grid Size Changed', { size });
   }, []);
 
   // Track grid size value
   const handleGridSizeLoaded = useCallback((size: GridConfigKey) => {
-    mixpanel.current.track('Convo Grid Size', {size});
+    mixpanel.current.track('Convo Grid Size', { size });
   }, []);
 
   // Track reset DB tap
