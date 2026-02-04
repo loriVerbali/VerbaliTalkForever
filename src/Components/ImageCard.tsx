@@ -158,7 +158,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 <FastImage
                   source={
                     isMaxRetries
-                      ? require('../assets/shortCuts.png')
+                      ? require('../assets/shortCuts.jpg')
                       : require('../assets/cantfindIt.png')
                   }
                   style={[
