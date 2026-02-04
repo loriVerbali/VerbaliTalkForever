@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,15 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation, RouteProp} from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, RouteProp } from '@react-navigation/native';
 
 // Add imports for the components
-import Inputs, {InputsRef} from '../Components/Inputs';
+import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
-import {useAssistant} from '../contexts/AssistantContext';
-import {useSound} from '../contexts/soundContext';
+import { useAssistant } from '../contexts/AssistantContext';
+import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -26,20 +26,20 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import {Mixpanel} from 'mixpanel-react-native';
-import {logConversation} from '../utils/conversationLogger';
-import {useAdmin} from '../contexts/adminContext';
-import {views} from '../utils/constants';
-import {useAppSettings} from '../utils/persistance';
+import { Mixpanel } from 'mixpanel-react-native';
+import { logConversation } from '../utils/conversationLogger';
+import { useAdmin } from '../contexts/adminContext';
+import { views } from '../utils/constants';
+import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice from '@dev-amirzubair/react-native-voice';
-import {useDatabase} from '../contexts/DatabaseContext';
-import {polishText} from '../utils/polishApi';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { polishText } from '../utils/polishApi';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: {stateof?: 'Attention' | 'Keyboard' | string};
+  Home: { stateof?: 'Attention' | 'Keyboard' | string };
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -52,13 +52,13 @@ const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was school today?';
 
-const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {generateAnswers} = useAssistant();
-  const {weather, location} = useChatContext();
-  const {isTablet} = useAdmin();
+const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
+  const { generateAnswers } = useAssistant();
+  const { weather, location } = useChatContext();
+  const { isTablet } = useAdmin();
   const insets = useSafeAreaInsets();
-  const {getItem, preferences} = useAppSettings();
-  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
+  const { getItem, preferences } = useAppSettings();
+  const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false); // Ref for sync guard against duplicate starts
@@ -94,7 +94,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           }
         }
       }
-    } catch (error) {}
+    } catch (error) { }
 
     return fallbackUrl || '';
   };
@@ -121,7 +121,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setConversationHistory(prev => {
       const newHistory = [
         ...prev,
-        {role: 'user' as const, content: userMessage, timestamp: Date.now()},
+        { role: 'user' as const, content: userMessage, timestamp: Date.now() },
         {
           role: 'assistant' as const,
           content: assistantResponse,
@@ -140,12 +140,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
-    Array<{word: string; imageUrl?: string}>
+    Array<{ word: string; imageUrl?: string }>
   >([]);
 
   // Conversation history state
   const [conversationHistory, setConversationHistory] = useState<
-    Array<{role: 'user' | 'assistant'; content: string; timestamp: number}>
+    Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>
   >([]);
 
   // AI Resolved tracking state
@@ -164,12 +164,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const responsiveValues = {
     // Icon sizes
     microphoneSize: isTablet
-      ? {width: 45, height: 45}
-      : {width: 35, height: 35},
+      ? { width: 45, height: 45 }
+      : { width: 35, height: 35 },
     fetchingSize: isTablet
-      ? {width: 200, height: 200}
-      : {width: 150, height: 150},
-    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
+      ? { width: 200, height: 200 }
+      : { width: 150, height: 150 },
+    matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
 
     // Layout dimensions
     inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
@@ -183,11 +183,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
-      ? {width: width * 0.3, height: width * 0.3}
-      : {width: width * 0.25, height: width * 0.25},
+      ? { width: width * 0.3, height: width * 0.3 }
+      : { width: width * 0.25, height: width * 0.25 },
     recordingIconSize: isTablet
-      ? {width: width * 0.4, height: width * 0.4}
-      : {width: width * 0.35, height: width * 0.2},
+      ? { width: width * 0.4, height: width * 0.4 }
+      : { width: width * 0.35, height: width * 0.2 },
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -195,12 +195,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     keyboardTypingFontSize: isTablet ? 20 : 18,
     buttonFontSize: isTablet ? 18 : 16,
     errorFontSize: isTablet ? 20 : 18,
-    cardTextFontSize: isTablet ? 18 : 16,
+    cardTextFontSize: isTablet ? width * 0.1 : width * 0.15,
 
     // Button dimensions
     keyboardButtonPadding: isTablet
-      ? {vertical: 14, horizontal: 35}
-      : {vertical: 12, horizontal: 30},
+      ? { vertical: 14, horizontal: 35 }
+      : { vertical: 12, horizontal: 30 },
     keyboardButtonMinWidth: isTablet ? 120 : 100,
     keyboardButtonBorderRadius: isTablet ? 28 : 25,
 
@@ -217,16 +217,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     navigationCardBorderRadius: isTablet ? 15 : 12,
     navigationCardPadding: isTablet ? 18 : 15,
     navigationCardImageSize: isTablet
-      ? {width: 70, height: 70}
-      : {width: 60, height: 60},
+      ? { width: 70, height: 70 }
+      : { width: 60, height: 60 },
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? {width: '100%', height: '100%'}
-      : {width: '100%', height: '100%'},
+      ? { width: '100%', height: '100%' }
+      : { width: '100%', height: '100%' },
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
+    shadowOffset: isTablet ? { width: 0, height: 3 } : { width: 0, height: 2 },
     elevation: isTablet ? 6 : 4,
 
     // Waiting for next conversation
@@ -260,7 +260,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const {playAttention} = useSound();
+  const { playAttention } = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showImages, setShowImages] = useState(false);
@@ -307,7 +307,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) {}
+        } catch (error) { }
       }
 
       setResponseTimerStart(null);
@@ -334,7 +334,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) {}
+      } catch (error) { }
     };
 
     try {
@@ -352,7 +352,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           buttonPositive: 'OK',
         },
       );
-    } catch (error) {}
+    } catch (error) { }
 
     Voice.onSpeechStart = () => {
       console.log('Voice: onSpeechStart');
@@ -942,7 +942,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Update AI Resolved record with the selected answer
     if (currentAIRecord) {
-      const updatedRecord = {...currentAIRecord};
+      const updatedRecord = { ...currentAIRecord };
 
       if (currentAIRecord.currentRound === 1) {
         updatedRecord.round1Picked = selectedAnswer;
@@ -969,7 +969,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) {}
+        } catch (error) { }
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1084,7 +1084,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         colors={['#FFF8E7', '#FFFFFF']}
         style={[
           styles.container,
-          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
+          Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
         ]}>
         {stateof === 'Keyboard' ? null : (
           <View
@@ -1118,16 +1118,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           style={[
             styles.inputNavigationContainer,
             stateof === 'Keyboard'
-              ? {height: 0, opacity: 0}
+              ? { height: 0, opacity: 0 }
               : {
-                  height: responsiveValues.inputNavigationHeight,
-                  marginTop: Math.max(insets.top, 10),
-                },
+                height: responsiveValues.inputNavigationHeight,
+                marginTop: Math.max(insets.top, 10),
+              },
           ]}>
           {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
         </View>
 
-        <View style={{flex: 1, width: '100%'}}>
+        <View style={{ flex: 1, width: '100%' }}>
           <View
             style={[
               styles.contentContainer,
@@ -1138,7 +1138,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, {zIndex: 10}]}
+              style={[styles.imageCardContainer, { zIndex: 10 }]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1156,7 +1156,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       try {
                         // Handle direct answers format
                         return {
-                          url: {url: item.imageUrl || ''},
+                          url: { url: item.imageUrl || '' },
                           prompt: item.word || '',
                         };
                       } catch (err) {
@@ -1164,7 +1164,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       }
                     })
                     .filter(
-                      (item): item is {url: {url: string}; prompt: string} =>
+                      (item): item is { url: { url: string }; prompt: string } =>
                         item !== null,
                     );
 
@@ -1174,7 +1174,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         <Text
                           style={[
                             styles.errorText,
-                            {fontSize: responsiveValues.errorFontSize},
+                            { fontSize: responsiveValues.errorFontSize },
                           ]}>
                           We have an issue. Please be patient.
                         </Text>
@@ -1221,11 +1221,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                               />
                             </View>
                             <Text
+                              numberOfLines={1}
+                              adjustsFontSizeToFit={true}
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
-                              ShortCuts
+                              Shortcuts
                             </Text>
                           </TouchableOpacity>
 
@@ -1271,9 +1273,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                               />
                             </View>
                             <Text
+                              numberOfLines={1}
+                              adjustsFontSizeToFit={true}
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
                               Feelings
                             </Text>
@@ -1313,7 +1317,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       <View
                         style={[
                           styles.waitingForNextContainer,
-                          {padding: responsiveValues.waitingContainerPadding},
+                          { padding: responsiveValues.waitingContainerPadding },
                         ]}>
                         <Text
                           style={[
@@ -1325,7 +1329,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             },
                           ]}>
                           Say{' '}
-                          <Text style={{fontWeight: 'bold', color: 'blue'}}>
+                          <Text style={{ fontWeight: 'bold', color: 'blue' }}>
                             Hey Verbi
                           </Text>{' '}
                           to continue the conversation or tap below
@@ -1359,7 +1363,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </TouchableOpacity>
                       </View>
                     ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
-                      <View style={{alignItems: 'center'}}>
+                      <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
                           style={[
@@ -1379,7 +1383,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </Text>
                       </View>
                     ) : isRecording ? (
-                      <View style={{alignItems: 'center'}}>
+                      <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/recording.gif')}
                           style={responsiveValues.recordingIconSize}
@@ -1407,7 +1411,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <View style={{alignItems: 'center', marginBottom: 20}}>
+                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
                           <Text
                             style={{
                               fontSize: responsiveValues.transcriptionFontSize,
@@ -1424,23 +1428,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                 color: isUsingLocalWhisper
                                   ? '#4CAF50'
                                   : modelNotAvailable
-                                  ? '#FF9800'
-                                  : '#2196F3',
+                                    ? '#FF9800'
+                                    : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
                               {isUsingLocalWhisper
                                 ? '🔒 Local Whisper'
                                 : modelNotAvailable
-                                ? '☁️ Cloud (Model not downloaded)'
-                                : '☁️ Cloud'}
+                                  ? '☁️ Cloud (Model not downloaded)'
+                                  : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
 
                         {/* Show different loading states based on processing phase */}
                         {isRetrying ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1462,7 +1466,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             </Text>
                           </View>
                         ) : isProcessingAnswer ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1494,8 +1498,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         ) : null}
 
                         {finishedTranscribing &&
-                        (transcribedText.length === 0 ||
-                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                          (transcribedText.length === 0 ||
+                            transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
                           <HomeButton
                             navigation={navigation}
                             onReset={resetLocalStates}
@@ -1795,6 +1799,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
+    width: '80%',
+    alignSelf: 'center',
   },
   waitingForNextContainer: {
     flex: 1,

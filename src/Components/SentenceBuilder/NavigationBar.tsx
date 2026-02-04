@@ -50,17 +50,11 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
 
   // Responsive values for circle sizes - tokens 15% smaller
   const responsiveValues = {
-    tokenSize: isTablet ? height * 0.0612 : height * 0.068, // 15% smaller
-    tokenBorderRadius: isTablet ? height * 0.0306 : height * 0.034,
-    tokenImageBorderRadius: isTablet ? height * 0.0306 - 2 : height * 0.034 - 2,
     playButtonSize: isTablet ? height * 0.045 : height * 0.06,
     playButtonBorderRadius: isTablet ? height * 0.0225 : height * 0.025,
-    // Total token height including label (token + label + spacing)
-    tokenTotalHeight: isTablet ? height * 0.085 : height * 0.095,
-    tokenLabelHeight: isTablet ? height * 0.018 : height * 0.02,
+    tokenTotalHeight: isTablet ? height * 0.16 : height * 0.18,
     trashIconSize: isTablet ? height * 0.04 : height * 0.06,
     playIconSize: isTablet ? height * 0.04 : height * 0.06,
-
   };
 
   // Go to mainboard (root) - same as Breadcrumb behavior
@@ -110,42 +104,14 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
         <TouchableOpacity
           style={[
             styles.token,
-            {
-              width: responsiveValues.tokenSize,
-              height: responsiveValues.tokenSize,
-              borderRadius: responsiveValues.tokenBorderRadius,
-            },
             node.kind === 'word' && styles.wordToken,
             node.kind === 'folder' && styles.folderToken,
           ]}
           onPress={() => onRemoveToken(nodeId, index)}>
-          {node.imageUri ? (
-            <FastImage
-              source={
-                resolveImageSource(node.imageUri) ||
-                require('../../assets/welcome.png')
-              }
-              style={[
-                styles.tokenImage,
-                { borderRadius: responsiveValues.tokenImageBorderRadius },
-              ]}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-          ) : (
-            <View style={[styles.tokenImage, styles.tokenPlaceholder]}>
-              <Text style={styles.tokenPlaceholderText}>
-                {node.kind === 'folder'
-                  ? '📁'
-                  : node.title.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          <Text style={styles.tokenText} numberOfLines={1}>
+            {node.kind === 'folder' ? `📁 ${node.title}` : node.title}
+          </Text>
         </TouchableOpacity>
-        <Text
-          style={[styles.tokenLabel, { maxWidth: responsiveValues.tokenSize }]}
-          numberOfLines={1}>
-          {node.title}
-        </Text>
       </View>
     );
   };
@@ -279,7 +245,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: 8,
     paddingVertical: height * 0.008,
-    minHeight: height * 0.08,
+    minHeight: height * 0.15,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -287,8 +253,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   iconButton: {
-    width: 56,
-    height: 56,
+    width: 64, // Slightly larger icons if needed
+    height: 64,
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 2,
@@ -300,11 +266,11 @@ const styles = StyleSheet.create({
     height: 60,
   },
   trashIconSize: {
-    width: 48,
-    height: 48,
+    width: 56, // Increased size
+    height: 56,
   },
   navIconText: {
-    fontSize: 32,
+    fontSize: 40, // Increased emoji size
     color: '#333',
   },
   sentenceAreaWrapper: {
@@ -313,7 +279,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 6,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 8,
     borderWidth: 2,
     borderColor: '#4A90D9',
     borderRadius: 20,
@@ -327,50 +293,42 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: 18,
     color: '#6c757d',
     fontStyle: 'italic',
     textAlign: 'center',
   },
   token: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
     borderWidth: 2,
     borderColor: '#dee2e6',
+    backgroundColor: '#fff',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
-    overflow: 'hidden',
-  },
-  wordToken: {
-    borderColor: '#2196f3',
-  },
-  folderToken: {
-    borderColor: '#9c27b0',
-  },
-  tokenImage: {
-    width: '100%',
-    height: '100%',
-  },
-  tokenPlaceholder: {
-    backgroundColor: '#f8f9fa',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tokenPlaceholderText: {
-    fontSize: 16,
+  wordToken: {
+    borderColor: '#2196f3',
+    backgroundColor: '#e3f2fd',
+  },
+  folderToken: {
+    borderColor: '#9c27b0',
+    backgroundColor: '#f3e5f5',
+  },
+  tokenText: {
+    fontSize: 42, // Slightly smaller than SentenceBar if space is tighter, or match it
     fontWeight: 'bold',
-    color: '#666',
+    color: '#333',
   },
   tokenContainer: {
     alignItems: 'center',
-    marginRight: 8,
-  },
-  tokenLabel: {
-    fontSize: height * 0.012,
-    fontWeight: '500',
-    color: '#333',
-    textAlign: 'center',
+    marginRight: 10,
   },
   playButton: {
     justifyContent: 'center',

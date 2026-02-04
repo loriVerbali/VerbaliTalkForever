@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback, useRef} from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,13 @@ import {
   Linking,
   useWindowDimensions,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation, useFocusEffect} from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 import FastImage from 'react-native-fast-image';
-import {DraggableGrid} from 'react-native-draggable-grid';
-import {useAppSettings} from '../../utils/persistance';
-import {sentenceBuilderSqlite} from '../../utils/sentenceBuilderSqlite';
+import { DraggableGrid } from 'react-native-draggable-grid';
+import { useAppSettings } from '../../utils/persistance';
+import { sentenceBuilderSqlite } from '../../utils/sentenceBuilderSqlite';
 import AppConfig from '../../utils/config';
 import TTSService from '../../utils/TTSService';
 import AudioSessionManager from '../../utils/AudioSessionManager';
@@ -32,17 +32,17 @@ import {
   GRID_CONFIGS,
   GridConfigKey,
 } from '../../types/sentenceBuilder';
-import {resolveImageSource} from '../../utils/imageSourceResolver';
-import {views} from '../../utils/constants';
+import { resolveImageSource } from '../../utils/imageSourceResolver';
+import { views } from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
-import {useDatabase} from '../../contexts/DatabaseContext';
-import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import { useDatabase } from '../../contexts/DatabaseContext';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type RootStackParamList = {
-  HOME: {stateof?: string};
+  HOME: { stateof?: string };
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -68,8 +68,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   onGridSizeLoaded,
   onResetDbPressed,
 }) => {
-  const {addUtterance} = useDatabase();
-  const {getItem} = useAppSettings();
+  const { addUtterance } = useDatabase();
+  const { getItem } = useAppSettings();
   const navigation = useNavigation<NavigationProp>();
 
   // State
@@ -204,10 +204,10 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       );
 
       setCurrentNodes(allParentNodes);
-    } catch (error) {}
+    } catch (error) { }
   };
 
-  const {width, height} = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
   const getGridConfig = useCallback(() => {
@@ -266,13 +266,13 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
     if (!isTabletDevice) {
       // Mobile devices (both small and regular)
-      return {width: Math.floor(cardWidth), height: cardHeight};
+      return { width: Math.floor(cardWidth), height: cardHeight };
     } else {
       // Tablets
       const finalWidth = Math.min(cardWidth, 220);
       // Ensure we don't accidentally make cards taller than calculated available space per row
       const finalHeight = Math.min(cardHeight, 200);
-      return {width: finalWidth, height: finalHeight};
+      return { width: finalWidth, height: finalHeight };
     }
   }, [getGridConfig, isEditing]);
 
@@ -324,20 +324,20 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
     // Only show additional empty cells when in editing mode
     const additionalEmptyCells: Node[] = isEditing
-      ? Array.from({length: additionalEmptyCellsNeeded}, (_, index) => ({
-          id: `empty-${index}`,
-          parentId: null,
-          kind: 'word' as const,
-          title: '',
-          type: 'other' as const,
-          orderIndex: filledCells + index,
-          isSeed: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          key: `empty-${index}`,
-          disabledDrag: false, // Allow dragging in edit mode so cards can swap with empty spaces
-          disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
-        }))
+      ? Array.from({ length: additionalEmptyCellsNeeded }, (_, index) => ({
+        id: `empty-${index}`,
+        parentId: null,
+        kind: 'word' as const,
+        title: '',
+        type: 'other' as const,
+        orderIndex: filledCells + index,
+        isSeed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        key: `empty-${index}`,
+        disabledDrag: false, // Allow dragging in edit mode so cards can swap with empty spaces
+        disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
+      }))
       : [];
 
     // Combine all nodes and sort by orderIndex
@@ -468,7 +468,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
       if (node.kind === 'folder') {
         // Navigate to folder - this should navigate, not add to sentence
-        setFolderStack(prev => [...prev, {nodeId: node.id, title: node.title}]);
+        setFolderStack(prev => [...prev, { nodeId: node.id, title: node.title }]);
       } else {
         // Speak the word using TTS (always speak, even if it's a consecutive duplicate)
         const textToSpeak = node.ttsText || node.title;
@@ -677,7 +677,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   // Edit modal handlers
   const handleEditModalClose = () => {
-    setEditModal({isVisible: false});
+    setEditModal({ isVisible: false });
   };
 
   const handleEditModalSave = async (nodeData: Partial<Node>) => {
@@ -723,7 +723,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
       // Reload data
       await initializeAndLoadData();
-      setEditModal({isVisible: false});
+      setEditModal({ isVisible: false });
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
@@ -763,17 +763,17 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           : null;
 
       // Track the actual position in the grid for each node (including empty cells)
-      const nodeUpdates: Array<{id: string; orderIndex: number}> = [];
+      const nodeUpdates: Array<{ id: string; orderIndex: number }> = [];
 
       newSortedData.forEach((node, index) => {
         // Check if it's an empty cell from a deleted node FIRST (before checking for 'empty-')
         if (node.id.startsWith('empty-deleted-')) {
           // Extract the original node ID
           const originalNodeId = node.id.replace('empty-deleted-', '');
-          nodeUpdates.push({id: originalNodeId, orderIndex: index});
+          nodeUpdates.push({ id: originalNodeId, orderIndex: index });
         } else if (!node.id.startsWith('empty-')) {
           // Regular node (not an empty placeholder)
-          nodeUpdates.push({id: node.id, orderIndex: index});
+          nodeUpdates.push({ id: node.id, orderIndex: index });
         }
       });
 
@@ -816,9 +816,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     return (
       <View
         style={[
-          {margin: 2},
-          {width: cardDimensions.width, height: cardDimensions.height},
-          {backgroundColor: 'transparent'}, // Ensure outer container is transparent
+          { margin: 2 },
+          { width: cardDimensions.width, height: cardDimensions.height },
+          { backgroundColor: 'transparent' }, // Ensure outer container is transparent
         ]}>
         <View
           style={[
@@ -832,7 +832,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               // shadowColor: isEmptyCell || isDeletedCard ? 'red' : color,
               // shadowOpacity: 0.9,
               //shadowRadius: 10,
-              shadowOffset: {width: 0, height: 6},
+              shadowOffset: { width: 0, height: 6 },
               elevation: 12,
               borderWidth: 3,
               borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : color,
@@ -858,8 +858,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                 e.stopPropagation();
                 handleEditCardPress(node);
               }}
-              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-              <Text style={{color: '#fff', fontSize: 12, fontWeight: 'bold'}}>
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>
                 ✏️
               </Text>
             </TouchableOpacity>
@@ -901,90 +901,53 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               <View
                 style={{
                   width: cardDimensions.width,
-                  height: isMobile
-                    ? cardDimensions.height
-                    : cardDimensions.height * 0.82,
+                  height: cardDimensions.height,
                   backgroundColor: color,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  borderTopLeftRadius: 8,
-                  borderTopRightRadius: 8,
-                  borderBottomLeftRadius: isMobile ? 8 : 0,
-                  borderBottomRightRadius: isMobile ? 8 : 0,
+                  borderRadius: 8,
                 }}>
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit={true}
                   style={{
-                    fontSize: Math.max(12, cardDimensions.width * 0.12),
+                    fontSize: isMobile ? cardDimensions.width * 0.5 : cardDimensions.width * 0.3,
                     color: '#fff',
-                    fontWeight: '600',
+                    fontWeight: 'bold',
                     textAlign: 'center',
-                    paddingHorizontal: 4,
-                  }}
-                  numberOfLines={2}>
+                    width: '85%',
+                    alignSelf: 'center',
+                  }}>
                   {node.title}
                 </Text>
               </View>
             ) : (
-              // Folder - show image if available, otherwise folder icon
-              <>
-                <View
-                  style={{
-                    width: cardDimensions.width,
-                    height: isMobile
-                      ? cardDimensions.height
-                      : cardDimensions.height * 0.82,
-                    backgroundColor: color,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    borderTopLeftRadius: 8,
-                    borderTopRightRadius: 8,
-                    borderBottomLeftRadius: isMobile ? 8 : 0,
-                    borderBottomRightRadius: isMobile ? 8 : 0,
-                  }}>
-                  <Text style={{fontSize: cardDimensions.width * 0.2}}>📁</Text>
-                </View>
-              </>
-            )}
-
-            {/* Text overlay for all devices */}
-            {!isEmptyCell && !isDeletedCard && (
+              // Folder - show folder icon and title inside
               <View
                 style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  borderBottomLeftRadius: 8,
-                  borderBottomRightRadius: 8,
-                  paddingVertical: 2, // Reduced padding for smaller text overlay
-                  paddingHorizontal: 2,
+                  width: cardDimensions.width,
+                  height: cardDimensions.height,
+                  backgroundColor: color,
                   justifyContent: 'center',
                   alignItems: 'center',
+                  borderRadius: 8,
                 }}>
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit={true}
                   style={{
-                    fontSize: Math.max(8, cardDimensions.width * 0.06),
-                    fontWeight: '600',
-                    color: '#000',
+                    fontSize: isMobile ? cardDimensions.width * 0.4 : cardDimensions.width * 0.25,
+                    color: '#fff',
+                    fontWeight: 'bold',
                     textAlign: 'center',
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: {width: 1, height: 1},
-                    textShadowRadius: 2,
-                  }}
-                  numberOfLines={2}>
-                  {node.kind === 'folder' && (
-                    <Text
-                      style={{
-                        fontSize: Math.max(10, cardDimensions.width * 0.08),
-                      }}>
-                      📁{' '}
-                    </Text>
-                  )}
-                  {node.title}
+                    width: '85%',
+                    alignSelf: 'center',
+                  }}>
+                  📁 {node.title}
                 </Text>
               </View>
             )}
+
           </View>
         </View>
       </View>
@@ -995,7 +958,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007bff" />
-        <Text style={{marginTop: 10, color: '#666'}}>
+        <Text style={{ marginTop: 10, color: '#666' }}>
           Loading Sentence Builder...
         </Text>
       </View>
@@ -1039,7 +1002,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                     style={[
                       styles.gridSizeButtonText,
                       selectedGridSize === size &&
-                        styles.gridSizeButtonTextActive,
+                      styles.gridSizeButtonTextActive,
                     ]}>
                     {size}
                   </Text>

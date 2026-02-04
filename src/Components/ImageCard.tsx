@@ -1,4 +1,4 @@
-import React, {useRef} from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import Config from '../utils/config';
-import {useAppSettings} from '../utils/persistance';
-import {useNavigation} from '@react-navigation/native';
-import {views} from '../utils/constants';
-import {useAdmin} from '../contexts/adminContext';
+import { useAppSettings } from '../utils/persistance';
+import { useNavigation } from '@react-navigation/native';
+import { views } from '../utils/constants';
+import { useAdmin } from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 
@@ -28,7 +28,7 @@ interface ImageErrorEvent {
 }
 
 export interface ImageCardProps {
-  images: Array<{url: {url: string}; prompt: string; isMoreButton?: boolean}>;
+  images: Array<{ url: { url: string }; prompt: string; isMoreButton?: boolean }>;
   width?: number;
   height?: number;
   onRefresh?: () => void;
@@ -37,7 +37,7 @@ export interface ImageCardProps {
   onAnswerSelected?: (answer: string) => void;
   ttsService: typeof TTSService;
 }
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const ImageCard: React.FC<ImageCardProps> = ({
   images,
@@ -49,9 +49,9 @@ const ImageCard: React.FC<ImageCardProps> = ({
   onAnswerSelected,
   ttsService,
 }) => {
-  const {preferences} = useAppSettings();
+  const { preferences } = useAppSettings();
   const navigation = useNavigation();
-  const {isTablet} = useAdmin();
+  const { isTablet } = useAdmin();
   const isDebouncing = useRef(false);
 
   // Responsive values based on device type - now calculated from screen dimensions
@@ -69,15 +69,15 @@ const ImageCard: React.FC<ImageCardProps> = ({
     labelBorderRadius: isTablet ? width * 0.045 : width * 0.04,
 
     // Typography - calculated from screen dimensions
-    labelFontSize: isTablet ? width * 0.048 : width * 0.045,
+    labelFontSize: isTablet ? width * 0.15 : width * 0.2,
     questionMarkFontSize: isTablet ? width * 0.085 : width * 0.075,
     centralQuestionMarkFontSize: isTablet ? width * 0.17 : width * 0.15,
-    cardLabelFontSize: isTablet ? width * 0.048 : width * 0.045,
+    cardLabelFontSize: isTablet ? width * 0.15 : width * 0.2,
     // Shadow properties - calculated from screen dimensions
     shadowRadius: isTablet ? width * 0.015 : width * 0.012,
     shadowOffset: isTablet
-      ? {width: 0, height: height * 0.012}
-      : {width: 0, height: height * 0.01},
+      ? { width: 0, height: height * 0.012 }
+      : { width: 0, height: height * 0.01 },
     elevation: isTablet ? 10 : 8,
 
     // Question mark positioning - calculated from screen dimensions
@@ -123,7 +123,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
     <View
       style={[
         styles.container,
-        {marginVertical: responsiveValues.containerMarginVertical},
+        { marginVertical: responsiveValues.containerMarginVertical },
       ]}>
       {images.map((image, index) => {
         // Handle the "More" button specially
@@ -154,7 +154,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 onAnswerSelected?.('MoreAnswers');
               }}
               disabled={image.url.url === 'placeholder'}>
-              <View style={{flexDirection: 'column', alignItems: 'center'}}>
+              <View style={{ flexDirection: 'column', alignItems: 'center' }}>
                 <FastImage
                   source={
                     isMaxRetries
@@ -185,9 +185,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
                   },
                 ]}>
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit={true}
                   style={[
                     styles.label,
-                    {fontSize: responsiveValues.labelFontSize},
+                    { fontSize: isTablet ? width * 0.048 : width * 0.045 },
                   ]}>
                   {isMaxRetries ? 'Try shortcuts' : 'Get more answers'}
                 </Text>
@@ -220,7 +222,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
               // Call the callback to log the conversation
               onAnswerSelected?.(image.prompt);
             }}>
-            <View style={{flexDirection: 'column', alignItems: 'center'}}>
+            <View style={{ flexDirection: 'column', alignItems: 'center' }}>
               {/* Check if the URL is a placeholder */}
               {image.url.url === 'placeholder' ? (
                 <>
@@ -243,7 +245,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 </>
               ) : image.url.url === MA_TALK_LOGO_URL ||
                 decodeURIComponent(image.url.url || '') ===
-                  'https://matalkcdn.win/Ma-Talk logo.jpg' ? (
+                'https://matalkcdn.win/Ma-Talk logo.jpg' ? (
                 // If image is Ma-Talk logo, show word text centered in the card
                 <View
                   style={[
@@ -295,8 +297,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
             </View>
             {/* Only show label for remote images (not Ma-Talk logo or placeholder) */}
             {image.url.url !== 'placeholder' &&
-            image.url.url !== MA_TALK_LOGO_URL &&
-            decodeURIComponent(image.url.url || '') !==
+              image.url.url !== MA_TALK_LOGO_URL &&
+              decodeURIComponent(image.url.url || '') !==
               'https://matalkcdn.win/Ma-Talk logo.jpg' ? (
               <View
                 style={[
@@ -310,7 +312,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 <Text
                   style={[
                     styles.label,
-                    {fontSize: responsiveValues.labelFontSize},
+                    { fontSize: responsiveValues.labelFontSize },
                   ]}>
                   {image.prompt}
                 </Text>

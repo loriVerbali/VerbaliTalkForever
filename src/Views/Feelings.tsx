@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, memo, useMemo} from 'react';
+import React, { useState, useEffect, useRef, memo, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,8 @@ import {
   Platform,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import {useNavigation} from '@react-navigation/native';
-import {views} from '../utils/constants';
+import { useNavigation } from '@react-navigation/native';
+import { views } from '../utils/constants';
 import TTSService from '../utils/TTSService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
@@ -21,9 +21,9 @@ import {
   PanGestureHandler,
   State,
 } from 'react-native-gesture-handler';
-import {useConnection} from '../utils/connection';
+import { useConnection } from '../utils/connection';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 //Good Feelings
 import happyImg from '../assets/feelings/goodFeelings/happy.jpg';
 import excitedImg from '../assets/feelings/goodFeelings/excited.jpg';
@@ -53,8 +53,8 @@ import tiredImg from '../assets/feelings/badBody/tired.jpg';
 import dizzyImg from '../assets/feelings/badBody/dizzy.jpg';
 import itchyImg from '../assets/feelings/badBody/itchy.jpg';
 
-import {Mixpanel} from 'mixpanel-react-native';
-import {useAdmin} from '../contexts/adminContext';
+import { Mixpanel } from 'mixpanel-react-native';
+import { useAdmin } from '../contexts/adminContext';
 // For simplicity, we'll use the same dog image for all feeling cards
 // In a real app, you would have different images for each feeling
 const dogImg = require('../assets/welcome.png'); // Replace with actual dog image
@@ -95,39 +95,39 @@ const topCategories = [
 
 // Feeling grid data - static arrays extracted outside component
 const goodBody = [
-  {label: 'Comfortable', backgroundColor: '#FFFFFF'},
-  {label: 'Relaxed', backgroundColor: '#FFFFFF'},
-  {label: "I'm OK", backgroundColor: '#FFFFFF'},
-  {label: 'Warm', backgroundColor: '#FFFFFF'},
-  {label: 'Strong', backgroundColor: '#FFFFFF'},
-  {label: 'Energetic', backgroundColor: '#FFFFFF'},
+  { label: 'Comfortable', backgroundColor: '#FFFFFF' },
+  { label: 'Relaxed', backgroundColor: '#FFFFFF' },
+  { label: "I'm OK", backgroundColor: '#FFFFFF' },
+  { label: 'Warm', backgroundColor: '#FFFFFF' },
+  { label: 'Strong', backgroundColor: '#FFFFFF' },
+  { label: 'Energetic', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const goodFeelings = [
-  {label: 'Happy', backgroundColor: '#FFFFFF'},
-  {label: 'Excited', backgroundColor: '#FFFFFF'},
-  {label: 'Loved', backgroundColor: '#FFFFFF'},
-  {label: 'Calm', backgroundColor: '#FFFFFF'},
-  {label: 'Proud', backgroundColor: '#FFFFFF'},
-  {label: 'Silly', backgroundColor: '#FFFFFF'},
+  { label: 'Happy', backgroundColor: '#FFFFFF' },
+  { label: 'Excited', backgroundColor: '#FFFFFF' },
+  { label: 'Loved', backgroundColor: '#FFFFFF' },
+  { label: 'Calm', backgroundColor: '#FFFFFF' },
+  { label: 'Proud', backgroundColor: '#FFFFFF' },
+  { label: 'Silly', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const badFeelings = [
-  {label: 'Sad', backgroundColor: '#FFFFFF'},
-  {label: 'Bored', backgroundColor: '#FFFFFF'},
-  {label: 'Scared', backgroundColor: '#FFFFFF'},
-  {label: 'Worried', backgroundColor: '#FFFFFF'},
-  {label: 'Embarrassed', backgroundColor: '#FFFFFF'},
-  {label: 'Angry', backgroundColor: '#FFFFFF'},
+  { label: 'Sad', backgroundColor: '#FFFFFF' },
+  { label: 'Bored', backgroundColor: '#FFFFFF' },
+  { label: 'Scared', backgroundColor: '#FFFFFF' },
+  { label: 'Worried', backgroundColor: '#FFFFFF' },
+  { label: 'Embarrassed', backgroundColor: '#FFFFFF' },
+  { label: 'Angry', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const badBody = [
-  {label: 'Cold', backgroundColor: '#FFFFFF'},
-  {label: 'Hurt', backgroundColor: '#FFFFFF'},
-  {label: 'Sick', backgroundColor: '#FFFFFF'},
-  {label: 'Tired', backgroundColor: '#FFFFFF'},
-  {label: 'Dizzy', backgroundColor: '#FFFFFF'},
-  {label: 'Itchy', backgroundColor: '#FFFFFF'},
+  { label: 'Cold', backgroundColor: '#FFFFFF' },
+  { label: 'Hurt', backgroundColor: '#FFFFFF' },
+  { label: 'Sick', backgroundColor: '#FFFFFF' },
+  { label: 'Tired', backgroundColor: '#FFFFFF' },
+  { label: 'Dizzy', backgroundColor: '#FFFFFF' },
+  { label: 'Itchy', backgroundColor: '#FFFFFF' },
 ] as const;
 
 // Static category mapping to prevent recreation
@@ -142,8 +142,8 @@ const FEELINGS_DATA = {
 
 const Feelings = () => {
   const navigation = useNavigation();
-  const {isTablet} = useAdmin();
-  const {isConnected} = useConnection();
+  const { isTablet } = useAdmin();
+  const { isConnected } = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
   const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
@@ -170,7 +170,7 @@ const Feelings = () => {
   // Memoize responsive values to prevent recalculation on every render
   const responsiveValues = useMemo(
     () => ({
-      iconSize: isTablet ? {width: 60, height: 60} : {width: 30, height: 30},
+      iconSize: isTablet ? { width: 60, height: 60 } : { width: 30, height: 30 },
       topRowHeight: isTablet ? height * 0.22 : height * 0.18,
       topItemWidth: isTablet ? width * 0.16 : width * 0.2,
       topRowGap: isTablet ? width * 0.03 : width * 0.02,
@@ -178,14 +178,14 @@ const Feelings = () => {
       gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4, // Back to 4 columns
       gridImageHeight: isTablet ? height * 0.25 : height * 0.16, // Slight height increase
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? 16 : 14,
+      labelGridFontSize: isTablet ? width * 0.08 : width * 0.12,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.05 : height * 0.03,
       gridItemMarginBottom: isTablet ? 15 : 10,
       gridLabelPadding: isTablet ? 8 : 3, // Reduced padding on mobile to give more space to image
       borderRadius: isTablet ? 16 : 12,
       shadowRadius: isTablet ? 5 : 3,
-      shadowOffset: isTablet ? {width: 0, height: 8} : {width: 0, height: 4},
+      shadowOffset: isTablet ? { width: 0, height: 8 } : { width: 0, height: 4 },
       elevation: isTablet ? 8 : 5,
     }),
     [isTablet],
@@ -267,7 +267,7 @@ const Feelings = () => {
   };
 
   const onPanGestureEvent = (event: any) => {
-    const {translationX, velocityX, state} = event.nativeEvent;
+    const { translationX, velocityX, state } = event.nativeEvent;
 
     if (state === State.END) {
       // Determine swipe direction based on translation and velocity
@@ -336,7 +336,7 @@ const Feelings = () => {
             <Animated.View
               style={[
                 styles.topItemWrapper,
-                {width: responsiveValues.topItemWidth},
+                { width: responsiveValues.topItemWidth },
                 {
                   transform: [
                     {
@@ -350,7 +350,7 @@ const Feelings = () => {
               ]}>
               <Pressable
                 onPress={() => handleCategoryPress('goodBody')}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.topItem,
                   {
                     borderRadius: responsiveValues.borderRadius,
@@ -364,20 +364,20 @@ const Feelings = () => {
                 <View
                   style={[
                     styles.topImageContainer,
-                    {borderRadius: responsiveValues.borderRadius},
+                    { borderRadius: responsiveValues.borderRadius },
                   ]}>
                   <Image
                     source={topCategories[0].image}
                     style={[
                       styles.imageTop,
-                      {backgroundColor: topCategories[0].backgroundColor},
+                      { backgroundColor: topCategories[0].backgroundColor },
                     ]}
                     resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
                       styles.labelTop,
-                      {fontSize: responsiveValues.labelTopFontSize},
+                      { fontSize: responsiveValues.labelTopFontSize },
                     ]}>
                     {topCategories[0].label}
                   </Text>
@@ -388,7 +388,7 @@ const Feelings = () => {
             <Animated.View
               style={[
                 styles.topItemWrapper,
-                {width: responsiveValues.topItemWidth},
+                { width: responsiveValues.topItemWidth },
                 {
                   transform: [
                     {
@@ -402,7 +402,7 @@ const Feelings = () => {
               ]}>
               <Pressable
                 onPress={() => handleCategoryPress('goodFeelings')}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.topItem,
                   {
                     borderRadius: responsiveValues.borderRadius,
@@ -416,20 +416,20 @@ const Feelings = () => {
                 <View
                   style={[
                     styles.topImageContainer,
-                    {borderRadius: responsiveValues.borderRadius},
+                    { borderRadius: responsiveValues.borderRadius },
                   ]}>
                   <Image
                     source={topCategories[1].image}
                     style={[
                       styles.imageTop,
-                      {backgroundColor: topCategories[1].backgroundColor},
+                      { backgroundColor: topCategories[1].backgroundColor },
                     ]}
                     resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
                       styles.labelTop,
-                      {fontSize: responsiveValues.labelTopFontSize},
+                      { fontSize: responsiveValues.labelTopFontSize },
                     ]}>
                     {topCategories[1].label}
                   </Text>
@@ -440,7 +440,7 @@ const Feelings = () => {
             <Animated.View
               style={[
                 styles.topItemWrapper,
-                {width: responsiveValues.topItemWidth},
+                { width: responsiveValues.topItemWidth },
                 {
                   transform: [
                     {
@@ -454,7 +454,7 @@ const Feelings = () => {
               ]}>
               <Pressable
                 onPress={() => handleCategoryPress('badBody')}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.topItem,
                   {
                     borderRadius: responsiveValues.borderRadius,
@@ -468,20 +468,20 @@ const Feelings = () => {
                 <View
                   style={[
                     styles.topImageContainer,
-                    {borderRadius: responsiveValues.borderRadius},
+                    { borderRadius: responsiveValues.borderRadius },
                   ]}>
                   <Image
                     source={topCategories[3].image}
                     style={[
                       styles.imageTop,
-                      {backgroundColor: topCategories[3].backgroundColor},
+                      { backgroundColor: topCategories[3].backgroundColor },
                     ]}
                     resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
                       styles.labelTop,
-                      {fontSize: responsiveValues.labelTopFontSize},
+                      { fontSize: responsiveValues.labelTopFontSize },
                     ]}>
                     {topCategories[3].label}
                   </Text>
@@ -492,7 +492,7 @@ const Feelings = () => {
             <Animated.View
               style={[
                 styles.topItemWrapper,
-                {width: responsiveValues.topItemWidth},
+                { width: responsiveValues.topItemWidth },
                 {
                   transform: [
                     {
@@ -506,7 +506,7 @@ const Feelings = () => {
               ]}>
               <Pressable
                 onPress={() => handleCategoryPress('badFeelings')}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.topItem,
                   {
                     borderRadius: responsiveValues.borderRadius,
@@ -520,20 +520,20 @@ const Feelings = () => {
                 <View
                   style={[
                     styles.topImageContainer,
-                    {borderRadius: responsiveValues.borderRadius},
+                    { borderRadius: responsiveValues.borderRadius },
                   ]}>
                   <Image
                     source={topCategories[2].image}
                     style={[
                       styles.imageTop,
-                      {backgroundColor: topCategories[2].backgroundColor},
+                      { backgroundColor: topCategories[2].backgroundColor },
                     ]}
                     resizeMode={isTablet ? 'cover' : 'contain'}
                   />
                   <Text
                     style={[
                       styles.labelTop,
-                      {fontSize: responsiveValues.labelTopFontSize},
+                      { fontSize: responsiveValues.labelTopFontSize },
                     ]}>
                     {topCategories[2].label}
                   </Text>
@@ -549,7 +549,7 @@ const Feelings = () => {
             {feelingsToDisplay.map((feeling, i) => (
               <Pressable
                 key={i}
-                style={({pressed}) => [
+                style={({ pressed }) => [
                   styles.gridItem,
                   {
                     width: responsiveValues.gridWidth,
@@ -574,9 +574,11 @@ const Feelings = () => {
                     },
                   ]}>
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
                     style={[
                       styles.labelGrid,
-                      {fontSize: responsiveValues.labelGridFontSize},
+                      { fontSize: responsiveValues.labelGridFontSize },
                     ]}>
                     {feeling.label}
                   </Text>
@@ -629,7 +631,7 @@ const styles = StyleSheet.create({
   topItemSelected: {
     shadowOpacity: 0.8,
     shadowRadius: 15,
-    shadowOffset: {width: 0, height: 12},
+    shadowOffset: { width: 0, height: 12 },
     elevation: 16,
     borderWidth: 2,
     borderColor: '#146CF0',
@@ -699,7 +701,7 @@ const styles = StyleSheet.create({
         shadowColor: 'gray',
         shadowOpacity: 0.8,
         shadowRadius: 5,
-        shadowOffset: {width: 0, height: 8},
+        shadowOffset: { width: 0, height: 8 },
       },
       android: {
         elevation: 8,
@@ -718,6 +720,8 @@ const styles = StyleSheet.create({
     // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
+    width: '80%',
+    alignSelf: 'center',
   },
   iconSize: {
     width: 60,
@@ -770,7 +774,7 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.8,
-    transform: [{scale: 0.98}],
+    transform: [{ scale: 0.98 }],
   },
 });
 
