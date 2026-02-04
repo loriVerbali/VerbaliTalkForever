@@ -134,7 +134,7 @@ class AudioSessionManagerModule: RCTEventEmitter {
   
   @objc
   func endTTS(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    log("endTTS() called")
+    log("endTTS() called - setting ttsActive=false")
     // currently a no-op; could deactivate or clear ttsActive
     AudioSessionManager.sharedInstance().setTTSActive(false)
     resolve(true)
@@ -142,7 +142,7 @@ class AudioSessionManagerModule: RCTEventEmitter {
   
   @objc
   func endWakeword(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
-    log("endWakeword() called")
+    log("endWakeword() called - setting wakewordActive=false")
     AudioSessionManager.sharedInstance().setWakewordActive(false)
     resolve(true)
   }
