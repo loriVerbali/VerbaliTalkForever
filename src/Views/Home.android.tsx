@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,15 +7,18 @@ import {
   TouchableOpacity,
   Platform,
   PermissionsAndroid,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
-import {useNavigation, RouteProp} from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, RouteProp } from '@react-navigation/native';
 
 // Add imports for the components
-import Inputs, {InputsRef} from '../Components/Inputs';
+import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
-import {useAssistant} from '../contexts/AssistantContext';
-import {useSound} from '../contexts/soundContext';
+import { useAssistant } from '../contexts/AssistantContext';
+import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -25,19 +28,20 @@ import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import {Mixpanel} from 'mixpanel-react-native';
-import {logConversation} from '../utils/conversationLogger';
-import {useAdmin} from '../contexts/adminContext';
-import {views} from '../utils/constants';
-import {useAppSettings} from '../utils/persistance';
+import { Mixpanel } from 'mixpanel-react-native';
+import { logConversation } from '../utils/conversationLogger';
+import { useAdmin } from '../contexts/adminContext';
+import { views } from '../utils/constants';
+import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice from '@dev-amirzubair/react-native-voice';
-import {useDatabase} from '../contexts/DatabaseContext';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { polishText } from '../utils/polishApi';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: {stateof?: 'Attention' | 'Keyboard' | string};
+  Home: { stateof?: 'Attention' | 'Keyboard' | string };
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -50,12 +54,13 @@ const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was school today?';
 
-const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
-  const {generateAnswers} = useAssistant();
-  const {weather, location} = useChatContext();
-  const {isTablet} = useAdmin();
-  const {getItem, preferences} = useAppSettings();
-  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
+const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
+  const { generateAnswers } = useAssistant();
+  const { weather, location } = useChatContext();
+  const { isTablet } = useAdmin();
+  const insets = useSafeAreaInsets();
+  const { getItem, preferences } = useAppSettings();
+  const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false); // Ref for sync guard against duplicate starts
@@ -91,7 +96,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           }
         }
       }
-    } catch (error) {}
+    } catch (error) { }
 
     return fallbackUrl || '';
   };
@@ -118,7 +123,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setConversationHistory(prev => {
       const newHistory = [
         ...prev,
-        {role: 'user' as const, content: userMessage, timestamp: Date.now()},
+        { role: 'user' as const, content: userMessage, timestamp: Date.now() },
         {
           role: 'assistant' as const,
           content: assistantResponse,
@@ -137,12 +142,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
-    Array<{word: string; imageUrl?: string}>
+    Array<{ word: string; imageUrl?: string }>
   >([]);
 
   // Conversation history state
   const [conversationHistory, setConversationHistory] = useState<
-    Array<{role: 'user' | 'assistant'; content: string; timestamp: number}>
+    Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>
   >([]);
 
   // AI Resolved tracking state
@@ -161,12 +166,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const responsiveValues = {
     // Icon sizes
     microphoneSize: isTablet
-      ? {width: 45, height: 45}
-      : {width: 35, height: 35},
+      ? { width: 45, height: 45 }
+      : { width: 35, height: 35 },
     fetchingSize: isTablet
-      ? {width: 200, height: 200}
-      : {width: 150, height: 150},
-    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
+      ? { width: 200, height: 200 }
+      : { width: 150, height: 150 },
+    matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
 
     // Layout dimensions
     inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
@@ -180,11 +185,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
-      ? {width: width * 0.3, height: width * 0.3}
-      : {width: width * 0.25, height: width * 0.25},
+      ? { width: width * 0.3, height: width * 0.3 }
+      : { width: width * 0.25, height: width * 0.25 },
     recordingIconSize: isTablet
-      ? {width: width * 0.4, height: width * 0.4}
-      : {width: width * 0.35, height: width * 0.2},
+      ? { width: width * 0.4, height: width * 0.4 }
+      : { width: width * 0.35, height: width * 0.2 },
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -196,8 +201,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Button dimensions
     keyboardButtonPadding: isTablet
-      ? {vertical: 14, horizontal: 35}
-      : {vertical: 12, horizontal: 30},
+      ? { vertical: 14, horizontal: 35 }
+      : { vertical: 12, horizontal: 30 },
     keyboardButtonMinWidth: isTablet ? 120 : 100,
     keyboardButtonBorderRadius: isTablet ? 28 : 25,
 
@@ -214,16 +219,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     navigationCardBorderRadius: isTablet ? 15 : 12,
     navigationCardPadding: isTablet ? 18 : 15,
     navigationCardImageSize: isTablet
-      ? {width: 70, height: 70}
-      : {width: 60, height: 60},
+      ? { width: 70, height: 70 }
+      : { width: 60, height: 60 },
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? {width: '100%', height: '100%'}
-      : {width: '100%', height: '100%'},
+      ? { width: '100%', height: '100%' }
+      : { width: '100%', height: '100%' },
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
+    shadowOffset: isTablet ? { width: 0, height: 3 } : { width: 0, height: 2 },
     elevation: isTablet ? 6 : 4,
 
     // Waiting for next conversation
@@ -253,14 +258,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   }, [weather, location, cachedContextInfo, lastContextUpdate]);
 
   // Add keyboard input state
-  const [keyboardInput, setKeyboardInput] = useState('');
-  const [debouncedKeyboardInput, setDebouncedKeyboardInput] = useState('');
-  const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const {playAttention} = useSound();
+  const { playAttention } = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showImages, setShowImages] = useState(false);
@@ -307,7 +309,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) {}
+        } catch (error) { }
       }
 
       setResponseTimerStart(null);
@@ -334,7 +336,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) {}
+      } catch (error) { }
     };
 
     try {
@@ -352,7 +354,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           buttonPositive: 'OK',
         },
       );
-    } catch (error) {}
+    } catch (error) { }
 
     Voice.onSpeechStart = () => {
       console.log('Voice: onSpeechStart');
@@ -376,18 +378,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     // Set up final results handler
     // Note: event.value is an array of recognized text strings
     Voice.onSpeechResults = (event: any) => {
-      console.log('Voice: onSpeechResults', event);
       if (event.value && event.value.length > 0) {
         // event.value is already an array of results
         setVoiceResults(event.value[0]);
         voiceResultsRef.current = event.value;
-        console.log('Voice: Set voiceResultsRef to', event.value);
       }
     };
 
     // Set up partial results handler for streaming text
     Voice.onSpeechPartialResults = (event: any) => {
-      console.log('Voice: onSpeechPartialResults', event);
       let partialText = '';
 
       // event.value is an array of partial results
@@ -417,7 +416,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
         // Set new silence timer - if no new partial results for 2 seconds, stop recording
         silenceTimerRef.current = setTimeout(async () => {
-          console.log('Voice: Silence detected, auto-stopping recording');
           // Only stop if we have some text and are still recording
           if (partialResultRef.current.trim().length > 0) {
             await stopRecording();
@@ -483,9 +481,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   const handleRecord = async () => {
     // Prevent multiple simultaneous recordings using ref (sync check)
-    console.log('handleRecord: isRecordingRef =', isRecordingRef.current);
     if (isRecordingRef.current) {
-      console.log('handleRecord: Already recording, ignoring duplicate call');
       return;
     }
 
@@ -500,29 +496,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     try {
       const wakeWordService = WakeWordService.getInstance();
       const status = wakeWordService.getStatus();
-      console.log(
-        'handleRecord: WakeWordService status =',
-        JSON.stringify(status),
-      );
 
       // Use cleanup() which:
       // 1. Waits for any pending startingPromise
       // 2. Waits for any pending initializingPromise (CRITICAL for first launch!)
       // 3. Calls stopListening()
       // 4. Releases all native resources
-      console.log(
-        'handleRecord: Cleaning up WakeWordService to release microphone',
-      );
+
       await wakeWordService.cleanup();
-      console.log('handleRecord: WakeWordService cleanup complete');
 
       // Longer delay on Android to ensure microphone is fully released
       // Android audio system can take time to release resources
-      console.log('handleRecord: Waiting for microphone release...');
       await new Promise<void>(resolve => setTimeout(resolve, 800));
-      console.log('handleRecord: Microphone should be released now');
     } catch (error) {
-      console.log('handleRecord: Error cleaning up WakeWordService', error);
       // Even if there's an error, wait longer before trying Voice
       await new Promise<void>(resolve => setTimeout(resolve, 500));
     }
@@ -569,14 +555,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       // Start Voice recognition with locale
       // NOTE: Don't force RECOGNIZER_ENGINE - let Android choose the best available
       // Using 'en-US' format (with hyphen) which is more widely supported
-      console.log('Starting Voice recognition...');
       await Voice.start('en-US', {
         EXTRA_PARTIAL_RESULTS: true,
         EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 5000,
         EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
         EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
       });
-      console.log('Voice recognition started successfully');
 
       // Set timer to stop recording after 20 seconds
       recordingTimer.current = setTimeout(async () => {
@@ -601,7 +585,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   const stopRecording = async () => {
     try {
-      console.log('stopRecording: Stopping...');
       // Clear timer first to prevent multiple calls
       if (recordingTimer.current) {
         clearTimeout(recordingTimer.current);
@@ -625,15 +608,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       // Process the voice results using refs (which are captured synchronously)
       // Small delay to allow any final onResults event to fire
       setTimeout(() => {
-        console.log('stopRecording: Processing voice results after delay');
-        console.log(
-          'stopRecording: voiceResultsRef =',
-          voiceResultsRef.current,
-        );
-        console.log(
-          'stopRecording: partialResultRef =',
-          partialResultRef.current,
-        );
         processVoiceResults();
       }, 300); // Small delay to ensure results are captured
     } catch (error) {
@@ -655,15 +629,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       const currentVoiceResults = voiceResultsRef.current;
       const currentPartialResult = partialResultRef.current;
 
-      console.log(
-        'processVoiceResults: voiceResultsRef =',
-        currentVoiceResults,
-      );
-      console.log(
-        'processVoiceResults: partialResultRef =',
-        currentPartialResult,
-      );
-
       // Get the best result from voiceResults, fallback to partialResult if voiceResults is empty
       let transcribedText = '';
       if (currentVoiceResults.length > 0) {
@@ -673,7 +638,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         transcribedText = currentPartialResult.trim();
       }
 
-      console.log('processVoiceResults: transcribedText =', transcribedText);
 
       if (
         transcribedText.length === 0 ||
@@ -684,7 +648,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         transcribedText === '. .' ||
         transcribedText === '.'
       ) {
-        console.log('processVoiceResults: Empty or false positive detected');
         setFinishedTranscribing(true);
         setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
         TTSService.speak("I couldn't hear you. Tap Home to retry", true);
@@ -722,6 +685,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               audience: preferences?.heroName || 'my',
               pepes: parsedPepes,
               conversationHistory: conversationHistory,
+              contextInfo: contextInfo, // Weather, time, and location context
             },
             countMin: 5,
             countMax: 5,
@@ -806,15 +770,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setFinishedTranscribing(false);
     setTranscribedText('');
     setShowImages(false);
-    setIsRetrying(false);
-    setRetryCount(0);
-    setIsProcessingAnswer(false); // Reset processing state
     setIsTranscribing(false); // Reset transcription state
     setIsRecording(false); // Reset recording state
-    isRecordingRef.current = false; // Reset ref too
-    setKeyboardInput(''); // Reset keyboard input
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
@@ -898,6 +855,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes, // Include pepes data for better context
           conversationHistory: conversationHistory, // Include conversation history
+          contextInfo: contextInfo, // Weather, time, and location context
         },
         prior: {
           answers: priorAnswers, // Pass the 5 current answers so they aren't shown again
@@ -987,7 +945,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Update AI Resolved record with the selected answer
     if (currentAIRecord) {
-      const updatedRecord = {...currentAIRecord};
+      const updatedRecord = { ...currentAIRecord };
 
       if (currentAIRecord.currentRound === 1) {
         updatedRecord.round1Picked = selectedAnswer;
@@ -1014,7 +972,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) {}
+        } catch (error) { }
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1064,9 +1022,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           setIsTranscribing(false);
           setIsRecording(false);
           isRecordingRef.current = false; // Reset ref too
-          setKeyboardInput('');
-          setDebouncedKeyboardInput('');
-          setIsSubmittingKeyboard(false);
           setIsUsingLocalWhisper(false);
           setModelNotAvailable(false);
 
@@ -1085,38 +1040,27 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           // NOTE: handleRecord() called cleanup() earlier, so WakeWordService needs to reinitialize
           try {
             // IMPORTANT: Destroy Voice to fully release the microphone before starting wake word
-            console.log(
-              'handleAnswerSelected: Destroying Voice to release microphone...',
-            );
+
             await Voice.destroy();
-            console.log('handleAnswerSelected: Voice destroyed');
 
             // Longer delay to ensure Android has fully released the microphone
             await new Promise<void>(resolve => setTimeout(resolve, 800));
 
             const wakeWordService = WakeWordService.getInstance();
-            console.log(
-              'handleAnswerSelected: WakeWordService status before restart:',
-              JSON.stringify(wakeWordService.getStatus()),
-            );
+
 
             // Set callback first
             wakeWordService.setCallback((phrase: string) => {
-              console.log('WakeWord detected in waiting state:', phrase);
               // When wake word detected, start new conversation
               setWaitingForNextConversation(false);
               playSound(); // This will trigger handleRecord()
             });
 
             // Start listening - this will reinitialize the service since cleanup() was called
-            console.log('handleAnswerSelected: Starting WakeWordService...');
             await wakeWordService.startListening();
 
             const statusAfter = wakeWordService.getStatus();
-            console.log(
-              'handleAnswerSelected: WakeWordService started, status:',
-              JSON.stringify(statusAfter),
-            );
+
 
             // Verify it's actually listening
             if (!wakeWordService.isCurrentlyListening()) {
@@ -1137,158 +1081,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
-  // Function to handle keyboard input submission
-  const handleKeyboardSubmit = async () => {
-    const inputText = keyboardInput.trim();
-
-    if (!inputText || isSubmittingKeyboard) {
-      return;
-    }
-
-    try {
-      setIsSubmittingKeyboard(true);
-
-      // Simply display what was written without making API calls
-      TTSService.speak(inputText, true);
-    } catch (error) {
-    } finally {
-      setIsSubmittingKeyboard(false);
-    }
-  };
-
-  // Debounced input handler
-  const handleKeyboardInputChange = useCallback((text: string) => {
-    setKeyboardInput(text);
-
-    // Clear existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // Set new timer for debounced update
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedKeyboardInput(text);
-    }, 300); // 300ms debounce
-  }, []);
-
-  // Function to handle keyboard input cancellation
-  const handleKeyboardCancel = () => {
-    setKeyboardInput('');
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
-
-    // Clear the input in the Inputs component
-    if (inputsRef.current) {
-      inputsRef.current.clearInput();
-    }
-
-    // Clear debounce timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = null;
-    }
-  };
-
-  // Child component for keyboard input
-  const KeyboardInputComponent = () => {
-    const hasText = debouncedKeyboardInput.trim().length > 0;
-
-    return (
-      <View
-        style={[
-          styles.keyboardInputContainer,
-          {padding: responsiveValues.keyboardInputPadding},
-        ]}>
-        {/* Show waiting message or what's being typed */}
-        {keyboardInput.length === 0 ? (
-          <FastImage
-            source={require('../assets/waitforKB.png')}
-            style={responsiveValues.keyboardIconSize}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        ) : (
-          <View
-            style={[
-              styles.typingDisplay,
-              {
-                padding: responsiveValues.typingDisplayPadding,
-                minHeight: responsiveValues.typingDisplayMinHeight,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.typingDisplayText,
-                {fontSize: responsiveValues.keyboardTypingFontSize},
-              ]}>
-              {keyboardInput}
-            </Text>
-          </View>
-        )}
-
-        {/* Show buttons only when there's debounced text */}
-        {hasText && (
-          <View style={styles.keyboardButtonsContainer}>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.cancelButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardCancel}
-              disabled={isSubmittingKeyboard}>
-              <Text
-                style={[
-                  styles.cancelButtonText,
-                  {fontSize: responsiveValues.buttonFontSize},
-                ]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.submitButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardSubmit}
-              disabled={
-                isSubmittingKeyboard ||
-                debouncedKeyboardInput.trim().length === 0
-              }>
-              {isSubmittingKeyboard ? (
-                <FastImage
-                  source={require('../assets/movie/output.gif')}
-                  style={[styles.iconSize, responsiveValues.fetchingSize]}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.submitButtonText,
-                    {fontSize: responsiveValues.buttonFontSize},
-                  ]}>
-                  Submit
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    );
+  // handleKeyboardSubmit, handleKeyboardInputChange, handleKeyboardCancel moved to KeyboardHome
+  const handlePolish = () => {
+    // Moved to KeyboardHome
   };
 
   return (
@@ -1297,7 +1092,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         colors={['#FFF8E7', '#FFFFFF']}
         style={[
           styles.container,
-          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
+          Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
         ]}>
         {stateof === 'Keyboard' ? null : (
           <View
@@ -1321,6 +1116,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         {/* Home Button */}
         <HomeButton navigation={navigation} onReset={resetLocalStates} />
 
+
+
         {/* Matalk Icon */}
         <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
           <MatalkIcon />
@@ -1330,16 +1127,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <View
           style={[
             styles.inputNavigationContainer,
-            {height: responsiveValues.inputNavigationHeight},
+            stateof === 'Keyboard'
+              ? { height: 0, opacity: 0 }
+              : {
+                height: responsiveValues.inputNavigationHeight,
+                marginTop: Math.max(insets.top, 10)
+              },
           ]}>
-          <Inputs
-            ref={inputsRef}
-            mode={stateof}
-            onInputChange={handleKeyboardInputChange}
-          />
+          {stateof !== 'Keyboard' && (
+            <Inputs
+              ref={inputsRef}
+              mode={stateof}
+            />
+          )}
         </View>
 
-        <View style={{flex: 1, width: '100%'}}>
+        <View style={{ flex: 1, width: '100%' }}>
           <View
             style={[
               styles.contentContainer,
@@ -1350,7 +1153,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, {zIndex: 10}]}
+              style={[styles.imageCardContainer, { zIndex: 10 }]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1368,7 +1171,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       try {
                         // Handle direct answers format
                         return {
-                          url: {url: item.imageUrl || ''},
+                          url: { url: item.imageUrl || '' },
                           prompt: item.word || '',
                         };
                       } catch (err) {
@@ -1376,7 +1179,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       }
                     })
                     .filter(
-                      (item): item is {url: {url: string}; prompt: string} =>
+                      (item): item is { url: { url: string }; prompt: string } =>
                         item !== null,
                     );
 
@@ -1386,7 +1189,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         <Text
                           style={[
                             styles.errorText,
-                            {fontSize: responsiveValues.errorFontSize},
+                            { fontSize: responsiveValues.errorFontSize },
                           ]}>
                           We have an issue. Please be patient.
                         </Text>
@@ -1435,7 +1238,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
                               ShortCuts
                             </Text>
@@ -1485,7 +1288,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
                               Feelings
                             </Text>
@@ -1525,7 +1328,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       <View
                         style={[
                           styles.waitingForNextContainer,
-                          {padding: responsiveValues.waitingContainerPadding},
+                          { padding: responsiveValues.waitingContainerPadding },
                         ]}>
                         <Text
                           style={[
@@ -1537,7 +1340,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             },
                           ]}>
                           Say{' '}
-                          <Text style={{fontWeight: 'bold', color: 'blue'}}>
+                          <Text style={{ fontWeight: 'bold', color: 'blue' }}>
                             Hey Verbi
                           </Text>{' '}
                           to continue the conversation or tap below
@@ -1571,9 +1374,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </TouchableOpacity>
                       </View>
                     ) : stateof === 'Keyboard' ? (
-                      <KeyboardInputComponent />
+                      null // Keyboard mode handled by KeyboardHome view
                     ) : isTranscribing ? (
-                      <View style={{alignItems: 'center'}}>
+                      <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
                           style={[
@@ -1593,7 +1396,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </Text>
                       </View>
                     ) : isRecording ? (
-                      <View style={{alignItems: 'center'}}>
+                      <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/recording.gif')}
                           style={responsiveValues.recordingIconSize}
@@ -1621,7 +1424,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <View style={{alignItems: 'center', marginBottom: 20}}>
+                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
                           <Text
                             style={{
                               fontSize: responsiveValues.transcriptionFontSize,
@@ -1638,23 +1441,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                 color: isUsingLocalWhisper
                                   ? '#4CAF50'
                                   : modelNotAvailable
-                                  ? '#FF9800'
-                                  : '#2196F3',
+                                    ? '#FF9800'
+                                    : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
                               {isUsingLocalWhisper
                                 ? '🔒 Local Whisper'
                                 : modelNotAvailable
-                                ? '☁️ Cloud (Model not downloaded)'
-                                : '☁️ Cloud'}
+                                  ? '☁️ Cloud (Model not downloaded)'
+                                  : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
 
                         {/* Show different loading states based on processing phase */}
                         {isRetrying ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1676,7 +1479,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             </Text>
                           </View>
                         ) : isProcessingAnswer ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1708,8 +1511,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         ) : null}
 
                         {finishedTranscribing &&
-                        (transcribedText.length === 0 ||
-                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                          (transcribedText.length === 0 ||
+                            transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
                           <HomeButton
                             navigation={navigation}
                             onReset={resetLocalStates}
