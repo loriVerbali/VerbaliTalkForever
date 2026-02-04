@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,16 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import {useAdmin} from '../contexts/adminContext';
+import { useAdmin } from '../contexts/adminContext';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface TermsAndConditionsProps {
   onAgree: (agreed: boolean) => void;
 }
 
-const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
-  const {isTablet} = useAdmin();
+const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
+  const { isTablet } = useAdmin();
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -75,7 +75,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
   };
 
   const handleScroll = (event: any) => {
-    const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const isScrolledToBottom =
       contentOffset.y + layoutMeasurement.height >= contentSize.height - 20;
 
@@ -93,7 +93,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
   };
 
   return (
-    <View style={[styles.container, {maxHeight: responsiveValues.maxHeight}]}>
+    <View style={[styles.container, { maxHeight: responsiveValues.maxHeight }]}>
       {!hasScrolledToBottom && (
         <Text
           style={[
@@ -1249,7 +1249,96 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.sectionTitleMarginBottom,
             },
           ]}>
-          12. Contact Us
+          12. Service & Hardware Support Policy
+        </Text>
+
+        <Text
+          style={[
+            styles.subSectionTitle,
+            {
+              fontSize: responsiveValues.subSectionTitleFontSize,
+              marginTop: responsiveValues.subSectionTitleMarginTop,
+              marginBottom: responsiveValues.subSectionTitleMarginBottom,
+            },
+          ]}>
+          A. AI Support
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          Verbali will provide support for AI features for a period of three (3) years
+          from the date of purchase. Following this three-year period, AI support will
+          cease, and the user will need to purchase a new AI package to continue
+          accessing these features.
+        </Text>
+
+        <Text
+          style={[
+            styles.subSectionTitle,
+            {
+              fontSize: responsiveValues.subSectionTitleFontSize,
+              marginTop: responsiveValues.subSectionTitleMarginTop,
+              marginBottom: responsiveValues.subSectionTitleMarginBottom,
+            },
+          ]}>
+          B. Maintenance & Upgrades
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          Verbali will provide version upgrades and maintenance for a period of three
+          (3) years. Following this three-year period, we will stop providing
+          upgrades, and the user will need to purchase a new maintenance package to
+          receive further updates.
+        </Text>
+
+        <Text
+          style={[
+            styles.subSectionTitle,
+            {
+              fontSize: responsiveValues.subSectionTitleFontSize,
+              marginTop: responsiveValues.subSectionTitleMarginTop,
+              marginBottom: responsiveValues.subSectionTitleMarginBottom,
+            },
+          ]}>
+          C. Hardware Support
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          We will attempt to support all hardware devices within reason. However, we
+          reserve the right to discontinue support for older models or specific iOS
+          or Android versions that are no longer viable to maintain.
+        </Text>
+
+        <Text
+          style={[
+            styles.sectionTitle,
+            {
+              fontSize: responsiveValues.sectionTitleFontSize,
+              marginTop: responsiveValues.sectionTitleMarginTop,
+              marginBottom: responsiveValues.sectionTitleMarginBottom,
+            },
+          ]}>
+          13. Contact Us
         </Text>
         <Text
           style={[
@@ -1281,7 +1370,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
         <TouchableOpacity
           style={[
             styles.checkboxContainer,
-            {paddingVertical: responsiveValues.checkboxContainerPadding},
+            { paddingVertical: responsiveValues.checkboxContainerPadding },
             !hasScrolledToBottom && styles.disabledCheckbox,
           ]}
           onPress={handleCheckboxPress}
@@ -1312,7 +1401,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
           <Text
             style={[
               styles.agreementText,
-              {fontSize: responsiveValues.agreementTextFontSize},
+              { fontSize: responsiveValues.agreementTextFontSize },
               !hasScrolledToBottom && styles.disabledText,
             ]}>
             I agree to the Privacy Policy

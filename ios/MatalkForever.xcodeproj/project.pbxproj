@@ -11,6 +11,7 @@
 		5D669F289B065356B98D707B /* libPods-matalkforever.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B433A4E528A671A012788A0 /* libPods-matalkforever.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		8A12DC1D2F19AC5A005BD13B /* AudioSessionManagerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A12DC1C2F19AC5A005BD13B /* AudioSessionManagerModule.m */; };
 		8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */; };
 		8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A69E13E2E2035D600B320B9 /* StoreKit.framework */; };
 		8A75608F2E3005A300A3CC88 /* espeak-ng-data in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608A2E3005A100A3CC88 /* espeak-ng-data */; };
@@ -46,6 +47,7 @@
 		5840EF52C0C9F3EE39BE3F6C /* Pods-matalkforever.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-matalkforever.release.xcconfig"; path = "Target Support Files/Pods-matalkforever/Pods-matalkforever.release.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = matalkaiforever.verbali.io/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = matalkaiforever.verbali.io/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		8A12DC1C2F19AC5A005BD13B /* AudioSessionManagerModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AudioSessionManagerModule.m; sourceTree = "<group>"; };
 		8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = hey_verbi_v1.onnx; sourceTree = "<group>"; };
 		8A69E13E2E2035D600B320B9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		8A75608A2E3005A100A3CC88 /* espeak-ng-data */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "espeak-ng-data"; sourceTree = "<group>"; };
@@ -106,6 +108,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				8A12DC1C2F19AC5A005BD13B /* AudioSessionManagerModule.m */,
 				8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */,
 				8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */,
 				8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */,
@@ -292,13 +295,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -313,13 +312,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-matalkforever/Pods-matalkforever-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -334,6 +329,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				8A12DC1D2F19AC5A005BD13B /* AudioSessionManagerModule.m in Sources */,
 				8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */,
 				8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */,
 			);
@@ -355,14 +351,14 @@
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = matalkaiforever.verbali.io/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI";
+				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI Forever";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.7;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -395,14 +391,14 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				INFOPLIST_FILE = matalkaiforever.verbali.io/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI";
+				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI Forever";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.7;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -491,7 +487,10 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -560,7 +559,10 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

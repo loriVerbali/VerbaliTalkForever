@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,14 +27,14 @@ import {
   Purchase,
   getAvailablePurchases,
 } from 'react-native-iap';
-import {useAdmin} from '../contexts/adminContext';
-import {useToast} from '../contexts/ToastContext';
-import {validateSubscription} from '../utils/recieptValidation';
-import {useAppSettings} from '../utils/persistance';
+import { useAdmin } from '../contexts/adminContext';
+import { useToast } from '../contexts/ToastContext';
+import { validateSubscription } from '../utils/recieptValidation';
+import { useAppSettings } from '../utils/persistance';
 // Removed trialUtils import - this is a paid app
-import {Mixpanel} from 'mixpanel-react-native';
+import { Mixpanel } from 'mixpanel-react-native';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export type SubscriptionPlan = 'monthly' | 'yearly' | 'trial';
 
@@ -56,8 +56,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
   context = 'onboarding',
 }) => {
   const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
-  const {isTablet} = useAdmin();
-  const {showError} = useToast();
+  const { isTablet } = useAdmin();
+  const { showError } = useToast();
 
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +71,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
   const [showYearlyPlan, setShowYearlyPlan] = useState(false); // Toggle between yearly and monthly
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false); // Toggle for subscription info
-  const {setItem, preferences} = useAppSettings();
+  const { setItem, preferences } = useAppSettings();
   const scrollRef = useRef<any>(null);
   const [collapsibleY, setCollapsibleY] = useState(0);
 
@@ -93,14 +93,9 @@ const Subscription: React.FC<SubscriptionProps> = ({
   };
 
   // Log component mounting
-  useEffect(() => {}, []);
+  useEffect(() => { }, []);
 
-  // Add logging for preferences state changes
-  useEffect(() => {}, [
-    preferences.isIOSActive,
-    preferences.isInTrial,
-    preferences.trialInstallationDate,
-  ]);
+
 
   // Removed trial card logic - this is a paid app
 
@@ -124,9 +119,9 @@ const Subscription: React.FC<SubscriptionProps> = ({
         const owned = purchases.some(p =>
           Platform.OS === 'ios'
             ? p.productId === 'matalkai.monthly' ||
-              p.productId === 'matalkai.annual'
+            p.productId === 'matalkai.annual'
             : p.productId === 'matalk.monthly' ||
-              p.productId === 'matalk.annual',
+            p.productId === 'matalk.annual',
         );
         setIsIAPInitialized(true);
 
@@ -168,7 +163,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
     try {
       setIsLoadingSubscriptions(true);
-      const products = await getSubscriptions({skus: SUBSCRIPTION_SKUS});
+      const products = await getSubscriptions({ skus: SUBSCRIPTION_SKUS });
       setSubscriptions(products);
       setIsLoadingSubscriptions(false);
     } catch (error) {
@@ -222,7 +217,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
       if (purchase.transactionReceipt) {
         // Finish the transaction
 
-        const finishResult = await finishTransaction({purchase});
+        const finishResult = await finishTransaction({ purchase });
 
         const isActive = await validateSubscription(
           purchase.transactionReceipt,
@@ -296,15 +291,15 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.monthly'
             : 'matalk.monthly'
           : Platform.OS === 'ios'
-          ? 'matalkai.annual'
-          : 'matalk.annual';
+            ? 'matalkai.annual'
+            : 'matalk.annual';
 
       if (Platform.OS === 'ios') {
         // Clear any pending transactions
         await clearTransactionIOS();
 
         // iOS uses the traditional sku parameter
-        const purchaseResult = await requestSubscription({sku});
+        const purchaseResult = await requestSubscription({ sku });
 
         if (purchaseResult) {
           setPurchaseSuccess(true);
@@ -404,8 +399,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.monthly'
             : 'matalk.monthly'
           : Platform.OS === 'ios'
-          ? 'matalkai.annual'
-          : 'matalk.annual';
+            ? 'matalkai.annual'
+            : 'matalk.annual';
 
       const subscription = subscriptions.find(sub => sub.productId === sku);
 
@@ -484,8 +479,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.monthly'
             : 'matalk.monthly'
           : Platform.OS === 'ios'
-          ? 'matalkai.annual'
-          : 'matalk.annual';
+            ? 'matalkai.annual'
+            : 'matalk.annual';
 
       const subscription = subscriptions.find(sub => sub.productId === sku);
 
@@ -611,21 +606,21 @@ const Subscription: React.FC<SubscriptionProps> = ({
       width: isTablet
         ? width * 0.35
         : isSmallPhone
-        ? width * 0.4
-        : isMediumPhone
-        ? width * 0.38
-        : width * 0.36,
+          ? width * 0.4
+          : isMediumPhone
+            ? width * 0.38
+            : width * 0.36,
       height: isTablet
         ? isSmallPhone
           ? 110
           : isMediumPhone
-          ? 125
-          : 135
+            ? 125
+            : 135
         : isSmallPhone
-        ? 88
-        : isMediumPhone
-        ? 100
-        : 108, // 20% smaller on mobile
+          ? 88
+          : isMediumPhone
+            ? 100
+            : 108, // 20% smaller on mobile
       overflow: 'visible' as const,
     },
     cardsContainer: {
@@ -693,12 +688,12 @@ const Subscription: React.FC<SubscriptionProps> = ({
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
       shadowColor: '#FF6B35',
-      shadowOffset: {width: 0, height: 2},
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.3,
       shadowRadius: 4,
       elevation: 6,
       zIndex: 10,
-      transform: [{rotate: '15deg'}],
+      transform: [{ rotate: '15deg' }],
     },
     plusButton: {
       backgroundColor: 'rgba(0, 122, 255, 0.6)',
@@ -708,7 +703,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
       shadowColor: '#007AFF',
-      shadowOffset: {width: 0, height: 1},
+      shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.2,
       shadowRadius: 2,
       elevation: 3,
@@ -760,7 +755,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
               <Switch
                 value={showYearlyPlan}
                 onValueChange={setShowYearlyPlan}
-                trackColor={{false: '#767577', true: '#34C759'}}
+                trackColor={{ false: '#767577', true: '#34C759' }}
                 thumbColor={showYearlyPlan ? '#FFFFFF' : '#f4f3f4'}
                 ios_backgroundColor="#767577"
               />
@@ -849,8 +844,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     {isLoading && selectedPlan === 'trial'
                       ? 'Processing...'
                       : selectedPlan === 'trial'
-                      ? 'Selected'
-                      : 'Start Free Trial'}
+                        ? 'Selected'
+                        : 'Start Free Trial'}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -885,7 +880,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                   <Text
                     style={[
                       dynamicStyles.planTitle,
-                      {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
+                      { fontSize: isSmallPhone ? 12 : 13, fontWeight: '600' },
                     ]}>
                     Annual Plan
                   </Text>
@@ -933,8 +928,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     {isLoading && selectedPlan === 'yearly'
                       ? 'Processing...'
                       : selectedPlan === 'yearly'
-                      ? 'Selected'
-                      : ''}
+                        ? 'Selected'
+                        : ''}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -969,7 +964,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
                   <Text
                     style={[
                       dynamicStyles.planTitle,
-                      {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
+                      { fontSize: isSmallPhone ? 12 : 13, fontWeight: '600' },
                     ]}>
                     Monthly Plan
                   </Text>
@@ -1022,8 +1017,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     {isLoading && selectedPlan === 'monthly'
                       ? 'Processing...'
                       : selectedPlan === 'monthly'
-                      ? 'Selected'
-                      : ''}
+                        ? 'Selected'
+                        : ''}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -1031,27 +1026,27 @@ const Subscription: React.FC<SubscriptionProps> = ({
           </View>
 
           <View
-            style={{marginTop: 1, alignItems: 'center', flexDirection: 'row'}}>
+            style={{ marginTop: 1, alignItems: 'center', flexDirection: 'row' }}>
             <Text
               style={[
                 styles.modalFeature,
-                {fontSize: isTablet ? 14 : 12, fontWeight: 'bold'},
+                { fontSize: isTablet ? 14 : 12, fontWeight: 'bold' },
               ]}>
               Both plans include:
             </Text>
-            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-              <Text style={{color: 'purple'}}>✓</Text> Full access to all
+            <Text style={[styles.modalFeature, { fontSize: isTablet ? 14 : 12 }]}>
+              <Text style={{ color: 'purple' }}>✓</Text> Full access to all
               features
             </Text>
-            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-              <Text style={{color: 'purple'}}>✓</Text> AI-powered AAC creation
+            <Text style={[styles.modalFeature, { fontSize: isTablet ? 14 : 12 }]}>
+              <Text style={{ color: 'purple' }}>✓</Text> AI-powered AAC creation
             </Text>
-            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-              <Text style={{color: 'purple'}}>✓</Text> Customer support
+            <Text style={[styles.modalFeature, { fontSize: isTablet ? 14 : 12 }]}>
+              <Text style={{ color: 'purple' }}>✓</Text> Customer support
             </Text>
           </View>
 
-          <View style={{marginTop: 1, alignItems: 'center'}}>
+          <View style={{ marginTop: 1, alignItems: 'center' }}>
             <View
               style={{
                 flexDirection: 'row',
@@ -1087,7 +1082,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
             {showSubscriptionInfo && (
               <View
                 style={styles.subscriptionInfoContent}
-                onLayout={({nativeEvent}) =>
+                onLayout={({ nativeEvent }) =>
                   setCollapsibleY(nativeEvent.layout.y)
                 }>
                 <View style={styles.subscriptionDetails}>
@@ -1189,7 +1184,7 @@ const styles = StyleSheet.create({
     shadowColor: 'gray',
     shadowOpacity: 0.8,
     shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     elevation: 8,
     backgroundColor: 'white',
     marginBottom: height * 0.02,
@@ -1272,12 +1267,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FF6B35',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
-    transform: [{rotate: '-10deg'}],
+    transform: [{ rotate: '-10deg' }],
   },
   savingsAmount: {
     color: '#FFFFFF',
@@ -1305,7 +1300,7 @@ const styles = StyleSheet.create({
     padding: 20,
     margin: 20,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,

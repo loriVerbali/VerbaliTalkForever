@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,11 +13,12 @@ import {
   Switch,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import {searchWordImages, WordImageResult} from '../../utils/wordImageApi';
-import {Node, WordType, DEFAULT_COLOR_MAP} from '../../types/sentenceBuilder';
-import {downloadSentenceBuilderImage} from '../../utils/sentenceBuilderImageDownloader';
+import { searchWordImages, WordImageResult } from '../../utils/wordImageApi';
+import { searchGoogleImages } from '../../utils/googleImageApi';
+import { Node, WordType, DEFAULT_COLOR_MAP } from '../../types/sentenceBuilder';
+import { downloadSentenceBuilderImage } from '../../utils/sentenceBuilderImageDownloader';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface EditModalProps {
   isVisible: boolean;
@@ -31,19 +32,22 @@ interface EditModalProps {
   allFolders?: Node[]; // All existing folders for copying
 }
 
-// Color options from the current palette
+// Color options - Modified Fitzgerald Key standard
 const COLOR_OPTIONS = [
-  {name: 'Green', value: '#4CAF50', type: 'noun' as WordType},
-  {name: 'Blue', value: '#2196F3', type: 'verb' as WordType},
-  {name: 'Orange', value: '#FF9800', type: 'adjective' as WordType},
-  {name: 'Purple', value: '#9C27B0', type: 'adverb' as WordType},
-  {name: 'Red', value: '#F44336', type: 'pronoun' as WordType},
-  {name: 'Blue Grey', value: '#607D8B', type: 'preposition' as WordType},
-  {name: 'Brown', value: '#795548', type: 'conjunction' as WordType},
-  {name: 'Pink', value: '#E91E63', type: 'interjection' as WordType},
-  {name: 'Cyan', value: '#00BCD4', type: 'article' as WordType},
-  {name: 'Grey', value: '#9E9E9E', type: 'other' as WordType},
-  {name: 'Deep Purple', value: '#673AB7', type: 'other' as WordType}, // Folder color
+  { name: 'Pronoun', value: '#FBC02D', type: 'pronoun' as WordType },
+  { name: 'Verb', value: '#4CAF50', type: 'verb' as WordType },
+  { name: 'Noun', value: '#FF9800', type: 'noun' as WordType },
+  { name: 'Adjective', value: '#2196F3', type: 'adjective' as WordType },
+  { name: 'Adverb', value: '#2196F3', type: 'adverb' as WordType },
+  { name: 'Preposition', value: '#E91E63', type: 'preposition' as WordType },
+  { name: 'Conjunction', value: '#E91E63', type: 'conjunction' as WordType },
+  { name: 'Interjection', value: '#E91E63', type: 'interjection' as WordType },
+  { name: 'Question', value: '#9C27B0', type: 'question' as WordType },
+  { name: 'Article', value: '#9E9E9E', type: 'article' as WordType },
+  { name: 'Number', value: '#2196F3', type: 'number' as WordType },
+  { name: 'Letter', value: '#9E9E9E', type: 'letter' as WordType },
+  { name: 'Other', value: '#9E9E9E', type: 'other' as WordType },
+  { name: 'Folder', value: '#673AB7', type: 'other' as WordType }, // Deep Purple for folders
 ];
 
 const EditModal: React.FC<EditModalProps> = ({
@@ -72,6 +76,9 @@ const EditModal: React.FC<EditModalProps> = ({
   const [selectedExistingFolder, setSelectedExistingFolder] =
     useState<Node | null>(null);
   const [folderSearchQuery, setFolderSearchQuery] = useState('');
+  const [googleSearchQuery, setGoogleSearchQuery] = useState('');
+  const [googleSearchResults, setGoogleSearchResults] = useState<WordImageResult[]>([]);
+  const [isGoogleSearching, setIsGoogleSearching] = useState(false);
 
   // Initialize form when modal opens
   useEffect(() => {
@@ -105,6 +112,9 @@ const EditModal: React.FC<EditModalProps> = ({
       setUseExistingFolder(false);
       setSelectedExistingFolder(null);
       setFolderSearchQuery('');
+      setGoogleSearchQuery('');
+      setGoogleSearchResults([]);
+      setIsGoogleSearching(false);
     }
   }, [isVisible, node]);
 
@@ -128,7 +138,7 @@ const EditModal: React.FC<EditModalProps> = ({
       const apiResults = await searchWordImages(query);
       setSearchResults(apiResults.results);
     } catch (error) {
-      
+
       Alert.alert('Error', 'Failed to search for words. Please try again.');
     } finally {
       setIsSearching(false);
@@ -165,9 +175,8 @@ const EditModal: React.FC<EditModalProps> = ({
       // Download image if one is selected
       if (selectedWordFromApi || selectedFolderImage) {
         const imageToDownload = selectedWordFromApi || selectedFolderImage!;
-        const filename = `${isFolder ? 'folder' : 'word'}_${
-          imageToDownload.id
-        }`;
+        const filename = `${isFolder ? 'folder' : 'word'}_${imageToDownload.id
+          }`;
 
         try {
           localImagePath = await downloadSentenceBuilderImage(
@@ -175,7 +184,7 @@ const EditModal: React.FC<EditModalProps> = ({
             filename,
           );
         } catch (error) {
-          
+
           Alert.alert(
             'Warning',
             'Failed to download image. The item will be saved without an image.',
@@ -201,19 +210,19 @@ const EditModal: React.FC<EditModalProps> = ({
         // Fallback to URL if download failed
         ...(!localImagePath &&
           (selectedWordFromApi || selectedFolderImage) && {
-            imageUri: (selectedWordFromApi || selectedFolderImage!)!.imageUrl,
-            imageHash: (selectedWordFromApi || selectedFolderImage!)!.id,
-          }),
+          imageUri: (selectedWordFromApi || selectedFolderImage!)!.imageUrl,
+          imageHash: (selectedWordFromApi || selectedFolderImage!)!.id,
+        }),
         // For existing folders, include the source folder ID for copying
         ...(isFolder &&
           useExistingFolder && {
-            sourceFolderId: selectedExistingFolder!.id,
-          }),
+          sourceFolderId: selectedExistingFolder!.id,
+        }),
       };
 
       onSave(nodeData);
     } catch (error) {
-      
+
       Alert.alert('Error', 'Failed to save item. Please try again.');
     }
   };
@@ -225,7 +234,7 @@ const EditModal: React.FC<EditModalProps> = ({
       'Delete Item',
       `Are you sure you want to delete "${node.title}"?`,
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -259,7 +268,31 @@ const EditModal: React.FC<EditModalProps> = ({
     folder.title.toLowerCase().includes(folderSearchQuery.toLowerCase()),
   );
 
-  const renderSearchResult = ({item}: {item: WordImageResult}) => (
+  const handleGoogleSearch = async () => {
+    if (!googleSearchQuery.trim()) return;
+
+    setIsGoogleSearching(true);
+    try {
+      const apiResults = await searchGoogleImages(googleSearchQuery.trim(), 5);
+      setGoogleSearchResults(apiResults.results);
+    } catch (error) {
+      console.error('Google Image search error:', error);
+      Alert.alert('Error', 'Failed to search Google Images. Please try again.');
+    } finally {
+      setIsGoogleSearching(false);
+    }
+  };
+
+  const handleGoogleSearchResultSelect = (searchResult: WordImageResult) => {
+    if (isFolder) {
+      setSelectedFolderImage(searchResult);
+    } else {
+      setSelectedWordFromApi(searchResult);
+    }
+    // We don't clear the search results here so the user can see what they selected
+  };
+
+  const renderSearchResult = ({ item }: { item: WordImageResult }) => (
     <TouchableOpacity
       style={[
         styles.searchResult,
@@ -269,7 +302,7 @@ const EditModal: React.FC<EditModalProps> = ({
       ]}
       onPress={() => handleSearchResultSelect(item)}>
       <FastImage
-        source={{uri: item.imageUrl}}
+        source={{ uri: item.imageUrl }}
         style={styles.searchResultImage}
         resizeMode={FastImage.resizeMode.cover}
       />
@@ -306,7 +339,7 @@ const EditModal: React.FC<EditModalProps> = ({
               <Switch
                 value={isFolder}
                 onValueChange={setIsFolder}
-                trackColor={{false: '#767577', true: '#81b0ff'}}
+                trackColor={{ false: '#767577', true: '#81b0ff' }}
                 thumbColor={isFolder ? '#f5dd4b' : '#f4f3f4'}
               />
               <Text style={styles.switchLabel}>Folder</Text>
@@ -324,7 +357,7 @@ const EditModal: React.FC<EditModalProps> = ({
                   onValueChange={value => {
                     setUseExistingFolder(value);
                   }}
-                  trackColor={{false: '#767577', true: '#81b0ff'}}
+                  trackColor={{ false: '#767577', true: '#81b0ff' }}
                   thumbColor={useExistingFolder ? '#f5dd4b' : '#f4f3f4'}
                 />
                 <Text style={styles.switchLabel}>Use Existing</Text>
@@ -352,7 +385,7 @@ const EditModal: React.FC<EditModalProps> = ({
               <Text style={styles.sectionTitle}>Selected Word</Text>
               <View style={styles.selectedWordContainer}>
                 <FastImage
-                  source={{uri: selectedWordFromApi.imageUrl}}
+                  source={{ uri: selectedWordFromApi.imageUrl }}
                   style={styles.selectedWordImage}
                   resizeMode={FastImage.resizeMode.cover}
                 />
@@ -369,7 +402,7 @@ const EditModal: React.FC<EditModalProps> = ({
               <Text style={styles.sectionTitle}>Selected Image</Text>
               <View style={styles.selectedWordContainer}>
                 <FastImage
-                  source={{uri: selectedFolderImage.imageUrl}}
+                  source={{ uri: selectedFolderImage.imageUrl }}
                   style={styles.selectedWordImage}
                   resizeMode={FastImage.resizeMode.cover}
                 />
@@ -404,7 +437,7 @@ const EditModal: React.FC<EditModalProps> = ({
                   <FastImage
                     source={
                       selectedExistingFolder.imageUri
-                        ? {uri: selectedExistingFolder.imageUri}
+                        ? { uri: selectedExistingFolder.imageUri }
                         : require('../../assets/welcome.png')
                     }
                     style={styles.selectedWordImage}
@@ -431,13 +464,13 @@ const EditModal: React.FC<EditModalProps> = ({
                           style={[
                             styles.searchResult,
                             selectedExistingFolder?.id === folder.id &&
-                              styles.searchResultSelected,
+                            styles.searchResultSelected,
                           ]}
                           onPress={() => handleExistingFolderSelect(folder)}>
                           <FastImage
                             source={
                               folder.imageUri
-                                ? {uri: folder.imageUri}
+                                ? { uri: folder.imageUri }
                                 : require('../../assets/welcome.png')
                             }
                             style={styles.searchResultImage}
@@ -462,13 +495,21 @@ const EditModal: React.FC<EditModalProps> = ({
               {COLOR_OPTIONS.map((color, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[
-                    styles.colorButton,
-                    {backgroundColor: color.value},
-                    selectedColor.value === color.value &&
-                      styles.colorButtonSelected,
-                  ]}
+                  style={styles.colorButtonContainer}
                   onPress={() => setSelectedColor(color)}>
+                  <View
+                    style={[
+                      styles.colorButtonWrapper,
+                      selectedColor.value === color.value &&
+                      styles.colorButtonWrapperSelected,
+                    ]}>
+                    <View
+                      style={[
+                        styles.colorButton,
+                        { backgroundColor: color.value },
+                      ]}
+                    />
+                  </View>
                   <Text style={styles.colorButtonText}>{color.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -523,7 +564,7 @@ const EditModal: React.FC<EditModalProps> = ({
                     style={styles.searchResultsList}>
                     {searchResults.map((item, index) => (
                       <View key={item.id} style={styles.searchResultWrapper}>
-                        {renderSearchResult({item})}
+                        {renderSearchResult({ item })}
                       </View>
                     ))}
                   </ScrollView>
@@ -531,6 +572,68 @@ const EditModal: React.FC<EditModalProps> = ({
               )}
             </View>
           )}
+
+          {/* Search Google Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Search Google</Text>
+            <Text style={styles.sectionSubtitle}>
+              Find more images from Google to use for this {isFolder ? 'folder' : 'item'}.
+            </Text>
+            <View style={styles.googleSearchContainer}>
+              <TextInput
+                style={styles.googleSearchInput}
+                value={googleSearchQuery}
+                onChangeText={setGoogleSearchQuery}
+                placeholder="Search Google..."
+                placeholderTextColor="#999"
+                returnKeyType="search"
+                onSubmitEditing={handleGoogleSearch}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.googleSearchButton,
+                  (!googleSearchQuery.trim() || isGoogleSearching) && styles.googleSearchButtonDisabled,
+                ]}
+                onPress={handleGoogleSearch}
+                disabled={!googleSearchQuery.trim() || isGoogleSearching}>
+                {isGoogleSearching ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.googleSearchButtonText}>Search</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {googleSearchResults.length > 0 && (
+              <View style={styles.searchResultsContainer}>
+                <Text style={styles.searchResultsTitle}>Google Results:</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.searchResultsList}>
+                  {googleSearchResults.map((item) => (
+                    <View key={item.id} style={styles.searchResultWrapper}>
+                      <TouchableOpacity
+                        style={[
+                          styles.searchResult,
+                          (isFolder
+                            ? selectedFolderImage?.id === item.id
+                            : selectedWordFromApi?.id === item.id) && styles.searchResultSelected,
+                        ]}
+                        onPress={() => handleGoogleSearchResultSelect(item)}>
+                        <FastImage
+                          source={{ uri: item.imageUrl }}
+                          style={styles.searchResultImage}
+                          resizeMode={FastImage.resizeMode.cover}
+                        />
+                        <Text style={styles.searchResultText} numberOfLines={1}>Google</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
 
           {/* Delete Button */}
           {!isNewNode && onDelete && (
@@ -627,32 +730,39 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: 12,
   },
-  colorButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20, // Makes it a perfect circle/pill
-    marginBottom: 8,
-    marginRight: 8,
+  colorButtonContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+    marginRight: 12,
+    width: 90, // Slightly wider to accommodate text
+  },
+  colorButtonWrapper: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  colorButtonSelected: {
-    borderColor: '#333',
     borderWidth: 3,
-    transform: [{scale: 1.1}], // Slightly larger when selected
+    borderColor: 'transparent',
+    marginBottom: 4,
+  },
+  colorButtonWrapperSelected: {
+    borderColor: '#333',
+    borderWidth: 4,
+  },
+  colorButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40, // 2x bigger circle (was 40x40, now 80x80)
   },
   colorButtonText: {
-    fontSize: 8,
-    color: '#fff',
+    fontSize: 11,
+    color: '#333',
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 2,
+    textAlign: 'center',
   },
   searchInputContainer: {
     flexDirection: 'row',
@@ -707,7 +817,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
   searchResultSelected: {
@@ -760,6 +870,37 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  googleSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  googleSearchInput: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+    marginRight: 8,
+  },
+  googleSearchButton: {
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleSearchButtonDisabled: {
+    backgroundColor: '#a4c4f4',
+  },
+  googleSearchButtonText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

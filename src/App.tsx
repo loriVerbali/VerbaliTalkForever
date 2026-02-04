@@ -6,24 +6,22 @@
  * @flow strict-local
  */
 import 'react-native-gesture-handler';
-import React, {useEffect, useRef} from 'react';
-import {StyleSheet, AppState, AppStateStatus, StatusBar} from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, AppState, AppStateStatus, StatusBar } from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
-import {AppSettingsProvider} from './utils/persistance';
-import {AdminProvider} from './contexts/adminContext';
-import {ChatContextProvider} from './contexts/ChatContextProvider';
-import {SoundProvider} from './contexts/soundContext';
-import {ConnectionProvider} from './utils/connection';
-import {ToastProvider} from './contexts/ToastContext';
-import {DatabaseProvider} from './contexts/DatabaseContext';
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
-import {sessionManager} from './utils/sessionManager';
-import {Mixpanel} from 'mixpanel-react-native';
+import { AppSettingsProvider } from './utils/persistance';
+import { AdminProvider } from './contexts/adminContext';
+import { ChatContextProvider } from './contexts/ChatContextProvider';
+import { SoundProvider } from './contexts/soundContext';
+import { ConnectionProvider } from './utils/connection';
+import { ToastProvider } from './contexts/ToastContext';
+import { DatabaseProvider } from './contexts/DatabaseContext';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { sessionManager } from './utils/sessionManager';
+import { Mixpanel } from 'mixpanel-react-native';
 import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
-import WhisperModelManager from './utils/WhisperModelManager';
-import WhisperService from './utils/WhisperService';
 import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
 
@@ -85,7 +83,7 @@ const App = () => {
       ) {
         try {
           await sessionManager.ensureValidSession();
-        } catch (error) {}
+        } catch (error) { }
       }
       appState.current = nextAppState;
     };
@@ -124,7 +122,7 @@ const App = () => {
         // Stop wake word service when app goes to background to save battery and memory
         try {
           await wakeWordService.stopListening();
-        } catch (error) {}
+        } catch (error) { }
       } else if (
         nextAppState === 'active' &&
         appState.current === 'background'
@@ -133,20 +131,20 @@ const App = () => {
 
         try {
           await fetchHelper('wakeup', {}, {});
-        } catch (error) {}
+        } catch (error) { }
 
         // Restart wake word service when app comes back to foreground (only if onboarding is complete)
         if (isOnboardingComplete) {
           try {
             await wakeWordService.startListening();
-          } catch (error) {}
+          } catch (error) { }
         } else {
         }
       } else if (nextAppState === 'active' && appState.current === 'inactive') {
         // App is being opened for the first time or from inactive state
         try {
           await fetchHelper('wakeup', {}, {});
-        } catch (error) {}
+        } catch (error) { }
         // Don't start wakeword here - let Open.tsx handle it after onboarding
       }
 
