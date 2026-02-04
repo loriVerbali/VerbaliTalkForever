@@ -60,7 +60,6 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
         }));
         setEntries(formattedEntries);
       } catch (error) {
-        
         setEntries([]);
       }
     };
@@ -249,9 +248,9 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
             ) : (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateText}>
-                  VerbaliTalk Forever will gather information once you use the different
-                  features, or you haven't used this feature in the last 30
-                  days.
+                  VerbaliTalk Forever will gather information once you use the
+                  different features, or you haven't used this feature in the
+                  last 30 days.
                 </Text>
                 <Text style={styles.emptyStateSubtext}>
                   To gather data go to the Main screen of the app and press

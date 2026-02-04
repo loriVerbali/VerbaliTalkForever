@@ -158,8 +158,8 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
           ]}>
           Thank you for using VerbaliTalk, an app by Verbali Inc. ("Verbali,"
           "we," "our," or "us"). This Privacy Policy describes how we collect,
-          use, and protect your personal information when you use the VerbaliTalk
-          mobile application ("App") and related services.
+          use, and protect your personal information when you use the
+          VerbaliTalk mobile application ("App") and related services.
         </Text>
 
         <Text
@@ -625,8 +625,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
           ]}>
           VerbaliTalk Forever is a paid app. Payment is processed by Apple,
           Google, or Amazon; we never store your credit card data. Refunds
-          follow the policies of the store where you purchased the
-          app.
+          follow the policies of the store where you purchased the app.
         </Text>
 
         <Text
@@ -649,22 +648,10 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          VerbaliTalk is designed to support communication for children under 13,
-          but it is intended to be used under adult supervision.
+          VerbaliTalk is designed to support communication for children above
+          the age of 13, but it is intended to be used under adult supervision.
         </Text>
-        <Text
-          style={[
-            styles.bulletPoint,
-            {
-              fontSize: responsiveValues.bulletPointFontSize,
-              lineHeight: responsiveValues.bulletPointLineHeight,
-              marginBottom: responsiveValues.bulletPointMarginBottom,
-              marginLeft: responsiveValues.bulletPointMarginLeft,
-            },
-          ]}>
-          • We obtain verifiable parental consent through a combination of
-          required payment and adult account creation.
-        </Text>
+
         <Text
           style={[
             styles.bulletPoint,
@@ -1249,7 +1236,97 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.sectionTitleMarginBottom,
             },
           ]}>
-          12. Contact Us
+          12. Service & Hardware Support Policy
+        </Text>
+
+        <Text
+          style={[
+            styles.subSectionTitle,
+            {
+              fontSize: responsiveValues.subSectionTitleFontSize,
+              marginTop: responsiveValues.subSectionTitleMarginTop,
+              marginBottom: responsiveValues.subSectionTitleMarginBottom,
+            },
+          ]}>
+          A. AI Support
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          Verbali will provide support for AI features for a period of three (3)
+          years from the date of purchase. Following this three-year period, AI
+          support will cease, and the user will need to purchase a new AI
+          package to continue accessing these features.
+        </Text>
+
+        <Text
+          style={[
+            styles.subSectionTitle,
+            {
+              fontSize: responsiveValues.subSectionTitleFontSize,
+              marginTop: responsiveValues.subSectionTitleMarginTop,
+              marginBottom: responsiveValues.subSectionTitleMarginBottom,
+            },
+          ]}>
+          B. Maintenance & Upgrades
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          Verbali will provide version upgrades and maintenance for a period of
+          three (3) years. Following this three-year period, we will stop
+          providing upgrades, and the user will need to purchase a new
+          maintenance package to receive further updates.
+        </Text>
+
+        <Text
+          style={[
+            styles.subSectionTitle,
+            {
+              fontSize: responsiveValues.subSectionTitleFontSize,
+              marginTop: responsiveValues.subSectionTitleMarginTop,
+              marginBottom: responsiveValues.subSectionTitleMarginBottom,
+            },
+          ]}>
+          C. Hardware Support
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          We will attempt to support all hardware devices within reason.
+          However, we reserve the right to discontinue support for older models
+          or specific iOS or Android versions that are no longer viable to
+          maintain.
+        </Text>
+
+        <Text
+          style={[
+            styles.sectionTitle,
+            {
+              fontSize: responsiveValues.sectionTitleFontSize,
+              marginTop: responsiveValues.sectionTitleMarginTop,
+              marginBottom: responsiveValues.sectionTitleMarginBottom,
+            },
+          ]}>
+          13. Contact Us
         </Text>
         <Text
           style={[

@@ -2,11 +2,9 @@ import React, {
   useState,
   forwardRef,
   useImperativeHandle,
-  useRef,
-  useEffect,
 } from 'react';
-import {View, StyleSheet, TextInput, Dimensions, Platform} from 'react-native';
-import {useAdmin} from '../contexts/adminContext';
+import { View, StyleSheet, TextInput, Dimensions, Platform } from 'react-native';
+import { useAdmin } from '../contexts/adminContext';
 
 interface InputsProps {
   mode: string;
@@ -18,16 +16,16 @@ export interface InputsRef {
   setInput: (text: string) => void;
 }
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const Inputs = forwardRef<InputsRef, InputsProps>(
-  ({mode, onInputChange}, ref) => {
+  ({ mode, onInputChange }, ref) => {
     const [inputText, setInputText] = useState<string>('');
-    const {isTablet} = useAdmin();
+    const { isTablet } = useAdmin();
 
     // Responsive font sizes and container height
-    const responsiveFontSize = isTablet ? 18 : 14;
-    const responsiveContainerHeight = isTablet ? 60 : 50;
+    const responsiveFontSize = isTablet ? 16 : 14;
+    const responsiveContainerHeight = isTablet ? undefined : 50;
 
     const handleTextChange = (text: string) => {
       setInputText(text);
@@ -58,13 +56,13 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
             <View
               style={[
                 styles.KBinputContainer,
-                {height: responsiveContainerHeight},
+                { height: responsiveContainerHeight },
               ]}
               pointerEvents="none">
               <TextInput
                 style={[
                   styles.textInput,
-                  {fontSize: responsiveFontSize},
+                  { fontSize: responsiveFontSize },
                   Platform.OS === 'android' && {
                     textAlignVertical: 'center',
                     paddingVertical: 15,
@@ -84,22 +82,29 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
             <View
               style={[
                 styles.KBinputContainer,
-                {height: responsiveContainerHeight},
+                { height: responsiveContainerHeight },
               ]}>
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[
                     styles.textKBInput,
-                    {fontSize: responsiveFontSize},
+                    { fontSize: responsiveFontSize },
                     Platform.OS === 'android' && {
                       textAlignVertical: 'center',
                       paddingHorizontal: 15,
                     },
+                    mode === 'Keyboard' && {
+                      height: 0,
+                      opacity: 0,
+                      padding: 0,
+                      minHeight: 0,
+                    },
                   ]}
                   value={inputText}
                   onChangeText={handleTextChange}
-                  placeholder="Type your message here..."
+                  placeholder={mode === 'Keyboard' ? '' : "Type your message here..."}
                   placeholderTextColor="#999"
+                  autoFocus={mode === 'Keyboard'}
                 />
               </View>
             </View>

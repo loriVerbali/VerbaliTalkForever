@@ -674,8 +674,8 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
     <View style={isSettingsMode ? styles.settingsContainer : styles.container}>
       {!isSettingsMode && (
         <Text style={styles.headerText}>
-          Help VerbaliTalk Forever provide better suggestions by setting up your special
-          places. You can skip this step and set them up later.
+          Help VerbaliTalk Forever provide better suggestions by setting up your
+          special places. You can skip this step and set them up later.
         </Text>
       )}
 

@@ -8,13 +8,13 @@ import {
   ScrollView,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import {useNavigation} from '@react-navigation/native';
-import {Node, FolderStackItem, DEFAULT_COLOR_MAP, FOLDER_COLOR} from '../../types/sentenceBuilder';
-import {views} from '../../utils/constants';
-import {useAdmin} from '../../contexts/adminContext';
-import Breadcrumb from './Breadcrumb';
+import { useNavigation } from '@react-navigation/native';
+import { Node, FolderStackItem } from '../../types/sentenceBuilder';
+import { views } from '../../utils/constants';
+import { resolveImageSource } from '../../utils/imageSourceResolver';
+import { useAdmin } from '../../contexts/adminContext';
 
-const {width, height} = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 interface NavigationBarProps {
   isEditing: boolean;
@@ -25,8 +25,7 @@ interface NavigationBarProps {
   onPlayPress: () => void;
   nodes: Node[];
   sentenceTokenIds: string[];
-  onRemoveToken: (nodeId: string) => void;
-  onEditToken?: (nodeId: string) => void;
+  onRemoveToken: (nodeId: string, index: number) => void;
   folderStack: FolderStackItem[];
   onFolderPress: (index: number) => void;
   onBackPress?: () => void;
@@ -42,24 +41,36 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
   nodes,
   sentenceTokenIds,
   onRemoveToken,
-  onEditToken,
   folderStack,
   onFolderPress,
   onBackPress,
 }) => {
   const navigation = useNavigation();
-  const {isTablet} = useAdmin();
+  const { isTablet } = useAdmin();
 
-  // Responsive values for pill sizes - 10% smaller for tablets
+  // Responsive values for circle sizes - tokens 15% smaller
   const responsiveValues = {
-    tokenHeight: isTablet ? height * 0.05 : height * 0.055, // Pill height
-    tokenPaddingHorizontal: isTablet ? 12 : 14, // Horizontal padding for text
-    tokenBorderRadius: isTablet ? height * 0.0275 : height * 0.0275, // Pill border radius (half of height)
-    playButtonSize: isTablet ? height * 0.054 : height * 0.06, // 10% reduction for tablets
-    playButtonBorderRadius: isTablet ? height * 0.027 : height * 0.03, // Half of play button size
+    tokenSize: isTablet ? height * 0.0612 : height * 0.068, // 15% smaller
+    tokenBorderRadius: isTablet ? height * 0.0306 : height * 0.034,
+    tokenImageBorderRadius: isTablet ? height * 0.0306 - 2 : height * 0.034 - 2,
+    playButtonSize: isTablet ? height * 0.045 : height * 0.06,
+    playButtonBorderRadius: isTablet ? height * 0.0225 : height * 0.025,
+    // Total token height including label (token + label + spacing)
+    tokenTotalHeight: isTablet ? height * 0.085 : height * 0.095,
+    tokenLabelHeight: isTablet ? height * 0.018 : height * 0.02,
+    trashIconSize: isTablet ? height * 0.04 : height * 0.06,
+    playIconSize: isTablet ? height * 0.04 : height * 0.06,
+
   };
 
-  const handleHomePress = () => {
+  // Go to mainboard (root) - same as Breadcrumb behavior
+  const handleMainboardPress = () => {
+    onFolderPress(-1);
+  };
+
+  // Navigate to Open.tsx screen
+  const handleOpenPress = () => {
+    onTrashPress();
     navigation.navigate(views.OPEN as never);
   };
 
@@ -76,202 +87,244 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       .join(' ');
 
     if (sentenceText.trim()) {
-      // Import services
       const TTSService = require('../../utils/TTSService').default;
-      const AudioSessionManager = require('../../utils/AudioSessionManager').default;
-      
-      // Prepare audio session for TTS to ensure consistent volume
-      await AudioSessionManager.prepareForTTS();
-      
-      // Speak the sentence
-      TTSService.speak(sentenceText, true);
+      const AudioSessionManager =
+        require('../../utils/AudioSessionManager').default;
 
-      // Call the onPlayPress handler to delete the sentence after playing
+      await AudioSessionManager.prepareForTTS();
+      TTSService.speak(sentenceText, true);
       onPlayPress();
     }
   };
+
   const getNodeById = (nodeId: string): Node | undefined => {
     return nodes.find(node => node.id === nodeId);
-  };
-
-  const handleTokenLongPress = (nodeId: string) => {
-    if (isEditing && onEditToken) {
-      onEditToken(nodeId);
-    } else {
-      onRemoveToken(nodeId);
-    }
   };
 
   const renderToken = (nodeId: string, index: number) => {
     const node = getNodeById(nodeId);
     if (!node) return null;
 
-    // Get color based on node type
-    const backgroundColor = node.kind === 'folder' 
-      ? FOLDER_COLOR 
-      : DEFAULT_COLOR_MAP[node.type || 'other'];
-
     return (
       <View key={`${nodeId}-${index}`} style={styles.tokenContainer}>
         <TouchableOpacity
           style={[
-            styles.tokenPill,
+            styles.token,
             {
-              height: responsiveValues.tokenHeight,
+              width: responsiveValues.tokenSize,
+              height: responsiveValues.tokenSize,
               borderRadius: responsiveValues.tokenBorderRadius,
-              backgroundColor: backgroundColor,
-              paddingHorizontal: responsiveValues.tokenPaddingHorizontal,
             },
+            node.kind === 'word' && styles.wordToken,
+            node.kind === 'folder' && styles.folderToken,
           ]}
-          onPress={() => onRemoveToken(nodeId)}
-          onLongPress={() => handleTokenLongPress(nodeId)}
-          delayLongPress={500}>
-          <Text
-            style={styles.tokenPillText}
-            numberOfLines={1}>
-            {node.kind === 'folder' && (
-              <Text style={styles.folderIconInline}>📁 </Text>
-            )}
-            {node.title}
-          </Text>
+          onPress={() => onRemoveToken(nodeId, index)}>
+          {node.imageUri ? (
+            <FastImage
+              source={
+                resolveImageSource(node.imageUri) ||
+                require('../../assets/welcome.png')
+              }
+              style={[
+                styles.tokenImage,
+                { borderRadius: responsiveValues.tokenImageBorderRadius },
+              ]}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          ) : (
+            <View style={[styles.tokenImage, styles.tokenPlaceholder]}>
+              <Text style={styles.tokenPlaceholderText}>
+                {node.kind === 'folder'
+                  ? '📁'
+                  : node.title.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
+        <Text
+          style={[styles.tokenLabel, { maxWidth: responsiveValues.tokenSize }]}
+          numberOfLines={1}>
+          {node.title}
+        </Text>
       </View>
     );
   };
 
   return (
-    <View style={styles.wrapper}>
-      {/* Breadcrumb */}
-      <Breadcrumb
-        folderStack={folderStack}
-        onFolderPress={onFolderPress}
-        onBackPress={onBackPress}
-      />
+    <View style={styles.container}>
+      {/* Microphone Button */}
+      <TouchableOpacity style={styles.iconButton} onPress={onMicrophonePress}>
+        <FastImage
+          source={require('../../assets/michrophone.gif')}
+          style={styles.trashIconSize}
+          resizeMode={FastImage.resizeMode.contain}
+        />
+      </TouchableOpacity>
 
-      {/* Main Navigation Bar */}
-      <View style={styles.container}>
-        {/* Microphone Button */}
-        <TouchableOpacity style={styles.iconButton} onPress={onMicrophonePress}>
-          <FastImage
-            source={require('../../assets/michrophone.gif')}
-            style={styles.iconSize}
-            resizeMode={FastImage.resizeMode.contain}
-          />
+      {/* Back Button - go up one folder */}
+      {folderStack.length > 0 && onBackPress && (
+        <TouchableOpacity style={styles.iconButton} onPress={onBackPress}>
+          <Text style={styles.navIconText}>↩️</Text>
         </TouchableOpacity>
+      )}
 
-        {/* Sentence Building Area */}
-        <View style={styles.sentenceContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}>
-            {sentenceTokenIds.length === 0 ? (
-              <Text style={styles.emptyText}>
-                Tap words to build a sentence
-              </Text>
-            ) : (
-              sentenceTokenIds.map((nodeId, index) =>
-                renderToken(nodeId, index),
-              )
-            )}
-          </ScrollView>
-        </View>
+      {/*  Icon - go to mainboard */}
+      <TouchableOpacity
+        style={styles.iconButton}
+        onPress={handleMainboardPress}>
+        <Text style={styles.navIconText}>🏠</Text>
+      </TouchableOpacity>
 
-        {/* Play Button - only show if there are tokens */}
-        {sentenceTokenIds.length > 0 && (
-          <TouchableOpacity
-            style={[
-              styles.playButton,
-              {
-                width: responsiveValues.playButtonSize,
-                height: responsiveValues.playButtonSize,
-                borderRadius: responsiveValues.playButtonBorderRadius,
-              },
-            ]}
-            onPress={handlePlaySentence}>
-            <Text style={styles.playButtonText}>▶️</Text>
+      {/* Sentence Building Area with Round Border */}
+      <View
+        style={[
+          styles.sentenceAreaWrapper,
+          { minHeight: responsiveValues.tokenTotalHeight },
+        ]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[
+            styles.scrollView,
+            { maxHeight: responsiveValues.tokenTotalHeight },
+          ]}
+          contentContainerStyle={styles.scrollContent}>
+          {sentenceTokenIds.length === 0 ? (
+            <Text style={styles.emptyText}>Tap words to build a sentence</Text>
+          ) : (
+            sentenceTokenIds.map((nodeId, index) => renderToken(nodeId, index))
+          )}
+        </ScrollView>
+
+        {/* Play Button */}
+        <View
+          style={{
+            borderLeftWidth: 3,
+            borderLeftColor: '#4A90D9',
+            flexDirection: 'row',
+            paddingLeft: 10,
+            paddingRight: 5,
+          }}>
+          {sentenceTokenIds.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.playButton,
+                {
+                  width: responsiveValues.playButtonSize,
+                  height: responsiveValues.playButtonSize,
+                  borderRadius: responsiveValues.playButtonBorderRadius,
+                },
+              ]}
+              onPress={handlePlaySentence}>
+              <FastImage
+                source={require('../../assets/playKeyboard.png')}
+                style={{
+                  width: responsiveValues.playButtonSize,
+                  height: responsiveValues.playButtonSize,
+                }}
+                resizeMode={FastImage.resizeMode.contain}
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Trashcan Icon */}
+
+          <TouchableOpacity style={[
+            styles.playButton,
+            {
+              width: responsiveValues.playButtonSize,
+              height: responsiveValues.playButtonSize,
+              borderRadius: responsiveValues.playButtonBorderRadius,
+            },
+          ]} onPress={onTrashPress}>
+            <FastImage
+              source={require('../../assets/trash.png')}
+              style={{
+                width: responsiveValues.trashIconSize,
+                height: responsiveValues.trashIconSize,
+              }}
+              resizeMode={FastImage.resizeMode.contain}
+            />
           </TouchableOpacity>
-        )}
-
-        {/* Trashcan Icon */}
-        <TouchableOpacity style={styles.iconButton} onPress={onTrashPress}>
-          <FastImage
-            source={require('../../assets/trash.png')}
-            style={styles.iconSize}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </TouchableOpacity>
-
-        {/* Spacer between trash and edit */}
-        <View style={styles.iconSpacer} />
-
-        {/* Edit Icon */}
-        <TouchableOpacity
-          style={[styles.iconButton, isEditing && styles.editButtonActive]}
-          onPress={isEditing ? onCancelEditPress : onEditPress}>
-          <FastImage
-            source={require('../../assets/edit.png')}
-            style={styles.iconSize}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        </TouchableOpacity>
-
-        {/* Home Icon - navigates to Open.tsx */}
-        <TouchableOpacity style={styles.iconButton} onPress={handleHomePress}>
-          <Text style={styles.homeIconText}>🏠</Text>
-        </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Exit Button - navigates to Open.tsx */}
+      <TouchableOpacity style={styles.exitButton} onPress={handleOpenPress}>
+        <FastImage
+          source={require('../../assets/open_door.png')}
+          style={styles.iconSize}
+          resizeMode={FastImage.resizeMode.contain}
+        />
+      </TouchableOpacity>
+
+      {/* Edit Button */}
+      <TouchableOpacity
+        style={[styles.editButton, isEditing && styles.editButtonActive]}
+        onPress={isEditing ? onCancelEditPress : onEditPress}>
+        <FastImage
+          source={require('../../assets/edit.png')}
+          style={styles.editIconSize}
+          resizeMode={FastImage.resizeMode.contain}
+        />
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
-    elevation: 2,
-  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: height * 0.01, // 1% of screen height for mobile
-    minHeight: height * 0.055, // 7.5% of screen height for landscape
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    paddingHorizontal: 8,
+    paddingVertical: height * 0.008,
+    minHeight: height * 0.08,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
   iconButton: {
-    width: 36,
-    height: 36,
+    width: 56,
+    height: 56,
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 2,
-    borderRadius: 6,
+    borderRadius: 10,
     backgroundColor: '#f8f9fa',
   },
-  editButtonActive: {
-    backgroundColor: '#dc3545', // Red background when in edit mode
-  },
   iconSize: {
-    width: 24,
-    height: 24,
+    width: 60,
+    height: 60,
   },
-  sentenceContainer: {
+  trashIconSize: {
+    width: 48,
+    height: 48,
+  },
+  navIconText: {
+    fontSize: 32,
+    color: '#333',
+  },
+  sentenceAreaWrapper: {
     flex: 1,
-    marginHorizontal: 8,
-    maxHeight: height * 0.1, // 10% of screen height for landscape
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 2,
+    borderColor: '#4A90D9',
+    borderRadius: 20,
+    backgroundColor: '#fff',
   },
   scrollView: {
-    maxHeight: height * 0.1, // 10% of screen height for landscape
+    flex: 1,
   },
   scrollContent: {
     alignItems: 'center',
-    paddingRight: 0,
+    paddingRight: 8,
   },
   emptyText: {
     fontSize: 14,
@@ -279,52 +332,91 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  tokenPill: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  token: {
+    borderWidth: 2,
+    borderColor: '#dee2e6',
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
-    minWidth: 40, // Minimum width for very short words
+    overflow: 'hidden',
   },
-  tokenPillText: {
-    fontSize: height * 0.018, // Responsive font size
-    fontWeight: '600',
-    color: '#fff',
-    textAlign: 'center',
+  wordToken: {
+    borderColor: '#2196f3',
+  },
+  folderToken: {
+    borderColor: '#9c27b0',
+  },
+  tokenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  tokenPlaceholder: {
+    backgroundColor: '#f8f9fa',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tokenPlaceholderText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#666',
   },
   tokenContainer: {
     alignItems: 'center',
     marginRight: 8,
   },
-  folderIconInline: {
-    fontSize: height * 0.018, // Match token text size
-    color: '#fff',
-  },
-  homeIconText: {
-    fontSize: 18,
+  tokenLabel: {
+    fontSize: height * 0.012,
+    fontWeight: '500',
     color: '#333',
+    textAlign: 'center',
   },
   playButton: {
-    // width, height, and borderRadius are now handled dynamically
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: height * 0.02, // Reduced margin to prevent cutoff
-    backgroundColor: '#28a745',
+    marginHorizontal: 8,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
   },
   playButtonText: {
-    fontSize: height * 0.025, // Responsive font size
+    fontSize: height * 0.025,
     color: '#fff',
   },
-  iconSpacer: {
-    width: 16,
+  trashButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  exitButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+    backgroundColor: '#f8f9fa',
+  },
+
+  editButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+  },
+  editButtonActive: {
+    backgroundColor: '#dc3545',
+  },
+  editIconSize: {
+    width: 28,
+    height: 28,
   },
 });
 

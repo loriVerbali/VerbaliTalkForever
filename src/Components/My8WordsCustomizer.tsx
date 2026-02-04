@@ -59,9 +59,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
         if (needsMigration) {
           await setItem('my8words', stringifyMy8Words(parsedData));
         }
-      } catch (error) {
-        
-      }
+      } catch (error) {}
     };
     loadMy8Words();
   }, [getItem, setItem]);
@@ -85,7 +83,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
       const results = await searchWordImages(query);
       setSearchResults(results.results);
     } catch (error) {
-      
       Alert.alert('Error', 'Failed to search for words. Please try again.');
     } finally {
       setIsSearching(false);
@@ -135,7 +132,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
         `Card ${cardIndex + 1} updated with "${wordImage.word}"`,
       );
     } catch (error) {
-      
       Alert.alert('Error', 'Failed to update card. Please try again.');
     } finally {
       setIsDownloading(false);
@@ -159,7 +155,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
               await setItem('my8words', stringifyMy8Words(defaultData));
               Alert.alert('Success', 'Cards reset to default words');
             } catch (error) {
-              
               Alert.alert('Error', 'Failed to reset cards. Please try again.');
             }
           },
@@ -170,6 +165,11 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
 
   const renderCard = ({item, index}: {item: My8WordsCard; index: number}) => (
     <TouchableOpacity
+      style={[
+        styles.card,
+        selectedCardIndex === index && styles.selectedCard,
+        isTablet && styles.cardTablet,
+      ]}
       onPress={() =>
         setSelectedCardIndex(selectedCardIndex === index ? null : index)
       }>
@@ -441,6 +441,7 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     aspectRatio: 1,
+    backgroundColor: '#fff',
     borderRadius: 8,
     padding: 6,
     alignItems: 'center',

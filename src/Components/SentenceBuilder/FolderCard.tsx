@@ -1,6 +1,8 @@
 import React from 'react';
 import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
+import FastImage from 'react-native-fast-image';
 import {Node, FOLDER_COLOR} from '../../types/sentenceBuilder';
+import {resolveImageSource} from '../../utils/imageSourceResolver';
 
 interface FolderCardProps {
   node: Node;
@@ -50,10 +52,21 @@ const FolderCard: React.FC<FolderCardProps> = ({
         </TouchableOpacity>
       )}
 
-      {/* Folder icon */}
-      <View style={styles.folderIcon}>
-        <Text style={styles.folderIconText}>📁</Text>
-      </View>
+      {/* Folder image or icon */}
+      {node.imageUri ? (
+        <FastImage
+          source={
+            resolveImageSource(node.imageUri) ||
+            require('../../assets/welcome.png')
+          }
+          style={styles.folderImage}
+          resizeMode={FastImage.resizeMode.cover}
+        />
+      ) : (
+        <View style={styles.folderIcon}>
+          <Text style={styles.folderIconText}>📁</Text>
+        </View>
+      )}
 
       {/* Folder title with inline folder icon */}
       <Text style={styles.text} numberOfLines={2}>
@@ -100,6 +113,12 @@ const styles = StyleSheet.create({
   },
   folderIconText: {
     fontSize: 32,
+  },
+  folderImage: {
+    width: '100%',
+    height: '70%',
+    borderRadius: 6,
+    marginBottom: 8,
   },
   folderIconInline: {
     fontSize: 14,

@@ -364,18 +364,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         } as PepesData;
         setPepesData(completeData);
       }
-    } catch (error) {
-      
-    }
+    } catch (error) {}
   };
 
   const savePepesData = async (data: PepesData) => {
     try {
       await setItem('pepes', JSON.stringify(data));
       setPepesData(data);
-    } catch (error) {
-      
-    }
+    } catch (error) {}
   };
 
   const ensureCameraPermission = async (): Promise<boolean> => {
@@ -406,7 +402,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      
       return false;
     }
   };
@@ -434,7 +429,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      
       return false;
     }
   };
@@ -830,9 +824,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       const formatted = formatAddressToString(details);
       await setItem(`${sType}Address`, formatted);
       await setItem(`${sType}IsCurrentLocation`, isCurr.toString());
-    } catch (e) {
-      
-    }
+    } catch (e) {}
   };
 
   const parseLocationToAddressDetails = (
@@ -948,9 +940,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           address: data.address as any,
         };
       }
-    } catch (err) {
-      
-    }
+    } catch (err) {}
     return null;
   };
 
@@ -1058,7 +1048,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return requestStatus === RESULTS.GRANTED;
       }
     } catch (e) {
-      
       return false;
     }
   };
@@ -1106,7 +1095,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         }
       },
       (error: any) => {
-        
         Alert.alert('Location Error', 'Unable to get your location.');
       },
       {
@@ -1341,16 +1329,30 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const currentItems = pepesData[selectedCategory];
 
   // // Debug logging
-  // 
-  // 
-  // 
+  //
+  //
+  //
 
   const getCategoryLabel = (
-    c: 'People' | 'Medicine' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places',
+    c:
+      | 'People'
+      | 'Medicine'
+      | 'Pets'
+      | 'TVShows'
+      | 'Food'
+      | 'Drinks'
+      | 'Places',
   ) => (c === 'TVShows' ? 'TV Shows' : c);
 
   const getSingularLabel = (
-    c: 'People' | 'Medicine' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places',
+    c:
+      | 'People'
+      | 'Medicine'
+      | 'Pets'
+      | 'TVShows'
+      | 'Food'
+      | 'Drinks'
+      | 'Places',
   ): string => {
     switch (c) {
       case 'People':
@@ -2160,7 +2162,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           </View>
         </View>
       </Modal>
-
     </View>
   );
 };

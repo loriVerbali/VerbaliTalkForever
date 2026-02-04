@@ -12,8 +12,11 @@ import {
   Modal,
   TextInput,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
-import {useNavigation} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
+
 import FastImage from 'react-native-fast-image';
 import {DraggableGrid} from 'react-native-draggable-grid';
 import {useAppSettings} from '../../utils/persistance';
@@ -29,17 +32,25 @@ import {
   GRID_CONFIGS,
   GridConfigKey,
 } from '../../types/sentenceBuilder';
+import {resolveImageSource} from '../../utils/imageSourceResolver';
 import {views} from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
 import {useDatabase} from '../../contexts/DatabaseContext';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 const {width, height} = Dimensions.get('window');
+
+type RootStackParamList = {
+  HOME: {stateof?: string};
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface SentenceBuilderGridProps {
   isTablet?: boolean;
   onWordAdded?: (nodeId: string) => void;
-  onWordRemoved?: (nodeId: string) => void;
+  onWordRemoved?: (nodeId: string, index: number) => void;
   onSentencePlayed?: (sentenceTokens: string[], nodes: Node[]) => void;
   onBreadcrumbTapped?: (index: number) => void;
   onGridSizeChanged?: (size: GridConfigKey) => void;
@@ -59,7 +70,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 }) => {
   const {addUtterance} = useDatabase();
   const {getItem} = useAppSettings();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
 
   // State
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -79,9 +90,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isAdminCodeError, setIsAdminCodeError] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const lastPressTimeRef = useRef<number>(0);
-  const lastPressedNodeIdRef = useRef<string>('');
   const isProcessingPressRef = useRef<boolean>(false);
+  const isDebouncing = useRef(false);
 
   // Load initial data
   useEffect(() => {
@@ -101,6 +111,13 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   useEffect(() => {
     updateCurrentNodes();
   }, [nodes, folderStack]);
+
+  // Reset sentence whenever the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      handleResetSentence();
+    }, []),
+  );
 
   // Force re-render when grid size changes
   useEffect(() => {
@@ -124,6 +141,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       setNodes(allNodes);
       setSentenceTokenIds(sentenceState.tokenIds);
       setAllFolders(allFoldersData);
+
+      // Reset sentence on initial load
+      await handleResetSentence();
 
       // Load grid size from settings
       const gridConfigKey = Object.keys(GRID_CONFIGS).find(key => {
@@ -187,6 +207,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     } catch (error) {}
   };
 
+  const {width, height} = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   const getGridConfig = useCallback(() => {
     return GRID_CONFIGS[selectedGridSize];
   }, [selectedGridSize]);
@@ -196,50 +219,59 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     // In landscape mode: width is the longer dimension (screen width), height is the shorter dimension (screen height)
     const availableWidth = width - 8; // Reduced padding for more width (4px on each side)
 
-    // Responsive breakpoints for different device types - using height as the reference for mobile detection
-    const isSmallMobile = height < 480; // Very small phones (height is shorter dimension in landscape)
-    const isMobile = height < 768; // Regular phones
-    const isTabletDevice = height >= 768 && height < 1024; // Tablets
+    // Responsive breakpoints for different device types
+    // Use prop if available, otherwise fallback to height check. Inclusive of 1024 for iPad Pro 12.9"
+    const isTabletDevice = isTablet !== undefined ? isTablet : height >= 768;
+    const isSmallMobile = height < 480;
 
     // Calculate UI elements height dynamically
-    const navigationBarHeight = height * 0.055; // Navigation bar minHeight
-    const breadcrumbHeight = isTabletDevice ? 40 : 32; // Breadcrumb height (8px padding + content)
+    // Calculate UI elements height dynamically
+    // Navigation bar height is approx 11-12% on mobile (9.5% token + padding)
+    const navBarRatio = isTabletDevice ? 0.1 : 0.12;
+    const navigationBarHeight = height * navBarRatio;
     const gridSizeSelectorHeight = isEditing ? 48 : 0; // Grid size selector (only in edit mode)
-    const gridPadding = 8; // Grid container padding
+
+    // Adaptive padding and buffer
+    const gridPadding = isTabletDevice ? 8 : 2;
+    // Increased safety buffer to account for potential accumulation of small pixel differences or other UI elements
+    // Mobile: reduced from 10 back to 2 to reclaim space per user feedback ("insets are to much")
+    const safetyBuffer = isTabletDevice ? 40 : 2;
+
+    // Calculate insets to subtract
+    // On tablet: subtract both top and bottom safe areas
+    // On mobile: only subtract bottom safe area (home indicator) to maximize vertical space
+    // We ignore top inset on mobile assuming landscape/immersive mode where we want to use that space
+    const insetsToSubtract = isTabletDevice
+      ? insets.top + insets.bottom
+      : insets.bottom;
+
     const totalUIHeight =
       navigationBarHeight +
-      breadcrumbHeight +
       gridSizeSelectorHeight +
       gridPadding +
-      20; // Extra buffer to ensure 5th row fits
+      safetyBuffer +
+      insetsToSubtract; // ACCOUNT FOR SAFE AREA INSETS (Optimized)
 
     const availableHeight = height - totalUIHeight;
     const cardMargin = 2; // Much bigger gap between cards for visibility
     const cardSpacing = cardMargin * 2; // Total spacing between cards
     const cardWidth =
       (availableWidth - (gridConfig.cols - 1) * cardSpacing) / gridConfig.cols;
-    const cardHeight =
+
+    // Calculate card height based on available height, ensuring we don't exceed it
+    const rawCardHeight =
       (availableHeight - (gridConfig.rows - 1) * cardSpacing) / gridConfig.rows;
 
-    if (isSmallMobile) {
-      // Very small mobile devices - make cards 1.25x height and narrower
-      const finalWidth = Math.min(cardWidth, 100); // Much narrower width
-      const finalHeight = Math.min(cardHeight * 1.25, 400); // 1.25x height with max of 400px
-      return {width: finalWidth, height: finalHeight};
-    } else if (isMobile) {
-      // Regular mobile devices - make cards 1.25x height and narrower
-      const finalWidth = Math.min(cardWidth, 120); // Much narrower width
-      const finalHeight = Math.min(cardHeight * 1.25, 450); // 1.25x height with max of 450px
-      return {width: finalWidth, height: finalHeight};
-    } else if (isTabletDevice) {
-      // Tablets - use slightly rectangular cards but not too wide
-      const finalWidth = Math.min(cardWidth, 220); // Increased from 200px to 220px
-      const finalHeight = Math.min(cardHeight, 200); // Increased from 180px to 200px
-      return {width: finalWidth, height: finalHeight};
+    const cardHeight = Math.floor(rawCardHeight);
+
+    if (!isTabletDevice) {
+      // Mobile devices (both small and regular)
+      return {width: Math.floor(cardWidth), height: cardHeight};
     } else {
-      // Desktop - use the original logic but with better proportions
-      const finalWidth = Math.min(cardWidth, 240); // Increased from 220px to 240px
-      const finalHeight = Math.min(cardHeight, 220); // Increased from 200px to 220px
+      // Tablets
+      const finalWidth = Math.min(cardWidth, 220);
+      // Ensure we don't accidentally make cards taller than calculated available space per row
+      const finalHeight = Math.min(cardHeight, 200);
       return {width: finalWidth, height: finalHeight};
     }
   }, [getGridConfig, isEditing]);
@@ -250,11 +282,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     }
     return DEFAULT_COLOR_MAP[node.type || 'other'];
   }, []);
-
-  const needsScrolling = useCallback(() => {
-    const gridConfig = getGridConfig();
-    return gridConfig.rows > 6; // 7x7 and 8x8 need scrolling
-  }, [getGridConfig]);
 
   // Generate full grid with empty cells
   const getFullGridData = useCallback(() => {
@@ -340,13 +367,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     return processedActiveNodes.sort((a, b) => a.orderIndex - b.orderIndex);
   }, [currentNodes, isEditing]);
 
-  // Calculate if we need multiple grids
-  const needsMultipleGrids = useCallback(() => {
-    const totalItems = getFullGridData().length;
-    const gridCapacity = getGridConfig().rows * getGridConfig().cols;
-    return totalItems > gridCapacity;
-  }, [getFullGridData, getGridConfig]);
-
   // Split data into multiple grids
   const getGridDataChunks = useCallback(() => {
     const allData = getFullGridData();
@@ -359,19 +379,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
     return chunks;
   }, [getFullGridData, getGridConfig]);
-
-  // Split drag and drop data into multiple grids
-  const getDragDropDataChunks = useCallback(() => {
-    const dragDropData = getDragDropData();
-    const gridCapacity = getGridConfig().rows * getGridConfig().cols;
-    const chunks = [];
-
-    for (let i = 0; i < dragDropData.length; i += gridCapacity) {
-      chunks.push(dragDropData.slice(i, i + gridCapacity));
-    }
-
-    return chunks;
-  }, [getDragDropData, getGridConfig]);
 
   // Navigation handlers
   const handleHomePress = () => {
@@ -405,27 +412,19 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   // Card handlers
   const handleCardPress = async (node: Node) => {
+    if (isDebouncing.current) return;
+    isDebouncing.current = true;
+    setTimeout(() => {
+      isDebouncing.current = false;
+    }, 1000);
+
     // Prevent concurrent processing - if already processing a press, ignore this one
     if (isProcessingPressRef.current) {
       return;
     }
 
-    // Debounce logic to prevent double-tap issues (especially on first tap after launch)
-    // Use refs instead of state for synchronous debounce checking
-    const currentTime = Date.now();
-    const DEBOUNCE_DELAY = 300; // 300ms debounce delay
-
-    if (
-      lastPressedNodeIdRef.current === node.id &&
-      currentTime - lastPressTimeRef.current < DEBOUNCE_DELAY
-    ) {
-      return;
-    }
-
     // Mark as processing immediately
     isProcessingPressRef.current = true;
-    lastPressTimeRef.current = currentTime;
-    lastPressedNodeIdRef.current = node.id;
 
     try {
       // Handle empty cells from deleted nodes (add new item) - only when in editing mode
@@ -471,29 +470,32 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         // Navigate to folder - this should navigate, not add to sentence
         setFolderStack(prev => [...prev, {nodeId: node.id, title: node.title}]);
       } else {
-        // Add word to sentence
-        await sentenceBuilderSqlite.addWordToSentence(node.id);
-        setSentenceTokenIds(prev => {
-          // Prevent duplicate additions - if nodeId already exists, don't add it again
-          if (prev.includes(node.id)) {
-            return prev; // Return the previous array without adding the duplicate
-          }
-          return [...prev, node.id];
-        });
-
-        // Notify parent component about word addition
-        onWordAdded?.(node.id);
-
-        // Log word selection to database
-        const wordToLog = node.ttsText || node.title;
-        await logWordSelection(wordToLog);
-
-        // Prepare audio session for TTS to ensure consistent volume
-        await AudioSessionManager.prepareForTTS();
-
-        // Speak the word using TTS
+        // Speak the word using TTS (always speak, even if it's a consecutive duplicate)
         const textToSpeak = node.ttsText || node.title;
-        TTSService.speak(textToSpeak, true); // Use immediate=true to prioritize this speech
+        const onPlaybackComplete = async () => {
+          AudioSessionManager.setTTSActive(false);
+        };
+        await AudioSessionManager.prepareForTTS();
+        await TTSService.speak(textToSpeak, true, onPlaybackComplete);
+
+        // Logic for adding to sentence: block consecutive duplicates
+        const isConsecutiveDuplicate =
+          sentenceTokenIds.length > 0 &&
+          sentenceTokenIds[sentenceTokenIds.length - 1] === node.id;
+
+        if (!isConsecutiveDuplicate) {
+          // Add word to sentence database
+          await sentenceBuilderSqlite.addWordToSentence(node.id);
+
+          // Update local state
+          setSentenceTokenIds(prev => [...prev, node.id]);
+
+          // Notify parent component about word addition
+          onWordAdded?.(node.id);
+
+          // Log word selection to database (analytics/history)
+          await logWordSelection(textToSpeak);
+        }
       }
     } catch (error) {
       if (node.kind !== 'folder') {
@@ -608,13 +610,17 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   };
 
   // Sentence bar handlers
-  const handleRemoveToken = async (nodeId: string) => {
+  const handleRemoveToken = async (nodeId: string, index: number) => {
     try {
-      await sentenceBuilderSqlite.removeWordFromSentence(nodeId);
-      setSentenceTokenIds(prev => prev.filter(id => id !== nodeId));
+      await sentenceBuilderSqlite.removeWordFromSentence(index);
+      setSentenceTokenIds(prev => {
+        const newState = [...prev];
+        newState.splice(index, 1);
+        return newState;
+      });
 
       // Notify parent component about word removal
-      onWordRemoved?.(nodeId);
+      onWordRemoved?.(nodeId, index);
     } catch (error) {
       Alert.alert('Error', 'Failed to remove word from sentence');
     }
@@ -629,6 +635,12 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   const handleResetSentence = async () => {
     try {
+      // Prevent errors if DB is not yet initialized
+      if (!sentenceBuilderSqlite.isInitialized()) {
+        setSentenceTokenIds([]);
+        return;
+      }
+
       // Notify parent component about sentence being played before clearing
       if (sentenceTokenIds.length > 0) {
         onSentencePlayed?.(sentenceTokenIds, nodes);
@@ -643,7 +655,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   // New handler functions for NavigationBar
   const handleMicrophonePress = () => {
-    // TODO: Implement microphone functionality
+    navigation.navigate('HOME', {
+      stateof: 'Attention',
+    });
   };
 
   const handleTrashPress = () => {
@@ -911,38 +925,66 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                 </Text>
               </View>
             ) : (
-              // Folder - show folder icon with text
+              // Folder - show image if available, otherwise folder icon
+              <>
+                <View
+                  style={{
+                    width: cardDimensions.width,
+                    height: isMobile
+                      ? cardDimensions.height
+                      : cardDimensions.height * 0.82,
+                    backgroundColor: color,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderTopLeftRadius: 8,
+                    borderTopRightRadius: 8,
+                    borderBottomLeftRadius: isMobile ? 8 : 0,
+                    borderBottomRightRadius: isMobile ? 8 : 0,
+                  }}>
+                  <Text style={{fontSize: cardDimensions.width * 0.2}}>📁</Text>
+                </View>
+              </>
+            )}
+
+            {/* Text overlay for all devices */}
+            {!isEmptyCell && !isDeletedCard && (
               <View
                 style={{
-                  width: cardDimensions.width,
-                  height: isMobile
-                    ? cardDimensions.height
-                    : cardDimensions.height * 0.82,
-                  backgroundColor: color,
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  borderBottomLeftRadius: 8,
+                  borderBottomRightRadius: 8,
+                  paddingVertical: 2, // Reduced padding for smaller text overlay
+                  paddingHorizontal: 2,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  borderTopLeftRadius: 8,
-                  borderTopRightRadius: 8,
-                  borderBottomLeftRadius: isMobile ? 8 : 0,
-                  borderBottomRightRadius: isMobile ? 8 : 0,
                 }}>
                 <Text
                   style={{
-                    fontSize: Math.max(12, cardDimensions.width * 0.12),
-                    color: '#fff',
+                    fontSize: Math.max(8, cardDimensions.width * 0.06),
                     fontWeight: '600',
+                    color: '#000',
                     textAlign: 'center',
-                    paddingHorizontal: 4,
+                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+                    textShadowOffset: {width: 1, height: 1},
+                    textShadowRadius: 2,
                   }}
                   numberOfLines={2}>
-                  <Text style={{fontSize: Math.max(14, cardDimensions.width * 0.14)}}>
-                    📁{' '}
-                  </Text>
+                  {node.kind === 'folder' && (
+                    <Text
+                      style={{
+                        fontSize: Math.max(10, cardDimensions.width * 0.08),
+                      }}>
+                      📁{' '}
+                    </Text>
+                  )}
                   {node.title}
                 </Text>
               </View>
             )}
-
           </View>
         </View>
       </View>
@@ -973,7 +1015,6 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         nodes={nodes}
         sentenceTokenIds={sentenceTokenIds}
         onRemoveToken={handleRemoveToken}
-        onEditToken={handleEditToken}
         folderStack={folderStack}
         onFolderPress={handleBreadcrumbFolderPress}
         onBackPress={handleBackPress}
@@ -1020,18 +1061,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           bounces={true} // Enable bouncing for better mobile experience
           scrollEventThrottle={16} // Smooth scrolling
           nestedScrollEnabled={true} // Enable nested scrolling for mobile
-          scrollEnabled={
-            !isDragging &&
-            ((isEditing &&
-              (selectedGridSize === '5x6' ||
-                selectedGridSize === '6x6' ||
-                selectedGridSize === '7x7' ||
-                selectedGridSize === '8x8')) ||
-              (!isEditing &&
-                (selectedGridSize === '7x7' || selectedGridSize === '8x8')) ||
-              // Enable scrolling for all grid sizes when there are words in the input
-              sentenceTokenIds.length > 0)
-          }>
+          scrollEnabled={isEditing}>
           {getGridDataChunks().map((chunk, chunkIndex) => {
             // Always use full grid data to show empty cells in both editing and non-editing modes
             const dataToUse = chunk;

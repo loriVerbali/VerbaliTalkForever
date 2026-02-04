@@ -1,8 +1,9 @@
-import React from 'react';
+import React, {useRef} from 'react';
 import {
   View,
   Text,
   StyleSheet,
+  ActivityIndicator,
   Pressable,
   Dimensions,
   Image,
@@ -51,6 +52,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const {preferences} = useAppSettings();
   const navigation = useNavigation();
   const {isTablet} = useAdmin();
+  const isDebouncing = useRef(false);
 
   // Responsive values based on device type - now calculated from screen dimensions
   const responsiveValues = {
@@ -67,11 +69,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
     labelBorderRadius: isTablet ? width * 0.045 : width * 0.04,
 
     // Typography - calculated from screen dimensions
-    labelFontSize: isTablet ? width * 0.075 : width * 0.06,
-    cardLabelFontSize: isTablet ? width * 0.144 : width * 0.1,
-    questionMarkFontSize: isTablet ? width * 0.255 : width * 0.075,
-    centralQuestionMarkFontSize: isTablet ? width * 0.51 : width * 0.15,
-
+    labelFontSize: isTablet ? width * 0.048 : width * 0.045,
+    questionMarkFontSize: isTablet ? width * 0.085 : width * 0.075,
+    centralQuestionMarkFontSize: isTablet ? width * 0.17 : width * 0.15,
+    cardLabelFontSize: isTablet ? width * 0.048 : width * 0.045,
     // Shadow properties - calculated from screen dimensions
     shadowRadius: isTablet ? width * 0.015 : width * 0.012,
     shadowOffset: isTablet
@@ -88,15 +89,20 @@ const ImageCard: React.FC<ImageCardProps> = ({
     // Put the session in playback mode with speaker override
     await AudioSessionManager.prepareForTTS();
 
-    try {
-      await ttsService.speak(prompt, true); // ensure this resolves when playback ends
-    } finally {
+    // We pass the session restoration as a callback to ensure it only runs
+    // AFTER the audio has finished playing.
+    // NOTE: speak(..., true) returns immediately, so we cannot use await + finally here.
+    const onPlaybackComplete = async () => {
       // Always clear the flag after playback completes
       // If your native module exposes endTTS() (we added it), prefer that:
       // await AudioSessionManagerModule.endTTS();
       AudioSessionManager.setTTSActive(false);
+
       await AudioSessionManager.prepareForWakeword();
-    }
+    };
+
+    // Calling speak with immediate=true and our completion callback
+    await ttsService.speak(prompt, true, onPlaybackComplete);
   };
 
   const handleRefresh = async () => {
@@ -137,6 +143,12 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 },
               ]}
               onPress={async () => {
+                if (isDebouncing.current) return;
+                isDebouncing.current = true;
+                setTimeout(() => {
+                  isDebouncing.current = false;
+                }, 1000);
+
                 await handleRefresh();
                 // Log the "More Answers" selection
                 onAnswerSelected?.('MoreAnswers');
@@ -146,7 +158,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 <FastImage
                   source={
                     isMaxRetries
-                      ? require('../assets/shortCuts.jpg')
+                      ? require('../assets/shortCuts.png')
                       : require('../assets/cantfindIt.png')
                   }
                   style={[
@@ -198,6 +210,12 @@ const ImageCard: React.FC<ImageCardProps> = ({
               },
             ]}
             onPress={async () => {
+              if (isDebouncing.current) return;
+              isDebouncing.current = true;
+              setTimeout(() => {
+                isDebouncing.current = false;
+              }, 1000);
+
               sayAnswer(image.prompt);
               // Call the callback to log the conversation
               onAnswerSelected?.(image.prompt);

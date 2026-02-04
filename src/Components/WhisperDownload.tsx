@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import RNFS from 'react-native-fs';
 import NetInfo from '@react-native-community/netinfo';
-import {MODEL_CONFIG} from '../utils/constants';
-import {useAdmin} from '../contexts/adminContext';
+import { MODEL_CONFIG } from '../utils/constants';
+import { useAdmin } from '../contexts/adminContext';
 import WhisperModelManager from '../utils/WhisperModelManager';
-import {useAppSettings} from '../utils/persistance';
-import {detectDeviceCapabilities} from '../utils/deviceDetection';
+import { useAppSettings } from '../utils/persistance';
+import { detectDeviceCapabilities } from '../utils/deviceDetection';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // Array of 100 friendly feel-good phrases (3 words max)
 const feelGoodPhrases = [
@@ -166,8 +166,8 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
   onComplete,
   isModelInvoked,
 }) => {
-  const {isTablet} = useAdmin();
-  const {setItem, getItem} = useAppSettings();
+  const { isTablet } = useAdmin();
+  const { setItem, getItem } = useAppSettings();
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
@@ -217,13 +217,7 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
       try {
         const capabilities = await detectDeviceCapabilities();
         setIsLowEndDevice(capabilities.isLowEndDevice);
-        console.log(
-          `📱 Device detected as ${
-            capabilities.isLowEndDevice ? 'low-end' : 'standard'
-          }. Will download ${
-            capabilities.isLowEndDevice ? 'WHISPER_TINY' : 'WHISPER'
-          } model.`,
-        );
+
       } catch (error) {
         console.error('Error detecting device capabilities:', error);
         // Default to low-end on error to be safe
@@ -252,7 +246,7 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
     // Detect device capabilities if not already detected (outside try block for error handling)
     let deviceIsLowEnd = isLowEndDevice;
     let modelName = 'WHISPER'; // Default to standard model
-    
+
     try {
       setIsDownloading(true);
       setDownloadProgress(0);
@@ -285,7 +279,7 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
         setDownloadProgress(100);
         setIsDownloading(false);
         setIsComplete(true);
-        
+
         // Mark model as available since file already exists
         try {
           await WhisperModelManager.markModelAsAvailable(setItem);
@@ -295,7 +289,7 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
             error,
           );
         }
-        
+
         onComplete?.(modelName);
         return;
       } else {
@@ -378,18 +372,18 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={[styles.magicTitle, {fontSize: isTablet ? 28 : 24}]}>
+        <Text style={[styles.magicTitle, { fontSize: isTablet ? 28 : 24 }]}>
           {isComplete ? 'Magic is READY!!' : 'We are setting up our magic!'}
         </Text>
 
         <View style={styles.downloadContainer}>
           {!isComplete && <ActivityIndicator size="large" color="#146CF0" />}
           {isComplete ? (
-            <Text style={[styles.readyText, {color: '#4CAF50'}]}>
+            <Text style={[styles.readyText, { color: '#4CAF50' }]}>
               ✨
             </Text>
           ) : (
-            <Text style={[styles.progressText, {color: currentColor}]}>
+            <Text style={[styles.progressText, { color: currentColor }]}>
               {feelGoodPhrases[currentPhraseIndex]}
             </Text>
           )}
