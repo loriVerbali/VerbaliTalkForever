@@ -2,12 +2,12 @@ import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   Dimensions,
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 
 import {useNavigation, RouteProp} from '@react-navigation/native';
 import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
@@ -56,6 +56,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {generateAnswers} = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
+  const insets = useSafeAreaInsets();
   const {getItem, preferences} = useAppSettings();
   const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
   const stateof = route?.params?.stateof ?? '';
@@ -170,14 +171,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
 
     // Layout dimensions
-    inputNavigationHeight: isTablet ? height * 0.08 : height * 0.07,
+    inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
     contentMarginTop: isTablet ? 10 : 8,
     contentPadding: isTablet ? 20 : 15,
 
     // Microphone button positioning
     microphoneButtonTop: isTablet ? height * 0.04 : height * 0.035,
     microphoneButtonLeft: isTablet ? width * 0.03 : width * 0.025,
-    microphoneButtonSize: isTablet ? width * 0.025 : width * 0.02,
+    microphoneButtonSize: isTablet ? width * 0.05 : width * 0.04,
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
@@ -186,18 +187,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     recordingIconSize: isTablet
       ? {width: width * 0.4, height: width * 0.4}
       : {width: width * 0.35, height: width * 0.2},
-    // Keyboard input margin top - use home button height or 10% of screen height, whichever is larger
-    keyboardInputMarginTop: isTablet
-      ? Math.max(height * 0.1, width * 0.05)
-      : Math.max(height * 0.1, width * 0.04),
 
     // Typography
-    transcriptionFontSize: isTablet ? 22 : 22,
-    retryFontSize: isTablet ? 18 : 20,
-    keyboardTypingFontSize: isTablet ? 40 : 40, // Doubled from 20/18 to 40/36
-    buttonFontSize: isTablet ? 18 : 20,
-    errorFontSize: isTablet ? 20 : 22,
-    cardTextFontSize: isTablet ? 18 : 20,
+    transcriptionFontSize: isTablet ? 22 : 18,
+    retryFontSize: isTablet ? 18 : 16,
+    keyboardTypingFontSize: isTablet ? 40 : 40,
+    buttonFontSize: isTablet ? 18 : 16,
+    errorFontSize: isTablet ? 20 : 18,
+    cardTextFontSize: isTablet ? 18 : 16,
 
     // Button dimensions
     keyboardButtonPadding: isTablet
@@ -259,14 +256,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   }, [weather, location, cachedContextInfo, lastContextUpdate]);
 
   // Add keyboard input state
-  const [keyboardInput, setKeyboardInput] = useState('');
-  const [debouncedKeyboardInput, setDebouncedKeyboardInput] = useState('');
-  const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
-  const metering = useRef<number>(-100);
-  const lastSoundTimeRef = useRef<number>(Date.now());
-  const {playAttention} = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
@@ -540,8 +531,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         }
       }, 500); // Poll every 500ms for smooth updates
 
-      // Auto-stop after 20 seconds (real-time will handle up to 300 seconds based on config)
-      recordingTimer.current = setTimeout(stopRecording, 20000);
+      // Auto-stop after 8 seconds (real-time will handle up to 300 seconds based on config)
+      recordingTimer.current = setTimeout(stopRecording, 8000);
     } catch (error) {
       // Clear partial results polling timer on error
       if (partialResultsTimer.current) {
@@ -680,6 +671,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes,
           conversationHistory: conversationHistory,
+          contextInfo: contextInfo, // Weather, time, and location context
         },
         countMin: 5,
         countMax: 5,
@@ -895,9 +887,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setIsProcessingAnswer(false); // Reset processing state
     setIsTranscribing(false); // Reset transcription state
     setIsRecording(false); // Reset recording state
-    setKeyboardInput(''); // Reset keyboard input
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
+    setIsRecording(false); // Reset recording state
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
@@ -978,6 +968,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes, // Include pepes data for better context
           conversationHistory: conversationHistory, // Include conversation history
+          contextInfo: contextInfo, // Weather, time, and location context
         },
         prior: {
           answers: priorAnswers || [], // Pass the 5 current answers so they aren't shown again
@@ -1156,9 +1147,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           setIsProcessingAnswer(false);
           setIsTranscribing(false);
           setIsRecording(false);
-          setKeyboardInput('');
-          setDebouncedKeyboardInput('');
-          setIsSubmittingKeyboard(false);
           setIsUsingLocalWhisper(false);
           setModelNotAvailable(false);
 
@@ -1199,160 +1187,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
-  // Function to handle keyboard input submission
-  const handleKeyboardSubmit = async () => {
-    const inputText = keyboardInput.trim();
-
-    if (!inputText || isSubmittingKeyboard) {
-      return;
-    }
-
-    try {
-      setIsSubmittingKeyboard(true);
-
-      // Simply display what was written without making API calls
-      TTSService.speak(inputText, true);
-
-      // Reset input after speaking
-      setKeyboardInput('');
-      setDebouncedKeyboardInput('');
-
-      // Clear the input in the Inputs component
-      if (inputsRef.current) {
-        inputsRef.current.clearInput();
-      }
-    } catch (error) {
-    } finally {
-      setIsSubmittingKeyboard(false);
-    }
-  };
-
-  // Debounced input handler
-  const handleKeyboardInputChange = useCallback((text: string) => {
-    setKeyboardInput(text);
-
-    // Clear existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // Set new timer for debounced update
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedKeyboardInput(text);
-    }, 300); // 300ms debounce
-  }, []);
-
-  // Function to handle keyboard input cancellation
-  const handleKeyboardCancel = () => {
-    setKeyboardInput('');
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
-
-    // Clear the input in the Inputs component
-    if (inputsRef.current) {
-      inputsRef.current.clearInput();
-    }
-
-    // Clear debounce timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = null;
-    }
-  };
-
-  // Child component for keyboard input
-  const KeyboardInputComponent = () => {
-    const hasText = debouncedKeyboardInput.trim().length > 0;
-
-    return (
-      <View
-        style={[
-          styles.keyboardInputContainer,
-          {
-            padding: responsiveValues.keyboardInputPadding,
-            marginTop: responsiveValues.keyboardInputMarginTop,
-          },
-        ]}>
-        {/* TextInput always shown in keyboard mode */}
-        <TextInput
-          style={[
-            styles.keyboardTextInput,
-            {fontSize: responsiveValues.keyboardTypingFontSize},
-          ]}
-          value={keyboardInput}
-          onChangeText={handleKeyboardInputChange}
-          placeholder="Type here"
-          placeholderTextColor="#999"
-          multiline={true}
-          autoFocus={true}
-        />
-
-        {/* Show buttons only when there's debounced text */}
-        {hasText && (
-          <View style={styles.keyboardButtonsContainer}>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.cancelButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardCancel}
-              disabled={isSubmittingKeyboard}>
-              <Text
-                style={[
-                  styles.cancelButtonText,
-                  {fontSize: responsiveValues.buttonFontSize},
-                ]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.submitButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardSubmit}
-              disabled={
-                isSubmittingKeyboard ||
-                debouncedKeyboardInput.trim().length === 0
-              }>
-              {isSubmittingKeyboard ? (
-                <FastImage
-                  source={require('../assets/movie/output.gif')}
-                  style={[styles.iconSize, responsiveValues.fetchingSize]}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.submitButtonText,
-                    {fontSize: responsiveValues.buttonFontSize},
-                  ]}>
-                  Send
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -1391,7 +1225,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <HomeButton
           navigation={navigation}
           onReset={resetLocalStates}
-          zIndex={1000}
+          disabled={
+            isRecording ||
+            isProcessingAnswer ||
+            isRetrying ||
+            (!finishedTranscribing && !waitingForNextConversation)
+          }
         />
 
         {/* Matalk Icon */}
@@ -1399,20 +1238,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           <MatalkIcon />
         </View>
 
-        {/* Input and Navigation Section - Hidden in Keyboard mode */}
-        {stateof !== 'Keyboard' && (
-          <View
-            style={[
-              styles.inputNavigationContainer,
-              {height: responsiveValues.inputNavigationHeight},
-            ]}>
-            <Inputs
-              ref={inputsRef}
-              mode={stateof}
-              onInputChange={handleKeyboardInputChange}
-            />
-          </View>
-        )}
+        <View
+          style={[
+            styles.inputNavigationContainer,
+            stateof === 'Keyboard'
+              ? {height: 0, opacity: 0}
+              : {
+                  height: responsiveValues.inputNavigationHeight,
+                  marginTop: Math.max(insets.top, 10),
+                },
+          ]}>
+          {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
+        </View>
 
         <View style={{flex: 1, width: '100%'}}>
           <View
@@ -1652,9 +1489,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           />
                         </TouchableOpacity>
                       </View>
-                    ) : stateof === 'Keyboard' ? (
-                      <KeyboardInputComponent />
-                    ) : isTranscribing ? (
+                    ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
                       <View style={{alignItems: 'center'}}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
@@ -1989,24 +1824,17 @@ const styles = StyleSheet.create({
   },
 
   keyboardTextInput: {
-    width: '90%',
+    width: '100%',
     minHeight: 100,
-    maxHeight: 300,
+    maxHeight: 200,
     borderWidth: 2,
     borderColor: '#E5E5E5',
     borderRadius: 10,
-    padding: 20,
+    padding: 15,
+    fontSize: 16,
     backgroundColor: '#FFF',
     textAlignVertical: 'top',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
   },
   keyboardButtonsContainer: {
     flexDirection: 'row',

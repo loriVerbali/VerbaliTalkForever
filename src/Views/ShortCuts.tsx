@@ -138,8 +138,9 @@ const ShortCuts = () => {
   const {isTablet} = useAdmin();
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
+  const isDebouncing = useRef(false);
 
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
     | 'attention'
     | 'iWantNeed'
@@ -179,7 +180,7 @@ const ShortCuts = () => {
       gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
       gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? 28 : 22,
+      labelGridFontSize: isTablet ? 16 : 14,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.01 : height * 0.005,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -199,6 +200,9 @@ const ShortCuts = () => {
       Opened: 'Shortcuts',
     });
     TTSService.initialize();
+
+    // Enforce speaker output on mount
+    AudioSessionManager.prepareForTTS();
 
     // Clean up TTS when component unmounts
     return () => {
@@ -229,6 +233,12 @@ const ShortCuts = () => {
   };
 
   const handleFeelingPress = async (feeling: string) => {
+    if (isDebouncing.current) return;
+    isDebouncing.current = true;
+    setTimeout(() => {
+      isDebouncing.current = false;
+    }, 1000);
+
     // Prepare audio session for TTS to ensure consistent volume
     await AudioSessionManager.prepareForTTS();
 

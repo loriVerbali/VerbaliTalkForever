@@ -8,7 +8,7 @@ import {GridConfigKey} from '../types/sentenceBuilder';
 const Convo = () => {
   const {addClassicEntry} = useDatabase();
   const mixpanel = useRef(
-    new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true),
+    new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true),
   );
   const [sentenceStartTime, setSentenceStartTime] = useState<number | null>(
     null,
@@ -45,8 +45,12 @@ const Convo = () => {
     [handleFirstWordAdded],
   );
 
-  const handleWordRemoved = useCallback((nodeId: string) => {
-    setCurrentSentenceTokens(prev => prev.filter(id => id !== nodeId));
+  const handleWordRemoved = useCallback((nodeId: string, index: number) => {
+    setCurrentSentenceTokens(prev => {
+      const newState = [...prev];
+      newState.splice(index, 1);
+      return newState;
+    });
     // Note: We don't decrease totalWordsAdded to track deleted words
   }, []);
 

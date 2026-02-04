@@ -8,8 +8,8 @@ import {
   Platform,
   PermissionsAndroid,
 } from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, RouteProp} from '@react-navigation/native';
-import RNFS from 'react-native-fs';
 
 // Add imports for the components
 import Inputs, {InputsRef} from '../Components/Inputs';
@@ -32,8 +32,9 @@ import {useAdmin} from '../contexts/adminContext';
 import {views} from '../utils/constants';
 import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
-import WhisperService from '../utils/WhisperService';
+import Voice from '@dev-amirzubair/react-native-voice';
 import {useDatabase} from '../contexts/DatabaseContext';
+import {polishText} from '../utils/polishApi';
 
 const {width, height} = Dimensions.get('window');
 
@@ -51,16 +52,16 @@ const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was school today?';
 
-let audioRecordInitialized = false;
-
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {generateAnswers} = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
+  const insets = useSafeAreaInsets();
   const {getItem, preferences} = useAppSettings();
   const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false); // Ref for sync guard against duplicate starts
 
   // Function to resolve pepes images for answer words
   const resolvePepesImage = async (word: string, fallbackUrl: string = '') => {
@@ -255,9 +256,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   }, [weather, location, cachedContextInfo, lastContextUpdate]);
 
   // Add keyboard input state
-  const [keyboardInput, setKeyboardInput] = useState('');
-  const [debouncedKeyboardInput, setDebouncedKeyboardInput] = useState('');
-  const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
@@ -272,6 +270,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [retryCount, setRetryCount] = useState(0);
   const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
+  const [voiceResults, setVoiceResults] = useState<string[]>([]);
+  const [partialResult, setPartialResult] = useState<string>('');
+  // Refs to capture the latest values (state is async, refs are sync)
+  const voiceResultsRef = useRef<string[]>([]);
+  const partialResultRef = useRef<string>('');
+  const lastPartialUpdateTimeRef = useRef<number>(Date.now());
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const SILENCE_TIMEOUT = 2000; // Stop recording if no new partial results for 2 seconds
   const MAX_RETRIES = 3;
   const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
@@ -322,30 +328,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     string | null
   >(null);
 
-  const initializeAudioRecording = async () => {
-    try {
-      // Always use local Whisper - cloud disabled
-      setCachedUseLocalWhisper('1');
-
-      // Request RECORD_AUDIO permission for Android before initializing AudioRecord
-      if (Platform.OS === 'android') {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: 'Microphone Permission',
-            message: 'This app needs access to your microphone to record audio',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-          throw new Error('Microphone permission denied');
-        }
-      }
-    } catch (error) {}
-  };
-
   useEffect(() => {
     // Load gobackAfterSelection setting
     const loadGobackAfterSelectionSetting = async () => {
@@ -355,16 +337,95 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       } catch (error) {}
     };
 
-    // Initialize audio recording based on current settings
-    const setupAudioRecording = async () => {
-      await initializeAudioRecording();
+    try {
+      // Always use Voice recognition
+      setCachedUseLocalWhisper('1');
+
+      // Request RECORD_AUDIO permission for Android before initializing Voice
+      const granted = PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Microphone Permission',
+          message: 'This app needs access to your microphone to record audio',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+    } catch (error) {}
+
+    Voice.onSpeechStart = () => {
+      console.log('Voice: onSpeechStart');
+    };
+
+    // Set up speech end handler
+    Voice.onSpeechEnd = () => {
+      console.log('Voice: onSpeechEnd');
+    };
+
+    Voice.onSpeechError = (e: any) => {
+      // Log detailed error info - error codes:
+      // 1=NETWORK_TIMEOUT, 2=NETWORK, 3=AUDIO, 4=SERVER, 5=CLIENT,
+      // 6=SPEECH_TIMEOUT, 7=NO_MATCH, 8=RECOGNIZER_BUSY, 9=INSUFFICIENT_PERMISSIONS
+      console.error('Speech error:', JSON.stringify(e));
+      console.error('Speech error code:', e?.error?.code);
+      console.error('Speech error message:', e?.error?.message);
+      setIsRecording(false);
+      isRecordingRef.current = false;
+    };
+    // Set up final results handler
+    // Note: event.value is an array of recognized text strings
+    Voice.onSpeechResults = (event: any) => {
+      if (event.value && event.value.length > 0) {
+        // event.value is already an array of results
+        setVoiceResults(event.value[0]);
+        voiceResultsRef.current = event.value;
+      }
+    };
+
+    // Set up partial results handler for streaming text
+    Voice.onSpeechPartialResults = (event: any) => {
+      let partialText = '';
+
+      // event.value is an array of partial results
+      if (event.value && event.value.length > 0) {
+        partialText = event.value[0];
+      }
+
+      if (partialText) {
+        // Update state for UI
+        setPartialResult(partialText);
+        // Update ref for sync access in processVoiceResults
+        partialResultRef.current = partialText;
+
+        // Update input field with partial result (streaming to input like iOS)
+        if (inputsRef.current) {
+          inputsRef.current.setInput(partialText);
+        }
+
+        // Reset silence timer - we got new input
+        lastPartialUpdateTimeRef.current = Date.now();
+
+        // Clear existing silence timer
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+
+        // Set new silence timer - if no new partial results for 2 seconds, stop recording
+        silenceTimerRef.current = setTimeout(async () => {
+          // Only stop if we have some text and are still recording
+          if (partialResultRef.current.trim().length > 0) {
+            await stopRecording();
+          }
+        }, SILENCE_TIMEOUT);
+      }
     };
 
     // Load the setting
     loadGobackAfterSelectionSetting();
 
     // Setup audio recording
-    setupAudioRecording();
 
     // Track screen opening
     mixpanel.track('Conversation', {
@@ -372,108 +433,151 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     });
     if (stateof === 'Attention') {
       // wakeWord.stopListening();
-      playSound();
+      handleRecord();
     }
     if (stateof === 'Keyboard') {
       const wakeWordService = WakeWordService.getInstance();
       wakeWordService.stopListening();
     }
+
+    // Cleanup function
+    return () => {
+      Voice.destroy();
+    };
   }, []);
 
-  // Cleanup useEffect for wake word service and Whisper
+  // Cleanup useEffect for wake word service and timers
   useEffect(() => {
     return () => {
       // Always cleanup wake word service
       const wakeWordService = WakeWordService.getInstance();
       wakeWordService.stopListening();
-      // Only cleanup Whisper service when component actually unmounts
-      // Don't destroy it when just waiting for next conversation
-      WhisperService.destroy().catch(error => {});
-
-      // Cleanup AudioRecord if it was initialized
 
       // Cleanup response timer
       if (responseTimerRef.current) {
         clearTimeout(responseTimerRef.current);
         responseTimerRef.current = null;
       }
+
+      // Cleanup silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      // Cleanup recording timer
+      if (recordingTimer.current) {
+        clearTimeout(recordingTimer.current);
+        recordingTimer.current = null;
+      }
     };
   }, []);
 
   const playSound = async () => {
-    // FORCE THE RECORDING INDICATOR ON
-    setIsRecording(true);
-    const res = await playAttention();
-    // Always call handleRecord when triggered by wake word or attention sound
-    // The stateof check was preventing recording when gobackAfterSelection is false
-    if (res) {
-      handleRecord();
-    }
+    handleRecord();
   };
 
   const handleRecord = async () => {
-    // Prevent multiple simultaneous recordings
-    if (isRecording) {
+    // Prevent multiple simultaneous recordings using ref (sync check)
+    if (isRecordingRef.current) {
       return;
+    }
+
+    // Set ref immediately to prevent race conditions
+    isRecordingRef.current = true;
+
+    // CRITICAL: Stop WakeWordService before starting Voice recognition
+    // WakeWordService uses the microphone and must release it for Voice to work
+    // IMPORTANT: On first launch, WakeWordService might be INITIALIZING (not yet listening)
+    // but the native ONNX module could still be grabbing audio resources
+    // cleanup() waits for pending initialization AND releases all resources
+    try {
+      const wakeWordService = WakeWordService.getInstance();
+      const status = wakeWordService.getStatus();
+
+      // Use cleanup() which:
+      // 1. Waits for any pending startingPromise
+      // 2. Waits for any pending initializingPromise (CRITICAL for first launch!)
+      // 3. Calls stopListening()
+      // 4. Releases all native resources
+
+      await wakeWordService.cleanup();
+
+      // Longer delay on Android to ensure microphone is fully released
+      // Android audio system can take time to release resources
+      await new Promise<void>(resolve => setTimeout(resolve, 800));
+    } catch (error) {
+      // Even if there's an error, wait longer before trying Voice
+      await new Promise<void>(resolve => setTimeout(resolve, 500));
     }
 
     // Track microphone press
     mixpanel.track('Microphone Pressed');
 
-    const recordStartTime = Date.now();
-
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      {
+        title: 'Microphone Permission',
+        message: 'This app needs access to your microphone to record audio',
+        buttonNeutral: 'Ask Me Later',
+        buttonNegative: 'Cancel',
+        buttonPositive: 'OK',
+      },
+    );
+    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+      throw new Error('Microphone permission denied');
+    }
     lastSoundTimeRef.current = 0;
     metering.current = -100;
 
     try {
-      // Always use local Whisper - cloud disabled
-      const isUsingLocalWhisper = true;
+      // Clear previous voice results and partial results (both state and refs)
+      setVoiceResults([]);
+      setPartialResult('');
+      voiceResultsRef.current = [];
+      partialResultRef.current = '';
+      lastPartialUpdateTimeRef.current = Date.now();
 
-      // Ensure WhisperService is initialized if using local Whisper
-
-      const path = isUsingLocalWhisper
-        ? `${RNFS.CachesDirectoryPath}/sound.wav`
-        : `${RNFS.CachesDirectoryPath}/sound.mp3`;
-      // Clear previous cached recording if it exists (optimized - non-blocking)
-      RNFS.exists(path)
-        .then(exists => {
-          if (exists) {
-            RNFS.unlink(path).catch(e => {});
-          }
-        })
-        .catch(e => {});
-
-      if (isUsingLocalWhisper) {
-        // Use react-native-audio-record for local Whisper (WAV)
-        try {
-          // Ensure AudioRecord is initialized before starting
-          if (!audioRecordInitialized) {
-            await initializeAudioRecording();
-          }
-
-          // Double-check initialization was successful
-          if (!audioRecordInitialized) {
-            throw new Error('AudioRecord initialization failed');
-          }
-
-          // Simplified timer logic - single timer for recording duration
-          recordingTimer.current = setTimeout(async () => {
-            await stopRecording();
-          }, 8000);
-        } catch (startError) {
-          throw new Error(`Recording failed to start: ${startError}`);
-        }
+      // Clear any existing silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
+
+      setIsRecording(true);
+      setIsUsingLocalWhisper(true); // Voice uses device recognition
+
+      const availableServices = await Voice.getSpeechRecognitionServices();
+      console.log('Available speech services:', availableServices);
+
+      // Start Voice recognition with locale
+      // NOTE: Don't force RECOGNIZER_ENGINE - let Android choose the best available
+      // Using 'en-US' format (with hyphen) which is more widely supported
+      await Voice.start('en-US', {
+        EXTRA_PARTIAL_RESULTS: true,
+        EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS: 5000,
+        EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
+        EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 2000,
+      });
+
+      // Set timer to stop recording after 20 seconds
+      recordingTimer.current = setTimeout(async () => {
+        await stopRecording();
+      }, 20000);
     } catch (error) {
-      // Reset AudioRecord initialization flag if there was an error
-      if (error instanceof Error && error.message.includes('AudioRecord')) {
-        audioRecordInitialized = false;
-      }
-
       setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-      //TTSService.speak('Something went wrong, Tap Home to retry', true);
+      const errorMessage = (error as Error).message || 'Unknown error';
+      setTranscribedText(
+        errorMessage.includes('not available')
+          ? 'Voice recognition is not available. Please check your device settings.'
+          : ISSUEMESSAGE + errorMessage,
+      );
+      TTSService.speak(
+        'Voice recognition failed. Please check your microphone settings.',
+        true,
+      );
       setIsRecording(false);
+      isRecordingRef.current = false; // Reset ref on error
     }
   };
 
@@ -485,269 +589,157 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         recordingTimer.current = null;
       }
 
-      // Always use local Whisper - cloud disabled
-      const isUsingLocalWhisper = true;
-
-      let filePath: string;
-
-      if (isUsingLocalWhisper) {
-        // Stop recording with react-native-audio-record
+      // Clear silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
-    } catch (error) {
-      // Reset AudioRecord initialization flag if there was an error
-      if (error instanceof Error && error.message.includes('AudioRecord')) {
-        audioRecordInitialized = false;
-      }
-    }
-  };
 
-  // Local Whisper transcription - no fallback to cloud
-  const transcribeAudioWithWhisper = async (audioPath: string) => {
-    const audioUri = `file://${audioPath}`;
+      // Stop Voice recognition
+      await Voice.stop();
+      console.log('stopRecording: Voice.stop() called');
 
-    try {
-      setIsUsingLocalWhisper(true);
-
-      // Ensure WhisperService is properly initialized before transcription
-      const whisperResult = await WhisperService.transcribeAudio(audioUri);
-
-      if (whisperResult.success && whisperResult.text.trim().length > 0) {
-        return {text: whisperResult.text.trim(), isLocal: true};
-      } else {
-        // No fallback to cloud - throw error if local fails
-        setIsUsingLocalWhisper(false);
-        throw new Error(
-          whisperResult.error || 'Local Whisper transcription failed',
-        );
-      }
-    } catch (error) {
-      setIsUsingLocalWhisper(false);
-
-      throw error;
-    }
-  };
-
-  // Cloud-based transcription (original method)
-  const transcribeAudioCloud = async () => {
-    const audioPath = Platform.select({
-      ios: `${RNFS.CachesDirectoryPath}/sound.m4a`,
-      android: `${RNFS.CachesDirectoryPath}/sound.mp3`, // MP3 for cloud Whisper
-    })!;
-
-    if (!audioPath) {
-      setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
       setIsRecording(false);
-      return;
-    }
+      isRecordingRef.current = false; // Reset ref
+      setIsTranscribing(true);
 
-    const formData = new FormData();
-    // Fix the file URI handling - ensure proper format for React Native FormData
-    let audioUri = audioPath;
-
-    // For Android, ensure the URI starts with 'file://' for FormData
-    if (Platform.OS === 'android') {
-      // Add file:// prefix for Android FormData
-      audioUri = `file://${audioPath}`;
-    } else {
-      // For iOS, the path should be used as-is from the recorder
-      audioUri = audioPath.replace('file://', '');
-    }
-
-    const fileObj =
-      Platform.OS === 'android'
-        ? {
-            uri: audioUri,
-            type: 'audio/mp3',
-            name: 'sound.mp3',
-            filename: 'sound.mp3', // Add filename for Android
-          }
-        : {
-            uri: audioUri,
-            type: 'audio/x-m4a',
-            name: 'recording.m4a',
-          };
-
-    formData.append('file', fileObj);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'en');
-
-    const transcribeResponse = await fetchHelper(
-      'transcribeAudio',
-      {},
-      formData,
-    );
-    return transcribeResponse;
-  };
-
-  const transcribeAudio = async (audioPath: string) => {
-    setIsTranscribing(true);
-    // Always use local Whisper - cloud disabled
-    setIsUsingLocalWhisper(true);
-
-    if (!audioPath) {
-      setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
+      // Process the voice results using refs (which are captured synchronously)
+      // Small delay to allow any final onResults event to fire
+      setTimeout(() => {
+        processVoiceResults();
+      }, 300); // Small delay to ensure results are captured
+    } catch (error) {
+      console.log('stopRecording: Error', error);
       setIsRecording(false);
+      isRecordingRef.current = false; // Reset ref on error
       setIsTranscribing(false);
-      return;
+      setFinishedTranscribing(true);
+      setTranscribedText(ISSUEMESSAGE);
     }
+  };
 
+  // Process Voice recognition results
+  const processVoiceResults = async () => {
     try {
-      let transcribeResponse: any;
-      if (!DEBUGWITHOUTTRANSCRIPTION) {
-        try {
-          // Always use local Whisper - no cloud fallback
-          transcribeResponse = await transcribeAudioWithWhisper(audioPath);
-        } catch (whisperError) {
-          setFinishedTranscribing(true);
-          setTranscribedText(ISSUEMESSAGE);
-          TTSService.speak('I am having an issue, Tap Home to retry', true);
-          setIsRecording(false);
-          setIsTranscribing(false);
-          return;
-        }
-      } else {
-        transcribeResponse = {text: DEBUGTRANSCRIPTION};
+      setIsTranscribing(true);
+
+      // Use refs instead of state to get the latest values (refs are synchronous)
+      const currentVoiceResults = voiceResultsRef.current;
+      const currentPartialResult = partialResultRef.current;
+
+      // Get the best result from voiceResults, fallback to partialResult if voiceResults is empty
+      let transcribedText = '';
+      if (currentVoiceResults.length > 0) {
+        transcribedText = currentVoiceResults[0].trim();
+      } else if (currentPartialResult.trim().length > 0) {
+        // If we have partial results but no final results, use the partial
+        transcribedText = currentPartialResult.trim();
       }
 
-      if (transcribeResponse?.text) {
-        const transcribedText = transcribeResponse.text.trim();
-
-        if (
-          transcribedText.length === 0 ||
-          transcribedText === 'Thank you for watching!' ||
-          transcribedText === 'Thank you for watching.' ||
-          transcribedText === 'Thanks for watching!' ||
-          transcribedText === 'Thanks for watching.' ||
-          transcribedText === '. .' ||
-          transcribedText === '.' ||
-          transcribeResponse?.usage?.seconds === 0 ||
-          transcribeResponse?.usage?.seconds === '0'
-        ) {
-          setFinishedTranscribing(true);
-          setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-          TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-        }
-
-        if (
-          transcribedText.length > 0 &&
-          transcribedText !== 'null' &&
-          transcribedText !== 'Thank you.' &&
-          transcribedText !== 'Thank you for watching!' &&
-          transcribedText !== 'Thank you for watching.' &&
-          transcribedText !== 'Thanks for watching!' &&
-          transcribedText !== 'Thanks for watching.' &&
-          transcribedText !== '. .' &&
-          transcribedText !== '.'
-        ) {
-          setFinishedTranscribing(true);
-          setTranscribedText(transcribedText);
-          setIsProcessingAnswer(true); // Show processing immediately
-
-          // Set the transcribed text in the top input
-          if (inputsRef.current) {
-            inputsRef.current.setInput(transcribedText);
-          }
-          // OPTIMIZATION 2: Create optimized context message
-          // Use simpler context to reduce message size and processing time
-          const contextInfo = getCachedContextInfo();
-
-          // Split into core prompt and context for better processing
-          const corePrompt = `User asked: "${transcribedText}"`;
-          const contextPrompt = `Context: ${contextInfo}`;
-          const messageWithContext = `${corePrompt}. ${contextPrompt}`;
-
-          // OPTIMIZATION 3: Start both API calls and don't wait for sendMessage to complete
-
-          try {
-            // Get pepes data for context
-            const pepesData = await getItem('pepes');
-            const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
-            // Use the new generateAnswers function instead of OpenAI assistant
-            const answers = await generateAnswers(transcribedText, {
-              mode: 'generate_answers',
-              metadata: {
-                kidName: preferences?.heroName || 'I',
-                speaker: 'anyone',
-                audience: preferences?.heroName || 'my',
-                pepes: parsedPepes, // Include pepes data for better context
-                conversationHistory: conversationHistory, // Include conversation history
-              },
-              countMin: 5,
-              countMax: 5,
-              genderType: preferences?.gender || 'white boy',
-            });
-
-            if (answers && answers.length > 0) {
-              // Process the answers and resolve pepes images
-
-              // Process answers to resolve pepes images
-              const processedAnswers = await Promise.all(
-                answers.map(async answer => {
-                  const pepesImageUrl = await resolvePepesImage(
-                    answer.word,
-                    answer.imageUrl,
-                  );
-                  return {
-                    ...answer,
-                    imageUrl: pepesImageUrl || answer.imageUrl,
-                  };
-                }),
-              );
-
-              setDirectAnswers(processedAnswers);
-              setIsProcessingAnswer(false);
-              setShowImages(true);
-              startResponseTimer();
-
-              // Initialize AI Resolved record for Round 1
-              const answerWords = processedAnswers.map(answer => answer.word);
-              setCurrentAIRecord({
-                question: transcribedText,
-                round1Answers: answerWords,
-                currentRound: 1,
-              });
-
-              // Add to conversation history
-              const assistantResponse = processedAnswers
-                .map(answer => answer.word)
-                .join(', ');
-              addToConversationHistory(transcribedText, assistantResponse);
-            } else {
-              setIsProcessingAnswer(false);
-              TTSService.speak('I am having an issue, Tap Home to retry', true);
-              setIsRecording(false);
-              return;
-            }
-          } catch (error) {
-            setIsProcessingAnswer(false);
-            TTSService.speak(
-              'Failed to process your request. Please try again.',
-              true,
-            );
-          }
-        }
-
-        setIsRecording(false);
-        setIsTranscribing(false);
-      } else {
+      if (
+        transcribedText.length === 0 ||
+        transcribedText === 'Thank you for watching!' ||
+        transcribedText === 'Thank you for watching.' ||
+        transcribedText === 'Thanks for watching!' ||
+        transcribedText === 'Thanks for watching.' ||
+        transcribedText === '. .' ||
+        transcribedText === '.'
+      ) {
         setFinishedTranscribing(true);
         setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
         TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-        setIsRecording(false);
         setIsTranscribing(false);
+        return;
       }
+
+      if (transcribedText.length > 0) {
+        setFinishedTranscribing(true);
+        setTranscribedText(transcribedText);
+        setIsProcessingAnswer(true);
+
+        // Set the transcribed text in the top input
+        if (inputsRef.current) {
+          inputsRef.current.setInput(transcribedText);
+        }
+
+        // Get context info
+        const contextInfo = getCachedContextInfo();
+        const corePrompt = `User asked: "${transcribedText}"`;
+        const contextPrompt = `Context: ${contextInfo}`;
+        const messageWithContext = `${corePrompt}. ${contextPrompt}`;
+
+        try {
+          // Get pepes data for context
+          const pepesData = await getItem('pepes');
+          const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
+
+          // Use the new generateAnswers function
+          const answers = await generateAnswers(transcribedText, {
+            mode: 'generate_answers',
+            metadata: {
+              kidName: preferences?.heroName || 'I',
+              speaker: 'anyone',
+              audience: preferences?.heroName || 'my',
+              pepes: parsedPepes,
+              conversationHistory: conversationHistory,
+              contextInfo: contextInfo, // Weather, time, and location context
+            },
+            countMin: 5,
+            countMax: 5,
+            genderType: preferences?.gender || 'white boy',
+          });
+
+          if (answers && answers.length > 0) {
+            // Process answers to resolve pepes images
+            const processedAnswers = await Promise.all(
+              answers.map(async answer => {
+                const pepesImageUrl = await resolvePepesImage(
+                  answer.word,
+                  answer.imageUrl,
+                );
+                return {
+                  ...answer,
+                  imageUrl: pepesImageUrl || answer.imageUrl,
+                };
+              }),
+            );
+
+            setDirectAnswers(processedAnswers);
+            setIsProcessingAnswer(false);
+            setShowImages(true);
+            startResponseTimer();
+
+            // Initialize AI Resolved record for Round 1
+            const answerWords = processedAnswers.map(answer => answer.word);
+            setCurrentAIRecord({
+              question: transcribedText,
+              round1Answers: answerWords,
+              currentRound: 1,
+            });
+
+            // Add to conversation history
+            const assistantResponse = processedAnswers
+              .map(answer => answer.word)
+              .join(', ');
+            addToConversationHistory(transcribedText, assistantResponse);
+          } else {
+            setIsProcessingAnswer(false);
+            TTSService.speak('I am having an issue, Tap Home to retry', true);
+          }
+        } catch (error) {
+          setIsProcessingAnswer(false);
+          TTSService.speak(
+            'Failed to process your request. Please try again.',
+            true,
+          );
+        }
+      }
+
+      setIsTranscribing(false);
     } catch (error) {
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
       TTSService.speak('I am having an issue, Tap Home to retry', true);
-      setIsRecording(false);
       setIsTranscribing(false);
     }
   };
@@ -775,21 +767,24 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setFinishedTranscribing(false);
     setTranscribedText('');
     setShowImages(false);
-    setIsRetrying(false);
-    setRetryCount(0);
-    setIsProcessingAnswer(false); // Reset processing state
     setIsTranscribing(false); // Reset transcription state
     setIsRecording(false); // Reset recording state
-    setKeyboardInput(''); // Reset keyboard input
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
     setConversationHistory([]); // Clear conversation history
     setCurrentAIRecord(null); // Clear AI Resolved record
+    setPartialResult(''); // Clear partial results
+    voiceResultsRef.current = []; // Clear refs too
+    partialResultRef.current = '';
     // Note: Don't reset cachedUseLocalWhisper as it won't change during session
+
+    // Clear silence timer
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
 
     // Clear the input in the Inputs component
     if (inputsRef.current) {
@@ -857,6 +852,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes, // Include pepes data for better context
           conversationHistory: conversationHistory, // Include conversation history
+          contextInfo: contextInfo, // Weather, time, and location context
         },
         prior: {
           answers: priorAnswers, // Pass the 5 current answers so they aren't shown again
@@ -1022,9 +1018,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           setIsProcessingAnswer(false);
           setIsTranscribing(false);
           setIsRecording(false);
-          setKeyboardInput('');
-          setDebouncedKeyboardInput('');
-          setIsSubmittingKeyboard(false);
+          isRecordingRef.current = false; // Reset ref too
           setIsUsingLocalWhisper(false);
           setModelNotAvailable(false);
 
@@ -1040,17 +1034,40 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           }
 
           // Activate wake word listening
+          // NOTE: handleRecord() called cleanup() earlier, so WakeWordService needs to reinitialize
           try {
+            // IMPORTANT: Destroy Voice to fully release the microphone before starting wake word
+
+            await Voice.destroy();
+
+            // Longer delay to ensure Android has fully released the microphone
+            await new Promise<void>(resolve => setTimeout(resolve, 800));
+
             const wakeWordService = WakeWordService.getInstance();
 
+            // Set callback first
             wakeWordService.setCallback((phrase: string) => {
               // When wake word detected, start new conversation
               setWaitingForNextConversation(false);
               playSound(); // This will trigger handleRecord()
             });
 
+            // Start listening - this will reinitialize the service since cleanup() was called
             await wakeWordService.startListening();
+
+            const statusAfter = wakeWordService.getStatus();
+
+            // Verify it's actually listening
+            if (!wakeWordService.isCurrentlyListening()) {
+              console.error(
+                'handleAnswerSelected: WakeWordService failed to start listening!',
+              );
+            }
           } catch (error) {
+            console.error(
+              'handleAnswerSelected: Error starting WakeWordService:',
+              error,
+            );
             // Fallback: allow manual trigger
             setWaitingForNextConversation(true);
           }
@@ -1059,159 +1076,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     }
   };
 
-  // Function to handle keyboard input submission
-  const handleKeyboardSubmit = async () => {
-    const inputText = keyboardInput.trim();
-
-    if (!inputText || isSubmittingKeyboard) {
-      return;
-    }
-
-    try {
-      setIsSubmittingKeyboard(true);
-
-      // Simply display what was written without making API calls
-      TTSService.speak(inputText, true);
-    } catch (error) {
-    } finally {
-      setIsSubmittingKeyboard(false);
-    }
-  };
-
-  // Debounced input handler
-  const handleKeyboardInputChange = useCallback((text: string) => {
-    setKeyboardInput(text);
-
-    // Clear existing timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    // Set new timer for debounced update
-    debounceTimer.current = setTimeout(() => {
-      setDebouncedKeyboardInput(text);
-    }, 300); // 300ms debounce
-  }, []);
-
-  // Function to handle keyboard input cancellation
-  const handleKeyboardCancel = () => {
-    setKeyboardInput('');
-    setDebouncedKeyboardInput('');
-    setIsSubmittingKeyboard(false);
-
-    // Clear the input in the Inputs component
-    if (inputsRef.current) {
-      inputsRef.current.clearInput();
-    }
-
-    // Clear debounce timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = null;
-    }
-  };
-
-  // Child component for keyboard input
-  const KeyboardInputComponent = () => {
-    const hasText = debouncedKeyboardInput.trim().length > 0;
-
-    return (
-      <View
-        style={[
-          styles.keyboardInputContainer,
-          {padding: responsiveValues.keyboardInputPadding},
-        ]}>
-        {/* Show waiting message or what's being typed */}
-        {keyboardInput.length === 0 ? (
-          <FastImage
-            source={require('../assets/waitforKB.png')}
-            style={responsiveValues.keyboardIconSize}
-            resizeMode={FastImage.resizeMode.contain}
-          />
-        ) : (
-          <View
-            style={[
-              styles.typingDisplay,
-              {
-                padding: responsiveValues.typingDisplayPadding,
-                minHeight: responsiveValues.typingDisplayMinHeight,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.typingDisplayText,
-                {fontSize: responsiveValues.keyboardTypingFontSize},
-              ]}>
-              {keyboardInput}
-            </Text>
-          </View>
-        )}
-
-        {/* Show buttons only when there's debounced text */}
-        {hasText && (
-          <View style={styles.keyboardButtonsContainer}>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.cancelButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardCancel}
-              disabled={isSubmittingKeyboard}>
-              <Text
-                style={[
-                  styles.cancelButtonText,
-                  {fontSize: responsiveValues.buttonFontSize},
-                ]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.keyboardButton,
-                styles.submitButton,
-                {
-                  paddingVertical:
-                    responsiveValues.keyboardButtonPadding.vertical,
-                  paddingHorizontal:
-                    responsiveValues.keyboardButtonPadding.horizontal,
-                  minWidth: responsiveValues.keyboardButtonMinWidth,
-                  borderRadius: responsiveValues.keyboardButtonBorderRadius,
-                },
-              ]}
-              onPress={handleKeyboardSubmit}
-              disabled={
-                isSubmittingKeyboard ||
-                debouncedKeyboardInput.trim().length === 0
-              }>
-              {isSubmittingKeyboard ? (
-                <FastImage
-                  source={require('../assets/movie/output.gif')}
-                  style={[styles.iconSize, responsiveValues.fetchingSize]}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.submitButtonText,
-                    {fontSize: responsiveValues.buttonFontSize},
-                  ]}>
-                  Submit
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    );
-  };
+  // handleKeyboardSubmit, handleKeyboardInputChange, handleKeyboardCancel moved to KeyboardHome
 
   return (
     <View style={styles.container}>
@@ -1241,19 +1106,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         )}
 
         {/* Home Button */}
-        <HomeButton
-          navigation={navigation}
-          onReset={resetLocalStates}
-          disabled={
-            stateof === 'Keyboard'
-              ? false
-              : isRecording ||
-                isProcessingAnswer ||
-                isRetrying ||
-                isSubmittingKeyboard ||
-                (!finishedTranscribing && !waitingForNextConversation)
-          }
-        />
+        <HomeButton navigation={navigation} onReset={resetLocalStates} />
 
         {/* Matalk Icon */}
         <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
@@ -1264,13 +1117,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         <View
           style={[
             styles.inputNavigationContainer,
-            {height: responsiveValues.inputNavigationHeight},
+            stateof === 'Keyboard'
+              ? {height: 0, opacity: 0}
+              : {
+                  height: responsiveValues.inputNavigationHeight,
+                  marginTop: Math.max(insets.top, 10),
+                },
           ]}>
-          <Inputs
-            ref={inputsRef}
-            mode={stateof}
-            onInputChange={handleKeyboardInputChange}
-          />
+          {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
         </View>
 
         <View style={{flex: 1, width: '100%'}}>
@@ -1358,7 +1212,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                 },
                               ]}>
                               <FastImage
-                                source={require('../assets/shortCuts.jpg')}
+                                source={require('../assets/shortCuts.png')}
                                 style={{
                                   width: '100%',
                                   height: '100%',
@@ -1408,7 +1262,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                 },
                               ]}>
                               <FastImage
-                                source={require('../assets/feelings.jpg')}
+                                source={require('../assets/feelings.png')}
                                 style={{
                                   width: '100%',
                                   height: '100%',
@@ -1495,19 +1349,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             playSound(); // This will trigger handleRecord()
                           }}>
                           <FastImage
-                            source={require('../assets/talk.jpg')}
+                            source={require('../assets/talk.png')}
                             style={[
                               styles.iconSize,
                               responsiveValues.fetchingSize,
-                              {borderRadius: 24},
                             ]}
                             resizeMode={FastImage.resizeMode.contain}
                           />
                         </TouchableOpacity>
                       </View>
-                    ) : stateof === 'Keyboard' ? (
-                      <KeyboardInputComponent />
-                    ) : isTranscribing ? (
+                    ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
                       <View style={{alignItems: 'center'}}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}

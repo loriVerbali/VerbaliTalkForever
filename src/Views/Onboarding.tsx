@@ -30,7 +30,6 @@ import matalkImg from '../assets/matalk.png';
 import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
-// Subscription removed - paid app without subscription
 import ShowAndTell from '../Components/ShowAndTell';
 import WhisperDownload from '../Components/WhisperDownload';
 import {Mixpanel} from 'mixpanel-react-native';
@@ -42,8 +41,6 @@ import WhisperService from '../utils/WhisperService';
 import WhisperModelManager from '../utils/WhisperModelManager';
 
 const {width, height} = Dimensions.get('window');
-
-// This is a paid app - no subscription needed
 
 // Define onboarding steps
 const onboardingSteps = [
@@ -124,16 +121,15 @@ const OnboardingScreen: React.FC = () => {
     'easy',
   );
   // Removed isLoggedIn state - guest sessions are always "authenticated"
-  // Subscription removed - paid app
   const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
   const [whisperModelInvoked, setWhisperModelInvoked] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
-    {transform: [{scale: isTablet ? 0.5 : 0.45}]},
+    {transform: [{scale: isTablet ? 0.68 : 0.6}]},
   ];
   const isSmallPhone = height <= 400;
-  const tileWidth = isTablet ? '25%' : isSmallPhone ? '16.66%' : '25%';
+  const tileWidth = isTablet ? '33.33%' : isSmallPhone ? '16.66%' : '33.33%';
   const containerFlexWrap = isSmallPhone ? 'nowrap' : 'wrap';
   const nextButtonTextFontSize = isTablet ? 20 : 14;
   // Load conversation mode setting
@@ -150,7 +146,6 @@ const OnboardingScreen: React.FC = () => {
   }, []);
 
   // Removed login status check - guest sessions don't need login
-
 
   // Helper function to extract user ID from Auth0 user.sub
   const extractUserId = (userSub: string): string => {
@@ -266,6 +261,7 @@ const OnboardingScreen: React.FC = () => {
           </View>
         );
       // Removed login case - guest sessions don't need login
+      // Removed subscription case - this is a paid app
       case 'show-and-tell':
         return (
           <View style={{width: '100%', alignItems: 'center'}}>
@@ -793,8 +789,8 @@ const OnboardingScreen: React.FC = () => {
                         {color: '#FF6B6B'},
                       ]}>
                       Please enable microphone manually in your device settings
-                      to continue using VerbaliTalk Forever fully or tap next and do
-                      this via the settings later
+                      to continue using VerbaliTalk Forever fully or tap next
+                      and do this via the settings later
                     </Text>
                     <TouchableOpacity
                       style={styles.settingsButton}
@@ -824,7 +820,8 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         {color: '#FF6B6B'},
                       ]}>
-                      Without these permissions, VerbaliTalk Forever won't be able to:
+                      Without these permissions, VerbaliTalk Forever won't be
+                      able to:
                     </Text>
                     <Text
                       style={[
@@ -1384,7 +1381,7 @@ const styles = StyleSheet.create({
     lineHeight: Math.min(40, width * 0.1),
   },
   inputContainer: {
-    width: '100%',
+    flex: 1,
     marginHorizontal: 10,
   },
   input: {
@@ -1561,14 +1558,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   nameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     width: '100%',
     paddingHorizontal: 20,
-    alignItems: 'flex-start',
   },
   nameScrollContainer: {
     flexGrow: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingBottom: 100, // Extra padding for keyboard
     paddingTop: 20,
   },

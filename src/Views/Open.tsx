@@ -22,9 +22,7 @@ import {views} from '../utils/constants';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
 import AppConfig from '../utils/config';
-// trialUtils removed - paid app without subscription checks
 import {useConnection} from '../utils/connection';
-import NoInternetConnection from '../Components/NoInternetConnection';
 import ShowAndTell from '../Components/ShowAndTell';
 import {Mixpanel} from 'mixpanel-react-native';
 import WakeWordService from '../utils/wakewordService';
@@ -37,6 +35,7 @@ import {
   My8WordsData,
   getDefaultMy8Words,
 } from '../utils/my8wordsUtils';
+import {getImageSource} from '../utils/imageDownloader';
 
 // Function to get avatar image based on selected gender
 const getAvatarImage = (gender: string) => {
@@ -111,7 +110,7 @@ const OpenScreen: React.FC = () => {
   const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
   const mixpanel = useRef(
-    new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true),
+    new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true),
   ).current;
   const wakeWordService = WakeWordService.getInstance();
   const handScaleAnim = useRef(new Animated.Value(1)).current;
@@ -129,6 +128,7 @@ const OpenScreen: React.FC = () => {
   const loadingModalCheckIntervalRef = useRef<ReturnType<
     typeof setInterval
   > | null>(null);
+  const isDebouncing = useRef(false);
 
   // Track connection state changes
   useEffect(() => {
@@ -328,7 +328,7 @@ const OpenScreen: React.FC = () => {
           return;
         }
 
-        // Paid app - always navigate (no subscription check needed)
+        // This is a paid app - always allow navigation
         navigation.navigate('HOME' as any, {
           stateof: 'Attention',
         });
@@ -388,7 +388,7 @@ const OpenScreen: React.FC = () => {
             }
           }
 
-          // Paid app - always start listening (no subscription check needed)
+          // Callback is already set above, just start listening (this will handle initialization if needed)
           await wakeWordService.startListening();
 
           return; // Success - exit retry loop
@@ -508,7 +508,6 @@ const OpenScreen: React.FC = () => {
   );
 
   const startListening = async () => {
-    // Paid app - always allow access (no subscription check needed)
     // Mark microphone as tapped once
     if (!microphoneTappedOnce) {
       setMicrophoneTappedOnce(true);
@@ -541,11 +540,12 @@ const OpenScreen: React.FC = () => {
   }, [handleBackPress]);
 
   const handleNavigation = async (state: string) => {
-    // Paid app - always allow access (no subscription check needed)
+    // Get current values from storage to ensure we have the latest
+
     // Start fade out before navigation
     Animated.timing(fadeAnim, {
       toValue: 0,
-      duration: 500,
+      duration: 300,
       useNativeDriver: true,
     }).start(() => {
       if (state === 'Talk') {
@@ -557,9 +557,10 @@ const OpenScreen: React.FC = () => {
   };
 
   const handKeyboard = async () => {
-    // Paid app - always allow access (no subscription check needed)
+    // Get current values from storage to ensure we have the latest
+
     mixpanel.track('Keyboard Pressed');
-    navigation.navigate('HOME' as any, {
+    navigation.navigate(views.KEYBOARD_HOME as any, {
       stateof: 'Keyboard',
     });
     // TTSService.speak('Keyboard selected');
@@ -582,22 +583,14 @@ const OpenScreen: React.FC = () => {
     setIsHandshakeSpeaking(true);
     handshakeTappedRef.current = true; // Set flag to prevent navigation on wake word
 
-    // Stop wakeword before speaking to avoid conflicts
-    try {
-      if (wakeWordService.isCurrentlyListening()) {
-        await wakeWordService.stopListening();
-
-        // Small delay to ensure stop is fully complete
-        await new Promise<void>(resolve => setTimeout(resolve, 200));
-      }
-    } catch (error) {}
-
     // Prepare audio session for TTS (after stopping wakeword)
     await AudioSessionManager.prepareForTTS();
 
     // Speak the introduction message with completion callback
     const message = `${preferences?.handshakeMessage}`;
     await TTSService.speak(message, true, async () => {
+      // Always clear the flag after playback completes
+      AudioSessionManager.setTTSActive(false);
       // Prepare audio session for wakeword (after TTS ends)
       await AudioSessionManager.prepareForWakeword();
 
@@ -794,7 +787,7 @@ const OpenScreen: React.FC = () => {
             <View style={styles.leftSideContainer}>
               <View style={styles.wrapper}>
                 <View style={styles.rowContent}>
-                  <Pressable
+                  <TouchableOpacity
                     style={styles.tileWrapper}
                     onPress={() => handleNavigation('Talk')}>
                     <View style={styles.imageWrapper}>
@@ -812,10 +805,12 @@ const OpenScreen: React.FC = () => {
                       ]}>
                       <Text style={styles.kidText}>Start Talking</Text>
                     </View>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.rowContent}>
-                  <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
+                  <TouchableOpacity
+                    style={styles.tileWrapper}
+                    onPress={handKeyboard}>
                     <View style={styles.imageWrapper}>
                       <View style={styles.imageWrapper}>
                         <FastImage
@@ -832,7 +827,7 @@ const OpenScreen: React.FC = () => {
                       ]}>
                       <Text style={styles.kidText}>Type Here</Text>
                     </View>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -841,7 +836,8 @@ const OpenScreen: React.FC = () => {
                   <Pressable
                     style={styles.tileWrapper}
                     onPress={async () => {
-                      // Paid app - always allow access (no subscription check needed)
+                      // Get current values from storage to ensure we have the latest
+
                       mixpanel.track('Feelings Pressed');
                       Animated.timing(fadeAnim, {
                         toValue: 0,
@@ -871,7 +867,8 @@ const OpenScreen: React.FC = () => {
                   <Pressable
                     style={styles.tileWrapper}
                     onPress={async () => {
-                      // Paid app - always allow access (no subscription check needed)
+                      // Get current values from storage to ensure we have the latest
+
                       mixpanel.track('Shortcuts Pressed');
                       Animated.timing(fadeAnim, {
                         toValue: 0,
@@ -909,7 +906,13 @@ const OpenScreen: React.FC = () => {
                     .map((card, index) => (
                       <TouchableOpacity
                         key={`left-${index}`}
+                        style={styles.yesNoCard}
                         onPress={async () => {
+                          if (isDebouncing.current) return;
+                          isDebouncing.current = true;
+                          setTimeout(() => {
+                            isDebouncing.current = false;
+                          }, 1000);
                           mixpanel.track('8 Words Pressed');
                           // Prepare audio session for TTS to ensure consistent volume
                           await AudioSessionManager.prepareForTTS();
@@ -930,7 +933,13 @@ const OpenScreen: React.FC = () => {
                     .map((card, index) => (
                       <TouchableOpacity
                         key={`right-${index}`}
+                        style={styles.yesNoCard}
                         onPress={async () => {
+                          if (isDebouncing.current) return;
+                          isDebouncing.current = true;
+                          setTimeout(() => {
+                            isDebouncing.current = false;
+                          }, 1000);
                           mixpanel.track('8 Words Pressed');
                           // Prepare audio session for TTS to ensure consistent volume
                           await AudioSessionManager.prepareForTTS();
@@ -1123,9 +1132,10 @@ const styles = StyleSheet.create({
   },
   wrapper: {
     flexDirection: 'row',
-    height: height * 0.42,
-    justifyContent: 'center',
+    height: height * 0.38,
+    justifyContent: 'space-between',
     marginTop: height * 0.01,
+    marginBottom: height * 0.01,
     width: '100%',
   },
   imageWrapper: {
@@ -1137,18 +1147,16 @@ const styles = StyleSheet.create({
   image: {
     width: '85%',
     height: '85%',
-    borderRadius: 24,
   },
   rowContent: {
     width: '48%',
     alignItems: 'center',
     justifyContent: 'flex-start',
     height: '100%',
-    marginHorizontal: '1%',
   },
   tileWrapper: {
     width: '100%',
-    height: '92%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'visible',
@@ -1185,6 +1193,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: {width: 0, height: 8},
     elevation: 8,
+    backgroundColor: 'white',
   },
   yesNoText: {
     fontSize: height * 0.04,
@@ -1197,6 +1206,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
+  },
+  cardImageContainer: {
+    width: '60%',
+    height: '60%',
+    marginBottom: height * 0.01,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
   },
   microphoneButton: {
     top: height * 0.04,

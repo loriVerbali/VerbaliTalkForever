@@ -10,6 +10,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
+import FastImage from 'react-native-fast-image';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import TTSService from '../utils/TTSService';
@@ -23,7 +24,34 @@ import {
 import {useConnection} from '../utils/connection';
 
 const {width, height} = Dimensions.get('window');
-// Image imports removed - displaying text instead
+//Good Feelings
+import happyImg from '../assets/feelings/goodFeelings/happy.jpg';
+import excitedImg from '../assets/feelings/goodFeelings/excited.jpg';
+import lovedImg from '../assets/feelings/goodFeelings/loved.jpg';
+import calmImg from '../assets/feelings/goodFeelings/calm.jpg';
+import proudImg from '../assets/feelings/goodFeelings/proud.jpg';
+import sillyImg from '../assets/feelings/goodFeelings/silly.jpg';
+//Good Body
+import comfortableImg from '../assets/feelings/goodBody/comfortable.jpg';
+import relaxedImg from '../assets/feelings/goodBody/relaxed.jpg';
+import okImg from '../assets/feelings/goodBody/ok.jpg';
+import warmImg from '../assets/feelings/goodBody/warm.jpg';
+import strongImg from '../assets/feelings/goodBody/strong.jpg';
+import energeticImg from '../assets/feelings/goodBody/energetic.jpg';
+//Bad Feelings
+import sadImg from '../assets/feelings/badFeeling/sad.jpg';
+import boredImg from '../assets/feelings/badFeeling/bored.jpg';
+import scaredImg from '../assets/feelings/badFeeling/scared.jpg';
+import worriedImg from '../assets/feelings/badFeeling/worried.jpg';
+import embarrassedImg from '../assets/feelings/badFeeling/embarrassed.jpg';
+import angryImg from '../assets/feelings/badFeeling/angry.jpg';
+//Bad Body
+import coldImg from '../assets/feelings/badBody/cold.jpg';
+import hurtImg from '../assets/feelings/badBody/hurt.jpg';
+import sickImg from '../assets/feelings/badBody/sick.jpg';
+import tiredImg from '../assets/feelings/badBody/tired.jpg';
+import dizzyImg from '../assets/feelings/badBody/dizzy.jpg';
+import itchyImg from '../assets/feelings/badBody/itchy.jpg';
 
 import {Mixpanel} from 'mixpanel-react-native';
 import {useAdmin} from '../contexts/adminContext';
@@ -117,7 +145,8 @@ const Feelings = () => {
   const {isTablet} = useAdmin();
   const {isConnected} = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+  const isDebouncing = useRef(false);
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryKey>('goodBody');
@@ -147,9 +176,9 @@ const Feelings = () => {
       topRowGap: isTablet ? width * 0.03 : width * 0.02,
       scrollContentWidth: isTablet ? width * 0.8 : width * 0.9,
       gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4, // Back to 4 columns
-      gridImageHeight: isTablet ? height * 0.25 : height * 0.16, // Height for text container
+      gridImageHeight: isTablet ? height * 0.25 : height * 0.16, // Slight height increase
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? 28 : 22,
+      labelGridFontSize: isTablet ? 16 : 14,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.05 : height * 0.03,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -198,6 +227,12 @@ const Feelings = () => {
   };
 
   const handleFeelingPress = async (feeling: string) => {
+    if (isDebouncing.current) return;
+    isDebouncing.current = true;
+    setTimeout(() => {
+      isDebouncing.current = false;
+    }, 1000);
+
     // Prepare audio session for TTS to ensure consistent volume
     await AudioSessionManager.prepareForTTS();
 

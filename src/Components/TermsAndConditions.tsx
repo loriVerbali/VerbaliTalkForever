@@ -539,7 +539,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.bulletPointMarginLeft,
             },
           ]}>
-          • Names, emails, and login credentials
+          • Names of the people, pets, places, etc.
         </Text>
         <Text
           style={[
@@ -575,7 +575,9 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.bulletPointMarginLeft,
             },
           ]}>
-          • Uploaded images or text tied to an account
+          • Uploaded images or text tied to a person, pet, place, etc.Although
+          all images are stored locally on your device and are never uploaded to
+          our servers or shared with third parties.
         </Text>
         <Text
           style={[

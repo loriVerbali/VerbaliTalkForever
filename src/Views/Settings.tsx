@@ -25,7 +25,6 @@ import {
 import FastImage from 'react-native-fast-image';
 import LinearGradient from 'react-native-linear-gradient';
 import {useAppSettings} from '../utils/persistance';
-// Subscription removed - paid app
 import {sessionManager} from '../utils/sessionManager';
 import {useAdmin} from '../contexts/adminContext';
 import {stacks, views} from '../utils/constants';
@@ -36,10 +35,10 @@ import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
 import {Mixpanel} from 'mixpanel-react-native';
 import fetchHelper from '../utils/fetcher';
-// Subscription removed - paid app
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
+import NetInfo from '@react-native-community/netinfo';
 
 const {height, width: SCREEN_WIDTH} = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -180,7 +179,7 @@ const RangeSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const {width: windowWidth} = useWindowDimensions();
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -234,6 +233,7 @@ const SettingsScreen: React.FC = () => {
   const {preferences, setItem, getItem, clear} = useAppSettings();
   // Removed Auth0 - using guest sessions
   const {isTablet} = useAdmin();
+  const [isConnected, setIsConnected] = useState(true);
 
   const [returnedMessages, setReturnedMessages] = useState(5);
   const [topicsCount, setTopicsCount] = useState(4);
@@ -271,13 +271,12 @@ const SettingsScreen: React.FC = () => {
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
   const [showAssistantId, setShowAssistantId] = useState(false);
-  // Subscription removed - paid app
-  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  const [showAccountSettings, setShowAccountSettings] = useState(true);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -297,7 +296,7 @@ const SettingsScreen: React.FC = () => {
 
   const genderWrapperStyle = [
     styles.genderImageWrapper,
-    {transform: [{scale: 0.5}]},
+    {transform: [{scale: 0.7}]},
   ];
 
   // Helper function to get avatar source based on gender
@@ -332,6 +331,21 @@ const SettingsScreen: React.FC = () => {
         return require('../assets/gender/wboy.jpg'); // fallback
     }
   };
+
+  // Monitor network connection state
+  useEffect(() => {
+    // Get initial state
+    NetInfo.fetch().then(state => {
+      setIsConnected(state.isConnected ?? false);
+    });
+
+    // Subscribe to connection changes
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected ?? false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     mixpanel.track('Settings', {
@@ -377,9 +391,6 @@ const SettingsScreen: React.FC = () => {
 
     loadSettings();
     loadWatchedVideos();
-    
-    // Paid app - always show account settings
-    setShowAccountSettings(true);
 
     // Reset tap count and assistant id visibility on unmount
     return () => {
@@ -866,39 +877,14 @@ const SettingsScreen: React.FC = () => {
       </View>
 
       <ScrollView style={styles.scrollContainer}>
-        <View style={styles.section}>
+        <View style={[styles.section, styles.sectionAccount]}>
           <Text style={styles.sectionTitle}>Account</Text>
-
-          {/* Subscription removed - paid app */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 10,
-            }}>
-            <Text
-              style={{
-                fontSize: 16,
-                color: '#333',
-                fontWeight: '500',
-                marginRight: 10,
-              }}>
-              Status:
-            </Text>
-            <Text
-              style={{
-                fontSize: 16,
-                color: '#34c759',
-                fontWeight: 'bold',
-              }}>
-              VerbaliTalk Forever - Full Access
-            </Text>
-          </View>
+          {/* Removed subscription section - this is a paid app */}
         </View>
 
         {showAccountSettings && (
           <>
-            <View style={styles.section}>
+            <View style={[styles.section, styles.sectionAccountSettings]}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
 
               <View style={styles.section}>
@@ -1066,7 +1052,7 @@ const SettingsScreen: React.FC = () => {
               </View> */}
             </View>
 
-            <View style={styles.section}>
+            <View style={[styles.section, styles.sectionReports]}>
               <Text style={styles.sectionTitle}>
                 Reports : Analytics & Insights
               </Text>
@@ -1209,7 +1195,8 @@ const SettingsScreen: React.FC = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Help and Learn Center</Text>
               <Text style={styles.aboutDescription}>
-                Your help and learn center for getting started with VerbaliTalk Forever.
+                Your help and learn center for getting started with VerbaliTalk
+                Forever.
               </Text>
 
               {/* Checklist Cards Grid - Single Row Layout */}
@@ -1227,6 +1214,7 @@ const SettingsScreen: React.FC = () => {
                     onPress={() => handleVideoCardPress('homescreen')}>
                     <View style={styles.videoContainer}>
                       <Video
+                        disableAudioSessionManagement={true}
                         source={getVideoUrl('homescreen')}
                         style={styles.video}
                         resizeMode="cover"
@@ -1234,7 +1222,6 @@ const SettingsScreen: React.FC = () => {
                         muted={true}
                         repeat={false}
                         controls={false}
-                        disableAudioSessionManagement={true}
                       />
                       {watchedVideos.has(0) && (
                         <View
@@ -1474,12 +1461,12 @@ const SettingsScreen: React.FC = () => {
               </View>
             </View>
 
-            <View style={styles.section}>
+            <View style={[styles.section, styles.sectionPersonalize]}>
               <Text style={styles.sectionTitle}>
                 Personalize Your Experience
               </Text>
               <Text style={styles.aboutDescription}>
-                Personalize your experience with VerbaliTalk Forever.
+                Personalize your experience with VerbaliTalk.
               </Text>
 
               <View style={styles.myPepesSection}>
@@ -2059,7 +2046,7 @@ const SettingsScreen: React.FC = () => {
               )}
             </View>
 
-            <View style={styles.section}>
+            <View style={[styles.section, styles.sectionReset]}>
               <Text style={styles.sectionTitle}>Reset Installation</Text>
               <Text style={styles.aboutDescription}>
                 Reset your installation and delete all your data. This action is
@@ -2074,7 +2061,7 @@ const SettingsScreen: React.FC = () => {
           </>
         )}
 
-        <View style={styles.section}>
+        <View style={[styles.section, styles.sectionLegal]}>
           <Text style={styles.sectionTitle}>Legal</Text>
 
           <Pressable
@@ -2116,7 +2103,7 @@ const SettingsScreen: React.FC = () => {
           </Pressable>
         </View>
 
-        <View style={styles.section}>
+        <View style={[styles.section, styles.sectionAbout]}>
           <Text style={styles.sectionTitle}>About</Text>
           <TouchableOpacity
             activeOpacity={0.7}
@@ -2132,18 +2119,19 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>VerbaliTalk Forever v1.0</Text>
+            <Text style={styles.aboutText}>VerbaliTalk Forever v2.0</Text>
           </TouchableOpacity>
 
-          {/* Easter egg section removed - paid app */}
           <Text style={styles.aboutDescription}>
-            VerbaliTalk Forever is a communication tool designed to help users interact
-            more effectively.
+            VerbaliTalk Forever is a communication tool designed to help users
+            interact more effectively.
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 Verbali Inc. VerbaliTalk Forever</Text>
+          <Text style={styles.footerText}>
+            © 2025 Verbali Inc. VerbaliTalk Forever
+          </Text>
         </View>
 
         <InfoModal
@@ -2262,6 +2250,30 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e1e1',
+  },
+  sectionAccount: {
+    backgroundColor: '#e8f4fc',
+  },
+  sectionAccountSettings: {
+    backgroundColor: '#f3e8fc',
+  },
+  sectionReports: {
+    backgroundColor: '#e8fcf0',
+  },
+  sectionHelpCenter: {
+    backgroundColor: '#fcf8e8',
+  },
+  sectionPersonalize: {
+    backgroundColor: '#fce8f0',
+  },
+  sectionReset: {
+    backgroundColor: '#fce8e8',
+  },
+  sectionLegal: {
+    backgroundColor: '#f0f0f2',
+  },
+  sectionAbout: {
+    backgroundColor: '#e8f8fc',
   },
   sectionTitle: {
     fontSize: 18,
@@ -2770,7 +2782,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   avatarOption: {
-    width: '25%',
+    width: '30%',
     alignItems: 'center',
     marginBottom: 12,
     padding: 4,
@@ -2779,9 +2791,9 @@ const styles = StyleSheet.create({
     // No background color - just show the heart overlay
   },
   avatarOptionWrapper: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     overflow: 'hidden',
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
@@ -2795,7 +2807,7 @@ const styles = StyleSheet.create({
   avatarOptionImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 30,
+    borderRadius: 35,
   },
   avatarHeartOverlay: {
     position: 'absolute',
