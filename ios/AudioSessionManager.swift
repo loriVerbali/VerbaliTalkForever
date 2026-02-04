@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import UIKit
 
 @objc(AudioSessionManager)
 class AudioSessionManager: NSObject {
@@ -194,9 +195,16 @@ class AudioSessionManager: NSObject {
   
   @objc func prepareForTTS() {
     log("prepareForTTS requested")
+    
+    // iPhones treat .playAndRecord differently than iPads.
+    // iPhones engage "Voice Processing" (AGC/Ear-piece routing) in communication modes.
+    // Switching to .measurement mode on iPhone bypasses most AGC/signal processing.
+    let mode: AVAudioSession.Mode = (UIDevice.current.userInterfaceIdiom == .pad) ? .videoChat : .measurement
+    log("prepareForTTS device=\(UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone") mode=\(mode.rawValue)")
+    
     apply(
       category: .playAndRecord,
-      mode: .videoChat,
+      mode: mode,
       options: [.defaultToSpeaker, .allowBluetooth, .allowBluetoothHFP, .allowAirPlay, .mixWithOthers],
       overrideOutputPort: .speaker,
       force: true

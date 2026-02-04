@@ -665,7 +665,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Get pepes data for context
       const pepesData = await getItem('pepes');
       const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
       // Generate answers
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_answers',
@@ -675,6 +674,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes,
           conversationHistory: conversationHistory,
+          contextInfo: contextInfo, // Weather, time, and location context
         },
         countMin: 5,
         countMax: 5,
@@ -971,6 +971,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes, // Include pepes data for better context
           conversationHistory: conversationHistory, // Include conversation history
+          contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
           answers: priorAnswers || [], // Pass the 5 current answers so they aren't shown again
