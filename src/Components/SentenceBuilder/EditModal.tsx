@@ -32,19 +32,22 @@ interface EditModalProps {
   allFolders?: Node[]; // All existing folders for copying
 }
 
-// Color options from the current palette
+// Color options - Modified Fitzgerald Key standard
 const COLOR_OPTIONS = [
-  { name: 'Green', value: '#4CAF50', type: 'noun' as WordType },
-  { name: 'Blue', value: '#2196F3', type: 'verb' as WordType },
-  { name: 'Orange', value: '#FF9800', type: 'adjective' as WordType },
-  { name: 'Purple', value: '#9C27B0', type: 'adverb' as WordType },
-  { name: 'Red', value: '#F44336', type: 'pronoun' as WordType },
-  { name: 'Blue Grey', value: '#607D8B', type: 'preposition' as WordType },
-  { name: 'Brown', value: '#795548', type: 'conjunction' as WordType },
-  { name: 'Pink', value: '#E91E63', type: 'interjection' as WordType },
-  { name: 'Cyan', value: '#00BCD4', type: 'article' as WordType },
-  { name: 'Grey', value: '#9E9E9E', type: 'other' as WordType },
-  { name: 'Deep Purple', value: '#673AB7', type: 'other' as WordType }, // Folder color
+  { name: 'Pronoun', value: '#FBC02D', type: 'pronoun' as WordType },
+  { name: 'Verb', value: '#4CAF50', type: 'verb' as WordType },
+  { name: 'Noun', value: '#FF9800', type: 'noun' as WordType },
+  { name: 'Adjective', value: '#2196F3', type: 'adjective' as WordType },
+  { name: 'Adverb', value: '#2196F3', type: 'adverb' as WordType },
+  { name: 'Preposition', value: '#E91E63', type: 'preposition' as WordType },
+  { name: 'Conjunction', value: '#E91E63', type: 'conjunction' as WordType },
+  { name: 'Interjection', value: '#E91E63', type: 'interjection' as WordType },
+  { name: 'Question', value: '#9C27B0', type: 'question' as WordType },
+  { name: 'Article', value: '#9E9E9E', type: 'article' as WordType },
+  { name: 'Number', value: '#2196F3', type: 'number' as WordType },
+  { name: 'Letter', value: '#9E9E9E', type: 'letter' as WordType },
+  { name: 'Other', value: '#9E9E9E', type: 'other' as WordType },
+  { name: 'Folder', value: '#673AB7', type: 'other' as WordType }, // Deep Purple for folders
 ];
 
 const EditModal: React.FC<EditModalProps> = ({
@@ -492,13 +495,21 @@ const EditModal: React.FC<EditModalProps> = ({
               {COLOR_OPTIONS.map((color, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[
-                    styles.colorButton,
-                    { backgroundColor: color.value },
-                    selectedColor.value === color.value &&
-                    styles.colorButtonSelected,
-                  ]}
+                  style={styles.colorButtonContainer}
                   onPress={() => setSelectedColor(color)}>
+                  <View
+                    style={[
+                      styles.colorButtonWrapper,
+                      selectedColor.value === color.value &&
+                      styles.colorButtonWrapperSelected,
+                    ]}>
+                    <View
+                      style={[
+                        styles.colorButton,
+                        { backgroundColor: color.value },
+                      ]}
+                    />
+                  </View>
                   <Text style={styles.colorButtonText}>{color.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -719,32 +730,39 @@ const styles = StyleSheet.create({
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: 12,
   },
-  colorButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20, // Makes it a perfect circle/pill
-    marginBottom: 8,
-    marginRight: 8,
+  colorButtonContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+    marginRight: 12,
+    width: 90, // Slightly wider to accommodate text
+  },
+  colorButtonWrapper: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  colorButtonSelected: {
-    borderColor: '#333',
     borderWidth: 3,
-    transform: [{ scale: 1.1 }], // Slightly larger when selected
+    borderColor: 'transparent',
+    marginBottom: 4,
+  },
+  colorButtonWrapperSelected: {
+    borderColor: '#333',
+    borderWidth: 4,
+  },
+  colorButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40, // 2x bigger circle (was 40x40, now 80x80)
   },
   colorButtonText: {
-    fontSize: 8,
-    color: '#fff',
+    fontSize: 11,
+    color: '#333',
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    textAlign: 'center',
   },
   searchInputContainer: {
     flexDirection: 'row',
