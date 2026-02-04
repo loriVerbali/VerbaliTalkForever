@@ -13,7 +13,7 @@
     "buildAndroid": "cd android && ./gradlew assembleRelease && cd ..",
     "openStudio": "open -a 'Android Studio' .",
     "runAndroid": "npx @react-native-community/cli run-android",
-    "deleteDerivedData": "rm -rf ~/Library/Developer/Xcode/DerivedData/matalkforever-*",
+    "deleteDerivedData": "rm -rf ~/Library/Developer/Xcode/DerivedData/Matalkforever-*",
     "cleanIos": "cd ios && rm -rf build && pod install && cd ..",
     "shake": "adb shell input keyevent 82"
   },

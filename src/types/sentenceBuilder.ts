@@ -53,29 +53,29 @@ export interface FolderStackItem {
 
 // Grid size configurations
 export const GRID_CONFIGS = {
-  '5x6': {rows: 5, cols: 6},
-  '6x6': {rows: 6, cols: 6},
-  '7x7': {rows: 7, cols: 7},
-  '8x8': {rows: 8, cols: 8},
+  '5x6': { rows: 5, cols: 6 },
+  '6x6': { rows: 6, cols: 6 },
+  '7x7': { rows: 7, cols: 7 },
+  '8x8': { rows: 8, cols: 8 },
 } as const;
 
 export type GridConfigKey = keyof typeof GRID_CONFIGS;
 
-// Default color mapping for word types
+// Default color mapping for word types - Modified Fitzgerald Key
 export const DEFAULT_COLOR_MAP: Record<WordType, string> = {
-  noun: '#4CAF50', // Green
-  verb: '#2196F3', // Blue
-  adjective: '#FF9800', // Orange
-  adverb: '#9C27B0', // Purple
-  pronoun: '#F44336', // Red
-  preposition: '#607D8B', // Blue Grey
-  conjunction: '#795548', // Brown
-  interjection: '#E91E63', // Pink
-  article: '#00BCD4', // Cyan
-  other: '#9E9E9E', // Grey
-  number: '#1C6AB0', // Purple
-  letter: '#009C6B', // Green
-  question: '#FF9800', // Orange
+  pronoun: '#FBC02D',      // Yellow - People/Pronouns
+  verb: '#4CAF50',         // Green - Actions/Verbs
+  noun: '#FF9800',         // Orange - Nouns/Things
+  adjective: '#2196F3',    // Blue - Descriptors
+  adverb: '#2196F3',       // Blue - Descriptors (grouped with Adjectives)
+  preposition: '#E91E63',  // Pink - Grammar/Function words
+  conjunction: '#E91E63',  // Pink - Grammar/Function words
+  interjection: '#E91E63', // Pink - Social/Politeness
+  question: '#9C27B0',     // Purple - Questions
+  article: '#9E9E9E',      // Grey - Determiners/Grammar
+  number: '#2196F3',       // Blue - Quantifiers/Descriptors
+  letter: '#9E9E9E',       // Grey - Other
+  other: '#9E9E9E',        // Grey - Other
 };
 
 // Default folder color
