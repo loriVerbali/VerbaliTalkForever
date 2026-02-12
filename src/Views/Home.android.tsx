@@ -55,7 +55,12 @@ const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was school today?';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
-  const { generateAnswers } = useAssistant();
+  const {
+    generateAnswers,
+    conversationHistory,
+    addToConversationHistory,
+    updateLastAssistantMessage,
+  } = useAssistant();
   const { weather, location } = useChatContext();
   const { isTablet } = useAdmin();
   const insets = useSafeAreaInsets();
@@ -114,27 +119,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-  // Function to manage conversation history with sliding window
-  const addToConversationHistory = (
-    userMessage: string,
-    assistantResponse: string,
-    maxHistoryLength: number = 20, // Keep last 20 exchanges
-  ) => {
-    setConversationHistory(prev => {
-      const newHistory = [
-        ...prev,
-        { role: 'user' as const, content: userMessage, timestamp: Date.now() },
-        {
-          role: 'assistant' as const,
-          content: assistantResponse,
-          timestamp: Date.now(),
-        },
-      ];
-
-      // Keep only the most recent exchanges
-      return newHistory.slice(-maxHistoryLength * 2); // *2 because each exchange has user + assistant
-    });
-  };
 
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
@@ -145,10 +129,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     Array<{ word: string; imageUrl?: string }>
   >([]);
 
-  // Conversation history state
-  const [conversationHistory, setConversationHistory] = useState<
-    Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>
-  >([]);
 
   // AI Resolved tracking state
   const [currentAIRecord, setCurrentAIRecord] = useState<{
@@ -549,9 +529,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setIsRecording(true);
       setIsUsingLocalWhisper(true); // Voice uses device recognition
 
-      const availableServices = await Voice.getSpeechRecognitionServices();
-      console.log('Available speech services:', availableServices);
-
       // Start Voice recognition with locale
       // NOTE: Don't force RECOGNIZER_ENGINE - let Android choose the best available
       // Using 'en-US' format (with hyphen) which is more widely supported
@@ -684,7 +661,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               speaker: 'anyone',
               audience: preferences?.heroName || 'my',
               pepes: parsedPepes,
-              conversationHistory: conversationHistory,
               contextInfo: contextInfo, // Weather, time, and location context
             },
             countMin: 5,
@@ -720,10 +696,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               currentRound: 1,
             });
 
-            // Add to conversation history
-            const assistantResponse = processedAnswers
+            // Add to conversation history with "Suggested" prefix
+            const assistantResponse = `Suggested: ${processedAnswers
               .map(answer => answer.word)
-              .join(', ');
+              .join(', ')}`;
             addToConversationHistory(transcribedText, assistantResponse);
           } else {
             setIsProcessingAnswer(false);
@@ -776,7 +752,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
-    setConversationHistory([]); // Clear conversation history
     setCurrentAIRecord(null); // Clear AI Resolved record
     setPartialResult(''); // Clear partial results
     voiceResultsRef.current = []; // Clear refs too
@@ -854,8 +829,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           speaker: 'anyone',
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes, // Include pepes data for better context
-          conversationHistory: conversationHistory, // Include conversation history
-          contextInfo: contextInfo, // Weather, time, and location context
+          contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
           answers: priorAnswers, // Pass the 5 current answers so they aren't shown again
@@ -898,10 +872,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           });
         }
 
-        // Add to conversation history
-        const assistantResponse = processedAnswers
+        // Add to conversation history with "Suggested" prefix
+        const assistantResponse = `Suggested: ${processedAnswers
           .map(answer => answer.word)
-          .join(', ');
+          .join(', ')}`;
         addToConversationHistory(transcribedText, assistantResponse);
       } else {
         setIsProcessingAnswer(false);
@@ -941,6 +915,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Log the selected word to database (only if it's not "MoreAnswers")
     if (selectedAnswer !== 'MoreAnswers') {
       await logWordSelection(selectedAnswer, 'Home');
+      // Update history with the user's specific choice
+      updateLastAssistantMessage(selectedAnswer);
     }
 
     // Update AI Resolved record with the selected answer
