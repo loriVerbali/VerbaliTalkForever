@@ -54,7 +54,12 @@ const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was your practice today?';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
-  const { generateAnswers } = useAssistant();
+  const {
+    generateAnswers,
+    conversationHistory,
+    addToConversationHistory,
+    updateLastAssistantMessage,
+  } = useAssistant();
   const { weather, location } = useChatContext();
   const { isTablet } = useAdmin();
   const insets = useSafeAreaInsets();
@@ -112,28 +117,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-  // Function to manage conversation history with sliding window
-  const addToConversationHistory = (
-    userMessage: string,
-    assistantResponse: string,
-    maxHistoryLength: number = 20, // Keep last 20 exchanges
-  ) => {
-    setConversationHistory(prev => {
-      const newHistory = [
-        ...prev,
-        { role: 'user' as const, content: userMessage, timestamp: Date.now() },
-        {
-          role: 'assistant' as const,
-          content: assistantResponse,
-          timestamp: Date.now(),
-        },
-      ];
-
-      // Keep only the most recent exchanges
-      return newHistory.slice(-maxHistoryLength * 2); // *2 because each exchange has user + assistant
-    });
-  };
-
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
@@ -141,11 +124,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
     Array<{ word: string; imageUrl?: string }>
-  >([]);
-
-  // Conversation history state
-  const [conversationHistory, setConversationHistory] = useState<
-    Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>
   >([]);
 
   // AI Resolved tracking state
@@ -674,7 +652,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           speaker: 'anyone',
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes,
-          conversationHistory: conversationHistory,
           contextInfo: contextInfo, // Weather, time, and location context
         },
         countMin: 5,
@@ -710,10 +687,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           currentRound: 1,
         });
 
-        // Add to conversation history
-        const assistantResponse = processedAnswers
+        // Add to conversation history with "Suggested" prefix
+        const assistantResponse = `Suggested: ${processedAnswers
           .map(answer => answer.word)
-          .join(', ');
+          .join(', ')}`;
         addToConversationHistory(transcribedText, assistantResponse);
       } else {
         mixpanel.track('Error', {
@@ -896,7 +873,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
-    setConversationHistory([]); // Clear conversation history
     setCurrentAIRecord(null); // Clear AI Resolved record
 
     // Clear the input in the Inputs component
@@ -971,7 +947,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           speaker: 'anyone',
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes, // Include pepes data for better context
-          conversationHistory: conversationHistory, // Include conversation history
           contextInfo: contextInfo, // Weather, time, and location context
         },
         prior: {
@@ -1050,9 +1025,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
 
     if (selectedAnswer !== 'MoreAnswers') {
-      mixpanel.track('Answer Selected', {
-        selected_answer: selectedAnswer,
-      });
+      await logWordSelection(selectedAnswer, 'Home');
+      // Update history with the user's specific choice
+      updateLastAssistantMessage(selectedAnswer);
     }
 
     // Stop response timer if running
