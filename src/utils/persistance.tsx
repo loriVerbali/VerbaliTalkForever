@@ -8,9 +8,9 @@ import React, {
   useRef,
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
-import {validateReceiptOnLaunch} from './recieptValidation';
+import { validateReceiptOnLaunch } from './recieptValidation';
 import WhisperModelManager from './WhisperModelManager';
-import {sessionManager} from './sessionManager';
+import { sessionManager } from './sessionManager';
 
 interface Preferences {
   loggedIn: string;
@@ -75,7 +75,7 @@ const platFormEnum = {
   andriod: 'android',
 };
 
-const initialPreferences: Preferences = {
+export const initialPreferences: Preferences = {
   loggedIn: initEnum.false,
   username: '',
   wasWelcomed: initEnum.false,
@@ -134,6 +134,8 @@ interface AppSettingsContextProps {
   removeItem: (key: keyof Preferences) => Promise<void>;
   initializePreferences: () => Promise<Preferences>;
   clear: () => Promise<void>;
+  restartApp: () => void;
+  restartKey: number;
 }
 
 const AppSettingsContext = createContext<AppSettingsContextProps | undefined>(
@@ -151,6 +153,11 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
     useState<Preferences>(initialPreferences);
   const initializationRef = useRef(false);
   const receiptValidationRef = useRef(false);
+  const [restartKey, setRestartKey] = useState(0);
+
+  const restartApp = () => {
+    setRestartKey(prev => prev + 1);
+  };
 
   const setItem = async (
     key: keyof Preferences,
@@ -158,12 +165,12 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   ): Promise<void> => {
     try {
       await DefaultPreference.set(key, value);
-      setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
+      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: value }));
       if (key === 'isInTrial') {
-        
+
       }
     } catch (error) {
-      
+
     }
   };
 
@@ -172,7 +179,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const item = await DefaultPreference.get(key);
       return item ?? initialPreferences[key];
     } catch (error) {
-      
+
       return initialPreferences[key];
     }
   };
@@ -180,20 +187,20 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const removeItem = async (key: keyof Preferences): Promise<void> => {
     try {
       await DefaultPreference.set(key, initEnum.notSet);
-      setPreferences(prevPreferences => ({...prevPreferences, [key]: ''}));
+      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: '' }));
     } catch (error) {
-      
+
     }
   };
 
   const initializePreferences = async (): Promise<Preferences> => {
     // Prevent multiple initializations
     if (initializationRef.current) {
-      
+
       return preferences;
     }
 
-    
+
     initializationRef.current = true;
 
     try {
@@ -204,12 +211,12 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         const found = await DefaultPreference.get(key);
         loaded[key] = (found ?? initialPreferences[key]) as any;
         if (key === 'isInTrial') {
-          
+
         }
       }
 
       setPreferences(
-        prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
+        prevPreferences => ({ ...prevPreferences, ...loaded } as Preferences),
       );
 
       // Set trial installation date on first app launch (never override)
@@ -232,7 +239,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
               await setItem('isIOSActive', '1');
             }
           } catch (error) {
-            
+
           }
         }, 3000);
 
@@ -242,7 +249,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
       return loaded as Preferences;
     } catch (error) {
-      
+
       return initialPreferences;
     }
   };
@@ -257,6 +264,8 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         removeItem,
         initializePreferences,
         clear,
+        restartApp,
+        restartKey,
       });
 
       // Initialize preferences
@@ -265,9 +274,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       // Initialize guest session
       try {
         await sessionManager.ensureValidSession();
-        
+
       } catch (error) {
-        
+
       }
     };
 
@@ -292,7 +301,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       }
       setPreferences(initialPreferences);
     } catch (error) {
-      
+
     }
   };
 
@@ -305,6 +314,8 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         removeItem,
         initializePreferences,
         clear,
+        restartApp,
+        restartKey,
       }}>
       {children}
     </AppSettingsContext.Provider>

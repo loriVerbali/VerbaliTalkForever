@@ -14,6 +14,7 @@ import {
   TextInput,
   Alert,
   Keyboard,
+  ActivityIndicator
 } from 'react-native';
 import Video from 'react-native-video';
 import {
@@ -41,6 +42,8 @@ import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
 import NetInfo from '@react-native-community/netinfo';
+import { ProfileExportService } from '../services/ProfileExportService';
+import { ProfileImportService } from '../services/ProfileImportService';
 
 const { height, width: SCREEN_WIDTH } = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -232,7 +235,7 @@ const RangeSlider = ({
 const SettingsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute();
-  const { preferences, setItem, getItem, clear } = useAppSettings();
+  const { preferences, setItem, getItem, clear, restartApp } = useAppSettings();
   // Removed Auth0 - using guest sessions
   const { isTablet } = useAdmin();
   const [isConnected, setIsConnected] = useState(true);
@@ -889,6 +892,82 @@ const SettingsScreen: React.FC = () => {
     newWatchedVideos.add(videoIndex);
     setWatchedVideos(newWatchedVideos);
     await saveWatchedVideos(newWatchedVideos);
+  };
+
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleExportProfile = async () => {
+    Alert.alert(
+      'Export Profile',
+      'This will create a backup of your current configuration and modelling. Inlcuding images you uploaded. Everything will be saved in your device storage. Do you want to continue?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Export',
+          onPress: async () => {
+            setIsExporting(true);
+            try {
+              await ProfileExportService.exportProfile();
+            } catch (error) {
+              Alert.alert('Export Failed', 'An error occurred while exporting your profile. Please try again.');
+              console.error(error);
+            } finally {
+              setIsExporting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleImportProfile = async () => {
+    Alert.alert(
+      'Import Profile',
+      'This will replace your current profile data. This cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Import',
+          style: 'destructive',
+          onPress: async () => {
+            setIsImporting(true);
+            try {
+              await ProfileImportService.importProfile();
+              Alert.alert(
+                'Restore Complete',
+                'Restore complete. Restarting Matalk.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      // Force app reload to pick up restored data
+                      restartApp();
+                    },
+                  },
+                ],
+              );
+            } catch (error: any) {
+              if (error.message !== 'CANCELLED') {
+                Alert.alert(
+                  'Import Failed',
+                  error.message || 'An error occurred while importing your profile. Please try again.',
+                );
+              }
+              console.error(error);
+            } finally {
+              setIsImporting(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -1974,6 +2053,33 @@ const SettingsScreen: React.FC = () => {
               )}
             </View>
 
+            <View style={[styles.section, styles.sectionData]}>
+              <Text style={styles.sectionTitle}>Data Management</Text>
+              <Text style={styles.aboutDescription}>
+                Export your profile data to keep a backup or transfer to another device.
+              </Text>
+              <TouchableOpacity
+                style={styles.exportButton}
+                onPress={handleExportProfile}
+                disabled={isExporting || isImporting}>
+                {isExporting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Export Profile</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.importButton}
+                onPress={handleImportProfile}
+                disabled={isImporting || isExporting}>
+                {isImporting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>Import Profile</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
             <View style={[styles.section, styles.sectionReset]}>
               <Text style={styles.sectionTitle}>Reset Installation</Text>
               <Text style={styles.aboutDescription}>
@@ -2203,6 +2309,9 @@ const styles = StyleSheet.create({
   sectionPersonalize: {
     backgroundColor: '#fce8f0',
   },
+  sectionData: {
+    backgroundColor: '#e8eaf6',
+  },
   sectionReset: {
     backgroundColor: '#fce8e8',
   },
@@ -2274,6 +2383,26 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  exportButton: {
+    backgroundColor: '#3f51b5',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 10,
+    width: SCREEN_WIDTH * 0.4,
+    alignSelf: 'center',
+  },
+  importButton: {
+    backgroundColor: '#2e7d32',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 10,
+    width: SCREEN_WIDTH * 0.4,
+    alignSelf: 'center',
   },
   aboutText: {
     fontSize: 16,
