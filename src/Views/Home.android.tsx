@@ -128,6 +128,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [directAnswers, setDirectAnswers] = useState<
     Array<{ word: string; imageUrl?: string }>
   >([]);
+  const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
 
 
   // AI Resolved tracking state
@@ -261,7 +262,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const SILENCE_TIMEOUT = 2000; // Stop recording if no new partial results for 2 seconds
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
@@ -684,12 +685,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             );
 
             setDirectAnswers(processedAnswers);
+            const answerWords = processedAnswers.map(answer => answer.word);
+            setAccumulatedPriors(answerWords);
             setIsProcessingAnswer(false);
             setShowImages(true);
             startResponseTimer();
 
-            // Initialize AI Resolved record for Round 1
-            const answerWords = processedAnswers.map(answer => answer.word);
             setCurrentAIRecord({
               question: transcribedText,
               round1Answers: answerWords,
@@ -752,6 +753,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
+    setAccumulatedPriors([]); // Reset accumulated priors
     setCurrentAIRecord(null); // Clear AI Resolved record
     setPartialResult(''); // Clear partial results
     voiceResultsRef.current = []; // Clear refs too
@@ -802,10 +804,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
 
-      // Capture current answers before clearing to pass as prior
-      const priorAnswers = directAnswers
-        .map(answer => answer.word)
-        .filter(word => word); // Get the 5 words that were shown
+      // Use accumulated priors to pass to server
+      const currentAccumulated = [...accumulatedPriors];
 
       // Clear old images immediately to prevent flickering
       setDirectAnswers([]);
@@ -832,7 +832,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
-          answers: priorAnswers, // Pass the 5 current answers so they aren't shown again
+          answers: currentAccumulated || [], // Pass all accumulated previous answers
         },
         countMin: 5,
         countMax: 5,
@@ -855,6 +855,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         );
 
         setDirectAnswers(processedAnswers);
+        const newAnswerWords = processedAnswers.map(answer => answer.word);
+        setAccumulatedPriors(prev => [...prev, ...newAnswerWords]);
+
         setIsProcessingAnswer(false);
         setIsRetrying(false);
         setShowImages(true);
@@ -862,13 +865,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
         // Update AI Resolved record for next round
         if (currentAIRecord && currentAIRecord.currentRound < 3) {
-          const answerWords = processedAnswers.map(answer => answer.word);
           const nextRound = currentAIRecord.currentRound + 1;
 
           setCurrentAIRecord({
             ...currentAIRecord,
             currentRound: nextRound,
-            [`round${nextRound}Answers`]: answerWords,
+            [`round${nextRound}Answers`]: newAnswerWords,
           });
         }
 
@@ -917,6 +919,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       await logWordSelection(selectedAnswer, 'Home');
       // Update history with the user's specific choice
       updateLastAssistantMessage(selectedAnswer);
+      setAccumulatedPriors([]); // Reset accumulated priors on selection
     }
 
     // Update AI Resolved record with the selected answer
@@ -978,6 +981,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setTimeout(async () => {
         // Reset assistant state
         setDirectAnswers([]);
+        setAccumulatedPriors([]); // Clear accumulated priors
 
         // Navigate to Open.tsx only if gobackAfterSelection is true
         if (gobackAfterSelection) {
@@ -987,6 +991,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           // NEW: Set waiting state and activate wake word
           setWaitingForNextConversation(true);
           setDirectAnswers([]);
+          setAccumulatedPriors([]); // Reset accumulated priors
 
           // Reset states but preserve waitingForNextConversation
           setFinishedTranscribing(false);

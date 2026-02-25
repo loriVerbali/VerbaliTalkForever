@@ -35,6 +35,16 @@ export class SentenceBuilderSqlite {
 
   async init(): Promise<void> {
     try {
+      // If already initialized, close first to avoid stale references
+      if (this.db) {
+        try {
+          await this.db.close();
+        } catch (e) {
+          console.warn('[SentenceBuilder] Error closing previous DB connection:', e);
+        }
+        this.db = null;
+      }
+
       this.db = await SQLite.openDatabase({
         name: DATABASE_NAME,
         version: DATABASE_VERSION,
@@ -47,6 +57,8 @@ export class SentenceBuilderSqlite {
       await this.migrateDatabase();
       await this.seedData();
     } catch (error) {
+      console.error('[SentenceBuilder] init() failed:', error);
+      this.db = null;
       throw error;
     }
   }

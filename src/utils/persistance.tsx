@@ -75,7 +75,7 @@ const platFormEnum = {
   andriod: 'android',
 };
 
-const initialPreferences: Preferences = {
+export const initialPreferences: Preferences = {
   loggedIn: initEnum.false,
   username: '',
   wasWelcomed: initEnum.false,
@@ -134,6 +134,8 @@ interface AppSettingsContextProps {
   removeItem: (key: keyof Preferences) => Promise<void>;
   initializePreferences: () => Promise<Preferences>;
   clear: () => Promise<void>;
+  restartApp: () => void;
+  restartKey: number;
 }
 
 const AppSettingsContext = createContext<AppSettingsContextProps | undefined>(
@@ -151,6 +153,11 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
     useState<Preferences>(initialPreferences);
   const initializationRef = useRef(false);
   const receiptValidationRef = useRef(false);
+  const [restartKey, setRestartKey] = useState(0);
+
+  const restartApp = () => {
+    setRestartKey(prev => prev + 1);
+  };
 
   const setItem = async (
     key: keyof Preferences,
@@ -257,6 +264,8 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         removeItem,
         initializePreferences,
         clear,
+        restartApp,
+        restartKey,
       });
 
       // Initialize preferences
@@ -305,6 +314,8 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         removeItem,
         initializePreferences,
         clear,
+        restartApp,
+        restartKey,
       }}>
       {children}
     </AppSettingsContext.Provider>
