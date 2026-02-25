@@ -54,7 +54,12 @@ const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was your practice today?';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
-  const { generateAnswers } = useAssistant();
+  const {
+    generateAnswers,
+    conversationHistory,
+    addToConversationHistory,
+    updateLastAssistantMessage,
+  } = useAssistant();
   const { weather, location } = useChatContext();
   const { isTablet } = useAdmin();
   const insets = useSafeAreaInsets();
@@ -112,27 +117,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-  // Function to manage conversation history with sliding window
-  const addToConversationHistory = (
-    userMessage: string,
-    assistantResponse: string,
-    maxHistoryLength: number = 20, // Keep last 20 exchanges
-  ) => {
-    setConversationHistory(prev => {
-      const newHistory = [
-        ...prev,
-        { role: 'user' as const, content: userMessage, timestamp: Date.now() },
-        {
-          role: 'assistant' as const,
-          content: assistantResponse,
-          timestamp: Date.now(),
-        },
-      ];
-
-      // Keep only the most recent exchanges
-      return newHistory.slice(-maxHistoryLength * 2); // *2 because each exchange has user + assistant
-    });
-  };
 
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
@@ -142,11 +126,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [directAnswers, setDirectAnswers] = useState<
     Array<{ word: string; imageUrl?: string }>
   >([]);
+  const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
 
-  // Conversation history state
-  const [conversationHistory, setConversationHistory] = useState<
-    Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>
-  >([]);
 
   // AI Resolved tracking state
   const [currentAIRecord, setCurrentAIRecord] = useState<{
@@ -665,7 +646,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Get pepes data for context
       const pepesData = await getItem('pepes');
       const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
       // Generate answers
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_answers',
@@ -674,7 +654,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           speaker: 'anyone',
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes,
-          conversationHistory: conversationHistory,
           contextInfo: contextInfo, // Weather, time, and location context
         },
         countMin: 5,
@@ -698,22 +677,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         );
 
         setDirectAnswers(processedAnswers);
+        const answerWords = processedAnswers.map(answer => answer.word);
+        setAccumulatedPriors(answerWords);
         setIsProcessingAnswer(false);
         setShowImages(true);
         startResponseTimer();
 
         // Initialize AI Resolved record for Round 1
-        const answerWords = processedAnswers.map(answer => answer.word);
         setCurrentAIRecord({
           question: transcribedText,
           round1Answers: answerWords,
           currentRound: 1,
         });
 
-        // Add to conversation history
-        const assistantResponse = processedAnswers
+        // Add to conversation history with "Suggested" prefix
+        const assistantResponse = `Suggested: ${processedAnswers
           .map(answer => answer.word)
-          .join(', ');
+          .join(', ')}`;
         addToConversationHistory(transcribedText, assistantResponse);
       } else {
         mixpanel.track('Error', {
@@ -896,7 +876,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
-    setConversationHistory([]); // Clear conversation history
+    setAccumulatedPriors([]); // Reset accumulated priors
     setCurrentAIRecord(null); // Clear AI Resolved record
 
     // Clear the input in the Inputs component
@@ -944,10 +924,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
 
-      // Capture current answers before clearing to pass as prior
-      const priorAnswers = directAnswers
-        .map(answer => answer.word)
-        .filter(word => word); // Get the 5 words that were shown
+      // Use accumulated priors to pass to server
+      const currentAccumulated = [...accumulatedPriors];
 
       // Clear old images immediately to prevent flickering
       setDirectAnswers([]);
@@ -971,11 +949,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           speaker: 'anyone',
           audience: preferences?.heroName || 'my',
           pepes: parsedPepes, // Include pepes data for better context
-          conversationHistory: conversationHistory, // Include conversation history
-          contextInfo: contextInfo, // Weather, time, and location context
+          contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
-          answers: priorAnswers || [], // Pass the 5 current answers so they aren't shown again
+          answers: currentAccumulated || [], // Pass all accumulated previous answers
         },
         countMin: 5,
         countMax: 5,
@@ -998,6 +975,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         );
 
         setDirectAnswers(processedAnswers);
+        const newAnswerWords = processedAnswers.map(answer => answer.word);
+        setAccumulatedPriors(prev => [...prev, ...newAnswerWords]);
+
         setIsProcessingAnswer(false);
         setIsRetrying(false);
         setShowImages(true);
@@ -1005,13 +985,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
         // Update AI Resolved record for next round
         if (currentAIRecord && currentAIRecord.currentRound < 3) {
-          const answerWords = processedAnswers.map(answer => answer.word);
           const nextRound = currentAIRecord.currentRound + 1;
 
           setCurrentAIRecord({
             ...currentAIRecord,
             currentRound: nextRound,
-            [`round${nextRound}Answers`]: answerWords,
+            [`round${nextRound}Answers`]: newAnswerWords,
           });
         }
 
@@ -1073,6 +1052,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Log the selected word to database (only if it's not "MoreAnswers")
     if (selectedAnswer !== 'MoreAnswers') {
       await logWordSelection(selectedAnswer, 'Home');
+      // Update history with the user's specific choice
+      updateLastAssistantMessage(selectedAnswer);
     }
 
     // Update AI Resolved record with the selected answer
@@ -1133,6 +1114,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Navigate to Open.tsx only if gobackAfterSelection is true
       setTimeout(async () => {
         setDirectAnswers([]);
+        setAccumulatedPriors([]);
         if (gobackAfterSelection) {
           // Wait 1 second to allow user to hear the selected answer being spoken
           resetLocalStates();
@@ -1143,6 +1125,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           setShowImages(false);
           setWaitingForNextConversation(true);
           setDirectAnswers([]);
+          setAccumulatedPriors([]);
           // Reset states but preserve waitingForNextConversation
           setFinishedTranscribing(false);
           setTranscribedText('');
