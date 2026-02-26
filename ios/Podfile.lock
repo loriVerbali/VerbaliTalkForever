@@ -1405,7 +1405,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - react-native-sherpa-onnx-offline-tts (0.2.4):
+  - react-native-sherpa-onnx-offline-tts (0.2.6):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -2474,7 +2474,7 @@ SPEC CHECKSUMS:
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
   react-native-orientation-locker: cc6f357b289a2e0dd2210fea0c52cb8e0727fdaa
   react-native-safe-area-context: 3ca252db05d82ea67f6d178fbd289ff832f5681b
-  react-native-sherpa-onnx-offline-tts: dc92f88677e2e791515523beb424c311f82eb8e2
+  react-native-sherpa-onnx-offline-tts: d3ef1b28ae74467f08934cdba20c5c1d9d979f33
   react-native-slider: 310d3f89edd6ca8344a974bfe83a29a3fbb60e5a
   react-native-sqlite-storage: 0c84826214baaa498796c7e46a5ccc9a82e114ed
   react-native-video: 278ea57b2be2993535ba7291a146152ca9301143
