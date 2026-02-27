@@ -1,7 +1,7 @@
 import Config from 'react-native-config';
 import _ from 'lodash';
-import AppConfig, {MethodObject} from './config';
-import {sessionManager} from './sessionManager';
+import AppConfig, { MethodObject } from './config';
+import { sessionManager } from './sessionManager';
 
 const METHODTODEBUG = 'processImagesConvo';
 
@@ -37,7 +37,7 @@ const fetchWithRetry = async (
 
     if (response.status === 401 && retries > 0) {
       const methodObject = AppConfig.methods[methodName];
-      if (methodObject.isAuthenticated && !methodObject.openAi) {
+      if (methodObject.isAuthenticated) {
         // Try to refresh session and retry once
         const newToken = await sessionManager.refreshSession();
 
@@ -64,7 +64,7 @@ const fetchWithRetry = async (
 
     return Promise.reject(`Request failed with status ${response.status}`);
   } catch (error) {
-    
+
     throw error;
   }
 };
@@ -80,17 +80,12 @@ const fetchHelper = async (
 
   // Add token if the method requires authentication
   if (methodObject.isAuthenticated) {
-    if (methodObject.openAi) {
-      headers['Authorization'] = 'Bearer ' + (Config.OPENAI_API_KEY || '');
+    // For backend API calls, ensure we have a valid session token
+    const sessionToken = await sessionManager.ensureValidSession();
+    if (sessionToken) {
+      headers['Authorization'] = 'Bearer ' + sessionToken;
     } else {
-      // For backend API calls, ensure we have a valid session token
-      const sessionToken = await sessionManager.ensureValidSession();
-      if (sessionToken) {
-        headers['Authorization'] = 'Bearer ' + sessionToken;
-      } else {
-        
-        return Promise.reject('No valid session token');
-      }
+      return Promise.reject('No valid session token');
     }
   }
 
@@ -100,9 +95,6 @@ const fetchHelper = async (
     methodObject.contentType !== 'multipart/form-data'
   ) {
     headers['Content-Type'] = methodObject.contentType;
-    methodObject.isBeta && methodObject.openAi
-      ? (headers['OpenAI-Beta'] = 'assistants=v2')
-      : null;
   }
 
   const request: RequestInit = {
@@ -120,9 +112,7 @@ const fetchHelper = async (
     });
   });
 
-  const url = methodObject.openAi
-    ? AppConfig.openAiUrl + parsedUrl
-    : methodName === 'generateImage'
+  const url = methodName === 'generateImage'
     ? AppConfig.picsUrl + parsedUrl
     : AppConfig.baseUrl + parsedUrl;
 
@@ -141,24 +131,6 @@ const fetchHelper = async (
     // 
     // 
     // 
-  }
-
-  // Use fetchWithRetry for the request
-  // Apply a 20s timeout only for Whisper transcription (OpenAI) requests
-  if (methodName === 'transcribeAudio') {
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => {
-      abortController.abort();
-    }, 8000);
-
-    // Attach abort signal to this request
-    (request as RequestInit).signal = abortController.signal;
-
-    try {
-      return await fetchWithRetry(url, methodName, request);
-    } finally {
-      clearTimeout(timeoutId);
-    }
   }
 
   return fetchWithRetry(url, methodName, request);
