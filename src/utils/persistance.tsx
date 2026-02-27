@@ -23,8 +23,10 @@ interface Preferences {
   topicsCount: string;
   actionsCount: string;
   objectsCount: string;
-  wasOnboarded: string;
   heroName: string;
+  onboardingStatus: string;
+
+  parentalCode: string;
   adminCode: string;
   gender: string;
   auth0Id: string;
@@ -37,6 +39,7 @@ interface Preferences {
   schoolIsCurrentLocation: string;
   therapyAddress: string;
   therapyIsCurrentLocation: string;
+  wasOnboarded: string;
   wasLocationOnboarded: string;
   conversationMode: string;
   gobackAfterSelection: string;
@@ -86,9 +89,10 @@ export const initialPreferences: Preferences = {
   topicsCount: '4',
   actionsCount: '4',
   objectsCount: '4',
-  wasOnboarded: initEnum.false,
-  wasLocationOnboarded: initEnum.false,
   heroName: '',
+  onboardingStatus: '0',
+
+  parentalCode: '0000',
   adminCode: '',
   gender: '',
   auth0Id: '',
@@ -101,6 +105,8 @@ export const initialPreferences: Preferences = {
   schoolIsCurrentLocation: '',
   therapyAddress: '',
   therapyIsCurrentLocation: '',
+  wasOnboarded: initEnum.false,
+  wasLocationOnboarded: initEnum.false,
   conversationMode: 'easy',
   gobackAfterSelection: initEnum.false,
   wasDeleted: initEnum.false,
