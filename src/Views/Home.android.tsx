@@ -18,7 +18,6 @@ import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
 import { useAssistant } from '../contexts/AssistantContext';
-import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -243,7 +242,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const { playAttention } = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showImages, setShowImages] = useState(false);

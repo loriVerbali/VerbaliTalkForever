@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -48,22 +50,24 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSHumanReadableCopyright</key>
-	<string></string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We use your location to suggest relevant phrases based on your surroundings. For example, suggesting At the park if you&apos;re at a park</string>
-  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-  <string>We use your location to suggest relevant phrases based on your surroundings. For example, suggesting At the park if you&apos;re at a park</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>We use your microphone so you can record speech to generate possible answers for a cargivers questions. For example you are asked what your name is we record it and transcribe.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>The App uses the photo library to personalize the conversation for instance a picture of dad or mom or a known relative </string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>We save photos you take so you can use them in your conversations and personalize your experience.Images are private to your device. They are not uploaded anywhere.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>We use the camera so you can take photos to personalize people, pets, toys and places.Images are private to your device. They are not uploaded anywhere.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string></string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We use your location to suggest relevant phrases based on your surroundings. For example, suggesting At the park if you're at a park</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location to suggest relevant phrases based on your surroundings. For example, suggesting At the park if you're at a park</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We use your microphone so you can record speech to generate possible answers for a cargivers questions. For example you are asked what your name is we record it and transcribe.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We save photos you take so you can use them in your conversations and personalize your experience.Images are private to your device. They are not uploaded anywhere.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>The App uses the photo library to personalize the conversation for instance a picture of dad or mom or a known relative </string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>We use your microphone so you can record speech to communicate with others. For example, your speech is transcribed into text and read aloud.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
