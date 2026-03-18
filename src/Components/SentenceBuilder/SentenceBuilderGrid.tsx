@@ -837,7 +837,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               //shadowRadius: 10,
               shadowOffset: { width: 0, height: 6 },
               elevation: 12,
-              borderWidth: 3,
+              borderWidth: node.kind === 'folder' ? 5 : 3,
               borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : color,
               borderStyle: isEmptyCell || isDeletedCard ? 'dashed' : 'solid',
             },
@@ -866,6 +866,63 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                 ✏️
               </Text>
             </TouchableOpacity>
+          )}
+
+          {/* Folder Icon - Top Left */}
+          {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 5,
+                left: 5,
+                zIndex: 15,
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                borderRadius: 4,
+                padding: 2,
+              }}>
+              <Text style={{ fontSize: 14 }}>📁</Text>
+            </View>
+          )}
+
+          {/* Folded corner effect for folders */}
+          {node.kind === 'folder' && (
+            <View
+              style={{
+                position: 'absolute',
+                top: -5, // Compensate for card border
+                right: -5,
+                width: 35,
+                height: 35,
+                zIndex: 12,
+              }}>
+              {/* Corner Cut (matches parent background) */}
+              <View
+                style={{
+                  width: 0,
+                  height: 0,
+                  borderStyle: 'solid',
+                  borderLeftWidth: 35,
+                  borderTopWidth: 35,
+                  borderLeftColor: '#f8f9fa', // Parent background color
+                  borderTopColor: 'transparent',
+                }}
+              />
+              {/* The Fold (matches border color) */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -14,
+                  right: -14,
+                  width: 0,
+                  height: 0,
+                  borderStyle: 'solid',
+                  borderBottomWidth: 40,
+                  borderRightWidth: 40,
+                  borderBottomColor: color, // Match border color
+                  borderRightColor: 'transparent',
+                }}
+              />
+            </View>
           )}
 
           {/* Image section - full height on mobile, partial on desktop */}
@@ -998,12 +1055,14 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                   left: 0,
                   right: 0,
                   backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  borderBottomLeftRadius: 8,
-                  borderBottomRightRadius: 8,
+                  borderBottomLeftRadius: node.kind === 'folder' ? 0 : 8,
+                  borderBottomRightRadius: node.kind === 'folder' ? 0 : 8,
                   paddingVertical: 2, // Reduced padding for smaller text overlay
                   paddingHorizontal: 2,
                   justifyContent: 'center',
                   alignItems: 'center',
+                  borderTopWidth: node.kind === 'folder' ? 3 : 0,
+                  borderColor: color,
                 }}>
                 <Text
                   style={{
@@ -1016,15 +1075,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                     textShadowRadius: 2,
                   }}
                   numberOfLines={2}>
-                  {node.kind === 'folder' && (
-                    <Text
-                      style={{
-                        fontSize: Math.max(10, cardDimensions.width * 0.08),
-                      }}>
-                      📁{' '}
-                    </Text>
-                  )}
-                  {node.title}
+                  {node.kind === 'folder' ? node.title.toUpperCase() : node.title}
                 </Text>
               </View>
             )}
