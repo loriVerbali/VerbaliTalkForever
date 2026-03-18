@@ -58,7 +58,7 @@
     "react-native-sqlite-storage": "^6.0.1",
     "react-native-tts": "^4.1.1",
     "react-native-video": "6.16.0",
-    "react-native-wakeword": "^1.1.56",
+    "react-native-wakeword": "^1.1.82",
     "react-native-webview": "^13.13.5",
     "react-native-zip-archive": "^7.0.2",
     "whisper.rn": "^0.5.5",
