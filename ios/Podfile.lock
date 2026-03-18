@@ -3010,11 +3010,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNSound (0.11.2):
-    - React-Core
-    - RNSound/Core (= 0.11.2)
-  - RNSound/Core (0.11.2):
-    - React-Core
   - RNZipArchive (7.0.2):
     - React-Core
     - RNZipArchive/Core (= 7.0.2)
@@ -3165,7 +3160,6 @@ DEPENDENCIES:
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNShare (from `../node_modules/react-native-share`)
-  - RNSound (from `../node_modules/react-native-sound`)
   - RNZipArchive (from `../node_modules/react-native-zip-archive`)
   - SocketRocket (~> 0.7.1)
   - TextToSpeech (from `../node_modules/react-native-tts`)
@@ -3383,8 +3377,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-reanimated"
   RNShare:
     :path: "../node_modules/react-native-share"
-  RNSound:
-    :path: "../node_modules/react-native-sound"
   RNZipArchive:
     :path: "../node_modules/react-native-zip-archive"
   TextToSpeech:
@@ -3498,7 +3490,6 @@ SPEC CHECKSUMS:
   RNPermissions: ecdf8e18baf7fb1a96b5453b80713b9ab8994aed
   RNReanimated: 19ace50ff79080beabc266156b37d84ee2c89fa5
   RNShare: 60a6937925595bf06a0061ffe8a34dbbdd8c6584
-  RNSound: 314cc5226453ef4a3314a196c65e8a65e5106a7b
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
