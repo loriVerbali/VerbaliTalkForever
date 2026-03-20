@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Keyboard,
 } from 'react-native';
 import { useAppSettings } from '../utils/persistance';
 import FastImage from 'react-native-fast-image';
@@ -35,9 +36,6 @@ import WhisperDownload from '../Components/WhisperDownload';
 import { Mixpanel } from 'mixpanel-react-native';
 import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
-import NetInfo from '@react-native-community/netinfo';
-import RNFS from 'react-native-fs';
-import WhisperService from '../utils/WhisperService';
 import WhisperModelManager from '../utils/WhisperModelManager';
 
 const { width, height } = Dimensions.get('window');
@@ -71,7 +69,7 @@ const onboardingSteps = [
   },
   {
     id: 'admin-code',
-    question: 'Set Admin Code',
+    question: '',
     additionalComponents: 'admin-code-input',
     buttonText: 'Next',
   },
@@ -104,6 +102,9 @@ const OnboardingScreen: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
   const [adminCode, setAdminCode] = useState('');
+  const [showAdminCode, setShowAdminCode] = useState(false);
+  const pinInputRef = useRef<TextInput | null>(null);
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
   const [selectedGender, setSelectedGender] = useState('');
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [permissionsDenied, setPermissionsDenied] = useState(false);
@@ -523,34 +524,104 @@ const OnboardingScreen: React.FC = () => {
             </ScrollView>
           </>
         );
-      case 'admin-code-input':
+      case 'admin-code-input': {
+        const pinBoxSize = isTablet ? Math.min(width * 0.14, 100) : Math.min(width * 0.18, 80);
+
         return (
           <ScrollView
             style={{ width: '100%' }}
             contentContainerStyle={styles.adminCodeContainer}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={isTablet ? styles.input : styles.inputPhone}
-                placeholder="Set a 4 digit code"
-                placeholderTextColor="#888"
-                value={adminCode}
-                inputMode={isTablet ? 'numeric' : 'text'}
-                onChangeText={text => {
-                  // Only allow numbers and limit to 4 digits
-                  const numericText = text.replace(/[^0-9]/g, '');
-                  if (numericText.length <= 4) {
-                    setAdminCode(numericText);
-                  }
-                }}
-                keyboardType={isTablet ? 'numeric' : 'default'}
-                maxLength={4}
-                secureTextEntry={true}
-              />
+            <View style={styles.parentCodeWrapper}>
+              {/* Lock Icon */}
+              <Text style={styles.parentCodeLockIcon}>🔒</Text>
+
+              {/* Title */}
+              <Text style={[
+                styles.parentCodeTitle,
+                { fontSize: isTablet ? 28 : 22 },
+              ]}>
+                Set Parent Code
+              </Text>
+
+              {/* Description */}
+              <Text style={[
+                styles.parentCodeDescription,
+                { fontSize: isTablet ? 16 : 13 },
+              ]}>
+                A parent code will be used to access the Settings page.
+              </Text>
+
+              {/* PIN Input Row */}
+              <TouchableOpacity activeOpacity={1} style={styles.parentCodePinRow} onPress={() => pinInputRef.current?.focus()}>
+                <TextInput
+                  ref={pinInputRef}
+                  value={adminCode}
+                  onChangeText={text => {
+                    const numericText = text.replace(/[^0-9]/g, '');
+                    if (numericText.length <= 4) {
+                      setAdminCode(numericText);
+                      const newDigits = ['', '', '', ''];
+                      for (let i = 0; i < numericText.length; i++) {
+                        newDigits[i] = numericText[i];
+                      }
+                      setPinDigits(newDigits);
+                      if (numericText.length === 4) {
+                        Keyboard.dismiss();
+                      }
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                  autoFocus={true}
+                  caretHidden={true}
+                />
+                {pinDigits.map((digit, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.parentCodePinBox,
+                      {
+                        width: pinBoxSize,
+                        height: pinBoxSize,
+                        borderRadius: pinBoxSize * 0.18,
+                      },
+                      digit !== '' && styles.parentCodePinBoxFilled,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.parentCodePinInput,
+                        {
+                          fontSize: showAdminCode
+                            ? (isTablet ? 36 : 28)
+                            : (isTablet ? 48 : 36),
+                          lineHeight: pinBoxSize,
+                        },
+                      ]}>
+                      {showAdminCode ? digit : (digit ? '●' : '')}
+                    </Text>
+                  </View>
+                ))}
+
+                {/* Eye Toggle */}
+                <TouchableOpacity
+                  style={styles.parentCodeEyeButton}
+                  onPress={() => setShowAdminCode(!showAdminCode)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={[
+                    styles.parentCodeEyeIcon,
+                    { fontSize: isTablet ? 24 : 18 },
+                  ]}>
+                    {showAdminCode ? '👁️' : '👁️‍🗨️'}
+                  </Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         );
+      }
       case 'family-members':
         return isTablet ? (
           <View style={styles.familyMembersContainer}>
@@ -787,18 +858,14 @@ const OnboardingScreen: React.FC = () => {
                 // This ensures wake word gets access to ONNX Runtime/CoreML resources first
                 try {
                   await setItem('useLocalWhisper', '1');
-                  // Mark model as downloaded (but not initialized yet)
                   setWhisperModelInvoked(true);
-                  // Wait a moment to show "magic ready" message
+                  // Show "magic ready" message, then reveal the Next button
                   setTimeout(() => {
                     setWhisperDownloadComplete(true);
-                    // Auto-advance to next step after showing "magic ready"
-                    handleNext();
                   }, 1500);
                 } catch (error) {
                   // Still mark as complete even if there was an error
                   setWhisperDownloadComplete(true);
-                  handleNext();
                 }
               }}
             />
@@ -1101,7 +1168,7 @@ const OnboardingScreen: React.FC = () => {
             <TouchableOpacity
               style={[
                 styles.button,
-                // Hide the done button if on permissions step and permissions not granted
+                // Hide the button until step requirements are met
                 ((currentStepData.id === 'terms' && !termsAgreed) || (currentStepData.id === 'Permissions' &&
                   !permissionsAttempted) ||
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
@@ -1441,11 +1508,72 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: height * 0.4,
     flexDirection: 'row',
-    flex: 1,
+    flex: 1
   },
   adminCodeImage: {
     width: width * 0.05,
     height: width * 0.05,
+  },
+  parentCodeWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  parentCodeLockIcon: {
+    fontSize: Math.min(36, width * 0.09),
+    marginBottom: 12,
+  },
+  parentCodeTitle: {
+    fontWeight: '800',
+    color: '#222',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  parentCodeDescription: {
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 20,
+    paddingHorizontal: 10,
+  },
+  parentCodePinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  parentCodePinBox: {
+    backgroundColor: '#F5F0EB',
+    borderWidth: 2,
+    borderColor: '#D6CFC8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  parentCodePinBoxFilled: {
+    borderColor: '#B0A89F',
+    backgroundColor: '#EDE8E3',
+  },
+  parentCodePinInput: {
+    textAlign: 'center',
+    color: '#555',
+    width: '100%',
+    height: '100%',
+    padding: 0,
+  },
+  parentCodeEyeButton: {
+    marginLeft: 4,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parentCodeEyeIcon: {
+    opacity: 0.6,
   },
   permissionsImage: {
     width: Math.min(width * 0.2, 80),

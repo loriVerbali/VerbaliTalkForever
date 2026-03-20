@@ -80,6 +80,9 @@ const OpenScreen: React.FC = () => {
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
+  const [showAdminCode, setShowAdminCode] = useState(false);
+  const pinInputRef = useRef<TextInput | null>(null);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
   const [startupModalVisible, setStartupModalVisible] = useState(false);
   const { isConnected } = useConnection();
@@ -610,11 +613,12 @@ const OpenScreen: React.FC = () => {
     setIsError(false);
   };
 
-  const handleAdminCodeSubmit = async () => {
+  const handleAdminCodeSubmit = async (overrideCode?: string) => {
+    const codeToSubmit = overrideCode || adminCodeInput;
     const storedAdminCode = await getItem('adminCode');
     if (
-      adminCodeInput === storedAdminCode ||
-      adminCodeInput === AppConfig.masterAdminCode
+      codeToSubmit === storedAdminCode ||
+      codeToSubmit === AppConfig.masterAdminCode
     ) {
       closeModal();
       navigation.navigate(views.SETTINGS as never);
@@ -677,7 +681,7 @@ const OpenScreen: React.FC = () => {
             <FastImage
               source={
                 connectionState
-                  ? require('../assets/michrophone.gif')
+                  ? require('../assets/micstatic.png')
                   : require('../assets/noMic.png')
               }
               style={[styles.iconSize, isListening.current && { opacity: 0.5 }]}
@@ -971,40 +975,71 @@ const OpenScreen: React.FC = () => {
             <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Enter Admin Code</Text>
-                <TextInput
-                  style={[styles.codeInput, isError && styles.errorInput]}
-                  value={adminCodeInput}
-                  onChangeText={text => {
-                    const numericText = text.replace(/[^0-9]/g, '');
-                    if (numericText.length <= 4) {
-                      setAdminCodeInput(numericText);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  maxLength={4}
-                  secureTextEntry={true}
-                  autoFocus={true}
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (adminCodeInput.length === 4) {
-                      handleAdminCodeSubmit();
-                    }
-                  }}
-                  onBlur={() => {
-                    // Auto-cancel when user dismisses keyboard by tapping away
-                    // Clear any existing timeout
-                    if (blurTimeoutRef.current) {
-                      clearTimeout(blurTimeoutRef.current);
-                    }
-                    blurTimeoutRef.current = setTimeout(() => {
-                      // Small delay to allow for done button press if that was the intent
-                      if (modalVisible && adminCodeInput.length !== 4) {
-                        closeModal();
+                <Text style={styles.modalDescription}>
+                  Enter your 4-digit parent code to continue.
+                </Text>
+
+                {/* PIN Input Row */}
+                <Pressable
+                  style={styles.pinRow}
+                  onPress={() => pinInputRef.current?.focus()}>
+                  <TextInput
+                    ref={pinInputRef}
+                    value={adminCodeInput}
+                    onChangeText={text => {
+                      const numericText = text.replace(/[^0-9]/g, '');
+                      if (numericText.length <= 4) {
+                        setAdminCodeInput(numericText);
+                        const newDigits = ['', '', '', ''];
+                        for (let i = 0; i < numericText.length; i++) {
+                          newDigits[i] = numericText[i];
+                        }
+                        setPinDigits(newDigits);
+                        setIsError(false);
+
+                        // Auto-submit when all 4 digits entered
+                        if (numericText.length === 4) {
+                          setTimeout(() => {
+                            handleAdminCodeSubmit(numericText);
+                          }, 100);
+                        }
                       }
-                    }, 100);
-                  }}
-                  blurOnSubmit={true}
-                />
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                    autoFocus={true}
+                    caretHidden={true}
+                  />
+                  {pinDigits.map((digit, index) => {
+                    const pinBoxSize = Math.min(width * 0.12, 80);
+                    return (
+                      <View
+                        key={index}
+                        style={[
+                          styles.pinBox,
+                          {
+                            width: pinBoxSize,
+                            height: pinBoxSize,
+                            borderRadius: pinBoxSize * 0.18,
+                          },
+                          digit !== '' && styles.pinBoxFilled,
+                          isError && styles.pinBoxError,
+                        ]}>
+                        <Text
+                          style={[
+                            styles.pinInput,
+                            {
+                              fontSize: showAdminCode ? 24 : 36,
+                              lineHeight: pinBoxSize,
+                            },
+                          ]}>
+                          {showAdminCode ? digit : (digit ? '●' : '')}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </Pressable>
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton]}
@@ -1017,7 +1052,7 @@ const OpenScreen: React.FC = () => {
                       styles.submitButton,
                       adminCodeInput.length !== 4 && styles.disabledButton,
                     ]}
-                    onPress={handleAdminCodeSubmit}
+                    onPress={() => handleAdminCodeSubmit()}
                     disabled={adminCodeInput.length !== 4}>
                     <Text style={styles.buttonText}>Submit</Text>
                   </TouchableOpacity>
@@ -1306,41 +1341,81 @@ const styles = StyleSheet.create({
     paddingTop: height * 0.1,
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: '#f5f0e8',
     borderRadius: 20,
     padding: width * 0.05,
     width: '80%',
+    maxWidth: 450,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  },
+  lockIcon: {
+    fontSize: 32,
+    marginBottom: 8,
   },
   modalTitle: {
     fontSize: height * 0.03,
     fontWeight: 'bold',
-    marginBottom: height * 0.02,
+    marginBottom: 4,
     color: '#333',
   },
-  codeInput: {
-    width: '100%',
-    height: height * 0.08,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    paddingHorizontal: width * 0.05,
-    fontSize: height * 0.03,
+  modalDescription: {
+    fontSize: height * 0.018,
+    color: '#666',
     textAlign: 'center',
     marginBottom: height * 0.02,
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
-  errorInput: {
+  pinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: height * 0.025,
+    gap: 12,
+  },
+  pinBox: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pinBoxFilled: {
+    borderColor: '#007bff',
+  },
+  pinBoxError: {
     borderColor: '#ff3b30',
     backgroundColor: '#fff0f0',
+  },
+  pinInput: {
+    width: '100%',
+    height: '100%',
+    textAlign: 'center',
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  eyeIcon: {
+    fontSize: 22,
+  },
+  forgotCodeText: {
+    fontSize: height * 0.016,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: height * 0.015,
+    lineHeight: height * 0.022,
+    paddingHorizontal: 16,
+    fontStyle: 'italic',
+  },
+  forgotCodeLabel: {
+    fontWeight: 'bold',
+    color: '#007bff',
   },
   modalButtons: {
     flexDirection: 'row',
