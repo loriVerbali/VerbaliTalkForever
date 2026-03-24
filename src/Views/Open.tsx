@@ -1191,6 +1191,11 @@ const OpenScreen: React.FC = () => {
                     <Text style={styles.buttonText}>Submit</Text>
                   </TouchableOpacity>
                 </View>
+                {/* Forgot Password */}
+                <Text style={styles.forgotCodeText}>
+                  If you forgot your password go to{' '}
+                  <Text style={styles.forgotCodeLabel}>verbali.io/forgotadminpassword</Text>
+                </Text>
               </View>
             </TouchableWithoutFeedback>
           </View>
