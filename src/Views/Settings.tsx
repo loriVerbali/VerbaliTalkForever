@@ -24,7 +24,6 @@ import {
   useRoute,
 } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
-import LinearGradient from 'react-native-linear-gradient';
 import { useAppSettings } from '../utils/persistance';
 import { getSubscriptionStatus } from '../utils/trialUtils';
 import { sessionManager } from '../utils/sessionManager';
@@ -971,7 +970,7 @@ const SettingsScreen: React.FC = () => {
   };
 
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
@@ -2254,7 +2253,7 @@ const SettingsScreen: React.FC = () => {
           onDismiss={handleRatingModalDismiss}
         />
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 };
 

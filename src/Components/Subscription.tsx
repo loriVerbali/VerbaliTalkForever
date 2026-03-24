@@ -753,9 +753,14 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* ActivityIndicator always mounted to avoid Fabric recycling crash */}
+      <ActivityIndicator
+        size="large"
+        color="#007AFF"
+        style={{ opacity: isLoadingSubscriptions ? 1 : 0, position: isLoadingSubscriptions ? 'relative' : 'absolute' }}
+      />
       {isLoadingSubscriptions ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
           <Text style={styles.loadingText}>Loading subscription plans...</Text>
         </View>
       ) : (

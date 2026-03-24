@@ -13,6 +13,7 @@ import {
   TextInput,
   Linking,
   useWindowDimensions,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -90,6 +91,9 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isAdminCodeError, setIsAdminCodeError] = useState(false);
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
+  const [showAdminCode, setShowAdminCode] = useState(false);
+  const pinInputRef = useRef<TextInput | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isProcessingPressRef = useRef<boolean>(false);
   const isDebouncing = useRef(false);
@@ -554,29 +558,35 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       // Show admin code prompt modal
       setShowAdminCodeModal(true);
       setAdminCodeInput('');
+      setPinDigits(['', '', '', '']);
       setIsAdminCodeError(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to verify admin access');
     }
   };
 
-  const handleCancelEditPress = () => {
+  const handleCancelEditPress = async () => {
     setIsEditing(false);
+    // Fully reload data to reset the view (prevents UI glitches after editing)
+    await initializeAndLoadData();
   };
 
   // Admin code modal handlers
   const closeAdminCodeModal = () => {
     setShowAdminCodeModal(false);
     setAdminCodeInput('');
+    setPinDigits(['', '', '', '']);
+    setShowAdminCode(false);
     setIsAdminCodeError(false);
   };
 
-  const handleAdminCodeSubmit = async () => {
+  const handleAdminCodeSubmit = async (overrideCode?: string) => {
     try {
+      const codeToSubmit = overrideCode || adminCodeInput;
       const storedAdminCode = await getItem('adminCode');
       if (
-        adminCodeInput === storedAdminCode ||
-        adminCodeInput === AppConfig.masterAdminCode
+        codeToSubmit === storedAdminCode ||
+        codeToSubmit === AppConfig.masterAdminCode
       ) {
         closeAdminCodeModal();
         setIsEditing(true);
@@ -837,8 +847,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               //shadowRadius: 10,
               shadowOffset: { width: 0, height: 6 },
               elevation: 12,
-              borderWidth: 3,
-              borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : color,
+              borderWidth: node.kind === 'folder' ? 4 : 3,
+              borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : (node.kind === 'folder' ? '#222222' : color),
               borderStyle: isEmptyCell || isDeletedCard ? 'dashed' : 'solid',
             },
           ]}>
@@ -867,6 +877,48 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               </Text>
             </TouchableOpacity>
           )}
+
+          {/* Top semi-transparent strip for folders */}
+          {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: cardDimensions.width * 0.6,
+                height: cardDimensions.height * 0.12,
+                backgroundColor: 'rgba(140, 137, 129, 0.8)',
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: cardDimensions.height * 0.02,
+                borderBottomRightRadius: cardDimensions.height * 0.2,
+                borderBottomLeftRadius: 0,
+
+                borderBottomWidth: 5,
+                borderTopWidth: 2,
+                borderLeftWidth: 0,
+                borderRightWidth: 5,
+                borderColor: '#4d4d4a',
+                zIndex: 12,
+              }}
+            />
+          )}
+
+          {/* Full-width transparent strip for folders */}
+          {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: cardDimensions.height * 0.12,
+                backgroundColor: 'rgba(255, 248, 231, 0.8)',
+                zIndex: 11,
+              }}
+            />
+          )}
+
+
 
           {/* Image section - full height on mobile, partial on desktop */}
           <View
@@ -966,26 +1018,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                     }}
                     resizeMode={FastImage.resizeMode.cover}
                   />
-                ) : (
-                  <View
-                    style={{
-                      width: cardDimensions.width,
-                      height: isMobile
-                        ? cardDimensions.height
-                        : cardDimensions.height * 0.82,
-                      backgroundColor: color,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      borderTopLeftRadius: 8,
-                      borderTopRightRadius: 8,
-                      borderBottomLeftRadius: isMobile ? 8 : 0,
-                      borderBottomRightRadius: isMobile ? 8 : 0,
-                    }}>
-                    <Text style={{ fontSize: cardDimensions.width * 0.2 }}>
-                      📁
-                    </Text>
-                  </View>
-                )}
+                ) : null}
               </>
             )}
 
@@ -997,34 +1030,28 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  borderBottomLeftRadius: 8,
-                  borderBottomRightRadius: 8,
-                  paddingVertical: 2, // Reduced padding for smaller text overlay
+                  backgroundColor: node.kind === 'folder' ? '#FFF8E7' : 'rgba(255, 255, 255, 0.7)',
+                  borderBottomLeftRadius: 4,
+                  borderBottomRightRadius: 4,
+                  paddingVertical: node.kind === 'folder' ? 4 : 2,
                   paddingHorizontal: 2,
                   justifyContent: 'center',
                   alignItems: 'center',
+                  borderTopWidth: node.kind === 'folder' ? 2 : 0,
+                  borderColor: node.kind === 'folder' ? '#222222' : color,
                 }}>
                 <Text
                   style={{
-                    fontSize: Math.max(8, cardDimensions.width * 0.06),
-                    fontWeight: '600',
+                    fontSize: node.kind === 'folder' ? Math.max(10, cardDimensions.width * 0.07) : Math.max(8, cardDimensions.width * 0.06),
+                    fontWeight: node.kind === 'folder' ? '800' : '600',
                     color: '#000',
                     textAlign: 'center',
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: { width: 1, height: 1 },
-                    textShadowRadius: 2,
+                    textShadowColor: node.kind === 'folder' ? undefined : 'rgba(0, 0, 0, 0.8)',
+                    textShadowOffset: node.kind === 'folder' ? undefined : { width: 1, height: 1 },
+                    textShadowRadius: node.kind === 'folder' ? undefined : 2,
                   }}
                   numberOfLines={2}>
-                  {node.kind === 'folder' && (
-                    <Text
-                      style={{
-                        fontSize: Math.max(10, cardDimensions.width * 0.08),
-                      }}>
-                      📁{' '}
-                    </Text>
-                  )}
-                  {node.title}
+                  {node.kind === 'folder' ? node.title.toUpperCase() : node.title}
                 </Text>
               </View>
             )}
@@ -1160,40 +1187,75 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
               <View style={styles.modalContent}>
+                {/* Lock Icon */}
+                <Text style={styles.lockIcon}>🔒</Text>
+
                 <Text style={styles.modalTitle}>Enter Admin Code</Text>
-                <TextInput
-                  style={[
-                    styles.codeInput,
-                    isAdminCodeError && styles.errorInput,
-                  ]}
-                  value={adminCodeInput}
-                  onChangeText={text => {
-                    const numericText = text.replace(/[^0-9]/g, '');
-                    if (numericText.length <= 4) {
-                      setAdminCodeInput(numericText);
-                      setIsAdminCodeError(false);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  maxLength={4}
-                  secureTextEntry={true}
-                  autoFocus={true}
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (adminCodeInput.length === 4) {
-                      handleAdminCodeSubmit();
-                    }
-                  }}
-                  onBlur={() => {
-                    // Auto-cancel when user dismisses keyboard by tapping away
-                    setTimeout(() => {
-                      if (showAdminCodeModal && adminCodeInput.length !== 4) {
-                        closeAdminCodeModal();
+                <Text style={styles.modalDescription}>
+                  Enter your 4-digit parent code to continue.
+                </Text>
+
+                {/* PIN Input Row */}
+                <Pressable
+                  style={styles.pinRow}
+                  onPress={() => pinInputRef.current?.focus()}>
+                  <TextInput
+                    ref={pinInputRef}
+                    value={adminCodeInput}
+                    onChangeText={text => {
+                      const numericText = text.replace(/[^0-9]/g, '');
+                      if (numericText.length <= 4) {
+                        setAdminCodeInput(numericText);
+                        const newDigits = ['', '', '', ''];
+                        for (let i = 0; i < numericText.length; i++) {
+                          newDigits[i] = numericText[i];
+                        }
+                        setPinDigits(newDigits);
+                        setIsAdminCodeError(false);
+
+                        // Auto-submit when all 4 digits entered
+                        if (numericText.length === 4) {
+                          setTimeout(() => {
+                            handleAdminCodeSubmit(numericText);
+                          }, 100);
+                        }
                       }
-                    }, 100);
-                  }}
-                  blurOnSubmit={true}
-                />
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                    autoFocus={true}
+                    caretHidden={true}
+                  />
+                  {pinDigits.map((digit, index) => {
+                    const pinBoxSize = Math.min(width * 0.12, 80);
+                    return (
+                      <View
+                        key={index}
+                        style={[
+                          styles.pinBox,
+                          {
+                            width: pinBoxSize,
+                            height: pinBoxSize,
+                            borderRadius: pinBoxSize * 0.18,
+                          },
+                          digit !== '' && styles.pinBoxFilled,
+                          isAdminCodeError && styles.pinBoxError,
+                        ]}>
+                        <Text
+                          style={[
+                            styles.pinInput,
+                            {
+                              fontSize: showAdminCode ? 24 : 36,
+                              lineHeight: pinBoxSize,
+                            },
+                          ]}>
+                          {showAdminCode ? digit : (digit ? '●' : '')}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </Pressable>
 
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
@@ -1207,11 +1269,17 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                       styles.submitButton,
                       adminCodeInput.length !== 4 && styles.disabledButton,
                     ]}
-                    onPress={handleAdminCodeSubmit}
+                    onPress={() => handleAdminCodeSubmit()}
                     disabled={adminCodeInput.length !== 4}>
                     <Text style={styles.buttonText}>Submit</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Forgot Password */}
+                <Text style={styles.forgotCodeText}>
+                  If you forgot your password go to{' '}
+                  <Text style={styles.forgotCodeLabel}>verbali.io/forgotadminpassword</Text>
+                </Text>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1321,54 +1389,85 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingTop: height * 0.2,
+    paddingTop: height * 0.15,
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: '#f5f0e8',
     borderRadius: 20,
     padding: width * 0.05,
     width: width * 0.8,
-    maxWidth: 400,
+    maxWidth: 450,
     alignItems: 'center',
+  },
+  lockIcon: {
+    fontSize: 32,
+    marginBottom: 8,
   },
   modalTitle: {
     fontSize: height * 0.03,
     fontWeight: 'bold',
-    marginBottom: height * 0.02,
+    marginBottom: 4,
     textAlign: 'center',
+    color: '#333',
   },
-  forgotCodeText: {
+  modalDescription: {
     fontSize: height * 0.018,
     color: '#666',
     textAlign: 'center',
     marginBottom: height * 0.02,
-    lineHeight: height * 0.025,
+  },
+  pinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: height * 0.025,
+    gap: 12,
+  },
+  pinBox: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pinBoxFilled: {
+    borderColor: '#007bff',
+  },
+  pinBoxError: {
+    borderColor: '#ff3b30',
+    backgroundColor: '#fff0f0',
+  },
+  pinInput: {
+    width: '100%',
+    height: '100%',
+    textAlign: 'center',
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  eyeIcon: {
+    fontSize: 22,
+  },
+  forgotCodeText: {
+    fontSize: height * 0.016,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: height * 0.015,
+    lineHeight: height * 0.022,
     paddingHorizontal: 16,
     fontStyle: 'italic',
   },
   forgotCodeLabel: {
     fontWeight: 'bold',
     color: '#007bff',
-  },
-  emailLink: {
-    color: '#007bff',
-    textDecorationLine: 'underline',
-  },
-  codeInput: {
-    width: '100%',
-    height: height * 0.08,
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    fontSize: height * 0.025,
-    textAlign: 'center',
-    marginBottom: height * 0.02,
-  },
-  errorInput: {
-    borderColor: '#ff3b30',
-    backgroundColor: '#fff0f0',
   },
   modalButtons: {
     flexDirection: 'row',

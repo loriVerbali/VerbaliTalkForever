@@ -25,10 +25,7 @@ import {
 import { useConnection } from '../utils/connection';
 
 // General assets
-import micImg from '../assets/microphone.png';
-import boyImg from '../assets/boy.png';
 import matalkImg from '../assets/matalk.png';
-import dogImg from '../assets/welcome.png';
 
 // Attention category images
 import hiImg from '../assets/shortCuts/attention/hi.jpg';
@@ -363,7 +360,7 @@ const ShortCuts = () => {
           <FastImage
             source={
               connectionState
-                ? require('../assets/michrophone.gif')
+                ? require('../assets/micstatic.png')
                 : require('../assets/noMic.png')
             }
             style={responsiveValues.iconSize}

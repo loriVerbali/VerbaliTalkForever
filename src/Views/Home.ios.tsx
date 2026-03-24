@@ -16,13 +16,11 @@ import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
 import { useAssistant } from '../contexts/AssistantContext';
-import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
 } from '../contexts/ChatContextProvider';
 import TTSService from '../utils/TTSService';
-import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
@@ -242,7 +240,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const { playAttention } = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
@@ -1180,11 +1177,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#FFF8E7', '#FFFFFF']}
+      <View
         style={[
           styles.container,
           Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
+          { backgroundColor: '#FFF8E7' }
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1638,7 +1635,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             </View>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </View>
   );
 };
