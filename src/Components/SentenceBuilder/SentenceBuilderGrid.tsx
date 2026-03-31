@@ -71,7 +71,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   onResetDbPressed,
 }) => {
   const { addUtterance } = useDatabase();
-  const { getItem } = useAppSettings();
+  const { getItem, setItem } = useAppSettings();
   const navigation = useNavigation<NavigationProp>();
 
   // State
@@ -94,6 +94,17 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   const [pinDigits, setPinDigits] = useState(['', '', '', '']);
   const [showAdminCode, setShowAdminCode] = useState(false);
   const pinInputRef = useRef<TextInput | null>(null);
+  // Set New Password flow state
+  const [isSettingNewPassword, setIsSettingNewPassword] = useState(false);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [newPinDigits, setNewPinDigits] = useState(['', '', '', '']);
+  const [newPinError, setNewPinError] = useState('');
+  const newPinInputRef = useRef<TextInput | null>(null);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotPinInput, setForgotPinInput] = useState('');
+  const [forgotPinDigits, setForgotPinDigits] = useState(['', '', '', '', '']);
+  const [forgotPinError, setForgotPinError] = useState('');
+  const forgotPinInputRef = useRef<TextInput | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isProcessingPressRef = useRef<boolean>(false);
   const isDebouncing = useRef(false);
@@ -565,8 +576,10 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     }
   };
 
-  const handleCancelEditPress = () => {
+  const handleCancelEditPress = async () => {
     setIsEditing(false);
+    // Fully reload data to reset the view (prevents UI glitches after editing)
+    await initializeAndLoadData();
   };
 
   // Admin code modal handlers
@@ -576,16 +589,24 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     setPinDigits(['', '', '', '']);
     setShowAdminCode(false);
     setIsAdminCodeError(false);
+    // Reset new password flow state
+    setIsSettingNewPassword(false);
+    setNewPinInput('');
+    setNewPinDigits(['', '', '', '']);
+    setNewPinError('');
+    // Reset forgot password state
+    setIsForgotPassword(false);
+    setForgotPinInput('');
+    setForgotPinDigits(['', '', '', '', '']);
+    setForgotPinError('');
   };
 
   const handleAdminCodeSubmit = async (overrideCode?: string) => {
     try {
       const codeToSubmit = overrideCode || adminCodeInput;
       const storedAdminCode = await getItem('adminCode');
-      if (
-        codeToSubmit === storedAdminCode ||
-        codeToSubmit === AppConfig.masterAdminCode
-      ) {
+
+      if (codeToSubmit === storedAdminCode) {
         closeAdminCodeModal();
         setIsEditing(true);
       } else {
@@ -598,6 +619,36 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     } catch (error) {
       setIsAdminCodeError(true);
     }
+  };
+
+  const handleForgotCodeSubmit = async (overrideCode?: string) => {
+    const codeToSubmit = overrideCode || forgotPinInput;
+
+    if (codeToSubmit === AppConfig.masterAdminCode) {
+      setIsForgotPassword(false);
+      setForgotPinInput('');
+      setForgotPinDigits(['', '', '', '', '']);
+      setForgotPinError('');
+
+      setIsSettingNewPassword(true);
+      setNewPinInput('');
+      setNewPinDigits(['', '', '', '']);
+      setNewPinError('');
+      setTimeout(() => newPinInputRef.current?.focus(), 200);
+    } else {
+      setForgotPinError('Incorrect master code.');
+      // Clear error after 2 seconds
+      setTimeout(() => setForgotPinError(''), 2000);
+    }
+  };
+
+  const handleNewPinSave = async () => {
+    if (newPinInput.length !== 4) {
+      setNewPinError('Please enter a 4-digit code.');
+      return;
+    }
+    await setItem('adminCode', newPinInput);
+    closeAdminCodeModal();
   };
 
   // Grid size change handler
@@ -845,8 +896,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               //shadowRadius: 10,
               shadowOffset: { width: 0, height: 6 },
               elevation: 12,
-              borderWidth: node.kind === 'folder' ? 5 : 3,
-              borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : color,
+              borderWidth: node.kind === 'folder' ? 4 : 3,
+              borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : (node.kind === 'folder' ? '#222222' : color),
               borderStyle: isEmptyCell || isDeletedCard ? 'dashed' : 'solid',
             },
           ]}>
@@ -876,62 +927,47 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
             </TouchableOpacity>
           )}
 
-          {/* Folder Icon - Top Left */}
+          {/* Top semi-transparent strip for folders */}
           {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
             <View
               style={{
                 position: 'absolute',
-                top: 5,
-                left: 5,
-                zIndex: 15,
-                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                borderRadius: 4,
-                padding: 2,
-              }}>
-              <Text style={{ fontSize: 14 }}>📁</Text>
-            </View>
+                top: 0,
+                left: 0,
+                width: cardDimensions.width * 0.6,
+                height: cardDimensions.height * 0.12,
+                backgroundColor: 'rgba(140, 137, 129, 0.8)',
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: cardDimensions.height * 0.02,
+                borderBottomRightRadius: cardDimensions.height * 0.2,
+                borderBottomLeftRadius: 0,
+
+                borderBottomWidth: 5,
+                borderTopWidth: 2,
+                borderLeftWidth: 0,
+                borderRightWidth: 5,
+                borderColor: '#4d4d4a',
+                zIndex: 12,
+              }}
+            />
           )}
 
-          {/* Folded corner effect for folders */}
-          {node.kind === 'folder' && (
+          {/* Full-width transparent strip for folders */}
+          {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
             <View
               style={{
                 position: 'absolute',
-                top: -5, // Compensate for card border
-                right: -5,
-                width: 35,
-                height: 35,
-                zIndex: 12,
-              }}>
-              {/* Corner Cut (matches parent background) */}
-              <View
-                style={{
-                  width: 0,
-                  height: 0,
-                  borderStyle: 'solid',
-                  borderLeftWidth: 35,
-                  borderTopWidth: 35,
-                  borderLeftColor: '#f8f9fa', // Parent background color
-                  borderTopColor: 'transparent',
-                }}
-              />
-              {/* The Fold (matches border color) */}
-              <View
-                style={{
-                  position: 'absolute',
-                  top: -14,
-                  right: -14,
-                  width: 0,
-                  height: 0,
-                  borderStyle: 'solid',
-                  borderBottomWidth: 40,
-                  borderRightWidth: 40,
-                  borderBottomColor: color, // Match border color
-                  borderRightColor: 'transparent',
-                }}
-              />
-            </View>
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: cardDimensions.height * 0.12,
+                backgroundColor: 'rgba(255, 248, 231, 0.8)',
+                zIndex: 11,
+              }}
+            />
           )}
+
+
 
           {/* Image section - full height on mobile, partial on desktop */}
           <View
@@ -1031,26 +1067,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                     }}
                     resizeMode={FastImage.resizeMode.cover}
                   />
-                ) : (
-                  <View
-                    style={{
-                      width: cardDimensions.width,
-                      height: isMobile
-                        ? cardDimensions.height
-                        : cardDimensions.height * 0.82,
-                      backgroundColor: color,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      borderTopLeftRadius: 8,
-                      borderTopRightRadius: 8,
-                      borderBottomLeftRadius: isMobile ? 8 : 0,
-                      borderBottomRightRadius: isMobile ? 8 : 0,
-                    }}>
-                    <Text style={{ fontSize: cardDimensions.width * 0.2 }}>
-                      📁
-                    </Text>
-                  </View>
-                )}
+                ) : null}
               </>
             )}
 
@@ -1062,25 +1079,25 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                  borderBottomLeftRadius: node.kind === 'folder' ? 0 : 8,
-                  borderBottomRightRadius: node.kind === 'folder' ? 0 : 8,
-                  paddingVertical: 2, // Reduced padding for smaller text overlay
+                  backgroundColor: node.kind === 'folder' ? '#FFF8E7' : 'rgba(255, 255, 255, 0.7)',
+                  borderBottomLeftRadius: 4,
+                  borderBottomRightRadius: 4,
+                  paddingVertical: node.kind === 'folder' ? 4 : 2,
                   paddingHorizontal: 2,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  borderTopWidth: node.kind === 'folder' ? 3 : 0,
-                  borderColor: color,
+                  borderTopWidth: node.kind === 'folder' ? 2 : 0,
+                  borderColor: node.kind === 'folder' ? '#222222' : color,
                 }}>
                 <Text
                   style={{
-                    fontSize: Math.max(8, cardDimensions.width * 0.06),
-                    fontWeight: '600',
+                    fontSize: node.kind === 'folder' ? Math.max(10, cardDimensions.width * 0.07) : Math.max(8, cardDimensions.width * 0.06),
+                    fontWeight: node.kind === 'folder' ? '800' : '600',
                     color: '#000',
                     textAlign: 'center',
-                    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-                    textShadowOffset: { width: 1, height: 1 },
-                    textShadowRadius: 2,
+                    textShadowColor: node.kind === 'folder' ? undefined : 'rgba(0, 0, 0, 0.8)',
+                    textShadowOffset: node.kind === 'folder' ? undefined : { width: 1, height: 1 },
+                    textShadowRadius: node.kind === 'folder' ? undefined : 2,
                   }}
                   numberOfLines={2}>
                   {node.kind === 'folder' ? node.title.toUpperCase() : node.title}
@@ -1222,96 +1239,300 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                 {/* Lock Icon */}
                 <Text style={styles.lockIcon}>🔒</Text>
 
-                <Text style={styles.modalTitle}>Enter Admin Code</Text>
-                <Text style={styles.modalDescription}>
-                  Enter your 4-digit parent code to continue.
-                </Text>
+                {!isSettingNewPassword && !isForgotPassword ? (
+                  <>
+                    <Text style={styles.modalTitle}>Enter Admin Code</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter your 4-digit parent code to continue.
+                    </Text>
 
-                {/* PIN Input Row */}
-                <Pressable
-                  style={styles.pinRow}
-                  onPress={() => pinInputRef.current?.focus()}>
-                  <TextInput
-                    ref={pinInputRef}
-                    value={adminCodeInput}
-                    onChangeText={text => {
-                      const numericText = text.replace(/[^0-9]/g, '');
-                      if (numericText.length <= 4) {
-                        setAdminCodeInput(numericText);
-                        const newDigits = ['', '', '', ''];
-                        for (let i = 0; i < numericText.length; i++) {
-                          newDigits[i] = numericText[i];
-                        }
-                        setPinDigits(newDigits);
-                        setIsAdminCodeError(false);
+                    {/* PIN Input Row */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => pinInputRef.current?.focus()}>
+                      <TextInput
+                        ref={pinInputRef}
+                        value={adminCodeInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setAdminCodeInput(numericText);
+                            const newDigits = ['', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              newDigits[i] = numericText[i];
+                            }
+                            setPinDigits(newDigits);
+                            setIsAdminCodeError(false);
 
-                        // Auto-submit when all 4 digits entered
-                        if (numericText.length === 4) {
-                          setTimeout(() => {
-                            handleAdminCodeSubmit(numericText);
-                          }, 100);
-                        }
-                      }
-                    }}
-                    keyboardType="number-pad"
-                    maxLength={4}
-                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
-                    autoFocus={true}
-                    caretHidden={true}
-                  />
-                  {pinDigits.map((digit, index) => {
-                    const pinBoxSize = Math.min(width * 0.12, 80);
-                    return (
-                      <View
-                        key={index}
+                            // Auto-submit when all 4 digits entered
+                            if (numericText.length === 4) {
+                              setTimeout(() => {
+                                handleAdminCodeSubmit(numericText);
+                              }, 100);
+                            }
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {pinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.12, 80);
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                              isAdminCodeError && styles.pinBoxError,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                {
+                                  fontSize: showAdminCode ? 24 : 36,
+                                  lineHeight: pinBoxSize,
+                                },
+                              ]}>
+                              {showAdminCode ? digit : (digit ? '●' : '')}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={closeAdminCodeModal}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         style={[
-                          styles.pinBox,
-                          {
-                            width: pinBoxSize,
-                            height: pinBoxSize,
-                            borderRadius: pinBoxSize * 0.18,
-                          },
-                          digit !== '' && styles.pinBoxFilled,
-                          isAdminCodeError && styles.pinBoxError,
-                        ]}>
-                        <Text
-                          style={[
-                            styles.pinInput,
-                            {
-                              fontSize: showAdminCode ? 24 : 36,
-                              lineHeight: pinBoxSize,
-                            },
-                          ]}>
-                          {showAdminCode ? digit : (digit ? '●' : '')}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </Pressable>
+                          styles.modalButton,
+                          styles.submitButton,
+                          adminCodeInput.length !== 4 && styles.disabledButton,
+                        ]}
+                        onPress={() => handleAdminCodeSubmit()}
+                        disabled={adminCodeInput.length !== 4}>
+                        <Text style={styles.buttonText}>Submit</Text>
+                      </TouchableOpacity>
+                    </View>
 
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={closeAdminCodeModal}>
-                    <Text style={styles.buttonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton,
-                      styles.submitButton,
-                      adminCodeInput.length !== 4 && styles.disabledButton,
-                    ]}
-                    onPress={() => handleAdminCodeSubmit()}
-                    disabled={adminCodeInput.length !== 4}>
-                    <Text style={styles.buttonText}>Submit</Text>
-                  </TouchableOpacity>
-                </View>
+                    {/* Forgot Password */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsForgotPassword(true);
+                        setAdminCodeInput('');
+                        setPinDigits(['', '', '', '']);
+                        setIsAdminCodeError(false);
+                        setTimeout(() => forgotPinInputRef.current?.focus(), 200);
+                      }}>
+                      <Text style={styles.forgotCodeText}>
+                        <Text style={styles.forgotCodeLabel}>Forgot password?</Text>
+                      </Text>
+                      <Text style={[styles.forgotCodeText, { marginTop: 4 }]}>
+                        Open a browser and go to <Text style={{ fontWeight: 'bold' }}>verbali.io/forgotadminpassword</Text>
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : isForgotPassword ? (
+                  <>
+                    <Text style={styles.modalTitle}>Master Override</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter your 5-digit master override code to reset your admin PIN.
+                    </Text>
+                    <Text style={[styles.modalDescription, { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 15 }]}>
+                      you need to go to https://www.verbali.io/forgotadminpassword to get the code
+                    </Text>
 
-                {/* Forgot Password */}
-                <Text style={styles.forgotCodeText}>
-                  If you forgot your password go to{' '}
-                  <Text style={styles.forgotCodeLabel}>verbali.io/forgotadminpassword</Text>
-                </Text>
+                    {/* 5-Digit PIN Input Row */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => forgotPinInputRef.current?.focus()}>
+                      <TextInput
+                        ref={forgotPinInputRef}
+                        value={forgotPinInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 5) {
+                            setForgotPinInput(numericText);
+                            const newDigits = ['', '', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              newDigits[i] = numericText[i];
+                            }
+                            setForgotPinDigits(newDigits);
+                            setForgotPinError('');
+
+                            // Auto-submit when all 5 digits entered
+                            if (numericText.length === 5) {
+                              setTimeout(() => {
+                                handleForgotCodeSubmit(numericText);
+                              }, 100);
+                            }
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {forgotPinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.1, 70);
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                              forgotPinError !== '' && styles.pinBoxError,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                {
+                                  fontSize: 36,
+                                  lineHeight: pinBoxSize,
+                                },
+                              ]}>
+                              {digit ? '●' : ''}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    {/* Error message */}
+                    {forgotPinError !== '' && (
+                      <Text style={{ color: '#E54848', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                        {forgotPinError}
+                      </Text>
+                    )}
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={() => {
+                          setIsForgotPassword(false);
+                          setForgotPinInput('');
+                          setForgotPinDigits(['', '', '', '', '']);
+                          setForgotPinError('');
+                          setTimeout(() => pinInputRef.current?.focus(), 200);
+                        }}>
+                        <Text style={styles.buttonText}>I remember my code</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          forgotPinInput.length !== 5 && styles.disabledButton,
+                        ]}
+                        onPress={() => handleForgotCodeSubmit()}
+                        disabled={forgotPinInput.length !== 5}>
+                        <Text style={styles.buttonText}>Submit</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalTitle}>Set New Password</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter a new 4-digit admin code.
+                    </Text>
+
+                    {/* New PIN Entry */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => newPinInputRef.current?.focus()}>
+                      <TextInput
+                        ref={newPinInputRef}
+                        value={newPinInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setNewPinInput(numericText);
+                            const digits = ['', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              digits[i] = numericText[i];
+                            }
+                            setNewPinDigits(digits);
+                            setNewPinError('');
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {newPinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.12, 80);
+                        return (
+                          <View
+                            key={`new-${index}`}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                { fontSize: 36, lineHeight: pinBoxSize },
+                              ]}>
+                              {digit ? '●' : ''}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    {/* Error message */}
+                    {newPinError !== '' && (
+                      <Text style={{ color: '#E54848', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                        {newPinError}
+                      </Text>
+                    )}
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={closeAdminCodeModal}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          newPinInput.length !== 4 && styles.disabledButton,
+                        ]}
+                        onPress={handleNewPinSave}
+                        disabled={newPinInput.length !== 4}>
+                        <Text style={styles.buttonText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1453,7 +1674,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: height * 0.025,
-    gap: 12,
+    width: '100%',
   },
   pinBox: {
     backgroundColor: '#fff',

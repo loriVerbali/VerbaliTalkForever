@@ -7,14 +7,13 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import {useRoute, useNavigation} from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import WordCountMetric from '../Components/WordCountMetric';
 import AIResponseTimeMetric from '../Components/AIResponseTimeMetric';
 import QALogMetric from '../Components/QALogMetric';
 import ClassicBoardMetric from '../Components/ClassicBoardMetric';
 
-const {height} = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
 
 const MetricDetailScreen: React.FC = () => {
@@ -45,7 +44,7 @@ const MetricDetailScreen: React.FC = () => {
   };
 
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -55,7 +54,7 @@ const MetricDetailScreen: React.FC = () => {
         <Text style={styles.headerTitle}>{title}</Text>
       </View>
       <View style={styles.content}>{renderMetricComponent()}</View>
-    </LinearGradient>
+    </View>
   );
 };
 
