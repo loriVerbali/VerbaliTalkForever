@@ -31,7 +31,7 @@ const AppConfig: ConfigType = {
   geminiAPIKey: Config.GEMINI_API_KEY || '',
   picGeneration: 'polli',
   assemblyAIURL: 'https://api.assemblyai.com/v2',
-  masterAdminCode: '7856',
+  masterAdminCode: '78567',
 
   methods: {
     registerUser: {
