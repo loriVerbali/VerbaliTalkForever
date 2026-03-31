@@ -28,7 +28,6 @@ import {
   requestMultiple,
 } from 'react-native-permissions';
 import matalkImg from '../assets/matalk.png';
-import LinearGradient from 'react-native-linear-gradient';
 import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import ShowAndTell from '../Components/ShowAndTell';
@@ -1117,7 +1116,7 @@ const OnboardingScreen: React.FC = () => {
       <View style={styles.matalkIcon}>
         <FastImage source={matalkImg} style={styles.iconSize} />
       </View>
-      <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
+      <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}>
@@ -1200,7 +1199,7 @@ const OnboardingScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 };

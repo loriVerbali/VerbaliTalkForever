@@ -23,7 +23,6 @@ import {
   getContextualInfo,
 } from '../contexts/ChatContextProvider';
 import TTSService from '../utils/TTSService';
-import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
@@ -1067,11 +1066,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#FFF8E7', '#FFFFFF']}
+      <View
         style={[
           styles.container,
           Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
+          { backgroundColor: '#FFF8E7' }
         ]}>
         {stateof === 'Keyboard' ? null : (
           <View
@@ -1507,7 +1506,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             </View>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </View>
   );
 };
