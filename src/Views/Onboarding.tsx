@@ -553,7 +553,14 @@ const OnboardingScreen: React.FC = () => {
               </Text>
 
               {/* PIN Input Row */}
-              <TouchableOpacity activeOpacity={1} style={styles.parentCodePinRow} onPress={() => pinInputRef.current?.focus()}>
+              <TouchableOpacity activeOpacity={1} style={styles.parentCodePinRow} onPress={() => {
+                if (pinInputRef.current) {
+                  pinInputRef.current.blur();
+                  setTimeout(() => {
+                    pinInputRef.current?.focus();
+                  }, 100);
+                }
+              }}>
                 <TextInput
                   ref={pinInputRef}
                   value={adminCode}
