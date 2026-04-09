@@ -155,7 +155,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       {/* Microphone Button */}
       <TouchableOpacity style={styles.iconButton} onPress={onMicrophonePress}>
         <FastImage
-          source={require('../../assets/michrophone.gif')}
+          source={require('../../assets/micstatic.png')}
           style={styles.trashIconSize}
           resizeMode={FastImage.resizeMode.contain}
         />

@@ -212,32 +212,32 @@ export class SentenceBuilderSqlite {
       let id: string;
       let baseId: string;
 
+      const sanitizeTitle = (title: string) =>
+        title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_')
+          .replace(/^_+|_+$/g, '');
+
       if (nodeData.parentId === null) {
         // Root level items - folders get folder_ prefix, words get root_ prefix
         if (nodeData.kind === 'folder') {
-          baseId = `folder_${nodeData.title
-            .toLowerCase()
-            .replace(/\s+/g, '_')}`;
+          baseId = `folder_${sanitizeTitle(nodeData.title)}`;
         } else {
-          baseId = `root_${nodeData.title.toLowerCase().replace(/\s+/g, '_')}`;
+          baseId = `root_${sanitizeTitle(nodeData.title)}`;
         }
       } else if (nodeData.parentId.startsWith('folder_')) {
         // Items in folders - check if this is a nested folder or a word
         const folderName = nodeData.parentId.replace('folder_', '');
         if (nodeData.kind === 'folder') {
           // Nested folders get folder_ prefix
-          baseId = `folder_${nodeData.title
-            .toLowerCase()
-            .replace(/\s+/g, '_')}`;
+          baseId = `folder_${sanitizeTitle(nodeData.title)}`;
         } else {
           // Words in folders get parent_folder_word format
-          baseId = `${folderName}_${nodeData.title
-            .toLowerCase()
-            .replace(/\s+/g, '_')}`;
+          baseId = `${folderName}_${sanitizeTitle(nodeData.title)}`;
         }
       } else {
         // Fallback
-        baseId = `node_${nodeData.title.toLowerCase().replace(/\s+/g, '_')}`;
+        baseId = `node_${sanitizeTitle(nodeData.title)}`;
       }
 
       // Ensure unique ID by adding suffix if needed
