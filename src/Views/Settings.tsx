@@ -25,7 +25,6 @@ import {
   useRoute,
 } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
-import LinearGradient from 'react-native-linear-gradient';
 import { useAppSettings } from '../utils/persistance';
 import { sessionManager } from '../utils/sessionManager';
 import { useAdmin } from '../contexts/adminContext';
@@ -932,7 +931,7 @@ const SettingsScreen: React.FC = () => {
 
 
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
@@ -1959,7 +1958,7 @@ const SettingsScreen: React.FC = () => {
               )}
             </View>
 
-            <View style={[styles.section, styles.sectionData]}>
+            <View style={[styles.section]}>
               <Text style={styles.sectionTitle}>Data Management</Text>
               <Text style={styles.aboutDescription}>
                 Export your profile data to keep a backup or transfer to another device.
@@ -2151,7 +2150,7 @@ const SettingsScreen: React.FC = () => {
           onDismiss={handleRatingModalDismiss}
         />
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 };
 

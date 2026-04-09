@@ -377,7 +377,11 @@ const WhisperDownload: React.FC<WhisperDownloadProps> = ({
         </Text>
 
         <View style={styles.downloadContainer}>
-          {!isComplete && <ActivityIndicator size="large" color="#146CF0" />}
+          <ActivityIndicator
+            size="large"
+            color="#146CF0"
+            style={{ opacity: isComplete ? 0 : 1 }}
+          />
           {isComplete ? (
             <Text style={[styles.readyText, { color: '#4CAF50' }]}>
               ✨

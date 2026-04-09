@@ -302,7 +302,7 @@ const Feelings = () => {
           <Image
             source={
               connectionState
-                ? require('../assets/michrophone.gif')
+                ? require('../assets/micstatic.png')
                 : require('../assets/noMic.png')
             }
             style={responsiveValues.iconSize}

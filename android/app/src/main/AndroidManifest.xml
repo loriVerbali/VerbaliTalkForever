@@ -27,6 +27,7 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme"
+      android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:supportsRtl="true"
       android:appComponentFactory="androidx.core.app.CoreComponentFactory"
       tools:replace="android:appComponentFactory">

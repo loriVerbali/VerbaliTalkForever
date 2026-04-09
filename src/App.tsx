@@ -12,7 +12,6 @@ import RootControllerView from './Navigation/RootControllerView';
 import { AppSettingsProvider } from './utils/persistance';
 import { AdminProvider } from './contexts/adminContext';
 import { ChatContextProvider } from './contexts/ChatContextProvider';
-import { SoundProvider } from './contexts/soundContext';
 import { ConnectionProvider } from './utils/connection';
 import { ToastProvider } from './contexts/ToastContext';
 import { DatabaseProvider } from './contexts/DatabaseContext';
@@ -176,9 +175,9 @@ const App = () => {
               <DatabaseProvider>
                 <AdminProvider>
                   <ChatContextProvider>
-                    <SoundProvider>
-                      <RootControllerView />
-                    </SoundProvider>
+
+                    <RootControllerView />
+
                   </ChatContextProvider>
                 </AdminProvider>
               </DatabaseProvider>

@@ -4,7 +4,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from '../Views/Home';
 import { views } from '../utils/constants';
 import { AssistantProvider } from '../contexts/AssistantContext';
-import { SoundProvider } from '../contexts/soundContext';
 import OpenScreen from '../Views/Open';
 import FeelingsScreen from '../Views/Feelings';
 import ShortCutsScreen from '../Views/ShortCuts';
@@ -121,76 +120,74 @@ function LoggedNavigation() {
 
   return (
     <AssistantProvider>
-      <SoundProvider>
-        <HomeStack.Navigator initialRouteName={views.OPEN}>
-          <HomeStack.Screen
-            options={{ headerShown: false }}
-            component={OpenScreen}
-            name={views.OPEN}
-          />
-          <HomeStack.Screen
-            options={{ headerShown: false }}
-            component={HomeScreen}
-            name={views.HOME}
-          />
-          <HomeStack.Screen
-            name={views.FEELINGS}
-            component={FeelingsScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <HomeStack.Screen
-            name={views.SHORTCUTS}
-            component={ShortCutsScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <HomeStack.Screen
-            name={views.CONVO}
-            component={Convo}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <HomeStack.Screen
-            name={views.SETTINGS}
-            component={SettingsScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <HomeStack.Screen
-            name={views.REPORTS}
-            component={ReportsScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <HomeStack.Screen
-            name={views.METRIC_DETAIL}
-            component={MetricDetailScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <HomeStack.Screen
-            name="WebView"
-            component={WebViewScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-          <HomeStack.Screen
-            name={views.KEYBOARD_HOME}
-            component={KeyboardHomeScreen}
-            options={{
-              headerShown: false,
-            }}
-          />
-        </HomeStack.Navigator>
-      </SoundProvider>
+      <HomeStack.Navigator initialRouteName={views.OPEN}>
+        <HomeStack.Screen
+          options={{ headerShown: false }}
+          component={OpenScreen}
+          name={views.OPEN}
+        />
+        <HomeStack.Screen
+          options={{ headerShown: false }}
+          component={HomeScreen}
+          name={views.HOME}
+        />
+        <HomeStack.Screen
+          name={views.FEELINGS}
+          component={FeelingsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name={views.SHORTCUTS}
+          component={ShortCutsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name={views.CONVO}
+          component={Convo}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name={views.SETTINGS}
+          component={SettingsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name={views.REPORTS}
+          component={ReportsScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name={views.METRIC_DETAIL}
+          component={MetricDetailScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name="WebView"
+          component={WebViewScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name={views.KEYBOARD_HOME}
+          component={KeyboardHomeScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+      </HomeStack.Navigator>
     </AssistantProvider>
   );
 }
