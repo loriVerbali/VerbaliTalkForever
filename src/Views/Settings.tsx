@@ -34,7 +34,7 @@ import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import fetchHelper from '../utils/fetcher';
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
@@ -81,7 +81,7 @@ const InfoModal = ({
   title: string;
   description: string;
 }) => {
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
   return (
     <Modal
       animationType="fade"
@@ -120,7 +120,7 @@ const MessagesSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -182,7 +182,7 @@ const RangeSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -251,6 +251,7 @@ const SettingsScreen: React.FC = () => {
   const [adminCodeError, setAdminCodeError] = useState('');
   const [isAdminCodeVisible, setIsAdminCodeVisible] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deviceRevoked, setDeviceRevoked] = useState('0');
 
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
@@ -274,7 +275,7 @@ const SettingsScreen: React.FC = () => {
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
 
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
@@ -359,6 +360,8 @@ const SettingsScreen: React.FC = () => {
         const savedHeroName = await getItem('heroName');
         const savedHandshakeMessage = await getItem('handshakeMessage');
         const savedUseLocalWhisper = await getItem('useLocalWhisper');
+
+        setDeviceRevoked(await getItem('deviceRevoked'));
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
@@ -954,6 +957,16 @@ const SettingsScreen: React.FC = () => {
           <>
             <View style={[styles.section, styles.sectionAccountSettings]}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
+
+
+              <View style={[styles.section, styles.sectionAccountStatus]}>
+                <Text style={styles.sectionTitle}>Account Status</Text>
+                <Text style={[styles.aboutText, deviceRevoked === '1' && { color: '#f44336', fontWeight: 'bold' }]}>
+                  {deviceRevoked === '1'
+                    ? 'Please contact Verbali there seems to be an issue with your account'
+                    : 'active'}
+                </Text>
+              </View>
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Hero Name</Text>
@@ -2043,6 +2056,7 @@ const SettingsScreen: React.FC = () => {
           </Pressable>
         </View>
 
+
         <View style={[styles.section, styles.sectionAbout]}>
           <Text style={styles.sectionTitle}>About</Text>
           <TouchableOpacity
@@ -2207,6 +2221,9 @@ const styles = StyleSheet.create({
   },
   sectionReset: {
     backgroundColor: '#fce8e8',
+  },
+  sectionAccountStatus: {
+    backgroundColor: '#fffbe6',
   },
   sectionLegal: {
     backgroundColor: '#f0f0f2',

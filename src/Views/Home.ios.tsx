@@ -24,7 +24,7 @@ import TTSService from '../utils/TTSService';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { logConversation } from '../utils/conversationLogger';
 import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
@@ -259,7 +259,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+
   let currentRecordingURI: string | null = null;
 
   // AI response timer state

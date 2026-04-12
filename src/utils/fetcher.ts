@@ -53,8 +53,17 @@ const fetchWithRetry = async (
       }
     }
 
-    if (response.status === 400) {
-      return response;
+    if (
+      response.status === 400 ||
+      response.status === 403 ||
+      response.status === 404 ||
+      response.status === 409
+    ) {
+      try {
+        return await response.json();
+      } catch (err) {
+        return response; // Fallback if body is not JSON
+      }
     }
 
     // Retry on 504 status
