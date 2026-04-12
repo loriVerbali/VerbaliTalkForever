@@ -20,6 +20,7 @@ class TTSService {
   private queue: Array<{ text: string; onComplete?: () => void }> = [];
   private processingQueue: boolean = false;
   private currentItem: { text: string; onComplete?: () => void } | null = null;
+  private volumeCleanup: (() => void) | null = null;
   private ttsBasePath: string = `${RNFS.MainBundlePath}`;
   private ttsConfig = {
     modelPath: `${this.ttsBasePath}/en_US-amy-medium.onnx`,
@@ -32,7 +33,7 @@ class TTSService {
 
   private constructor() {
     // Private constructor for singleton
-    TTSService.suppressVolumeWarning();
+    this.volumeCleanup = TTSService.suppressVolumeWarning();
   }
 
   private async initTTS() {
@@ -101,6 +102,9 @@ class TTSService {
           (text.length / 15) * 1000,
         );
         this.iosTTSPlaybackStartTime = Date.now();
+
+        // Clear any existing timeout before setting a new one to prevent orphaned callbacks
+        this.clearIOSPlaybackTimeout();
 
         // Set a timeout to mark playback as finished
         this.iosTTSPlaybackTimeout = setTimeout(() => {
@@ -269,10 +273,15 @@ class TTSService {
   public async shutdown(): Promise<void> {
     try {
       await this.stop();
+      // Clean up the VolumeUpdate listener to prevent leak
+      this.volumeCleanup?.();
+      this.volumeCleanup = null;
       this.initialized = false;
     } catch (error) {
       console.error('[TTSService] shutdown error:', error);
       // Reset state even if shutdown fails
+      this.volumeCleanup?.();
+      this.volumeCleanup = null;
       this.initialized = false;
     }
   }

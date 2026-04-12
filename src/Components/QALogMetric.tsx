@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import {useDatabase} from '../contexts/DatabaseContext';
 import {useAppSettings} from '../utils/persistance';
-import {Mixpanel} from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 
 const {width, height} = Dimensions.get('window');
 
@@ -147,7 +147,6 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
 
   // Track when this metric component is viewed
   useEffect(() => {
-    const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
     mixpanel.track('QALogMetric Viewed', {
       MetricKey: 'metric4',
     });

@@ -53,7 +53,7 @@ import tiredImg from '../assets/feelings/badBody/tired.jpg';
 import dizzyImg from '../assets/feelings/badBody/dizzy.jpg';
 import itchyImg from '../assets/feelings/badBody/itchy.jpg';
 
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // For simplicity, we'll use the same dog image for all feeling cards
 // In a real app, you would have different images for each feeling
@@ -146,7 +146,7 @@ const Feelings = () => {
   const { isConnected } = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+
   type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryKey>('goodBody');

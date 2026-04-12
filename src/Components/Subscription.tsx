@@ -32,7 +32,7 @@ import { useToast } from '../contexts/ToastContext';
 import { validateSubscription } from '../utils/recieptValidation';
 import { useAppSettings } from '../utils/persistance';
 // Removed trialUtils import - this is a paid app
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,7 +55,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
   setGotSubscription,
   context = 'onboarding',
 }) => {
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
   const { isTablet } = useAdmin();
   const { showError } = useToast();
 

@@ -23,7 +23,7 @@ import { useAppSettings } from '../utils/persistance';
 import AppConfig from '../utils/config';
 import { useConnection } from '../utils/connection';
 import ShowAndTell from '../Components/ShowAndTell';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import WakeWordService from '../utils/wakewordService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import { useAdmin } from '../contexts/adminContext';
@@ -104,9 +104,8 @@ const OpenScreen: React.FC = () => {
   const [showAndTellModalShown, setShowAndTellModalShown] = useState(false);
   const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
-  const mixpanel = useRef(
-    new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true),
-  ).current;
+  const [deviceRevoked, setDeviceRevoked] = useState('0');
+
   const wakeWordService = WakeWordService.getInstance();
   const handScaleAnim = useRef(new Animated.Value(1)).current;
   const bubbleScaleAnim = useRef(new Animated.Value(1)).current;
@@ -124,6 +123,15 @@ const OpenScreen: React.FC = () => {
     typeof setInterval
   > | null>(null);
   const isDebouncing = useRef(false);
+  const isMounted = useRef(true);
+
+  // Track component mount status
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Track connection state changes
   useEffect(() => {
@@ -142,6 +150,9 @@ const OpenScreen: React.FC = () => {
 
         const modalShown = await getItem('showAndTellModalShown');
         setShowAndTellModalShown(modalShown === '1');
+
+        const revoked = await getItem('deviceRevoked');
+        setDeviceRevoked(revoked);
 
         // Load my8words data
         const my8wordsJson = await getItem('my8words');
@@ -214,15 +225,19 @@ const OpenScreen: React.FC = () => {
     let animationTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const startPulseAnimation = () => {
-      // Check if both have been tapped before starting next animation
-      if (microphoneTappedOnce && settingsTappedOnce) {
-        return; // Stop animation if both have been tapped
+      // Check mount status and tap status before starting
+      if (!isMounted.current || (microphoneTappedOnce && settingsTappedOnce)) {
+        return;
       }
 
-      createPulseAnimation().start(() => {
-        // Only restart if at least one pointing element should still be visible
-        if (!microphoneTappedOnce || !settingsTappedOnce) {
-          animationTimeout = setTimeout(startPulseAnimation, 0);
+      createPulseAnimation().start((result) => {
+        // CRITICAL: Only recurse if the animation reached its natural conclusion.
+        // If result.finished is false, it means stopAnimation() was called,
+        // and we should NOT start a new loop.
+        if (isMounted.current && result.finished) {
+          if (!microphoneTappedOnce || !settingsTappedOnce) {
+            animationTimeout = setTimeout(startPulseAnimation, 0);
+          }
         }
       });
     };
@@ -284,7 +299,9 @@ const OpenScreen: React.FC = () => {
 
         // Set 5 second max timeout
         loadingModalTimeoutRef.current = setTimeout(() => {
-          setShowLoadingModal(false);
+          if (isMounted.current) {
+            setShowLoadingModal(false);
+          }
           if (loadingModalCheckIntervalRef.current) {
             clearInterval(loadingModalCheckIntervalRef.current);
             loadingModalCheckIntervalRef.current = null;
@@ -293,6 +310,14 @@ const OpenScreen: React.FC = () => {
 
         // Poll for wake word readiness
         loadingModalCheckIntervalRef.current = setInterval(() => {
+          if (!isMounted.current) {
+            if (loadingModalCheckIntervalRef.current) {
+              clearInterval(loadingModalCheckIntervalRef.current);
+              loadingModalCheckIntervalRef.current = null;
+            }
+            return;
+          }
+
           if (wakeWordService.isCurrentlyListening()) {
             setShowLoadingModal(false);
             if (loadingModalTimeoutRef.current) {
@@ -313,6 +338,12 @@ const OpenScreen: React.FC = () => {
     // Initialize wake word service with proper cleanup and restart
     // NOTE: LoggedNavigation also initializes wake word, so check if already initialized first
     const initializeWakeWord = async () => {
+      // Check if blocked by revocation/inactivity
+      const isBlocked = await getItem('deviceRevoked');
+      if (isBlocked === '1') {
+        handleSettingsPress();
+        return;
+      }
       // First check if onboarding is complete - don't start wakeword during onboarding
       const wasOnboarded = await getItem('wasOnboarded');
       if (wasOnboarded !== '1') {
@@ -1025,9 +1056,11 @@ const OpenScreen: React.FC = () => {
               <View style={styles.modalContent}>
                 {!isSettingNewPassword && !isForgotPassword ? (
                   <>
-                    <Text style={styles.modalTitle}>Enter Admin Code</Text>
+                    <Text style={styles.modalTitle}>
+                      {deviceRevoked === '1' ? 'There seems to be an issue' : 'Enter Admin Code'}
+                    </Text>
                     <Text style={styles.modalDescription}>
-                      Enter your 4-digit parent code to continue.
+                      {deviceRevoked === '1' ? 'Please ask an adult for help' : 'Enter your 4-digit parent code to continue.'}
                     </Text>
 
                     {/* PIN Input Row */}

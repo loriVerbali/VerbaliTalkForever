@@ -70,7 +70,7 @@ import turnOnImg from '../assets/shortCuts/actions/turnOn.png';
 import turnOffImg from '../assets/shortCuts/actions/turnOff.png';
 import giveImg from '../assets/shortCuts/actions/give.png';
 import takeImg from '../assets/shortCuts/actions/take.png';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 
 const { width, height } = Dimensions.get('window');
 const attentionImg = require('../assets/shortCuts/attention.jpg');
@@ -179,7 +179,7 @@ const ShortCuts = () => {
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
 
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+
   type CategoryKey =
     | 'attention'
     | 'iWantNeed'

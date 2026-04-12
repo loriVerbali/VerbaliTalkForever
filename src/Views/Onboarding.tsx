@@ -32,10 +32,11 @@ import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import ShowAndTell from '../Components/ShowAndTell';
 import WhisperDownload from '../Components/WhisperDownload';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
 import WhisperModelManager from '../utils/WhisperModelManager';
+import OrganizationConnect from '../Components/OrganizationConnect';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,6 +53,12 @@ const onboardingSteps = [
     id: 'terms',
     question: 'Terms and Conditions',
     additionalComponents: 'terms-and-conditions',
+    buttonText: 'Next',
+  },
+  {
+    id: 'org-connect',
+    question: '',
+    additionalComponents: 'org-connect',
     buttonText: 'Next',
   },
   {
@@ -93,7 +100,7 @@ const onboardingSteps = [
 ];
 
 const OnboardingScreen: React.FC = () => {
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
   const { setItem, getItem } = useAppSettings();
   const { isTablet } = useAdmin();
   const { completeOnboarding } = useContext(OnboardingContext);
@@ -297,6 +304,15 @@ const OnboardingScreen: React.FC = () => {
           <View style={styles.termsContainer}>
             <TermsAndConditions onAgree={handleTermsAgreement} />
           </View>
+        );
+      case 'org-connect':
+        return (
+          <OrganizationConnect
+            isTablet={isTablet}
+            onSuccess={() => {
+              handleNext();
+            }}
+          />
         );
       case 'name-input':
         return (
@@ -1175,8 +1191,9 @@ const OnboardingScreen: React.FC = () => {
               style={[
                 styles.button,
                 // Hide the button until step requirements are met
-                ((currentStepData.id === 'terms' && !termsAgreed) || (currentStepData.id === 'Permissions' &&
-                  !permissionsAttempted) ||
+                ((currentStepData.id === 'terms' && !termsAgreed) ||
+                  (currentStepData.id === 'org-connect') || // Hide global next button for org-connect step
+                  (currentStepData.id === 'Permissions' && !permissionsAttempted) ||
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
                   (currentStepData.id === 'Optional Permissions' &&
                     !locationPermissionAttempted) ||
