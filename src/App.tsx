@@ -166,9 +166,7 @@ const App = () => {
               <DatabaseProvider>
                 <AdminProvider>
                   <ChatContextProvider>
-
                     <RootControllerView />
-
                   </ChatContextProvider>
                 </AdminProvider>
               </DatabaseProvider>
