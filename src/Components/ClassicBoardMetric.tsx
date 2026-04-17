@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,11 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
-import {useDatabase} from '../contexts/DatabaseContext';
-import {useAppSettings} from '../utils/persistance';
-import {Mixpanel} from 'mixpanel-react-native';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { useAppSettings } from '../utils/persistance';
+import mixpanel from '../utils/mixpanelInstance';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface ClassicBoardEntry {
   id: string;
@@ -25,11 +25,11 @@ interface TimeFilter {
   type: 'last30Days' | 'thisWeek' | 'thisMonth';
 }
 
-interface ClassicBoardMetricProps {}
+interface ClassicBoardMetricProps { }
 
 const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
-  const {getClassicData, isInitialized, isLoading} = useDatabase();
-  const {preferences} = useAppSettings();
+  const { getClassicData, isInitialized, isLoading } = useDatabase();
+  const { preferences } = useAppSettings();
   const [entries, setEntries] = useState<ClassicBoardEntry[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>({
     type: 'last30Days',
@@ -37,7 +37,6 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
 
   // Track when this metric component is viewed
   useEffect(() => {
-    const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
     mixpanel.track('ClassicBoardMetric Viewed', {
       MetricKey: 'metric3',
     });
@@ -107,7 +106,7 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
   };
 
   const handleTimeFilterChange = (type: TimeFilter['type']) => {
-    setTimeFilter({type});
+    setTimeFilter({ type });
   };
 
   const getTimeFilterLabel = () => {
@@ -165,7 +164,7 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
               style={[
                 styles.filterButtonText,
                 timeFilter.type === 'last30Days' &&
-                  styles.filterButtonTextActive,
+                styles.filterButtonTextActive,
               ]}>
               Last 30 Days
             </Text>
@@ -194,7 +193,7 @@ const ClassicBoardMetric: React.FC<ClassicBoardMetricProps> = () => {
               style={[
                 styles.filterButtonText,
                 timeFilter.type === 'thisMonth' &&
-                  styles.filterButtonTextActive,
+                styles.filterButtonTextActive,
               ]}>
               This Month
             </Text>
