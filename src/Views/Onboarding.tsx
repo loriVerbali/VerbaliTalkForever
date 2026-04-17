@@ -32,7 +32,7 @@ import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import ShowAndTell from '../Components/ShowAndTell';
 import WhisperDownload from '../Components/WhisperDownload';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
 import WhisperModelManager from '../utils/WhisperModelManager';
@@ -93,7 +93,6 @@ const onboardingSteps = [
 ];
 
 const OnboardingScreen: React.FC = () => {
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
   const { setItem, getItem } = useAppSettings();
   const { isTablet } = useAdmin();
   const { completeOnboarding } = useContext(OnboardingContext);

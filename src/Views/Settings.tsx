@@ -34,7 +34,7 @@ import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import SpecialPlaces from '../Components/SpecialPlaces';
 import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import fetchHelper from '../utils/fetcher';
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
@@ -81,7 +81,7 @@ const InfoModal = ({
   title: string;
   description: string;
 }) => {
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
   return (
     <Modal
       animationType="fade"
@@ -120,7 +120,6 @@ const MessagesSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -182,7 +181,6 @@ const RangeSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -274,7 +272,6 @@ const SettingsScreen: React.FC = () => {
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
