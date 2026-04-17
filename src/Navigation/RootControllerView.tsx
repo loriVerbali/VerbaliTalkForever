@@ -34,10 +34,9 @@ const RootStackScreen: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       if (isLoading) {
-        // initializePreferences is now handled by AppSettingsProvider
-        // await initializePreferences();
         const wasOnboarded = await getItem('wasOnboarded');
-        setShowOnboarding(wasOnboarded !== '1');
+        const isEnrolled = await getItem('isEnrolled');
+        setShowOnboarding(wasOnboarded !== '1' || isEnrolled !== '1');
         setIsLoading(false);
       }
     };

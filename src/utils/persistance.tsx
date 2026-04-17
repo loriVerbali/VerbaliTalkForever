@@ -57,6 +57,10 @@ interface Preferences {
   showAndTellModalShown: string;
   my8words: string;
   handshakeMessage: string;
+  // Device-based organization access
+  deviceId: string;
+  isEnrolled: string;
+  orgName: string;
   // Guest session management
   installationGuid: string;
   sessionToken: string;
@@ -64,6 +68,7 @@ interface Preferences {
   // App rating
   ratingPromptShown: string;
   ratingPromptDismissed: string;
+  deviceRevoked: string;
 }
 
 const initEnum = {
@@ -124,6 +129,10 @@ export const initialPreferences: Preferences = {
   my8words: '',
   handshakeMessage:
     'Hi ,this is how I communicate say Hey Verby and it will record the question.',
+  // Device-based organization access
+  deviceId: initEnum.notSet,
+  isEnrolled: initEnum.false,
+  orgName: '',
   // Guest session management
   installationGuid: initEnum.notSet,
   sessionToken: initEnum.notSet,
@@ -131,6 +140,7 @@ export const initialPreferences: Preferences = {
   // App rating
   ratingPromptShown: initEnum.false,
   ratingPromptDismissed: initEnum.false,
+  deviceRevoked: initEnum.false,
 };
 
 interface AppSettingsContextProps {
