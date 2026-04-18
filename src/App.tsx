@@ -23,7 +23,6 @@ import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
 import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
-import { useState } from 'react';
 
 const App = () => {
   const appState = useRef(AppState.currentState);

@@ -5,7 +5,6 @@ import LoggedNavigation from '../Navigation/LoggedNavigation';
 import InitNavigation from '../Navigation/InitNavigation';
 import { useAppSettings } from '../utils/persistance';
 import { stacks } from '../utils/constants';
-import { useConnection } from '../utils/connection';
 import { View, Text, Dimensions, StatusBar } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import NoInternetConnection from '../Components/NoInternetConnection';
@@ -35,8 +34,7 @@ const RootStackScreen: React.FC = () => {
     const initApp = async () => {
       if (isLoading) {
         const wasOnboarded = await getItem('wasOnboarded');
-        const isEnrolled = await getItem('isEnrolled');
-        setShowOnboarding(wasOnboarded !== '1' || isEnrolled !== '1');
+        setShowOnboarding(wasOnboarded !== '1');
         setIsLoading(false);
       }
     };
