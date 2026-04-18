@@ -13,7 +13,6 @@ import {
   ScrollView,
   Linking,
   Alert,
-  ActivityIndicator,
   Image,
   Keyboard,
 } from 'react-native';
