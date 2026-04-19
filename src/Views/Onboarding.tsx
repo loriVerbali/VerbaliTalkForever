@@ -13,7 +13,6 @@ import {
   ScrollView,
   Linking,
   Alert,
-  ActivityIndicator,
   Image,
   Keyboard
 } from 'react-native';
@@ -33,8 +32,9 @@ import TermsAndConditions from '../Components/TermsAndConditions';
 import Subscription from '../Components/Subscription';
 import ShowAndTell from '../Components/ShowAndTell';
 import WhisperDownload from '../Components/WhisperDownload';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
+// Removed Auth0 - using guest sessions
 import WhisperModelManager from '../utils/WhisperModelManager';
 
 const { width, height } = Dimensions.get('window');
@@ -102,7 +102,6 @@ const onboardingSteps = [
 ];
 
 const OnboardingScreen: React.FC = () => {
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   const { setItem, getItem } = useAppSettings();
   const { isTablet } = useAdmin();
   const { completeOnboarding } = useContext(OnboardingContext);
@@ -641,7 +640,14 @@ const OnboardingScreen: React.FC = () => {
               </Text>
 
               {/* PIN Input Row */}
-              <TouchableOpacity activeOpacity={1} style={styles.parentCodePinRow} onPress={() => pinInputRef.current?.focus()}>
+              <TouchableOpacity activeOpacity={1} style={styles.parentCodePinRow} onPress={() => {
+                if (pinInputRef.current) {
+                  pinInputRef.current.blur();
+                  setTimeout(() => {
+                    pinInputRef.current?.focus();
+                  }, 100);
+                }
+              }}>
                 <TextInput
                   ref={pinInputRef}
                   value={adminCode}

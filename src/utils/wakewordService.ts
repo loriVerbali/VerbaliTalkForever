@@ -6,9 +6,9 @@ import {
 } from 'react-native-wakeword';
 import Config from 'react-native-config';
 import DeviceInfo from 'react-native-device-info';
-import {Platform} from 'react-native';
+import { Platform } from 'react-native';
 import AudioSessionManager from './AudioSessionManager';
-import {Mixpanel} from 'mixpanel-react-native';
+import mixpanel from './mixpanelInstance';
 
 interface InstanceConfig {
   id: string;
@@ -42,7 +42,7 @@ class WakeWordService {
   private keywordInstance: KeyWordRNBridgeInstance | null = null;
   private eventListener: any = null;
   private isInitialized: boolean = false;
-  private mixpanel: Mixpanel;
+
   private isListening: boolean = false;
   private license: string = Config.WAKEWORD_LICENSE || '';
   private initializingPromise: Promise<void> | null = null; // Track ongoing initialization
@@ -50,10 +50,11 @@ class WakeWordService {
   private deviceModel: string | null = null;
   private iosVersion: string | null = null;
   private statusCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private restartTimeout: ReturnType<typeof setTimeout> | null = null;
 
   private constructor() {
     // Private constructor for singleton
-    this.mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+
     this.detectDevice();
   }
 
@@ -271,7 +272,7 @@ class WakeWordService {
     const keywordCallback = async (phrase: string) => {
       try {
         // Track Hey Verbi detection
-        this.mixpanel.track('Hey Verbi Detected');
+        mixpanel.track('Hey Verbi Detected');
 
         // Stop detection when keyword is detected
         await this.stopListening();
@@ -370,19 +371,6 @@ class WakeWordService {
           if (this.statusCheckInterval) {
             clearInterval(this.statusCheckInterval);
           }
-          // this.statusCheckInterval = setInterval(() => {
-          //   if (this.isListening) {
-          //     console.log(
-          //       '[WakeWord] 💓 Heartbeat - still listening, status:',
-          //       {
-          //         isListening: this.isListening,
-          //         hasInstance: !!this.keywordInstance,
-          //         hasEventListener: !!this.eventListener,
-          //         hasCallback: !!this.wakeWordCallback,
-          //       },
-          //     );
-          //   }
-          // }, 10000); // Log every 10 seconds
         } catch (detectionError) {
           console.error(
             '[WakeWord] Error starting wake word detection:',
@@ -431,10 +419,14 @@ class WakeWordService {
 
   // Stop listening for wake words
   public async stopListening(): Promise<void> {
-    // Clear status check interval
     if (this.statusCheckInterval) {
       clearInterval(this.statusCheckInterval);
       this.statusCheckInterval = null;
+    }
+
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
     }
 
     // Wait for any in-progress startListening() to complete first
@@ -479,12 +471,9 @@ class WakeWordService {
   // Clean up resources
   public async cleanup(): Promise<void> {
     try {
-      // Wait for any ongoing operations to complete
-      if (this.startingPromise) {
-        await this.startingPromise;
-      }
-      if (this.initializingPromise) {
-        await this.initializingPromise;
+      if (this.restartTimeout) {
+        clearTimeout(this.restartTimeout);
+        this.restartTimeout = null;
       }
 
       await this.stopListening();
@@ -501,8 +490,14 @@ class WakeWordService {
 
   // Restart listening (useful after detection)
   public async restartListening(delayMs: number = 0): Promise<void> {
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
+
     if (delayMs > 0) {
-      setTimeout(async () => {
+      this.restartTimeout = setTimeout(async () => {
+        this.restartTimeout = null;
         await this.startListening();
       }, delayMs);
     } else {
@@ -565,9 +560,8 @@ class WakeWordService {
         } catch (error) {
           return {
             success: false,
-            error: `Failed to start/stop listening: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            error: `Failed to start/stop listening: ${error instanceof Error ? error.message : String(error)
+              }`,
             details: {
               ...status,
               testError: error,
@@ -586,9 +580,8 @@ class WakeWordService {
     } catch (error) {
       return {
         success: false,
-        error: `Test failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        error: `Test failed: ${error instanceof Error ? error.message : String(error)
+          }`,
         details: this.getStatus(),
       };
     }

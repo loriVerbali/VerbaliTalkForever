@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,14 +27,14 @@ import {
   Purchase,
   getAvailablePurchases,
 } from 'react-native-iap';
-import {useAdmin} from '../contexts/adminContext';
-import {useToast} from '../contexts/ToastContext';
-import {validateSubscription} from '../utils/recieptValidation';
-import {useAppSettings} from '../utils/persistance';
-import {shouldShowTrialCard} from '../utils/trialUtils';
-import {Mixpanel} from 'mixpanel-react-native';
+import { useAdmin } from '../contexts/adminContext';
+import { useToast } from '../contexts/ToastContext';
+import { validateSubscription } from '../utils/recieptValidation';
+import { useAppSettings } from '../utils/persistance';
+import { shouldShowTrialCard } from '../utils/trialUtils';
+import mixpanel from '../utils/mixpanelInstance';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export type SubscriptionPlan = 'monthly' | 'yearly' | 'trial';
 
@@ -55,9 +55,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
   setGotSubscription,
   context = 'onboarding',
 }) => {
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
-  const {isTablet} = useAdmin();
-  const {showError} = useToast();
+  const { isTablet } = useAdmin();
+  const { showError } = useToast();
 
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +70,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
   const [showYearlyPlan, setShowYearlyPlan] = useState(false); // Toggle between yearly and monthly
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false); // Toggle for subscription info
-  const {setItem, preferences} = useAppSettings();
+  const { setItem, preferences } = useAppSettings();
   const scrollRef = useRef<any>(null);
   const [collapsibleY, setCollapsibleY] = useState(0);
 
@@ -93,10 +92,10 @@ const Subscription: React.FC<SubscriptionProps> = ({
   };
 
   // Log component mounting
-  useEffect(() => {}, []);
+  useEffect(() => { }, []);
 
   // Add logging for preferences state changes
-  useEffect(() => {}, [
+  useEffect(() => { }, [
     preferences.isIOSActive,
     preferences.isInTrial,
     preferences.trialInstallationDate,
@@ -135,9 +134,9 @@ const Subscription: React.FC<SubscriptionProps> = ({
         const owned = purchases.some(p =>
           Platform.OS === 'ios'
             ? p.productId === 'matalkai.monthly' ||
-              p.productId === 'matalkai.annual'
+            p.productId === 'matalkai.annual'
             : p.productId === 'matalk.monthly' ||
-              p.productId === 'matalk.annual',
+            p.productId === 'matalk.annual',
         );
         setIsIAPInitialized(true);
 
@@ -179,7 +178,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
     try {
       setIsLoadingSubscriptions(true);
-      const products = await getSubscriptions({skus: SUBSCRIPTION_SKUS});
+      const products = await getSubscriptions({ skus: SUBSCRIPTION_SKUS });
       setSubscriptions(products);
       setIsLoadingSubscriptions(false);
     } catch (error) {
@@ -233,7 +232,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
       if (purchase.transactionReceipt) {
         // Finish the transaction
 
-        const finishResult = await finishTransaction({purchase});
+        const finishResult = await finishTransaction({ purchase });
 
         const isActive = await validateSubscription(
           purchase.transactionReceipt,
@@ -307,15 +306,15 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.monthly'
             : 'matalk.monthly'
           : Platform.OS === 'ios'
-          ? 'matalkai.annual'
-          : 'matalk.annual';
+            ? 'matalkai.annual'
+            : 'matalk.annual';
 
       if (Platform.OS === 'ios') {
         // Clear any pending transactions
         await clearTransactionIOS();
 
         // iOS uses the traditional sku parameter
-        const purchaseResult = await requestSubscription({sku});
+        const purchaseResult = await requestSubscription({ sku });
 
         if (purchaseResult) {
           setPurchaseSuccess(true);
@@ -419,8 +418,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.monthly'
             : 'matalk.monthly'
           : Platform.OS === 'ios'
-          ? 'matalkai.annual'
-          : 'matalk.annual';
+            ? 'matalkai.annual'
+            : 'matalk.annual';
 
       const subscription = subscriptions.find(sub => sub.productId === sku);
 
@@ -499,8 +498,8 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.monthly'
             : 'matalk.monthly'
           : Platform.OS === 'ios'
-          ? 'matalkai.annual'
-          : 'matalk.annual';
+            ? 'matalkai.annual'
+            : 'matalk.annual';
 
       const subscription = subscriptions.find(sub => sub.productId === sku);
 
@@ -626,21 +625,21 @@ const Subscription: React.FC<SubscriptionProps> = ({
       width: isTablet
         ? width * 0.35
         : isSmallPhone
-        ? width * 0.4
-        : isMediumPhone
-        ? width * 0.38
-        : width * 0.36,
+          ? width * 0.4
+          : isMediumPhone
+            ? width * 0.38
+            : width * 0.36,
       height: isTablet
         ? isSmallPhone
           ? 110
           : isMediumPhone
-          ? 125
-          : 135
+            ? 125
+            : 135
         : isSmallPhone
-        ? 88
-        : isMediumPhone
-        ? 100
-        : 108, // 20% smaller on mobile
+          ? 88
+          : isMediumPhone
+            ? 100
+            : 108, // 20% smaller on mobile
       overflow: 'visible' as const,
     },
     cardsContainer: {
@@ -708,12 +707,12 @@ const Subscription: React.FC<SubscriptionProps> = ({
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
       shadowColor: '#FF6B35',
-      shadowOffset: {width: 0, height: 2},
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.3,
       shadowRadius: 4,
       elevation: 6,
       zIndex: 10,
-      transform: [{rotate: '15deg'}],
+      transform: [{ rotate: '15deg' }],
     },
     plusButton: {
       backgroundColor: 'rgba(0, 122, 255, 0.6)',
@@ -723,7 +722,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
       shadowColor: '#007AFF',
-      shadowOffset: {width: 0, height: 1},
+      shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.2,
       shadowRadius: 2,
       elevation: 3,
@@ -779,110 +778,110 @@ const Subscription: React.FC<SubscriptionProps> = ({
             preferences.isInTrial,
             preferences.trialInstallationDate,
           ) && (
-            <View style={styles.toggleContainer}>
-              <Text style={styles.toggleLabel}>Monthly</Text>
-              <Switch
-                value={showYearlyPlan}
-                onValueChange={setShowYearlyPlan}
-                trackColor={{false: '#767577', true: '#34C759'}}
-                thumbColor={showYearlyPlan ? '#FFFFFF' : '#f4f3f4'}
-                ios_backgroundColor="#767577"
-              />
-              <Text style={styles.toggleLabel}>Yearly</Text>
-            </View>
-          )}
+              <View style={styles.toggleContainer}>
+                <Text style={styles.toggleLabel}>Monthly</Text>
+                <Switch
+                  value={showYearlyPlan}
+                  onValueChange={setShowYearlyPlan}
+                  trackColor={{ false: '#767577', true: '#34C759' }}
+                  thumbColor={showYearlyPlan ? '#FFFFFF' : '#f4f3f4'}
+                  ios_backgroundColor="#767577"
+                />
+                <Text style={styles.toggleLabel}>Yearly</Text>
+              </View>
+            )}
           <View style={dynamicStyles.cardsContainer}>
             {shouldShowTrialCard(
               preferences.isIOSActive,
               preferences.isInTrial,
               preferences.trialInstallationDate,
             ) && (
-              <TouchableOpacity
-                style={[
-                  dynamicStyles.card,
-                  selectedPlan === 'trial' && styles.selectedCard,
-                ]}
-                onPress={() => {
-                  handleTrialSelection();
-                }}
-                disabled={isLoading}>
-                <View
+                <TouchableOpacity
                   style={[
-                    styles.cardHeader,
-                    {
+                    dynamicStyles.card,
+                    selectedPlan === 'trial' && styles.selectedCard,
+                  ]}
+                  onPress={() => {
+                    handleTrialSelection();
+                  }}
+                  disabled={isLoading}>
+                  <View
+                    style={[
+                      styles.cardHeader,
+                      {
+                        backgroundColor: '#34C759',
+                      },
+                    ]}></View>
+                  <View
+                    style={{
                       backgroundColor: '#34C759',
-                    },
-                  ]}></View>
-                <View
-                  style={{
-                    backgroundColor: '#34C759',
-                    width: '100%',
-                    borderTopLeftRadius: 16,
-                    borderTopRightRadius: 16,
-                    alignItems: 'center',
-                  }}>
-                  <Text
-                    style={[
-                      dynamicStyles.planTitle,
-                      {
-                        fontSize: isSmallPhone ? 12 : 13,
-                        fontWeight: '600',
-                        color: '#FFFFFF',
-                      },
-                    ]}>
-                    Free Trial
-                  </Text>
-                </View>
-                <View style={styles.cardContent}>
-                  <Text
-                    style={[
-                      dynamicStyles.planPrice,
-                      {
-                        fontSize: isSmallPhone ? 16 : 18,
-                        fontWeight: 'bold',
-                        color: '#34C759',
-                      },
-                    ]}>
-                    FREE
-                  </Text>
-                  <Text
-                    style={[
-                      dynamicStyles.planSubtitle,
-                      {
-                        fontSize: isSmallPhone ? 22 : 24,
-                        fontWeight: 'normal',
-                        color: '#666',
-                        textAlign: 'center',
-                      },
-                    ]}>
-                    7-Day Free Trial
-                  </Text>
-                  <Text
-                    style={[
-                      dynamicStyles.selectText,
-                      {
-                        fontSize: isSmallPhone ? 12 : 13,
-                        fontWeight: 'normal',
-                        color: '#666',
-                        textAlign: 'center',
-                      },
-                    ]}>
-                    Full access to all features
-                  </Text>
-                  <Text
-                    style={[
-                      dynamicStyles.selectText,
-                      selectedPlan === 'trial' && styles.selectedText,
-                    ]}>
-                    {isLoading && selectedPlan === 'trial'
-                      ? 'Processing...'
-                      : selectedPlan === 'trial'
-                      ? 'Selected'
-                      : 'Start Free Trial'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                      width: '100%',
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                      alignItems: 'center',
+                    }}>
+                    <Text
+                      style={[
+                        dynamicStyles.planTitle,
+                        {
+                          fontSize: isSmallPhone ? 12 : 13,
+                          fontWeight: '600',
+                          color: '#FFFFFF',
+                        },
+                      ]}>
+                      Free Trial
+                    </Text>
+                  </View>
+                  <View style={styles.cardContent}>
+                    <Text
+                      style={[
+                        dynamicStyles.planPrice,
+                        {
+                          fontSize: isSmallPhone ? 16 : 18,
+                          fontWeight: 'bold',
+                          color: '#34C759',
+                        },
+                      ]}>
+                      FREE
+                    </Text>
+                    <Text
+                      style={[
+                        dynamicStyles.planSubtitle,
+                        {
+                          fontSize: isSmallPhone ? 22 : 24,
+                          fontWeight: 'normal',
+                          color: '#666',
+                          textAlign: 'center',
+                        },
+                      ]}>
+                      7-Day Free Trial
+                    </Text>
+                    <Text
+                      style={[
+                        dynamicStyles.selectText,
+                        {
+                          fontSize: isSmallPhone ? 12 : 13,
+                          fontWeight: 'normal',
+                          color: '#666',
+                          textAlign: 'center',
+                        },
+                      ]}>
+                      Full access to all features
+                    </Text>
+                    <Text
+                      style={[
+                        dynamicStyles.selectText,
+                        selectedPlan === 'trial' && styles.selectedText,
+                      ]}>
+                      {isLoading && selectedPlan === 'trial'
+                        ? 'Processing...'
+                        : selectedPlan === 'trial'
+                          ? 'Selected'
+                          : 'Start Free Trial'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
             {/* Show yearly card only when showYearlyPlan is true or when no trial card is shown */}
             {(showYearlyPlan ||
@@ -891,87 +890,87 @@ const Subscription: React.FC<SubscriptionProps> = ({
                 preferences.isInTrial,
                 preferences.trialInstallationDate,
               )) && (
-              <TouchableOpacity
-                style={[
-                  dynamicStyles.card,
-                  selectedPlan === 'yearly' && styles.selectedCard,
-                ]}
-                onPress={() => {
-                  handlePlanSelection('yearly');
-                }}
-                disabled={isLoading}>
-                <View
+                <TouchableOpacity
                   style={[
-                    styles.cardHeader,
-                    {
+                    dynamicStyles.card,
+                    selectedPlan === 'yearly' && styles.selectedCard,
+                  ]}
+                  onPress={() => {
+                    handlePlanSelection('yearly');
+                  }}
+                  disabled={isLoading}>
+                  <View
+                    style={[
+                      styles.cardHeader,
+                      {
+                        backgroundColor: '#E8F5E8',
+                      },
+                    ]}></View>
+                  <View
+                    style={{
                       backgroundColor: '#E8F5E8',
-                    },
-                  ]}></View>
-                <View
-                  style={{
-                    backgroundColor: '#E8F5E8',
-                    width: '100%',
-                    borderTopLeftRadius: 16,
-                    borderTopRightRadius: 16,
-                    alignItems: 'center',
-                  }}>
-                  <Text
-                    style={[
-                      dynamicStyles.planTitle,
-                      {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
-                    ]}>
-                    Annual Plan
-                  </Text>
-                </View>
-                <View style={styles.cardContent}>
-                  <Text
-                    style={[
-                      dynamicStyles.planPrice,
-                      {
-                        fontSize: isSmallPhone ? 22 : 24,
-                        fontWeight: 'bold',
-                        color: '#000',
-                      },
-                    ]}>
-                    {getRegularPrice('yearly')}/year
-                  </Text>
-                  <Text
-                    style={[
-                      dynamicStyles.planSubtitle,
-                      {
-                        fontSize: isSmallPhone ? 10 : 11,
-                        fontStyle: 'italic',
-                        color: '#FF3B30',
-                      },
-                    ]}>
-                    Save! (2 months free)!
-                  </Text>
-                  <Text
-                    style={[
-                      dynamicStyles.selectText,
-                      {
-                        fontSize: isSmallPhone ? 9 : 10,
-                        fontWeight: 'normal',
-                        color: '#666',
-                        textAlign: 'center',
-                      },
-                    ]}>
-                    Billed yearly. Auto-Renews annually
-                  </Text>
-                  <Text
-                    style={[
-                      dynamicStyles.selectText,
-                      selectedPlan === 'yearly' && styles.selectedText,
-                    ]}>
-                    {isLoading && selectedPlan === 'yearly'
-                      ? 'Processing...'
-                      : selectedPlan === 'yearly'
-                      ? 'Selected'
-                      : ''}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                      width: '100%',
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                      alignItems: 'center',
+                    }}>
+                    <Text
+                      style={[
+                        dynamicStyles.planTitle,
+                        { fontSize: isSmallPhone ? 12 : 13, fontWeight: '600' },
+                      ]}>
+                      Annual Plan
+                    </Text>
+                  </View>
+                  <View style={styles.cardContent}>
+                    <Text
+                      style={[
+                        dynamicStyles.planPrice,
+                        {
+                          fontSize: isSmallPhone ? 22 : 24,
+                          fontWeight: 'bold',
+                          color: '#000',
+                        },
+                      ]}>
+                      {getRegularPrice('yearly')}/year
+                    </Text>
+                    <Text
+                      style={[
+                        dynamicStyles.planSubtitle,
+                        {
+                          fontSize: isSmallPhone ? 10 : 11,
+                          fontStyle: 'italic',
+                          color: '#FF3B30',
+                        },
+                      ]}>
+                      Save! (2 months free)!
+                    </Text>
+                    <Text
+                      style={[
+                        dynamicStyles.selectText,
+                        {
+                          fontSize: isSmallPhone ? 9 : 10,
+                          fontWeight: 'normal',
+                          color: '#666',
+                          textAlign: 'center',
+                        },
+                      ]}>
+                      Billed yearly. Auto-Renews annually
+                    </Text>
+                    <Text
+                      style={[
+                        dynamicStyles.selectText,
+                        selectedPlan === 'yearly' && styles.selectedText,
+                      ]}>
+                      {isLoading && selectedPlan === 'yearly'
+                        ? 'Processing...'
+                        : selectedPlan === 'yearly'
+                          ? 'Selected'
+                          : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
             {/* Show monthly card only when showYearlyPlan is false or when no trial card is shown */}
             {(!showYearlyPlan ||
@@ -980,116 +979,116 @@ const Subscription: React.FC<SubscriptionProps> = ({
                 preferences.isInTrial,
                 preferences.trialInstallationDate,
               )) && (
-              <TouchableOpacity
-                style={[
-                  dynamicStyles.card,
-                  selectedPlan === 'monthly' && styles.selectedCard,
-                ]}
-                onPress={() => {
-                  handlePlanSelection('monthly');
-                }}
-                disabled={isLoading}>
-                <View
+                <TouchableOpacity
                   style={[
-                    styles.cardHeader,
-                    {
+                    dynamicStyles.card,
+                    selectedPlan === 'monthly' && styles.selectedCard,
+                  ]}
+                  onPress={() => {
+                    handlePlanSelection('monthly');
+                  }}
+                  disabled={isLoading}>
+                  <View
+                    style={[
+                      styles.cardHeader,
+                      {
+                        backgroundColor: '#E8F5E8',
+                      },
+                    ]}></View>
+                  <View
+                    style={{
                       backgroundColor: '#E8F5E8',
-                    },
-                  ]}></View>
-                <View
-                  style={{
-                    backgroundColor: '#E8F5E8',
-                    width: '100%',
-                    borderTopLeftRadius: 16,
-                    borderTopRightRadius: 16,
-                    alignItems: 'center',
-                  }}>
-                  <Text
-                    style={[
-                      dynamicStyles.planTitle,
-                      {fontSize: isSmallPhone ? 12 : 13, fontWeight: '600'},
-                    ]}>
-                    Monthly Plan
-                  </Text>
-                </View>
-                <View style={styles.cardContent}>
-                  <Text
-                    style={[
-                      dynamicStyles.planPrice,
-                      {
-                        fontSize: isSmallPhone ? 20 : 22,
-                        fontWeight: 'bold',
-                        color: '#FF9500',
-                      },
-                    ]}>
-                    {getRegularPrice('monthly')}/month
-                  </Text>
-                  <Text
-                    style={[
-                      dynamicStyles.selectText,
-                      {
-                        fontSize: isSmallPhone ? 12 : 13,
-                        fontWeight: 'normal',
-                        color: '#666',
-                        textAlign: 'center',
-                        marginBottom: 8,
-                      },
-                    ]}>
-                    Billed monthly. Auto-Renews monthly
-                  </Text>
-
-                  {getIntroductoryOfferText('monthly') && (
+                      width: '100%',
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                      alignItems: 'center',
+                    }}>
                     <Text
                       style={[
-                        dynamicStyles.introOfferText,
+                        dynamicStyles.planTitle,
+                        { fontSize: isSmallPhone ? 12 : 13, fontWeight: '600' },
+                      ]}>
+                      Monthly Plan
+                    </Text>
+                  </View>
+                  <View style={styles.cardContent}>
+                    <Text
+                      style={[
+                        dynamicStyles.planPrice,
                         {
-                          fontSize: isSmallPhone ? 10 : 11,
-                          fontWeight: 'normal',
-                          color: 'black',
+                          fontSize: isSmallPhone ? 20 : 22,
+                          fontWeight: 'bold',
+                          color: '#FF9500',
                         },
                       ]}>
-                      {getIntroductoryOfferText('monthly')}
+                      {getRegularPrice('monthly')}/month
                     </Text>
-                  )}
+                    <Text
+                      style={[
+                        dynamicStyles.selectText,
+                        {
+                          fontSize: isSmallPhone ? 12 : 13,
+                          fontWeight: 'normal',
+                          color: '#666',
+                          textAlign: 'center',
+                          marginBottom: 8,
+                        },
+                      ]}>
+                      Billed monthly. Auto-Renews monthly
+                    </Text>
 
-                  <Text
-                    style={[
-                      dynamicStyles.selectText,
-                      selectedPlan === 'monthly' && styles.selectedText,
-                    ]}>
-                    {isLoading && selectedPlan === 'monthly'
-                      ? 'Processing...'
-                      : selectedPlan === 'monthly'
-                      ? 'Selected'
-                      : ''}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
+                    {getIntroductoryOfferText('monthly') && (
+                      <Text
+                        style={[
+                          dynamicStyles.introOfferText,
+                          {
+                            fontSize: isSmallPhone ? 10 : 11,
+                            fontWeight: 'normal',
+                            color: 'black',
+                          },
+                        ]}>
+                        {getIntroductoryOfferText('monthly')}
+                      </Text>
+                    )}
+
+                    <Text
+                      style={[
+                        dynamicStyles.selectText,
+                        selectedPlan === 'monthly' && styles.selectedText,
+                      ]}>
+                      {isLoading && selectedPlan === 'monthly'
+                        ? 'Processing...'
+                        : selectedPlan === 'monthly'
+                          ? 'Selected'
+                          : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
           </View>
 
           <View
-            style={{marginTop: 1, alignItems: 'center', flexDirection: 'row'}}>
+            style={{ marginTop: 1, alignItems: 'center', flexDirection: 'row' }}>
             <Text
               style={[
                 styles.modalFeature,
-                {fontSize: isTablet ? 14 : 12, fontWeight: 'bold'},
+                { fontSize: isTablet ? 14 : 12, fontWeight: 'bold' },
               ]}>
               Both plans include:
             </Text>
-            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-              <Text style={{color: 'purple'}}>✓</Text> Full access to all
+            <Text style={[styles.modalFeature, { fontSize: isTablet ? 14 : 12 }]}>
+              <Text style={{ color: 'purple' }}>✓</Text> Full access to all
               features
             </Text>
-            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-              <Text style={{color: 'purple'}}>✓</Text> AI-powered AAC creation
+            <Text style={[styles.modalFeature, { fontSize: isTablet ? 14 : 12 }]}>
+              <Text style={{ color: 'purple' }}>✓</Text> AI-powered AAC creation
             </Text>
-            <Text style={[styles.modalFeature, {fontSize: isTablet ? 14 : 12}]}>
-              <Text style={{color: 'purple'}}>✓</Text> Customer support
+            <Text style={[styles.modalFeature, { fontSize: isTablet ? 14 : 12 }]}>
+              <Text style={{ color: 'purple' }}>✓</Text> Customer support
             </Text>
           </View>
 
-          <View style={{marginTop: 1, alignItems: 'center'}}>
+          <View style={{ marginTop: 1, alignItems: 'center' }}>
             <View
               style={{
                 flexDirection: 'row',
@@ -1125,7 +1124,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
             {showSubscriptionInfo && (
               <View
                 style={styles.subscriptionInfoContent}
-                onLayout={({nativeEvent}) =>
+                onLayout={({ nativeEvent }) =>
                   setCollapsibleY(nativeEvent.layout.y)
                 }>
                 <View style={styles.subscriptionDetails}>
@@ -1227,7 +1226,7 @@ const styles = StyleSheet.create({
     shadowColor: 'gray',
     shadowOpacity: 0.8,
     shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     elevation: 8,
     backgroundColor: 'white',
     marginBottom: height * 0.02,
@@ -1310,12 +1309,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#FF6B35',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
-    transform: [{rotate: '-10deg'}],
+    transform: [{ rotate: '-10deg' }],
   },
   savingsAmount: {
     color: '#FFFFFF',
@@ -1343,7 +1342,7 @@ const styles = StyleSheet.create({
     padding: 20,
     margin: 20,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,

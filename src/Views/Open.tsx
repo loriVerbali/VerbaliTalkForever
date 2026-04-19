@@ -724,6 +724,7 @@ const OpenScreen: React.FC = () => {
     });
   };
 
+
   const closeModal = () => {
     setModalVisible(false);
     setAdminCodeInput('');
@@ -788,8 +789,6 @@ const OpenScreen: React.FC = () => {
     await setItem('adminCode', newPinInput);
     closeModal();
   };
-
-
   const closeStartupModal = async () => {
     setStartupModalVisible(false);
     // Mark modal as shown
@@ -1149,6 +1148,7 @@ const OpenScreen: React.FC = () => {
         </View>
       </Animated.View>
 
+
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -1169,7 +1169,14 @@ const OpenScreen: React.FC = () => {
                     {/* PIN Input Row */}
                     <Pressable
                       style={styles.pinRow}
-                      onPress={() => pinInputRef.current?.focus()}>
+                      onPress={() => {
+                        if (pinInputRef.current) {
+                          pinInputRef.current.blur();
+                          setTimeout(() => {
+                            pinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
                       <TextInput
                         ref={pinInputRef}
                         value={adminCodeInput}
@@ -1275,7 +1282,14 @@ const OpenScreen: React.FC = () => {
                     {/* 5-Digit PIN Input Row */}
                     <Pressable
                       style={styles.pinRow}
-                      onPress={() => forgotPinInputRef.current?.focus()}>
+                      onPress={() => {
+                        if (forgotPinInputRef.current) {
+                          forgotPinInputRef.current.blur();
+                          setTimeout(() => {
+                            forgotPinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
                       <TextInput
                         ref={forgotPinInputRef}
                         value={forgotPinInput}
@@ -1376,7 +1390,14 @@ const OpenScreen: React.FC = () => {
                     {/* New PIN Entry */}
                     <Pressable
                       style={styles.pinRow}
-                      onPress={() => newPinInputRef.current?.focus()}>
+                      onPress={() => {
+                        if (newPinInputRef.current) {
+                          newPinInputRef.current.blur();
+                          setTimeout(() => {
+                            newPinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
                       <TextInput
                         ref={newPinInputRef}
                         value={newPinInput}
@@ -1456,6 +1477,7 @@ const OpenScreen: React.FC = () => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
 
       {/* Startup Show-and-Tell Modal */}
       <Modal
