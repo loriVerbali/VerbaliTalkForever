@@ -1,5 +1,8 @@
-import {useAppSettings} from './persistance';
+import { Platform } from 'react-native';
+import DeviceInfo from 'react-native-device-info';
+import { useAppSettings } from './persistance';
 import AppConfig from './config';
+import CryptoJS from 'crypto-js';
 
 const API_BASE_URL = AppConfig.baseUrl;
 
@@ -22,14 +25,17 @@ class SessionManager {
 
   async initializeSession(): Promise<string | null> {
     try {
-      const {getItem, setItem} = await this.getAppSettings();
+      const { getItem, setItem } = await this.getAppSettings();
 
-      // Get or create installation GUID
+      // Get or create installation GUID (legacy)
       let installationGuid = await getItem('installationGuid');
       if (installationGuid === 'init.NotSet' || !installationGuid) {
         installationGuid = this.generateGuid();
         await setItem('installationGuid', installationGuid);
       }
+
+      // Get or create Device ID (Stable per install)
+      await this.ensureDeviceId();
 
       // Initialize guest session with installation GUID
       const response = await fetch(`${API_BASE_URL}/api/session/init`, {
@@ -37,7 +43,7 @@ class SessionManager {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({guid: installationGuid}),
+        body: JSON.stringify({ guid: installationGuid }),
       });
 
       const data = await response.json();
@@ -56,7 +62,7 @@ class SessionManager {
 
   async getSessionToken(): Promise<string | null> {
     try {
-      const {getItem} = await this.getAppSettings();
+      const { getItem } = await this.getAppSettings();
       const token = await getItem('sessionToken');
       return token === 'init.NotSet' ? null : token;
     } catch (error) {
@@ -66,7 +72,7 @@ class SessionManager {
 
   async getInstallationGuid(): Promise<string | null> {
     try {
-      const {getItem} = await this.getAppSettings();
+      const { getItem } = await this.getAppSettings();
       const guid = await getItem('installationGuid');
       return guid === 'init.NotSet' ? null : guid;
     } catch (error) {
@@ -83,7 +89,7 @@ class SessionManager {
     }
 
     // Check if we need to validate (once per day)
-    const {getItem, setItem} = await this.getAppSettings();
+    const { getItem, setItem } = await this.getAppSettings();
     const lastCheck = await getItem('lastRefreshCheck');
     const now = Date.now();
 
@@ -106,7 +112,7 @@ class SessionManager {
 
   private async checkIfRefreshNeeded(token: string): Promise<boolean> {
     const response = await fetch(`${API_BASE_URL}/api/session/validate`, {
-      headers: {Authorization: `Bearer ${token}`},
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (response.ok) {
@@ -121,7 +127,7 @@ class SessionManager {
     if (this.refreshInFlight) {
       // Wait for existing refresh to complete
       while (this.refreshInFlight) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 100));
       }
       return await this.getSessionToken();
     }
@@ -136,13 +142,13 @@ class SessionManager {
 
       const response = await fetch(`${API_BASE_URL}/api/session/refresh`, {
         method: 'POST',
-        headers: {Authorization: `Bearer ${token}`},
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await response.json();
 
       if (data.ok && data.token) {
-        const {setItem} = await this.getAppSettings();
+        const { setItem } = await this.getAppSettings();
         await setItem('sessionToken', data.token);
         return data.token;
       }
@@ -158,17 +164,140 @@ class SessionManager {
 
   async clearSession(): Promise<void> {
     // Clear session token but keep installation GUID
-    const {setItem} = await this.getAppSettings();
+    const { setItem } = await this.getAppSettings();
     await setItem('sessionToken', 'init.NotSet');
     await setItem('lastRefreshCheck', '0');
   }
 
   async resetInstallation(): Promise<void> {
     // Clear everything including installation GUID (for testing or app reset)
-    const {setItem} = await this.getAppSettings();
+    const { setItem } = await this.getAppSettings();
     await setItem('installationGuid', 'init.NotSet');
+    await setItem('deviceId', 'init.NotSet');
     await setItem('sessionToken', 'init.NotSet');
     await setItem('lastRefreshCheck', '0');
+    await setItem('isEnrolled', '0');
+    await setItem('orgName', '');
+  }
+
+  async getDeviceId(): Promise<string | null> {
+    try {
+      const { getItem } = await this.getAppSettings();
+      const deviceId = await getItem('deviceId');
+      return deviceId === 'init.NotSet' ? null : deviceId;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async ensureDeviceId(): Promise<string> {
+    const { getItem, setItem } = await this.getAppSettings();
+    let deviceId = await getItem('deviceId');
+
+    if (deviceId === 'init.NotSet' || !deviceId) {
+      deviceId = await this.generateDeviceId();
+      await setItem('deviceId', deviceId);
+    }
+
+    return deviceId;
+  }
+
+  private async generateDeviceId(): Promise<string> {
+    try {
+      const deviceName = await DeviceInfo.getDeviceName();
+      const installTimestamp = await DeviceInfo.getFirstInstallTime();
+      const randomSeed = Math.random().toString(36).substring(7);
+
+      const combined = `${deviceName}${installTimestamp}${randomSeed}`;
+      return CryptoJS.SHA256(combined).toString();
+    } catch (error) {
+      // Fallback to GUID if DeviceInfo fails
+      return this.generateGuid();
+    }
+  }
+
+  async bootstrapDevice(): Promise<{
+    success: boolean;
+    enrolled?: boolean;
+    organization?: any;
+    features?: any;
+    error?: string;
+  }> {
+    try {
+      const { setItem } = await this.getAppSettings();
+      const deviceId = await this.ensureDeviceId();
+      const token = await this.ensureValidSession();
+
+      if (!token) {
+        return { success: false, error: 'session_init_failed' };
+      }
+
+      const response = await fetch(`${API_BASE_URL}/device/bootstrap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          deviceIdentifier: deviceId,
+          platform: Platform.OS,
+          appVersion: DeviceInfo.getVersion(),
+        }),
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        console.error(`Bootstrap failed with status ${response.status}:`, responseText);
+
+        if (response.status === 403) {
+          try {
+            const data = JSON.parse(responseText);
+            if (data.error === 'device_revoked' || data.error === 'organization_inactive') {
+              const { setItem } = await this.getAppSettings();
+              await setItem('deviceRevoked', '1');
+              return { success: false, error: data.error };
+            }
+          } catch (e) {
+            console.error('Failed to parse 403 bootstrap response:', e);
+          }
+        }
+        return { success: false, error: `server_error_${response.status}` };
+      }
+
+      let data;
+      const responseText = await response.text();
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse bootstrap response as JSON:', responseText);
+        return { success: false, error: 'invalid_json' };
+      }
+
+      if (data.success) {
+        const { setItem } = await this.getAppSettings();
+        await setItem('deviceRevoked', '0'); // Clear if it was previously revoked
+        if (data.enrolled) {
+          await setItem('isEnrolled', '1');
+          if (data.organization?.name) {
+            await setItem('orgName', data.organization.name);
+          }
+        } else {
+          await setItem('isEnrolled', '0');
+        }
+        return data;
+      } else if (data.error) {
+        if (data.error === 'device_revoked' || data.error === 'organization_inactive') {
+          const { setItem } = await this.getAppSettings();
+          await setItem('deviceRevoked', '1');
+        }
+        return { success: false, error: data.error };
+      }
+
+      return { success: false, error: 'unknown_error' };
+    } catch (error) {
+      console.error('Bootstrap error:', error);
+      return { success: false, error: 'network_error' };
+    }
   }
 
   private generateGuid(): string {

@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   Platform,
   PermissionsAndroid,
-  TextInput,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, RouteProp } from '@react-navigation/native';
@@ -25,8 +23,7 @@ import {
 import TTSService from '../utils/TTSService';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
-import fetchHelper from '../utils/fetcher';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { logConversation } from '../utils/conversationLogger';
 import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
@@ -34,7 +31,6 @@ import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice from '@dev-amirzubair/react-native-voice';
 import { useDatabase } from '../contexts/DatabaseContext';
-import { polishText } from '../utils/polishApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -259,7 +255,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const SILENCE_TIMEOUT = 2000; // Stop recording if no new partial results for 2 seconds
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(

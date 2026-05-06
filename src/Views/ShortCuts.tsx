@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
-import { views } from '../utils/constants';
 import TTSService from '../utils/TTSService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
@@ -25,10 +24,7 @@ import {
 import { useConnection } from '../utils/connection';
 
 // General assets
-import micImg from '../assets/microphone.png';
-import boyImg from '../assets/boy.png';
 import matalkImg from '../assets/matalk.png';
-import dogImg from '../assets/welcome.png';
 
 // Attention category images
 import hiImg from '../assets/shortCuts/attention/hi.jpg';
@@ -70,8 +66,7 @@ import turnOnImg from '../assets/shortCuts/actions/turnOn.png';
 import turnOffImg from '../assets/shortCuts/actions/turnOff.png';
 import giveImg from '../assets/shortCuts/actions/give.png';
 import takeImg from '../assets/shortCuts/actions/take.png';
-import { Mixpanel } from 'mixpanel-react-native';
-
+import mixpanel from '../utils/mixpanelInstance';
 const { width, height } = Dimensions.get('window');
 const attentionImg = require('../assets/shortCuts/attention.jpg');
 const iWantNeedImg = require('../assets/shortCuts/IwantNeed.jpg');
@@ -179,7 +174,6 @@ const ShortCuts = () => {
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
 
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
     | 'attention'
     | 'iWantNeed'

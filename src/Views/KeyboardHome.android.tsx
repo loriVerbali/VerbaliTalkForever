@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import HomeButton from '../Components/HomeButton';
 import MatalkIcon from '../Components/MatalkIcon';
 import TTSService from '../utils/TTSService';
@@ -25,7 +25,6 @@ const KeyboardHomeScreen: React.FC = () => {
     const { isTablet } = useAdmin();
     const [keyboardInput, setKeyboardInput] = useState('');
     const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
-    const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
 
     const handleKeyboardSubmit = async () => {
         const inputText = keyboardInput.trim();
