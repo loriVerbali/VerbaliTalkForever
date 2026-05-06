@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,11 @@ import {
   Dimensions,
   Modal,
 } from 'react-native';
-import {useDatabase} from '../contexts/DatabaseContext';
-import {useAppSettings} from '../utils/persistance';
-import {Mixpanel} from 'mixpanel-react-native';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { useAppSettings } from '../utils/persistance';
+import mixpanel from '../utils/mixpanelInstance';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface QARound {
   roundNumber: number;
@@ -34,7 +34,7 @@ interface TimeFilter {
   type: 'today' | 'last30Days' | 'thisWeek' | 'thisMonth';
 }
 
-interface QALogMetricProps {}
+interface QALogMetricProps { }
 
 const InfoModal = ({
   visible,
@@ -80,8 +80,8 @@ const InfoModal = ({
 };
 
 const QALogMetric: React.FC<QALogMetricProps> = () => {
-  const {getAIResolvedData, isInitialized, isLoading} = useDatabase();
-  const {preferences} = useAppSettings();
+  const { getAIResolvedData, isInitialized, isLoading } = useDatabase();
+  const { preferences } = useAppSettings();
   const [qaLogs, setQaLogs] = useState<QALogEntry[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>({
     type: 'last30Days',
@@ -147,7 +147,6 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
 
   // Track when this metric component is viewed
   useEffect(() => {
-    const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
     mixpanel.track('QALogMetric Viewed', {
       MetricKey: 'metric4',
     });
@@ -179,18 +178,18 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
 
           const round2: QARound | undefined = item.round2_answers
             ? {
-                roundNumber: 2,
-                answersAvailable: parseAnswers(item.round2_answers),
-                answerChosen: item.round2_picked || 'more_options',
-              }
+              roundNumber: 2,
+              answersAvailable: parseAnswers(item.round2_answers),
+              answerChosen: item.round2_picked || 'more_options',
+            }
             : undefined;
 
           const round3: QARound | undefined = item.round3_answers
             ? {
-                roundNumber: 3,
-                answersAvailable: parseAnswers(item.round3_answers),
-                answerChosen: item.round3_picked || 'more_options',
-              }
+              roundNumber: 3,
+              answersAvailable: parseAnswers(item.round3_answers),
+              answerChosen: item.round3_picked || 'more_options',
+            }
             : undefined;
 
           return {
@@ -213,7 +212,7 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
   }, [timeFilter, isInitialized, isLoading, buildFilters, getAIResolvedData]);
 
   const handleTimeFilterChange = (type: TimeFilter['type']) => {
-    setTimeFilter({type});
+    setTimeFilter({ type });
   };
 
   const getTimeFilterLabel = () => {
@@ -320,7 +319,7 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
               style={[
                 styles.filterButtonText,
                 timeFilter.type === 'last30Days' &&
-                  styles.filterButtonTextActive,
+                styles.filterButtonTextActive,
               ]}>
               Last 30 Days
             </Text>
@@ -349,7 +348,7 @@ const QALogMetric: React.FC<QALogMetricProps> = () => {
               style={[
                 styles.filterButtonText,
                 timeFilter.type === 'thisMonth' &&
-                  styles.filterButtonTextActive,
+                styles.filterButtonTextActive,
               ]}>
               This Month
             </Text>

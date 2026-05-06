@@ -15,12 +15,10 @@ import {
   Alert,
   Keyboard,
   ActivityIndicator
-
 } from 'react-native';
 import Video from 'react-native-video';
 import {
   useNavigation,
-  CommonActions,
   useFocusEffect,
   useRoute,
 } from '@react-navigation/native';
@@ -28,14 +26,14 @@ import FastImage from 'react-native-fast-image';
 import { useAppSettings } from '../utils/persistance';
 import { sessionManager } from '../utils/sessionManager';
 import { useAdmin } from '../contexts/adminContext';
-import { stacks, views } from '../utils/constants';
+import { views } from '../utils/constants';
 import Slider from '@react-native-community/slider';
-import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
-import SpecialPlaces from '../Components/SpecialPlaces';
+import { FamilyMember } from '../Components/FamilyPics';
 import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import fetchHelper from '../utils/fetcher';
+
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
@@ -81,7 +79,7 @@ const InfoModal = ({
   title: string;
   description: string;
 }) => {
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
+
   return (
     <Modal
       animationType="fade"
@@ -120,7 +118,6 @@ const MessagesSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -182,7 +179,6 @@ const RangeSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -244,7 +240,6 @@ const SettingsScreen: React.FC = () => {
   const [objectsCount, setObjectsCount] = useState(4);
   const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(true);
 
-  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
   const [adminCode, setAdminCode] = useState('');
   const [isEditingAdminCode, setIsEditingAdminCode] = useState(false);
   const [newAdminCode, setNewAdminCode] = useState('');
@@ -274,7 +269,6 @@ const SettingsScreen: React.FC = () => {
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
-  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
 
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
@@ -297,15 +291,13 @@ const SettingsScreen: React.FC = () => {
     'boardCustomize',
   ];
 
-  const genderWrapperStyle = [
-    styles.genderImageWrapper,
-    { transform: [{ scale: 0.7 }] },
-  ];
+
 
   // Helper function to get avatar source based on gender
   const getAvatarSource = (gender: string) => {
     switch (gender) {
       case 'white boy':
+        return require('../assets/gender/wboy.jpg');
       case 'boy':
         return require('../assets/gender/wboy.jpg');
       case 'black boy':

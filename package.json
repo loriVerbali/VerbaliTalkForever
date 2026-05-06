@@ -29,6 +29,7 @@
     "@react-navigation/native-stack": "^7.3.10",
     "@react-navigation/stack": "^7.1.1",
     "add": "^2.0.6",
+    "crypto-js": "^4.2.0",
     "jwt-decode": "^4.0.0",
     "lodash": "^4.17.21",
     "mixpanel-react-native": "^3.1.2",
