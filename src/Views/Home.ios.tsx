@@ -8,7 +8,6 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { useNavigation, RouteProp } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
@@ -125,7 +124,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     Array<{ word: string; imageUrl?: string }>
   >([]);
   const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
-
 
   // AI Resolved tracking state
   const [currentAIRecord, setCurrentAIRecord] = useState<{
@@ -301,23 +299,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
+  // Removed settings loading useFocusEffect - now using reactive preferences
+
   useEffect(() => {
-    // Load gobackAfterSelection setting
-    const loadGobackAfterSelectionSetting = async () => {
-      try {
-        const setting = await getItem('gobackAfterSelection');
-        setGobackAfterSelection(setting === '1');
-      } catch (error) { }
-    };
-
-    // Load the setting
-    loadGobackAfterSelectionSetting();
-
     // Track screen opening
     mixpanel.track('Conversation', {
       Opened: 'Conversation',
     });
     if (stateof === 'Attention') {
+      console.log(
+        `[Home] Entering Attention state. Current answersCount: ${preferences.answersCount}`,
+      );
       // wakeWord.stopListening();
       mixpanel.track('Recording Restarted', {
         source: 'attention_state',
@@ -328,7 +320,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const wakeWordService = WakeWordService.getInstance();
       wakeWordService.stopListening();
     }
-  }, []);
+  }, [stateof]); // Dependency on stateof ensures this runs when coming from Open.tsx
 
   // Cleanup useEffect for wake word service and Whisper
   useEffect(() => {
@@ -644,6 +636,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const pepesData = await getItem('pepes');
       const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
       // Generate answers
+      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
+      console.log(
+        `[Home] Requesting AI answers. Count: ${currentAnswersCount} (from preference: "${preferences.answersCount}")`,
+      );
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_answers',
         metadata: {
@@ -653,8 +649,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           pepes: parsedPepes,
           contextInfo: contextInfo, // Weather, time, and location context
         },
-        countMin: 5,
-        countMax: 5,
+        number: currentAnswersCount,
+        countMin: currentAnswersCount,
+        countMax: currentAnswersCount,
         genderType: preferences?.gender || 'white boy',
       });
 
@@ -778,12 +775,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     formData.append('model', 'whisper-1');
     formData.append('language', 'en');
 
-    const transcribeResponse = await fetchHelper(
-      'transcribeAudio',
-      {},
-      formData,
-    );
-    return transcribeResponse;
+    try {
+      const response = await fetchHelper(
+        'transcribeAudio',
+        {},
+        formData,
+      );
+      return response;
+    } catch (error) {
+      throw error;
+    }
   };
 
   const transcribeAudio = async (audioPath: string) => {
@@ -938,6 +939,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const pepesData = await getItem('pepes');
       const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
 
+      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
       // Use generateAnswers to get more answers
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_more_answers',
@@ -951,8 +953,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         prior: {
           answers: currentAccumulated || [], // Pass all accumulated previous answers
         },
-        countMin: 5,
-        countMax: 5,
+        number: currentAnswersCount,
+        countMin: currentAnswersCount,
+        countMax: currentAnswersCount,
         genderType: preferences?.gender || 'white boy',
       });
 
@@ -1416,6 +1419,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         maxRetries={MAX_RETRIES}
                         onAnswerSelected={handleAnswerSelected}
                         ttsService={TTSService}
+                        answersCount={parseInt(preferences.answersCount) || 5}
                       />
                     </View>
                   );
