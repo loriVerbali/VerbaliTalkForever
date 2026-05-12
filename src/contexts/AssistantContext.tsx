@@ -96,12 +96,15 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       genderType = 'white boy',
     } = options;
 
+    const requestedNumber = options.number || countMax || 10;
+
     try {
       const response = await fetchHelper(
         'generateAnswers',
         {},
         {
           sentence,
+          number: requestedNumber,
           mode,
           metadata: {
             kidName: options.metadata.kidName || 'I', // Replace with actual kid name
@@ -112,6 +115,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
           },
           prior,
           options: {
+            number: requestedNumber,
             countMin,
             countMax,
             genderType,

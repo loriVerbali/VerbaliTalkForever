@@ -242,6 +242,7 @@ const SettingsScreen: React.FC = () => {
   const [topicsCount, setTopicsCount] = useState(4);
   const [actionsCount, setActionsCount] = useState(4);
   const [objectsCount, setObjectsCount] = useState(4);
+  // Removed local answersCount state - using preferences.answersCount
   const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(true);
 
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
@@ -364,6 +365,9 @@ const SettingsScreen: React.FC = () => {
         setTopicsCount(parseInt(savedTopicsCount) || 4);
         setActionsCount(parseInt(savedActionsCount) || 4);
         setObjectsCount(parseInt(savedObjectsCount) || 4);
+
+        // Removed local answersCount loading - now using reactive preferences
+
         setShowOnboardingEnabled(wasOnboarded !== '1');
         setAdminCode(savedAdminCode || '');
         setGobackAfterSelection(savedGobackAfterSelection === '1');
@@ -472,6 +476,15 @@ const SettingsScreen: React.FC = () => {
     const newValue = Math.round(value);
     setObjectsCount(newValue);
     setItem('objectsCount', newValue.toString());
+  };
+
+  const ANSWER_VALUES = [5, 7, 11] as const;
+
+  const handleAnswersCountChange = (sliderIndex: number) => {
+    const index = Math.round(sliderIndex);
+    const count = ANSWER_VALUES[index] ?? 5;
+    mixpanel.track('Settings Answers Count Changed', { count });
+    setItem('answersCount', count.toString());
   };
 
   const handleOnboardingToggle = async (value: boolean) => {
@@ -1118,6 +1131,96 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
               </View> */}
+
+              {/* ── Number of Answers Slider ── */}
+              <View
+                style={{
+                  marginTop: 16,
+                  marginBottom: 8,
+                  paddingHorizontal: 4,
+                }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}>
+                  <Text
+                    style={[
+                      styles.settingLabel,
+                      { flex: 1, fontSize: 15, fontWeight: '600', color: '#333' },
+                    ]}>
+                    Number of Answers
+                  </Text>
+                  <View
+                    style={{
+                      backgroundColor: '#8E24AA',
+                      borderRadius: 20,
+                      paddingHorizontal: 14,
+                      paddingVertical: 4,
+                      minWidth: 44,
+                      alignItems: 'center',
+                    }}>
+                    <Text
+                      style={{
+                        color: '#fff',
+                        fontWeight: '700',
+                        fontSize: 16,
+                      }}>
+                      {preferences.answersCount}
+                    </Text>
+                  </View>
+                </View>
+
+                <Slider
+                  style={{ width: '100%', height: 40 }}
+                  value={(() => {
+                    const current = parseInt(preferences.answersCount) || 5;
+                    // Map old values to new ones if necessary
+                    const normalized = current === 8 ? 7 : (current === 12 ? 11 : current);
+                    const index = [5, 7, 11].indexOf(normalized);
+                    return index >= 0 ? index : 0;
+                  })()}
+                  minimumValue={0}
+                  maximumValue={2}
+                  step={1}
+                  minimumTrackTintColor="#8E24AA"
+                  maximumTrackTintColor="#d3d3d3"
+                  thumbTintColor="#8E24AA"
+                  onSlidingComplete={handleAnswersCountChange}
+                />
+
+                {/* Tick labels */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 10,
+                    marginTop: -4,
+                  }}>
+                  {[5, 7, 11].map(val => (
+                    <Text
+                      key={val}
+                      style={{
+                        fontSize: 13,
+                        fontWeight: (parseInt(preferences.answersCount) || 5) === val ? '700' : '400',
+                        color: (parseInt(preferences.answersCount) || 5) === val ? '#8E24AA' : '#999',
+                      }}>
+                      {val}
+                    </Text>
+                  ))}
+                </View>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: '#888',
+                    marginTop: 6,
+                    fontStyle: 'italic',
+                  }}>
+                  Choose how many answer cards appear after each question.
+                </Text>
+              </View>
             </View>
 
             <View style={[styles.section, styles.sectionReports]}>
