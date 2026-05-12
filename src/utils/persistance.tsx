@@ -65,6 +65,7 @@ interface Preferences {
   ratingPromptShown: string;
   ratingPromptDismissed: string;
   answersCount: string;
+  tellUsMore: string;
 }
 
 const initEnum = {
@@ -133,6 +134,7 @@ export const initialPreferences: Preferences = {
   ratingPromptShown: initEnum.false,
   ratingPromptDismissed: initEnum.false,
   answersCount: '5',
+  tellUsMore: '',
 };
 
 interface AppSettingsContextProps {

@@ -632,10 +632,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const contextPrompt = `Context: ${contextInfo}`;
       const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
-      // Get pepes data for context
-      const pepesData = await getItem('pepes');
-      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-      // Generate answers
       const currentAnswersCount = parseInt(preferences.answersCount) || 5;
       console.log(
         `[Home] Requesting AI answers. Count: ${currentAnswersCount} (from preference: "${preferences.answersCount}")`,
@@ -643,16 +639,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_answers',
         metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-          pepes: parsedPepes,
           contextInfo: contextInfo, // Weather, time, and location context
         },
         number: currentAnswersCount,
         countMin: currentAnswersCount,
         countMax: currentAnswersCount,
-        genderType: preferences?.gender || 'white boy',
       });
 
       if (answers && answers.length > 0) {
@@ -935,19 +926,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Create a retry message asking for more alternatives
       const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
 
-      // Get pepes data for context
-      const pepesData = await getItem('pepes');
-      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
       const currentAnswersCount = parseInt(preferences.answersCount) || 5;
       // Use generateAnswers to get more answers
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_more_answers',
         metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-          pepes: parsedPepes, // Include pepes data for better context
           contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
@@ -956,7 +939,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         number: currentAnswersCount,
         countMin: currentAnswersCount,
         countMax: currentAnswersCount,
-        genderType: preferences?.gender || 'white boy',
       });
 
       if (answers && answers.length > 0) {
@@ -1099,11 +1081,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     try {
       await generateAnswers(transcribedText, {
         mode: 'learning_feedback',
-        metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-        },
       });
     } catch (error) {
       // Don't block the user flow if learning feedback fails

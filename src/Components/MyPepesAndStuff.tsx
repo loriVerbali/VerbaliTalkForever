@@ -13,6 +13,7 @@ import {
   Platform,
   PermissionsAndroid,
   Linking,
+  KeyboardAvoidingView,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import ParentalGate from './ParentalGate';
@@ -178,7 +179,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const [showAddGate, setShowAddGate] = useState(false);
   const [sessionGatesShown, setSessionGatesShown] = useState(false);
 
-  const {setItem, getItem} = useAppSettings();
+  // Tell Us More state
+  const [showExpandModal, setShowExpandModal] = useState(false);
+  const [showAddNewModal, setShowAddNewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [tempNote, setTempNote] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const {setItem, getItem, preferences} = useAppSettings();
   const {isTablet} = useAdmin();
   const {width, height} = useWindowDimensions();
 
@@ -342,6 +350,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     favoriteOverlayHeartFontSize: isTablet ? 30 : 26,
     cardFavoriteSize: isTablet ? 34 : 28,
     cardFavoriteHeartFontSize: isTablet ? 18 : 16,
+
+    // Tell Us More Section
+    tellUsMorePadding: isTablet ? 30 : 20,
+    tellUsMoreTitleFontSize: isTablet ? 24 : 20,
+    tellUsMoreHelperFontSize: isTablet ? 16 : 14,
+    tellUsMoreContentFontSize: isTablet ? 18 : 16,
+    tellUsMoreButtonFontSize: isTablet ? 16 : 14,
+    tellUsMoreButtonPadding: isTablet ? 15 : 10,
   };
 
   // Load saved data on component mount
@@ -745,6 +761,45 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       item.id === itemId ? {...item, isFavorite: !item.isFavorite} : item,
     );
     savePepesData(updatedData);
+  };
+
+  const handleSaveTellUsMore = async (newText: string, isAppend: boolean) => {
+    const currentText = preferences.tellUsMore || '';
+    let updatedText = '';
+
+    if (isAppend) {
+      if (currentText.trim()) {
+        updatedText = `${currentText.trim()}\n\n---\n\n${newText.trim()}`;
+      } else {
+        updatedText = newText.trim();
+      }
+    } else {
+      updatedText = newText.trim();
+    }
+
+    await setItem('tellUsMore', updatedText);
+    setShowAddNewModal(false);
+    setShowEditModal(false);
+    setTempNote('');
+  };
+
+  const handleClearTellUsMore = async () => {
+    Alert.alert(
+      'Remove Information',
+      'Are you sure you want to remove all Tell Us More information?',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Remove Information',
+          style: 'destructive',
+          onPress: async () => {
+            await setItem('tellUsMore', '');
+            setShowEditModal(false);
+            setTempNote('');
+          },
+        },
+      ],
+    );
   };
 
   const formatAddressToString = (addressDetails?: AddressDetails): string => {
@@ -1556,6 +1611,91 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             {currentItems.map(renderItem)}
           </View>
         )}
+
+        {/* Tell Us More Section */}
+        <View
+          style={[
+            styles.tellUsMoreSection,
+            {
+              paddingHorizontal: responsiveValues.tellUsMorePadding,
+              paddingBottom: responsiveValues.tellUsMorePadding * 2,
+            },
+          ]}>
+          <View style={styles.tellUsMoreHeader}>
+            <Text
+              style={[
+                styles.tellUsMoreTitle,
+                {fontSize: responsiveValues.tellUsMoreTitleFontSize},
+              ]}>
+              Tell Us More
+            </Text>
+            {preferences.tellUsMore ? (
+              <View style={styles.tellUsMoreActions}>
+                <TouchableOpacity
+                  style={styles.tellUsMoreActionButton}
+                  onPress={() => {
+                    setTempNote('');
+                    setShowAddNewModal(true);
+                  }}>
+                  <Text style={styles.tellUsMoreActionIcon}>+</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.tellUsMoreActionButton}
+                  onPress={() => {
+                    setTempNote(preferences.tellUsMore);
+                    setShowEditModal(true);
+                  }}>
+                  <Text style={styles.tellUsMoreActionIcon}>✎</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
+
+          <Text
+            style={[
+              styles.tellUsMoreHelper,
+              {fontSize: responsiveValues.tellUsMoreHelperFontSize},
+            ]}>
+            Help MaTalk AI be more relevant for {preferences.heroName || 'your child'}. What should it know about them? Drop in any free-form notes, preferences, or details that will help the AI understand what they’re trying to say. The more context you share, the better the AI suggestions become.
+          </Text>
+
+          {!preferences.tellUsMore ? (
+            <TouchableOpacity
+              style={[
+                styles.tellUsMoreEmptyState,
+                {padding: responsiveValues.tellUsMorePadding},
+              ]}
+              onPress={() => {
+                setTempNote('');
+                setShowAddNewModal(true);
+              }}>
+              <Text style={styles.tellUsMorePlaceholder}>
+                e.g., What they like or dislike, special dates in their life, inside jokes, routines, and more…
+              </Text>
+              <View style={styles.tellUsMoreAddButtonInline}>
+                <Text style={styles.tellUsMoreAddButtonText}>Add Information</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.tellUsMoreContentContainer}>
+              <Text
+                style={[
+                  styles.tellUsMoreContent,
+                  {fontSize: responsiveValues.tellUsMoreContentFontSize},
+                ]}
+                numberOfLines={5}>
+                {preferences.tellUsMore}
+              </Text>
+              {preferences.tellUsMore.split('\n').length > 5 || preferences.tellUsMore.length > 200 ? (
+                <TouchableOpacity
+                  onPress={() => setShowExpandModal(true)}
+                  style={styles.expandButtonInline}>
+                  <Text style={styles.expandButtonText}>Expand</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* Add/Edit Modal */}
@@ -2189,6 +2329,253 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         </View>
       </Modal>
 
+      {/* Expand Modal */}
+      <Modal
+        visible={showExpandModal}
+        animationType="fade"
+        transparent={true}
+        supportedOrientations={['landscape-left', 'landscape-right']}
+        onRequestClose={() => setShowExpandModal(false)}>
+        <View style={styles.tellUsMoreModalOverlay}>
+          <View
+            style={[
+              styles.tellUsMoreModalContent,
+              {
+                maxHeight: responsiveValues.modalContentMaxHeight * 1.1,
+              },
+            ]}>
+            <View
+              style={[
+                styles.modalHeader,
+                {padding: responsiveValues.modalHeaderPadding},
+              ]}>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {fontSize: responsiveValues.modalTitleFontSize},
+                ]}>
+                Tell Us More
+              </Text>
+              <TouchableOpacity onPress={() => setShowExpandModal(false)}>
+                <Text
+                  style={[
+                    styles.closeButton,
+                    {fontSize: responsiveValues.closeButtonFontSize},
+                  ]}>
+                  ✕
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={[
+                styles.modalBody,
+                {padding: responsiveValues.modalBodyPadding},
+              ]}>
+              <Text style={[styles.tellUsMoreFullText, {fontSize: responsiveValues.tellUsMoreContentFontSize}]}>
+                {preferences.tellUsMore}
+              </Text>
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.saveButton, {flex: 1, margin: 20}]}
+                onPress={() => {
+                  setShowExpandModal(false);
+                  setTempNote(preferences.tellUsMore);
+                  setShowEditModal(true);
+                }}>
+                <Text style={styles.saveButtonText}>Edit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add New Information Modal */}
+      <Modal
+        visible={showAddNewModal}
+        animationType="slide"
+        transparent={true}
+        supportedOrientations={['landscape-left', 'landscape-right']}
+        onRequestClose={() => setShowAddNewModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{flex: 1}}>
+          <View style={styles.tellUsMoreModalOverlay}>
+            <View
+              style={[
+                styles.tellUsMoreModalContent,
+                {
+                  maxHeight: responsiveValues.modalContentMaxHeight * 1.1,
+                },
+              ]}>
+              <View
+                style={[
+                  styles.modalHeader,
+                  {padding: responsiveValues.modalHeaderPadding},
+                ]}>
+                <Text
+                  style={[
+                    styles.modalTitle,
+                    {fontSize: responsiveValues.modalTitleFontSize},
+                  ]}>
+                  Add New Information
+                </Text>
+                <TouchableOpacity onPress={() => setShowAddNewModal(false)}>
+                  <Text
+                    style={[
+                      styles.closeButton,
+                      {fontSize: responsiveValues.closeButtonFontSize},
+                    ]}>
+                    ✕
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                style={[
+                  styles.modalBody,
+                  {padding: responsiveValues.modalBodyPadding},
+                ]}
+                keyboardShouldPersistTaps="handled">
+                <Text style={styles.modalHelperText}>
+                  Add anything else MaTalk should know. This will be added to the existing information without changing what is already saved.
+                </Text>
+                <TextInput
+                  style={[
+                    styles.multilineInput,
+                    {
+                      fontSize: responsiveValues.textInputFontSize,
+                      padding: responsiveValues.textInputPaddingHorizontal,
+                    },
+                  ]}
+                  multiline
+                  value={tempNote}
+                  onChangeText={setTempNote}
+                  placeholder="e.g., What they like or dislike, special dates in their life, inside jokes, routines, and more…"
+                  placeholderTextColor="#888"
+                  autoFocus
+                />
+              </ScrollView>
+              <View
+                style={[
+                  styles.modalActions,
+                  {padding: responsiveValues.modalActionsPadding},
+                ]}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowAddNewModal(false);
+                    setTempNote('');
+                  }}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.saveButton,
+                    !tempNote.trim() && styles.saveButtonDisabled,
+                  ]}
+                  disabled={!tempNote.trim()}
+                  onPress={() => handleSaveTellUsMore(tempNote, true)}>
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Existing Information Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent={true}
+        supportedOrientations={['landscape-left', 'landscape-right']}
+        onRequestClose={() => setShowEditModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{flex: 1}}>
+          <View style={styles.tellUsMoreModalOverlay}>
+            <View
+              style={[
+                styles.tellUsMoreModalContent,
+                {
+                  maxHeight: responsiveValues.modalContentMaxHeight * 1.1,
+                },
+              ]}>
+              <View
+                style={[
+                  styles.modalHeader,
+                  {padding: responsiveValues.modalHeaderPadding},
+                ]}>
+                <Text
+                  style={[
+                    styles.modalTitle,
+                    {fontSize: responsiveValues.modalTitleFontSize},
+                  ]}>
+                  Edit Existing Information
+                </Text>
+                <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                  <Text
+                    style={[
+                      styles.closeButton,
+                      {fontSize: responsiveValues.closeButtonFontSize},
+                    ]}>
+                    ✕
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView
+                style={[
+                  styles.modalBody,
+                  {padding: responsiveValues.modalBodyPadding},
+                ]}
+                keyboardShouldPersistTaps="handled">
+                <Text style={styles.modalWarningText}>
+                  Changes here will update what MaTalk currently knows about {preferences.heroName || 'your child'}. You can edit, remove, or replace existing information.
+                </Text>
+                <TextInput
+                  style={[
+                    styles.multilineInput,
+                    {
+                      fontSize: responsiveValues.textInputFontSize,
+                      padding: responsiveValues.textInputPaddingHorizontal,
+                    },
+                  ]}
+                  multiline
+                  value={tempNote}
+                  onChangeText={setTempNote}
+                  placeholder="Edit notes here..."
+                  placeholderTextColor="#888"
+                />
+                <TouchableOpacity
+                  style={styles.clearAllButton}
+                  onPress={handleClearTellUsMore}>
+                  <Text style={styles.clearAllButtonText}>Clear All Information</Text>
+                </TouchableOpacity>
+              </ScrollView>
+              <View
+                style={[
+                  styles.modalActions,
+                  {padding: responsiveValues.modalActionsPadding},
+                ]}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setShowEditModal(false);
+                    setTempNote('');
+                  }}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={() => handleSaveTellUsMore(tempNote, false)}>
+                  <Text style={styles.saveButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {showAddGate && (
         <ParentalGate
           onSuccess={async () => {
@@ -2399,6 +2786,148 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  tellUsMoreSection: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 20,
+  },
+  tellUsMoreHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  tellUsMoreTitle: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  tellUsMoreActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  tellUsMoreActionButton: {
+    backgroundColor: '#f0f0f0',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tellUsMoreActionIcon: {
+    fontSize: 20,
+    color: '#8E24AA',
+    fontWeight: 'bold',
+  },
+  tellUsMoreHelper: {
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 15,
+  },
+  tellUsMoreEmptyState: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e1e1e1',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  tellUsMorePlaceholder: {
+    color: '#999',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 15,
+  },
+  tellUsMoreAddButtonInline: {
+    backgroundColor: '#8E24AA',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tellUsMoreAddButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  tellUsMoreContentContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tellUsMoreContent: {
+    color: '#333',
+    lineHeight: 24,
+  },
+  expandButtonInline: {
+    alignSelf: 'flex-end',
+    marginTop: 10,
+  },
+  expandButtonText: {
+    color: '#8E24AA',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  tellUsMoreFullText: {
+    color: '#333',
+    lineHeight: 26,
+  },
+  modalHelperText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  modalWarningText: {
+    fontSize: 14,
+    color: '#D32F2F',
+    backgroundColor: '#FFEBEE',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  multilineInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    minHeight: 150,
+    textAlignVertical: 'top',
+    color: '#333',
+  },
+  clearAllButton: {
+    marginTop: 20,
+    padding: 10,
+    alignItems: 'center',
+  },
+  clearAllButtonText: {
+    color: '#D32F2F',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  tellUsMoreModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  tellUsMoreModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '98%',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
   },
   emptyState: {
     flex: 1,
