@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Modal,
   View,
@@ -13,7 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import fetchHelper from '../../utils/fetcher';
-import {MagicPreviewResponse, MagicBuildRequest} from '../../types/HeroContext';
+import { MagicPreviewResponse, MagicBuildRequest } from '../../types/HeroContext';
 
 interface MagicBuildModalProps {
   visible: boolean;
@@ -57,7 +57,7 @@ const MagicBuildModal: React.FC<MagicBuildModalProps> = ({
   const handleCancel = () => {
     if (input.trim()) {
       Alert.alert('Discard changes?', 'Your typed text will be lost.', [
-        {text: 'Keep Editing', style: 'cancel'},
+        { text: 'Keep Editing', style: 'cancel' },
         {
           text: 'Discard',
           style: 'destructive',
@@ -236,7 +236,7 @@ const MagicBuildModal: React.FC<MagicBuildModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  kav: {flex: 1},
+  kav: { flex: 1 },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -246,12 +246,12 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '98%',
-    maxHeight: '90%', // Use maxHeight instead of height to allow shrinking
+    height: '90%', // Use height instead of maxHeight to prevent layout collapse
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 6},
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 10,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     color: '#555',
     fontWeight: '700',
   },
-  body: {flex: 1},
+  body: { flex: 1 },
   bodyContent: {
     padding: 20,
     paddingBottom: 10,
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 8,
   },
-  errorIcon: {fontSize: 18},
+  errorIcon: { fontSize: 18 },
   errorText: {
     flex: 1,
     fontSize: 14,
@@ -340,8 +340,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#ddd',
-    minHeight: 180,
-    maxHeight: 340,
+    flex: 1,
+    minHeight: 300,
     padding: 14,
     fontSize: 16,
     color: '#222',
