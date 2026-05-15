@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,11 +24,12 @@ import {
   MediaType,
 } from 'react-native-image-picker';
 import Geolocation from '@react-native-community/geolocation';
-import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
-import {useAppSettings} from '../utils/persistance';
-import {useAssistant} from '../contexts/AssistantContext';
-import {useAdmin} from '../contexts/adminContext';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { useAppSettings } from '../utils/persistance';
+import { useAssistant } from '../contexts/AssistantContext';
+import { useAdmin } from '../contexts/adminContext';
 import TellUsMoreSection from './TellUsMore/TellUsMoreSection';
+import { isPlaceholderImage } from '../utils/imageSourceResolver';
 
 interface AddressDetails {
   address: string;
@@ -179,13 +180,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const userSelectedCountryRef = useRef<boolean>(false); // Track if user manually selected country
   const [showAddGate, setShowAddGate] = useState(false);
   const [sessionGatesShown, setSessionGatesShown] = useState(false);
+  const [pendingEditItem, setPendingEditItem] = useState<PepeItem | null>(null);
 
   // Tell Us More state — now handled by TellUsMoreSection
   const [pepesDataVersion, setPepesDataVersion] = useState(0);
 
-  const {setItem, getItem, preferences} = useAppSettings();
-  const {isTablet} = useAdmin();
-  const {width, height} = useWindowDimensions();
+  const { setItem, getItem, preferences } = useAppSettings();
+  const { isTablet } = useAdmin();
+  const { width, height } = useWindowDimensions();
 
   // Type and relationship options
   const typeOptions = {
@@ -261,7 +263,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     ],
   };
 
-  const relationshipOptions: {[key: string]: string[]} = {
+  const relationshipOptions: { [key: string]: string[] } = {
     Family: [
       'Mom',
       'Dad',
@@ -387,7 +389,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         setPepesData(completeData);
       }
     } catch (error) {
-      
+
     }
   };
 
@@ -396,7 +398,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem('pepes', JSON.stringify(data));
       setPepesData(data);
     } catch (error) {
-      
+
     }
   };
 
@@ -428,7 +430,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      
+
       return false;
     }
   };
@@ -456,7 +458,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-      
+
       return false;
     }
   };
@@ -502,7 +504,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         'Camera Permission',
         'Please enable camera access in Settings to take a photo.',
         [
-          {text: 'Cancel', style: 'cancel'},
+          { text: 'Cancel', style: 'cancel' },
           {
             text: 'Open Settings',
             onPress: () => {
@@ -533,11 +535,11 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       'Add Photo',
       'Choose image source',
       [
-        {text: 'Cancel', style: 'cancel'},
-        {text: 'Camera', onPress: openCamera},
-        {text: 'Photo Library', onPress: openLibrary},
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Camera', onPress: openCamera },
+        { text: 'Photo Library', onPress: openLibrary },
       ],
-      {cancelable: true},
+      { cancelable: true },
     );
   };
 
@@ -565,12 +567,22 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   };
 
   const handleAddPress = () => {
+    setPendingEditItem(null);
     if (sessionGatesShown) {
       // Gates already shown in this session, go directly to add modal
       openAddModal();
     } else {
       // First time in this session, show gates
       setShowAddGate(true);
+    }
+  };
+
+  const handleEditPress = (item: PepeItem) => {
+    if (isPlaceholderImage(item.imageUri) && !sessionGatesShown) {
+      setPendingEditItem(item);
+      setShowAddGate(true);
+    } else {
+      openEditModal(item);
     }
   };
 
@@ -689,13 +701,13 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       isFavorite: itemIsFavorite,
       ...(selectedCategory === 'Places'
         ? {
-            addressDetails: placeAddress,
-            isCurrentLocation: placeIsCurrentLocation,
-          }
+          addressDetails: placeAddress,
+          isCurrentLocation: placeIsCurrentLocation,
+        }
         : {}),
     };
 
-    const updatedData = {...pepesData};
+    const updatedData = { ...pepesData };
 
     if (editingItem) {
       // Update existing item
@@ -725,12 +737,12 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
 
   const deleteItem = (itemId: string) => {
     Alert.alert('Delete Item', 'Are you sure you want to delete this item?', [
-      {text: 'Cancel', style: 'cancel'},
+      { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          const updatedData = {...pepesData};
+          const updatedData = { ...pepesData };
           updatedData[selectedCategory] = updatedData[selectedCategory].filter(
             item => item.id !== itemId,
           );
@@ -753,9 +765,9 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   };
 
   const toggleFavorite = (itemId: string) => {
-    const updatedData = {...pepesData};
+    const updatedData = { ...pepesData };
     updatedData[selectedCategory] = updatedData[selectedCategory].map(item =>
-      item.id === itemId ? {...item, isFavorite: !item.isFavorite} : item,
+      item.id === itemId ? { ...item, isFavorite: !item.isFavorite } : item,
     );
     savePepesData(updatedData);
   };
@@ -840,10 +852,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 p.addressDetails?.country === 'Canada'
                   ? 'Canada'
                   : p.addressDetails?.country === 'USA'
-                  ? 'USA'
-                  : p.addressDetails?.country === 'Other'
-                  ? 'Other'
-                  : 'USA', // Default to USA only if country is missing/invalid
+                    ? 'USA'
+                    : p.addressDetails?.country === 'Other'
+                      ? 'Other'
+                      : 'USA', // Default to USA only if country is missing/invalid
             },
             isCurrentLocation: !!p.isCurrentLocation,
           };
@@ -877,7 +889,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem(`${sType}Address`, formatted);
       await setItem(`${sType}IsCurrentLocation`, isCurr.toString());
     } catch (e) {
-      
+
     }
   };
 
@@ -995,7 +1007,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         };
       }
     } catch (err) {
-      
+
     }
     return null;
   };
@@ -1046,10 +1058,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
               country: shouldPreserveCountry
                 ? prev.country
                 : parsed.country === 'Canada'
-                ? 'Canada'
-                : parsed.country === 'USA'
-                ? 'USA'
-                : prev.country, // Preserve user's selection if geocoding didn't find USA/Canada
+                  ? 'Canada'
+                  : parsed.country === 'USA'
+                    ? 'USA'
+                    : prev.country, // Preserve user's selection if geocoding didn't find USA/Canada
             };
           });
         }
@@ -1104,7 +1116,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return requestStatus === RESULTS.GRANTED;
       }
     } catch (e) {
-      
+
       return false;
     }
   };
@@ -1116,7 +1128,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         'Location Permission',
         'Please enable location permissions in Settings to use current location.',
         [
-          {text: 'Cancel', style: 'cancel'},
+          { text: 'Cancel', style: 'cancel' },
           {
             text: 'Open Settings',
             onPress: () => {
@@ -1135,7 +1147,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     Geolocation.getCurrentPosition(
       async (position: any) => {
         try {
-          const {latitude, longitude} = position.coords;
+          const { latitude, longitude } = position.coords;
           const rg = await reverseGeocode(latitude, longitude);
           if (rg?.display_name) {
             const parsed = parseLocationToAddressDetails(
@@ -1152,7 +1164,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         }
       },
       (error: any) => {
-        
+
         Alert.alert('Location Error', 'Unable to get your location.');
       },
       {
@@ -1209,8 +1221,8 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     // If country is missing or invalid, try to infer from state
     const country =
       addressDetails.country === 'USA' ||
-      addressDetails.country === 'Canada' ||
-      addressDetails.country === 'Other'
+        addressDetails.country === 'Canada' ||
+        addressDetails.country === 'Other'
         ? addressDetails.country
         : inferCountryFromState(addressDetails.state);
     return {
@@ -1266,10 +1278,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       <View
         style={[
           styles.gridImageContainer,
-          {borderRadius: responsiveValues.gridImageBorderRadius},
+          { borderRadius: responsiveValues.gridImageBorderRadius },
         ]}>
         <FastImage
-          source={{uri: item.imageUri}}
+          source={{ uri: item.imageUri }}
           style={styles.gridImage}
           resizeMode={FastImage.resizeMode.cover}
         />
@@ -1283,11 +1295,11 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 borderRadius: responsiveValues.gridActionButtonSize / 2,
               },
             ]}
-            onPress={() => openEditModal(item)}>
+            onPress={() => handleEditPress(item)}>
             <Text
               style={[
                 styles.gridEditButtonText,
-                {fontSize: responsiveValues.gridActionButtonFontSize},
+                { fontSize: responsiveValues.gridActionButtonFontSize },
               ]}>
               ✏️
             </Text>
@@ -1305,7 +1317,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             <Text
               style={[
                 styles.gridDeleteButtonText,
-                {fontSize: responsiveValues.gridActionButtonFontSize},
+                { fontSize: responsiveValues.gridActionButtonFontSize },
               ]}>
               🗑️
             </Text>
@@ -1325,7 +1337,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           <Text
             style={[
               styles.cardFavoriteHeart,
-              {fontSize: responsiveValues.cardFavoriteHeartFontSize},
+              { fontSize: responsiveValues.cardFavoriteHeartFontSize },
             ]}>
             {item.isFavorite ? '♥' : '♡'}
           </Text>
@@ -1335,7 +1347,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         <Text
           style={[
             styles.gridItemName,
-            {fontSize: responsiveValues.gridItemNameFontSize},
+            { fontSize: responsiveValues.gridItemNameFontSize },
           ]}
           numberOfLines={1}>
           {item.name}
@@ -1344,7 +1356,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           <Text
             style={[
               styles.gridItemAliases,
-              {fontSize: responsiveValues.gridItemAliasesFontSize},
+              { fontSize: responsiveValues.gridItemAliasesFontSize },
             ]}
             numberOfLines={1}>
             {item.aliases.join(', ')}
@@ -1354,7 +1366,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           <Text
             style={[
               styles.gridItemType,
-              {fontSize: responsiveValues.gridItemAliasesFontSize},
+              { fontSize: responsiveValues.gridItemAliasesFontSize },
             ]}
             numberOfLines={1}>
             {selectedCategory === 'People' ? item.type : `Type: ${item.type}`}
@@ -1364,7 +1376,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           <Text
             style={[
               styles.gridItemType,
-              {fontSize: responsiveValues.gridItemAliasesFontSize},
+              { fontSize: responsiveValues.gridItemAliasesFontSize },
             ]}
             numberOfLines={1}>
             {formatAddressToString(item.addressDetails)}
@@ -1374,7 +1386,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           <Text
             style={[
               styles.gridItemRelationship,
-              {fontSize: responsiveValues.gridItemAliasesFontSize},
+              { fontSize: responsiveValues.gridItemAliasesFontSize },
             ]}
             numberOfLines={1}>
             {item.relationship}
@@ -1460,14 +1472,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             <Text
               style={[
                 styles.dropdownText,
-                {fontSize: responsiveValues.dropdownFontSize},
+                { fontSize: responsiveValues.dropdownFontSize },
               ]}>
               {getCategoryLabel(selectedCategory)}
             </Text>
             <Text
               style={[
                 styles.dropdownArrow,
-                {fontSize: responsiveValues.dropdownArrowFontSize},
+                { fontSize: responsiveValues.dropdownArrowFontSize },
               ]}>
               ▼
             </Text>
@@ -1485,7 +1497,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           <Text
             style={[
               styles.addButtonText,
-              {fontSize: responsiveValues.addButtonFontSize},
+              { fontSize: responsiveValues.addButtonFontSize },
             ]}>
             Add
           </Text>
@@ -1519,9 +1531,9 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
               <Text
                 style={[
                   styles.dropdownOptionText,
-                  {fontSize: responsiveValues.dropdownOptionFontSize},
+                  { fontSize: responsiveValues.dropdownOptionFontSize },
                   selectedCategory === category &&
-                    styles.selectedDropdownOptionText,
+                  styles.selectedDropdownOptionText,
                 ]}>
                 {getCategoryLabel(category)}
               </Text>
@@ -1534,14 +1546,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       <ScrollView
         style={[
           styles.itemsList,
-          {paddingHorizontal: responsiveValues.itemsListPaddingHorizontal},
+          { paddingHorizontal: responsiveValues.itemsListPaddingHorizontal },
         ]}>
         {!currentItems || currentItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text
               style={[
                 styles.emptyStateText,
-                {fontSize: responsiveValues.emptyStateFontSize},
+                { fontSize: responsiveValues.emptyStateFontSize },
               ]}>
               No{' '}
               {selectedCategory === 'TVShows'
@@ -1563,7 +1575,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
               <Text
                 style={[
                   styles.emptyAddButtonText,
-                  {fontSize: responsiveValues.emptyAddButtonFontSize},
+                  { fontSize: responsiveValues.emptyAddButtonFontSize },
                 ]}>
                 Add
               </Text>
@@ -1601,12 +1613,12 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             <View
               style={[
                 styles.modalHeader,
-                {padding: responsiveValues.modalHeaderPadding},
+                { padding: responsiveValues.modalHeaderPadding },
               ]}>
               <Text
                 style={[
                   styles.modalTitle,
-                  {fontSize: responsiveValues.modalTitleFontSize},
+                  { fontSize: responsiveValues.modalTitleFontSize },
                 ]}>
                 {editingItem
                   ? 'Edit Item'
@@ -1616,7 +1628,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 <Text
                   style={[
                     styles.closeButton,
-                    {fontSize: responsiveValues.closeButtonFontSize},
+                    { fontSize: responsiveValues.closeButtonFontSize },
                   ]}>
                   ✕
                 </Text>
@@ -1626,7 +1638,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             <ScrollView
               style={[
                 styles.modalBody,
-                {padding: responsiveValues.modalBodyPadding},
+                { padding: responsiveValues.modalBodyPadding },
               ]}
               contentContainerStyle={{
                 paddingBottom:
@@ -1639,20 +1651,20 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                   <Text
                     style={[
                       styles.sectionLabel,
-                      {fontSize: responsiveValues.sectionLabelFontSize},
+                      { fontSize: responsiveValues.sectionLabelFontSize },
                     ]}>
                     {selectedCategory === 'People'
                       ? 'Photo'
                       : selectedCategory === 'Food' ||
                         selectedCategory === 'Drinks'
-                      ? 'Picture'
-                      : 'Image'}
+                        ? 'Picture'
+                        : 'Image'}
                   </Text>
                   {!isTablet && (
                     <Text
                       style={[
                         styles.scrollHintText,
-                        {fontSize: responsiveValues.scrollHintFontSize},
+                        { fontSize: responsiveValues.scrollHintFontSize },
                       ]}>
                       Scroll down to add name and alias
                     </Text>
@@ -1662,7 +1674,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                   <TouchableOpacity onPress={selectImage}>
                     {itemImageUri ? (
                       <FastImage
-                        source={{uri: itemImageUri}}
+                        source={{ uri: itemImageUri }}
                         style={[
                           styles.uploadedImage,
                           {
@@ -1725,7 +1737,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                   <Text
                     style={[
                       styles.errorText,
-                      {fontSize: responsiveValues.sectionLabelFontSize},
+                      { fontSize: responsiveValues.sectionLabelFontSize },
                     ]}>
                     {errorMessage}
                   </Text>
@@ -1737,7 +1749,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 <Text
                   style={[
                     styles.sectionLabel,
-                    {fontSize: responsiveValues.sectionLabelFontSize},
+                    { fontSize: responsiveValues.sectionLabelFontSize },
                   ]}>
                   Name
                 </Text>
@@ -1767,7 +1779,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 <Text
                   style={[
                     styles.sectionLabel,
-                    {fontSize: responsiveValues.sectionLabelFontSize},
+                    { fontSize: responsiveValues.sectionLabelFontSize },
                   ]}>
                   Aliases (comma-separated)
                 </Text>
@@ -1797,66 +1809,66 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 selectedCategory === 'TVShows' ||
                 selectedCategory === 'Drinks' ||
                 selectedCategory === 'Places') && (
-                <View style={styles.inputSection}>
-                  <Text
-                    style={[
-                      styles.sectionLabel,
-                      {fontSize: responsiveValues.sectionLabelFontSize},
-                    ]}>
-                    Type
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.dropdownContainer}
-                    onPress={() => {
-                      const options = typeOptions[selectedCategory];
-                      Alert.alert(
-                        selectedCategory === 'People'
-                          ? 'Select Type'
-                          : 'Select Type',
-                        '',
-                        options.map((option: string) => ({
-                          text: option,
-                          onPress: () => {
-                            setItemType(option);
-                            // Reset relationship when type changes
-                            setItemRelationship('');
-                            if (errorMessage) setErrorMessage('');
-                          },
-                        })),
-                        {cancelable: true},
-                      );
-                    }}>
-                    <View
+                  <View style={styles.inputSection}>
+                    <Text
                       style={[
-                        styles.dropdown,
-                        {
-                          paddingHorizontal:
-                            responsiveValues.textInputPaddingHorizontal,
-                          paddingVertical:
-                            responsiveValues.textInputPaddingVertical,
-                        },
+                        styles.sectionLabel,
+                        { fontSize: responsiveValues.sectionLabelFontSize },
                       ]}>
-                      <Text
-                        style={[
-                          styles.dropdownText,
-                          {fontSize: responsiveValues.textInputFontSize},
-                        ]}>
-                        {itemType ||
-                          (selectedCategory === 'People'
+                      Type
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.dropdownContainer}
+                      onPress={() => {
+                        const options = typeOptions[selectedCategory];
+                        Alert.alert(
+                          selectedCategory === 'People'
                             ? 'Select Type'
-                            : 'Select Type')}
-                      </Text>
-                      <Text
+                            : 'Select Type',
+                          '',
+                          options.map((option: string) => ({
+                            text: option,
+                            onPress: () => {
+                              setItemType(option);
+                              // Reset relationship when type changes
+                              setItemRelationship('');
+                              if (errorMessage) setErrorMessage('');
+                            },
+                          })),
+                          { cancelable: true },
+                        );
+                      }}>
+                      <View
                         style={[
-                          styles.dropdownArrow,
-                          {fontSize: responsiveValues.textInputFontSize},
+                          styles.dropdown,
+                          {
+                            paddingHorizontal:
+                              responsiveValues.textInputPaddingHorizontal,
+                            paddingVertical:
+                              responsiveValues.textInputPaddingVertical,
+                          },
                         ]}>
-                        ▼
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              )}
+                        <Text
+                          style={[
+                            styles.dropdownText,
+                            { fontSize: responsiveValues.textInputFontSize },
+                          ]}>
+                          {itemType ||
+                            (selectedCategory === 'People'
+                              ? 'Select Type'
+                              : 'Select Type')}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dropdownArrow,
+                            { fontSize: responsiveValues.textInputFontSize },
+                          ]}>
+                          ▼
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
               {/* Relationship Input */}
               {selectedCategory === 'People' &&
@@ -1866,7 +1878,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                     <Text
                       style={[
                         styles.sectionLabel,
-                        {fontSize: responsiveValues.sectionLabelFontSize},
+                        { fontSize: responsiveValues.sectionLabelFontSize },
                       ]}>
                       Relationship
                     </Text>
@@ -1884,7 +1896,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                               if (errorMessage) setErrorMessage('');
                             },
                           })),
-                          {cancelable: true},
+                          { cancelable: true },
                         );
                       }}>
                       <View
@@ -1900,14 +1912,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                         <Text
                           style={[
                             styles.dropdownText,
-                            {fontSize: responsiveValues.textInputFontSize},
+                            { fontSize: responsiveValues.textInputFontSize },
                           ]}>
                           {itemRelationship || 'Select Relationship'}
                         </Text>
                         <Text
                           style={[
                             styles.dropdownArrow,
-                            {fontSize: responsiveValues.textInputFontSize},
+                            { fontSize: responsiveValues.textInputFontSize },
                           ]}>
                           ▼
                         </Text>
@@ -1923,23 +1935,23 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                     <Text
                       style={[
                         styles.sectionLabel,
-                        {fontSize: responsiveValues.sectionLabelFontSize},
+                        { fontSize: responsiveValues.sectionLabelFontSize },
                       ]}>
                       Location
                     </Text>
-                    <View style={{flexDirection: 'row', gap: 10}}>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
                       <TouchableOpacity
                         style={[
                           styles.currentLocationButton,
                           placeIsCurrentLocation &&
-                            styles.currentLocationButtonActive,
+                          styles.currentLocationButtonActive,
                         ]}
                         onPress={useCurrentLocationForPlace}>
                         <Text
                           style={[
                             styles.currentLocationText,
                             placeIsCurrentLocation &&
-                              styles.currentLocationTextActive,
+                            styles.currentLocationTextActive,
                           ]}>
                           {placeIsCurrentLocation
                             ? '✓ Current Location'
@@ -1963,27 +1975,27 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                       placeholderTextColor="#888"
                       value={placeAddress.address}
                       onChangeText={text => {
-                        setPlaceAddress(prev => ({...prev, address: text}));
+                        setPlaceAddress(prev => ({ ...prev, address: text }));
                         setPlaceIsCurrentLocation(false);
                       }}
                     />
                     <TextInput
-                      style={[styles.textInput, {marginTop: 10}]}
+                      style={[styles.textInput, { marginTop: 10 }]}
                       placeholder="Address 2 (Optional)"
                       placeholderTextColor="#888"
                       value={placeAddress.address2}
                       onChangeText={text => {
-                        setPlaceAddress(prev => ({...prev, address2: text}));
+                        setPlaceAddress(prev => ({ ...prev, address2: text }));
                         setPlaceIsCurrentLocation(false);
                       }}
                     />
                     <TextInput
-                      style={[styles.textInput, {marginTop: 10}]}
+                      style={[styles.textInput, { marginTop: 10 }]}
                       placeholder="City"
                       placeholderTextColor="#888"
                       value={placeAddress.city}
                       onChangeText={text => {
-                        setPlaceAddress(prev => ({...prev, city: text}));
+                        setPlaceAddress(prev => ({ ...prev, city: text }));
                         setPlaceIsCurrentLocation(false);
                       }}
                     />
@@ -2049,15 +2061,15 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                                 }, 2000);
                               },
                             },
-                            {text: 'Cancel', style: 'cancel'},
+                            { text: 'Cancel', style: 'cancel' },
                           ],
-                          {cancelable: true},
+                          { cancelable: true },
                         );
                       }}>
                       <Text
                         style={[
                           styles.dropdownText,
-                          {fontSize: responsiveValues.textInputFontSize},
+                          { fontSize: responsiveValues.textInputFontSize },
                         ]}>
                         {placeAddress.country === 'Other'
                           ? 'Other'
@@ -2066,7 +2078,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                       <Text
                         style={[
                           styles.dropdownArrow,
-                          {fontSize: responsiveValues.textInputFontSize},
+                          { fontSize: responsiveValues.textInputFontSize },
                         ]}>
                         ▼
                       </Text>
@@ -2077,7 +2089,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                         <Text
                           style={[
                             styles.sectionLabel,
-                            {fontSize: responsiveValues.sectionLabelFontSize},
+                            { fontSize: responsiveValues.sectionLabelFontSize },
                           ]}>
                           {placeAddress.country === 'Canada'
                             ? 'Province'
@@ -2121,9 +2133,9 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                                     setPlaceIsCurrentLocation(false);
                                   },
                                 })),
-                                {text: 'Cancel', style: 'cancel'},
+                                { text: 'Cancel', style: 'cancel' },
                               ],
-                              {cancelable: true},
+                              { cancelable: true },
                             );
                           }}>
                           <Text
@@ -2139,7 +2151,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                           <Text
                             style={[
                               styles.dropdownArrow,
-                              {fontSize: responsiveValues.textInputFontSize},
+                              { fontSize: responsiveValues.textInputFontSize },
                             ]}>
                             ▼
                           </Text>
@@ -2148,7 +2160,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                     )}
 
                     <TextInput
-                      style={[styles.textInput, {marginTop: 10}]}
+                      style={[styles.textInput, { marginTop: 10 }]}
                       placeholder={
                         placeAddress.country === 'Canada'
                           ? 'Postal Code'
@@ -2157,7 +2169,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                       placeholderTextColor="#888"
                       value={placeAddress.zipcode}
                       onChangeText={text => {
-                        setPlaceAddress(prev => ({...prev, zipcode: text}));
+                        setPlaceAddress(prev => ({ ...prev, zipcode: text }));
                         setPlaceIsCurrentLocation(false);
                       }}
                     />
@@ -2170,7 +2182,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             <View
               style={[
                 styles.modalActions,
-                {padding: responsiveValues.modalActionsPadding},
+                { padding: responsiveValues.modalActionsPadding },
               ]}>
               <TouchableOpacity
                 style={[
@@ -2184,7 +2196,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 <Text
                   style={[
                     styles.cancelButtonText,
-                    {fontSize: responsiveValues.actionButtonFontSize},
+                    { fontSize: responsiveValues.actionButtonFontSize },
                   ]}>
                   Cancel
                 </Text>
@@ -2203,7 +2215,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 <Text
                   style={[
                     styles.saveButtonText,
-                    {fontSize: responsiveValues.actionButtonFontSize},
+                    { fontSize: responsiveValues.actionButtonFontSize },
                   ]}>
                   Save
                 </Text>
@@ -2221,7 +2233,12 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             setShowAddGate(false);
             setSessionGatesShown(true); // Mark gates as shown for this session
             await requestMediaPermissionsAfterGate();
-            openAddModal();
+            if (pendingEditItem) {
+              openEditModal(pendingEditItem);
+              setPendingEditItem(null);
+            } else {
+              openAddModal();
+            }
           }}
           isSettingsContext={false}
           message="Making sure you are an adult as there is camera usage . All images stay local"
@@ -2279,7 +2296,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     elevation: 5,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
   },
@@ -2495,7 +2512,7 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
     padding: 15,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -2563,7 +2580,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '98%',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
@@ -2598,7 +2615,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -2658,7 +2675,7 @@ const styles = StyleSheet.create({
     width: '90%',
     maxHeight: '80%',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 8,
