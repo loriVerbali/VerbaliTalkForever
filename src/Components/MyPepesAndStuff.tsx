@@ -28,6 +28,7 @@ import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useAppSettings} from '../utils/persistance';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
+import TellUsMoreSection from './TellUsMore/TellUsMoreSection';
 
 interface AddressDetails {
   address: string;
@@ -179,12 +180,8 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const [showAddGate, setShowAddGate] = useState(false);
   const [sessionGatesShown, setSessionGatesShown] = useState(false);
 
-  // Tell Us More state
-  const [showExpandModal, setShowExpandModal] = useState(false);
-  const [showAddNewModal, setShowAddNewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [tempNote, setTempNote] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Tell Us More state — now handled by TellUsMoreSection
+  const [pepesDataVersion, setPepesDataVersion] = useState(0);
 
   const {setItem, getItem, preferences} = useAppSettings();
   const {isTablet} = useAdmin();
@@ -763,43 +760,9 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     savePepesData(updatedData);
   };
 
-  const handleSaveTellUsMore = async (newText: string, isAppend: boolean) => {
-    const currentText = preferences.tellUsMore || '';
-    let updatedText = '';
-
-    if (isAppend) {
-      if (currentText.trim()) {
-        updatedText = `${currentText.trim()}\n\n---\n\n${newText.trim()}`;
-      } else {
-        updatedText = newText.trim();
-      }
-    } else {
-      updatedText = newText.trim();
-    }
-
-    await setItem('tellUsMore', updatedText);
-    setShowAddNewModal(false);
-    setShowEditModal(false);
-    setTempNote('');
-  };
-
-  const handleClearTellUsMore = async () => {
-    Alert.alert(
-      'Remove Information',
-      'Are you sure you want to remove all Tell Us More information?',
-      [
-        {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Remove Information',
-          style: 'destructive',
-          onPress: async () => {
-            await setItem('tellUsMore', '');
-            setShowEditModal(false);
-            setTempNote('');
-          },
-        },
-      ],
-    );
+  const handlePepesUpdated = (updatedPepes: any) => {
+    setPepesData(updatedPepes);
+    setPepesDataVersion(v => v + 1);
   };
 
   const formatAddressToString = (addressDetails?: AddressDetails): string => {
@@ -1613,89 +1576,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         )}
 
         {/* Tell Us More Section */}
-        <View
-          style={[
-            styles.tellUsMoreSection,
-            {
-              paddingHorizontal: responsiveValues.tellUsMorePadding,
-              paddingBottom: responsiveValues.tellUsMorePadding * 2,
-            },
-          ]}>
-          <View style={styles.tellUsMoreHeader}>
-            <Text
-              style={[
-                styles.tellUsMoreTitle,
-                {fontSize: responsiveValues.tellUsMoreTitleFontSize},
-              ]}>
-              Tell Us More
-            </Text>
-            {preferences.tellUsMore ? (
-              <View style={styles.tellUsMoreActions}>
-                <TouchableOpacity
-                  style={styles.tellUsMoreActionButton}
-                  onPress={() => {
-                    setTempNote('');
-                    setShowAddNewModal(true);
-                  }}>
-                  <Text style={styles.tellUsMoreActionIcon}>+</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.tellUsMoreActionButton}
-                  onPress={() => {
-                    setTempNote(preferences.tellUsMore);
-                    setShowEditModal(true);
-                  }}>
-                  <Text style={styles.tellUsMoreActionIcon}>✎</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-          </View>
-
-          <Text
-            style={[
-              styles.tellUsMoreHelper,
-              {fontSize: responsiveValues.tellUsMoreHelperFontSize},
-            ]}>
-            Help MaTalk AI be more relevant for {preferences.heroName || 'your child'}. What should it know about them? Drop in any free-form notes, preferences, or details that will help the AI understand what they’re trying to say. The more context you share, the better the AI suggestions become.
-          </Text>
-
-          {!preferences.tellUsMore ? (
-            <TouchableOpacity
-              style={[
-                styles.tellUsMoreEmptyState,
-                {padding: responsiveValues.tellUsMorePadding},
-              ]}
-              onPress={() => {
-                setTempNote('');
-                setShowAddNewModal(true);
-              }}>
-              <Text style={styles.tellUsMorePlaceholder}>
-                e.g., What they like or dislike, special dates in their life, inside jokes, routines, and more…
-              </Text>
-              <View style={styles.tellUsMoreAddButtonInline}>
-                <Text style={styles.tellUsMoreAddButtonText}>Add Information</Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.tellUsMoreContentContainer}>
-              <Text
-                style={[
-                  styles.tellUsMoreContent,
-                  {fontSize: responsiveValues.tellUsMoreContentFontSize},
-                ]}
-                numberOfLines={5}>
-                {preferences.tellUsMore}
-              </Text>
-              {preferences.tellUsMore.split('\n').length > 5 || preferences.tellUsMore.length > 200 ? (
-                <TouchableOpacity
-                  onPress={() => setShowExpandModal(true)}
-                  style={styles.expandButtonInline}>
-                  <Text style={styles.expandButtonText}>Expand</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          )}
-        </View>
+        <TellUsMoreSection
+          horizontalPadding={responsiveValues.tellUsMorePadding}
+          onPepesUpdated={handlePepesUpdated}
+        />
       </ScrollView>
 
       {/* Add/Edit Modal */}
@@ -2329,252 +2213,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         </View>
       </Modal>
 
-      {/* Expand Modal */}
-      <Modal
-        visible={showExpandModal}
-        animationType="fade"
-        transparent={true}
-        supportedOrientations={['landscape-left', 'landscape-right']}
-        onRequestClose={() => setShowExpandModal(false)}>
-        <View style={styles.tellUsMoreModalOverlay}>
-          <View
-            style={[
-              styles.tellUsMoreModalContent,
-              {
-                maxHeight: responsiveValues.modalContentMaxHeight * 1.1,
-              },
-            ]}>
-            <View
-              style={[
-                styles.modalHeader,
-                {padding: responsiveValues.modalHeaderPadding},
-              ]}>
-              <Text
-                style={[
-                  styles.modalTitle,
-                  {fontSize: responsiveValues.modalTitleFontSize},
-                ]}>
-                Tell Us More
-              </Text>
-              <TouchableOpacity onPress={() => setShowExpandModal(false)}>
-                <Text
-                  style={[
-                    styles.closeButton,
-                    {fontSize: responsiveValues.closeButtonFontSize},
-                  ]}>
-                  ✕
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              style={[
-                styles.modalBody,
-                {padding: responsiveValues.modalBodyPadding},
-              ]}>
-              <Text style={[styles.tellUsMoreFullText, {fontSize: responsiveValues.tellUsMoreContentFontSize}]}>
-                {preferences.tellUsMore}
-              </Text>
-            </ScrollView>
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.saveButton, {flex: 1, margin: 20}]}
-                onPress={() => {
-                  setShowExpandModal(false);
-                  setTempNote(preferences.tellUsMore);
-                  setShowEditModal(true);
-                }}>
-                <Text style={styles.saveButtonText}>Edit</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Add New Information Modal */}
-      <Modal
-        visible={showAddNewModal}
-        animationType="slide"
-        transparent={true}
-        supportedOrientations={['landscape-left', 'landscape-right']}
-        onRequestClose={() => setShowAddNewModal(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{flex: 1}}>
-          <View style={styles.tellUsMoreModalOverlay}>
-            <View
-              style={[
-                styles.tellUsMoreModalContent,
-                {
-                  maxHeight: responsiveValues.modalContentMaxHeight * 1.1,
-                },
-              ]}>
-              <View
-                style={[
-                  styles.modalHeader,
-                  {padding: responsiveValues.modalHeaderPadding},
-                ]}>
-                <Text
-                  style={[
-                    styles.modalTitle,
-                    {fontSize: responsiveValues.modalTitleFontSize},
-                  ]}>
-                  Add New Information
-                </Text>
-                <TouchableOpacity onPress={() => setShowAddNewModal(false)}>
-                  <Text
-                    style={[
-                      styles.closeButton,
-                      {fontSize: responsiveValues.closeButtonFontSize},
-                    ]}>
-                    ✕
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                style={[
-                  styles.modalBody,
-                  {padding: responsiveValues.modalBodyPadding},
-                ]}
-                keyboardShouldPersistTaps="handled">
-                <Text style={styles.modalHelperText}>
-                  Add anything else MaTalk should know. This will be added to the existing information without changing what is already saved.
-                </Text>
-                <TextInput
-                  style={[
-                    styles.multilineInput,
-                    {
-                      fontSize: responsiveValues.textInputFontSize,
-                      padding: responsiveValues.textInputPaddingHorizontal,
-                    },
-                  ]}
-                  multiline
-                  value={tempNote}
-                  onChangeText={setTempNote}
-                  placeholder="e.g., What they like or dislike, special dates in their life, inside jokes, routines, and more…"
-                  placeholderTextColor="#888"
-                  autoFocus
-                />
-              </ScrollView>
-              <View
-                style={[
-                  styles.modalActions,
-                  {padding: responsiveValues.modalActionsPadding},
-                ]}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setShowAddNewModal(false);
-                    setTempNote('');
-                  }}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    !tempNote.trim() && styles.saveButtonDisabled,
-                  ]}
-                  disabled={!tempNote.trim()}
-                  onPress={() => handleSaveTellUsMore(tempNote, true)}>
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Edit Existing Information Modal */}
-      <Modal
-        visible={showEditModal}
-        animationType="slide"
-        transparent={true}
-        supportedOrientations={['landscape-left', 'landscape-right']}
-        onRequestClose={() => setShowEditModal(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{flex: 1}}>
-          <View style={styles.tellUsMoreModalOverlay}>
-            <View
-              style={[
-                styles.tellUsMoreModalContent,
-                {
-                  maxHeight: responsiveValues.modalContentMaxHeight * 1.1,
-                },
-              ]}>
-              <View
-                style={[
-                  styles.modalHeader,
-                  {padding: responsiveValues.modalHeaderPadding},
-                ]}>
-                <Text
-                  style={[
-                    styles.modalTitle,
-                    {fontSize: responsiveValues.modalTitleFontSize},
-                  ]}>
-                  Edit Existing Information
-                </Text>
-                <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                  <Text
-                    style={[
-                      styles.closeButton,
-                      {fontSize: responsiveValues.closeButtonFontSize},
-                    ]}>
-                    ✕
-                  </Text>
-                </TouchableOpacity>
-              </View>
-              <ScrollView
-                style={[
-                  styles.modalBody,
-                  {padding: responsiveValues.modalBodyPadding},
-                ]}
-                keyboardShouldPersistTaps="handled">
-                <Text style={styles.modalWarningText}>
-                  Changes here will update what MaTalk currently knows about {preferences.heroName || 'your child'}. You can edit, remove, or replace existing information.
-                </Text>
-                <TextInput
-                  style={[
-                    styles.multilineInput,
-                    {
-                      fontSize: responsiveValues.textInputFontSize,
-                      padding: responsiveValues.textInputPaddingHorizontal,
-                    },
-                  ]}
-                  multiline
-                  value={tempNote}
-                  onChangeText={setTempNote}
-                  placeholder="Edit notes here..."
-                  placeholderTextColor="#888"
-                />
-                <TouchableOpacity
-                  style={styles.clearAllButton}
-                  onPress={handleClearTellUsMore}>
-                  <Text style={styles.clearAllButtonText}>Clear All Information</Text>
-                </TouchableOpacity>
-              </ScrollView>
-              <View
-                style={[
-                  styles.modalActions,
-                  {padding: responsiveValues.modalActionsPadding},
-                ]}>
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  onPress={() => {
-                    setShowEditModal(false);
-                    setTempNote('');
-                  }}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={() => handleSaveTellUsMore(tempNote, false)}>
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      {/* Tell Us More modals are handled inside TellUsMoreSection */}
 
       {showAddGate && (
         <ParentalGate
