@@ -25,7 +25,12 @@ interface ImageErrorEvent {
 }
 
 export interface ImageCardProps {
-  images: Array<{ url: { url: string }; prompt: string; isMoreButton?: boolean }>;
+  images: Array<{
+    url: { url: string };
+    prompt: string;
+    isMoreButton?: boolean;
+    isSpacer?: boolean;
+  }>;
   width?: number;
   height?: number;
   onRefresh?: () => void;
@@ -125,6 +130,26 @@ const ImageCard: React.FC<ImageCardProps> = ({
         { marginVertical: responsiveValues.containerMarginVertical },
       ]}>
       {images.map((image, index) => {
+        // Handle spacers for layout alignment
+        if (image.isSpacer) {
+          return (
+            <View
+              key={index}
+              style={[
+                styles.imageContainer,
+                {
+                  width: width,
+                  height: height, // Maintain vertical space
+                  marginBottom: responsiveValues.containerMarginBottom,
+                  backgroundColor: 'transparent',
+                  shadowOpacity: 0,
+                  elevation: 0,
+                },
+              ]}
+            />
+          );
+        }
+
         // Handle the "More" button specially
         if (image.isMoreButton) {
           const isMaxRetries = retryCount >= maxRetries;

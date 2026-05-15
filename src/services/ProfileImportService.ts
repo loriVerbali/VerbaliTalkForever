@@ -377,6 +377,9 @@ export const ProfileImportService = {
             }
 
             try {
+                if (key === 'tellUsMore') {
+                    console.log(`[Import] Restoring tellUsMore context (${(value || '').length} chars)`);
+                }
                 await DefaultPreference.set(key, value);
             } catch (e) {
                 console.warn(`[Import] Failed to set preference ${key}:`, e);

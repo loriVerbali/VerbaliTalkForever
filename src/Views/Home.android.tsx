@@ -11,7 +11,10 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, RouteProp } from '@react-navigation/native';
+import {
+  useNavigation,
+  RouteProp,
+} from '@react-navigation/native';
 
 // Add imports for the components
 import Inputs, { InputsRef } from '../Components/Inputs';
@@ -127,7 +130,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     Array<{ word: string; imageUrl?: string }>
   >([]);
   const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
-
+  // Removed local answersCount state - using preferences.answersCount
 
   // AI Resolved tracking state
   const [currentAIRecord, setCurrentAIRecord] = useState<{
@@ -308,15 +311,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     string | null
   >(null);
 
-  useEffect(() => {
-    // Load gobackAfterSelection setting
-    const loadGobackAfterSelectionSetting = async () => {
-      try {
-        const setting = await getItem('gobackAfterSelection');
-        setGobackAfterSelection(setting === '1');
-      } catch (error) { }
-    };
+  // Removed settings loading useFocusEffect - now using reactive preferences
 
+  useEffect(() => {
     try {
       // Always use Voice recognition
       setCachedUseLocalWhisper('1');
@@ -412,6 +409,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       Opened: 'Conversation',
     });
     if (stateof === 'Attention') {
+      console.log(
+        `[Home] Entering Attention state (Android). Current answersCount: ${preferences.answersCount}`,
+      );
       // wakeWord.stopListening();
       handleRecord();
     }
@@ -424,7 +424,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     return () => {
       Voice.destroy();
     };
-  }, []);
+  }, [stateof]);
 
   // Cleanup useEffect for wake word service and timers
   useEffect(() => {
@@ -647,23 +647,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
         try {
-          // Get pepes data for context
-          const pepesData = await getItem('pepes');
-          const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
           // Use the new generateAnswers function
+          const currentAnswersCount = parseInt(preferences.answersCount) || 5;
+          console.log(
+            `[Home] Requesting AI answers (Android). Count: ${currentAnswersCount} (from preference: "${preferences.answersCount}")`,
+          );
           const answers = await generateAnswers(transcribedText, {
             mode: 'generate_answers',
             metadata: {
-              kidName: preferences?.heroName || 'I',
-              speaker: 'anyone',
-              audience: preferences?.heroName || 'my',
-              pepes: parsedPepes,
               contextInfo: contextInfo, // Weather, time, and location context
             },
-            countMin: 5,
-            countMax: 5,
-            genderType: preferences?.gender || 'white boy',
+            number: currentAnswersCount,
+            countMin: currentAnswersCount,
+            countMax: currentAnswersCount,
           });
 
           if (answers && answers.length > 0) {
@@ -814,26 +810,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Create a retry message asking for more alternatives
       const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
 
-      // Get pepes data for context
-      const pepesData = await getItem('pepes');
-      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
+      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
       // Use generateAnswers to get more answers
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_more_answers',
         metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-          pepes: parsedPepes, // Include pepes data for better context
           contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
           answers: currentAccumulated || [], // Pass all accumulated previous answers
         },
-        countMin: 5,
-        countMax: 5,
-        genderType: preferences?.gender || 'white boy',
+        number: currentAnswersCount,
+        countMin: currentAnswersCount,
+        countMax: currentAnswersCount,
       });
 
       if (answers && answers.length > 0) {
@@ -962,11 +951,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     try {
       await generateAnswers(transcribedText, {
         mode: 'learning_feedback',
-        metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-        },
       });
     } catch (error) {
       // Don't block the user flow if learning feedback fails
@@ -1289,6 +1273,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         maxRetries={MAX_RETRIES}
                         onAnswerSelected={handleAnswerSelected}
                         ttsService={TTSService}
+                        answersCount={parseInt(preferences.answersCount) || 5}
                       />
                     </View>
                   );

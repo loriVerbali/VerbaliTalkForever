@@ -816,3 +816,29 @@ export const resolveImageSource = (
   // Fallback for other local paths
   return {uri: `file://${imageUri}`};
 };
+
+/**
+ * The standard placeholder image used for AI-created tiles that have no photo
+ */
+export const AI_PLACEHOLDER_IMAGE_URI = 'https://placehold.co/200x200/E1BEE7/9C27B0/png?text=Photo';
+
+/**
+ * Checks if an image URI is considered a placeholder
+ */
+export const isPlaceholderImage = (imageUri?: string): boolean => {
+  if (!imageUri) {
+    return true;
+  }
+
+  if (imageUri === AI_PLACEHOLDER_IMAGE_URI) {
+    return true;
+  }
+
+  // If resolveImageSource returns null, it's either an invalid path or missing
+  // which will result in the local welcome.png placeholder being shown
+  if (resolveImageSource(imageUri) === null) {
+    return true;
+  }
+
+  return false;
+};
