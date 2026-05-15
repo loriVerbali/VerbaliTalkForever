@@ -13,6 +13,7 @@ import {
   Platform,
   PermissionsAndroid,
   Linking,
+  KeyboardAvoidingView,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import ParentalGate from './ParentalGate';
@@ -27,6 +28,7 @@ import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 import {useAppSettings} from '../utils/persistance';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
+import TellUsMoreSection from './TellUsMore/TellUsMoreSection';
 
 interface AddressDetails {
   address: string;
@@ -178,7 +180,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const [showAddGate, setShowAddGate] = useState(false);
   const [sessionGatesShown, setSessionGatesShown] = useState(false);
 
-  const {setItem, getItem} = useAppSettings();
+  // Tell Us More state — now handled by TellUsMoreSection
+  const [pepesDataVersion, setPepesDataVersion] = useState(0);
+
+  const {setItem, getItem, preferences} = useAppSettings();
   const {isTablet} = useAdmin();
   const {width, height} = useWindowDimensions();
 
@@ -342,6 +347,14 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     favoriteOverlayHeartFontSize: isTablet ? 30 : 26,
     cardFavoriteSize: isTablet ? 34 : 28,
     cardFavoriteHeartFontSize: isTablet ? 18 : 16,
+
+    // Tell Us More Section
+    tellUsMorePadding: isTablet ? 30 : 20,
+    tellUsMoreTitleFontSize: isTablet ? 24 : 20,
+    tellUsMoreHelperFontSize: isTablet ? 16 : 14,
+    tellUsMoreContentFontSize: isTablet ? 18 : 16,
+    tellUsMoreButtonFontSize: isTablet ? 16 : 14,
+    tellUsMoreButtonPadding: isTablet ? 15 : 10,
   };
 
   // Load saved data on component mount
@@ -745,6 +758,11 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       item.id === itemId ? {...item, isFavorite: !item.isFavorite} : item,
     );
     savePepesData(updatedData);
+  };
+
+  const handlePepesUpdated = (updatedPepes: any) => {
+    setPepesData(updatedPepes);
+    setPepesDataVersion(v => v + 1);
   };
 
   const formatAddressToString = (addressDetails?: AddressDetails): string => {
@@ -1556,6 +1574,12 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             {currentItems.map(renderItem)}
           </View>
         )}
+
+        {/* Tell Us More Section */}
+        <TellUsMoreSection
+          horizontalPadding={responsiveValues.tellUsMorePadding}
+          onPepesUpdated={handlePepesUpdated}
+        />
       </ScrollView>
 
       {/* Add/Edit Modal */}
@@ -2189,6 +2213,8 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         </View>
       </Modal>
 
+      {/* Tell Us More modals are handled inside TellUsMoreSection */}
+
       {showAddGate && (
         <ParentalGate
           onSuccess={async () => {
@@ -2399,6 +2425,148 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  tellUsMoreSection: {
+    marginTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 20,
+  },
+  tellUsMoreHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  tellUsMoreTitle: {
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  tellUsMoreActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  tellUsMoreActionButton: {
+    backgroundColor: '#f0f0f0',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tellUsMoreActionIcon: {
+    fontSize: 20,
+    color: '#8E24AA',
+    fontWeight: 'bold',
+  },
+  tellUsMoreHelper: {
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 15,
+  },
+  tellUsMoreEmptyState: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e1e1e1',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  tellUsMorePlaceholder: {
+    color: '#999',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginBottom: 15,
+  },
+  tellUsMoreAddButtonInline: {
+    backgroundColor: '#8E24AA',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  tellUsMoreAddButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  tellUsMoreContentContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tellUsMoreContent: {
+    color: '#333',
+    lineHeight: 24,
+  },
+  expandButtonInline: {
+    alignSelf: 'flex-end',
+    marginTop: 10,
+  },
+  expandButtonText: {
+    color: '#8E24AA',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  tellUsMoreFullText: {
+    color: '#333',
+    lineHeight: 26,
+  },
+  modalHelperText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  modalWarningText: {
+    fontSize: 14,
+    color: '#D32F2F',
+    backgroundColor: '#FFEBEE',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  multilineInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    minHeight: 150,
+    textAlignVertical: 'top',
+    color: '#333',
+  },
+  clearAllButton: {
+    marginTop: 20,
+    padding: 10,
+    alignItems: 'center',
+  },
+  clearAllButtonText: {
+    color: '#D32F2F',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  tellUsMoreModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  tellUsMoreModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: '98%',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
   },
   emptyState: {
     flex: 1,

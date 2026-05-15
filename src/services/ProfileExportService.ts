@@ -115,6 +115,10 @@ export const ProfileExportService = {
                 // specific logic: if value is null/undefined, do we default to initial?
                 // The requirement says "Export all key-value persistence for the active profile".
                 prefsToExport[key] = value ?? (initialPreferences as any)[key];
+                
+                if (key === 'tellUsMore') {
+                    console.log(`[Export] Including tellUsMore context (${(prefsToExport[key] || '').length} chars)`);
+                }
             } catch (e) {
                 console.warn(`Failed to get preference for ${key}`, e);
                 prefsToExport[key] = (initialPreferences as any)[key];

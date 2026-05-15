@@ -69,6 +69,8 @@ interface Preferences {
   ratingPromptShown: string;
   ratingPromptDismissed: string;
   deviceRevoked: string;
+  answersCount: string;
+  tellUsMore: string;
 }
 
 const initEnum = {
@@ -141,6 +143,8 @@ export const initialPreferences: Preferences = {
   ratingPromptShown: initEnum.false,
   ratingPromptDismissed: initEnum.false,
   deviceRevoked: initEnum.false,
+  answersCount: '5',
+  tellUsMore: '',
 };
 
 interface AppSettingsContextProps {
@@ -193,9 +197,16 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const getItem = async (key: keyof Preferences): Promise<string> => {
     try {
       const item = await DefaultPreference.get(key);
-      return item ?? initialPreferences[key];
+      if (
+        item === null ||
+        item === undefined ||
+        item === '' ||
+        item === initEnum.notSet
+      ) {
+        return initialPreferences[key];
+      }
+      return item;
     } catch (error) {
-
       return initialPreferences[key];
     }
   };
@@ -223,14 +234,31 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const getKeys = Object.keys(initialPreferences) as (keyof Preferences)[];
       const loaded: Partial<Preferences> = {};
 
-      for (const key of getKeys) {
-        const found = await DefaultPreference.get(key);
-        loaded[key] = (found ?? initialPreferences[key]) as any;
-        if (key === 'isInTrial') {
+      // Load all preferences in parallel for better performance
+      const results = await Promise.all(
+        getKeys.map(async key => {
+          const found = await DefaultPreference.get(key);
+          return { key, value: found };
+        }),
+      );
 
+      for (const { key, value } of results) {
+        // Fallback to initial value if stored value is null, undefined, empty, or placeholders
+        const fallbackValue = initialPreferences[key];
+        const isMissing =
+          value === null ||
+          value === undefined ||
+          value === '' ||
+          value === initEnum.notSet;
+
+        loaded[key] = isMissing ? fallbackValue : value;
+
+        if (key === 'answersCount') {
+          console.log(
+            `[Persistence] Loaded answersCount: "${loaded[key]}" (original: "${value}", fallback: "${fallbackValue}")`,
+          );
         }
       }
-
       setPreferences(
         prevPreferences => ({ ...prevPreferences, ...loaded } as Preferences),
       );
