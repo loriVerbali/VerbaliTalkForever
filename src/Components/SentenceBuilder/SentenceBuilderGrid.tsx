@@ -33,7 +33,7 @@ import {
   GRID_CONFIGS,
   GridConfigKey,
 } from '../../types/sentenceBuilder';
-import { resolveImageSource } from '../../utils/imageSourceResolver';
+import { resolveImageSource, isPlaceholderImage } from '../../utils/imageSourceResolver';
 import { views } from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
@@ -106,6 +106,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   const [forgotPinError, setForgotPinError] = useState('');
   const forgotPinInputRef = useRef<TextInput | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showPlaceholderModal, setShowPlaceholderModal] = useState(false);
+  const [placeholderWord, setPlaceholderWord] = useState('');
   const isProcessingPressRef = useRef<boolean>(false);
   const isDebouncing = useRef(false);
 
@@ -486,6 +488,14 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         // Navigate to folder - this should navigate, not add to sentence
         setFolderStack(prev => [...prev, { nodeId: node.id, title: node.title }]);
       } else {
+        // Check for placeholder image
+        if (isPlaceholderImage(node.imageUri)) {
+          setPlaceholderWord(node.title);
+          setShowPlaceholderModal(true);
+          isProcessingPressRef.current = false;
+          return;
+        }
+
         // Speak the word using TTS (always speak, even if it's a consecutive duplicate)
         const textToSpeak = node.ttsText || node.title;
         const onPlaybackComplete = async () => {
@@ -1559,6 +1569,42 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      {/* Placeholder Image Warning Modal */}
+      <Modal
+        visible={showPlaceholderModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPlaceholderModal(false)}>
+        <TouchableWithoutFeedback onPress={() => setShowPlaceholderModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, { borderColor: '#ff3b30', borderWidth: 2 }]}>
+                <Text style={styles.warningIcon}>⚠️</Text>
+                <Text style={[styles.modalTitle, { color: '#ff3b30' }]}>Missing Image</Text>
+                <Text style={styles.placeholderWarningText}>
+                  No image is attached to "{placeholderWord}", please go to settings and add an image to this word.
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.settingsLinkButton}
+                  onPress={() => {
+                    setShowPlaceholderModal(false);
+                    navigation.navigate(views.SETTINGS as never);
+                  }}>
+                  <Text style={styles.settingsLinkText}>Go to Settings</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton, { marginTop: 15, width: '100%' }]}
+                  onPress={() => setShowPlaceholderModal(false)}>
+                  <Text style={styles.buttonText}>Dismiss</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 };
@@ -1768,6 +1814,33 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  warningIcon: {
+    fontSize: 40,
+    marginBottom: 10,
+  },
+  placeholderWarningText: {
+    fontSize: 18,
+    color: '#ff3b30',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '600',
+    lineHeight: 24,
+  },
+  settingsLinkButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#007bff',
+    width: '100%',
+    alignItems: 'center',
+  },
+  settingsLinkText: {
+    color: '#007bff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 
