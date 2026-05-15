@@ -24,8 +24,8 @@ export interface ConfigType {
 }
 
 const AppConfig: ConfigType = {
-  //baseUrl: 'https://matalkapi-copy-nologin.up.railway.app',
-  baseUrl: 'http://192.168.1.175:3000',
+  baseUrl: 'https://matalkapi-copy-nologin.up.railway.app',
+  //baseUrl: 'http://192.168.1.175:3000',
   //baseUrl: 'http://localhost:3000',
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: Config.GEMINI_API_KEY || '',
