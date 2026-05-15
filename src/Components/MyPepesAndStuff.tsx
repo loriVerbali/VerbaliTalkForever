@@ -29,6 +29,7 @@ import {useAppSettings} from '../utils/persistance';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
 import TellUsMoreSection from './TellUsMore/TellUsMoreSection';
+import {isPlaceholderImage} from '../utils/imageSourceResolver';
 
 interface AddressDetails {
   address: string;
@@ -179,6 +180,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   const userSelectedCountryRef = useRef<boolean>(false); // Track if user manually selected country
   const [showAddGate, setShowAddGate] = useState(false);
   const [sessionGatesShown, setSessionGatesShown] = useState(false);
+  const [pendingEditItem, setPendingEditItem] = useState<PepeItem | null>(null);
 
   // Tell Us More state — now handled by TellUsMoreSection
   const [pepesDataVersion, setPepesDataVersion] = useState(0);
@@ -565,12 +567,22 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
   };
 
   const handleAddPress = () => {
+    setPendingEditItem(null);
     if (sessionGatesShown) {
       // Gates already shown in this session, go directly to add modal
       openAddModal();
     } else {
       // First time in this session, show gates
       setShowAddGate(true);
+    }
+  };
+
+  const handleEditPress = (item: PepeItem) => {
+    if (isPlaceholderImage(item.imageUri) && !sessionGatesShown) {
+      setPendingEditItem(item);
+      setShowAddGate(true);
+    } else {
+      openEditModal(item);
     }
   };
 
@@ -1283,7 +1295,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                 borderRadius: responsiveValues.gridActionButtonSize / 2,
               },
             ]}
-            onPress={() => openEditModal(item)}>
+            onPress={() => handleEditPress(item)}>
             <Text
               style={[
                 styles.gridEditButtonText,
@@ -2221,7 +2233,12 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             setShowAddGate(false);
             setSessionGatesShown(true); // Mark gates as shown for this session
             await requestMediaPermissionsAfterGate();
-            openAddModal();
+            if (pendingEditItem) {
+              openEditModal(pendingEditItem);
+              setPendingEditItem(null);
+            } else {
+              openAddModal();
+            }
           }}
           isSettingsContext={false}
           message="Making sure you are an adult as there is camera usage . All images stay local"
