@@ -312,9 +312,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 10,
   },
+
   sheet: {
     width: '98%',
-    maxHeight: '90%',
+    height: '90%',
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
