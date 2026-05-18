@@ -26,10 +26,9 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { useAppSettings } from '../utils/persistance';
-import { useAssistant } from '../contexts/AssistantContext';
 import { useAdmin } from '../contexts/adminContext';
 import TellUsMoreSection from './TellUsMore/TellUsMoreSection';
-import { isPlaceholderImage } from '../utils/imageSourceResolver';
+import { isPlaceholderImage, resolveImageSource } from '../utils/imageSourceResolver';
 
 interface AddressDetails {
   address: string;
@@ -1281,7 +1280,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
           { borderRadius: responsiveValues.gridImageBorderRadius },
         ]}>
         <FastImage
-          source={{ uri: item.imageUri }}
+          source={resolveImageSource(item.imageUri) || { uri: item.imageUri }}
           style={styles.gridImage}
           resizeMode={FastImage.resizeMode.cover}
         />
@@ -1674,7 +1673,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                   <TouchableOpacity onPress={selectImage}>
                     {itemImageUri ? (
                       <FastImage
-                        source={{ uri: itemImageUri }}
+                        source={resolveImageSource(itemImageUri) || { uri: itemImageUri }}
                         style={[
                           styles.uploadedImage,
                           {

@@ -26,6 +26,7 @@ import {
 import TTSService from '../utils/TTSService';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
+import fetchHelper from '../utils/fetcher';
 import mixpanel from '../utils/mixpanelInstance';
 import { logConversation } from '../utils/conversationLogger';
 import { useAdmin } from '../contexts/adminContext';
@@ -259,6 +260,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const SILENCE_TIMEOUT = 2000; // Stop recording if no new partial results for 2 seconds
   const MAX_RETRIES = 3;
 
+
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
     null,
@@ -395,7 +397,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     };
 
     // Load the setting
-    loadGobackAfterSelectionSetting();
+    // loadGobackAfterSelectionSetting();
 
     // Setup audio recording
 

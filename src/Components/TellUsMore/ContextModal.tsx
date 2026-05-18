@@ -243,7 +243,7 @@ const ContextModal: React.FC<ContextModalProps> = ({
                         textAlignVertical="top"
                       />
                       <Text style={styles.footerHint}>
-                        ✨ Use Magic Update to let AI organize your notes into profile tiles.
+                        ✨ Use Magic: Let AI organize your updates for you
                       </Text>
                     </View>
                   )}
