@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,8 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import {useAppSettings} from '../../utils/persistance';
-import {useAdmin} from '../../contexts/adminContext';
+import { useAppSettings } from '../../utils/persistance';
+import { useAdmin } from '../../contexts/adminContext';
 import fetchHelper from '../../utils/fetcher';
 import {
   MagicPreviewResponse,
@@ -62,8 +62,8 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
   horizontalPadding = 20,
   onPepesUpdated,
 }) => {
-  const {preferences, setItem, getItem} = useAppSettings();
-  const {isTablet} = useAdmin();
+  const { preferences, setItem, getItem } = useAppSettings();
+  const { isTablet } = useAdmin();
 
   const [activeModal, setActiveModal] = useState<ActiveModal>('none');
   const [pendingPreview, setPendingPreview] =
@@ -84,14 +84,14 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
       const pepesData: any = raw
         ? JSON.parse(raw)
         : {
-            People: [],
-            Toys: [],
-            Pets: [],
-            TVShows: [],
-            Food: [],
-            Drinks: [],
-            Places: [],
-          };
+          People: [],
+          Toys: [],
+          Pets: [],
+          TVShows: [],
+          Food: [],
+          Drinks: [],
+          Places: [],
+        };
 
       (Object.keys(tiles) as (keyof AITilesMap)[]).forEach(cat => {
         const localKey = CATEGORY_MAP[cat];
@@ -186,14 +186,20 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
 
   // ─── Preview accept ───────────────────────────────────────────────────────
 
-  const handleAcceptPreview = async () => {
+  const handleAcceptPreview = async (
+    updatedText?: string,
+    updatedTiles?: AITilesMap | null,
+  ) => {
     if (!pendingPreview) return;
+
+    const finalTiles = updatedTiles !== undefined ? updatedTiles : pendingPreview.tiles;
+    const finalFreeText = updatedText !== undefined ? updatedText : pendingPreview.free_text_form;
 
     try {
       // Try the backend finalize endpoint first
       await fetchHelper('finalizePreview', {}, {
-        tiles: pendingPreview.tiles,
-        free_text_form: pendingPreview.free_text_form,
+        tiles: finalTiles,
+        free_text_form: finalFreeText,
       } as FinalizePreviewRequest);
     } catch {
       // If backend is unavailable, do client-side finalization
@@ -201,12 +207,12 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
 
     // Always apply locally so the UI updates immediately
     const finalText = resolveStrikethrough(
-      pendingPreview.free_text_form || savedContext,
+      finalFreeText || savedContext,
     );
     await setItem('tellUsMore', finalText);
 
-    if (pendingPreview.tiles) {
-      await mergeTilesIntoPepes(pendingPreview.tiles);
+    if (finalTiles) {
+      await mergeTilesIntoPepes(finalTiles);
     }
 
     setPendingPreview(null);
@@ -228,7 +234,7 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
     <View
       style={[
         styles.section,
-        {paddingHorizontal: horizontalPadding},
+        { paddingHorizontal: horizontalPadding },
       ]}>
       {/* Section header */}
       <View style={styles.sectionHeader}>
@@ -244,19 +250,13 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
               onPress={() => setActiveModal('context_edit')}>
               <Text style={styles.iconBtnText}>✎</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.iconBtn, styles.iconBtnMagic]}
-              accessibilityLabel="Magic Update"
-              onPress={() => setActiveModal('context_edit')}>
-              <Text style={styles.iconBtnMagicText}>✨</Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
 
       {/* Helper text */}
       <Text style={[styles.helper, isTablet && styles.helperTablet]}>
-        Help MaTalk AI be more relevant for {heroName}. What should it know
+        Help MaTalk AI be more relevant for {heroName.trim()}. What should it know
         about them? Drop in any free-form notes, preferences, or details that
         will help the AI understand what they're trying to say. The more context
         you share, the better the AI suggestions become.
@@ -294,12 +294,12 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
           <View style={styles.idleFooter}>
             {(savedContext.split('\n').length > 5 ||
               savedContext.length > 200) && (
-              <TouchableOpacity
-                onPress={() => setActiveModal('context_view')}
-                accessibilityLabel="Expand full context">
-                <Text style={styles.expandLink}>Expand ↗</Text>
-              </TouchableOpacity>
-            )}
+                <TouchableOpacity
+                  onPress={() => setActiveModal('context_view')}
+                  accessibilityLabel="Expand full context">
+                  <Text style={styles.expandLink}>Expand ↗</Text>
+                </TouchableOpacity>
+              )}
           </View>
         </View>
       )}
@@ -336,6 +336,7 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
         summary={pendingPreview?.summary}
         heroName={heroName}
         onAccept={handleAcceptPreview}
+        onBack={() => setActiveModal('magicBuild')}
         onCancel={handlePreviewCancel}
       />
     </View>
@@ -442,7 +443,7 @@ const styles = StyleSheet.create({
     borderColor: '#eee',
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,

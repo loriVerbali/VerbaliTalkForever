@@ -749,6 +749,11 @@ const CLASSIC_IMAGES: Record<string, any> = {
 };
 
 /**
+ * The standard placeholder image used for AI-created tiles that have no photo
+ */
+export const AI_PLACEHOLDER_IMAGE_URI = 'src/assets/taptoAdd.png';
+
+/**
  * Resolves image source for sentence builder components
  * Handles different path formats and converts them to proper require statements
  */
@@ -757,6 +762,11 @@ export const resolveImageSource = (
 ): ImageSourcePropType | null => {
   if (!imageUri) {
     return null;
+  }
+
+  // Handle local placeholder image
+  if (imageUri === AI_PLACEHOLDER_IMAGE_URI) {
+    return require('../assets/taptoAdd.png');
   }
 
   // Handle HTTP URLs
@@ -816,11 +826,6 @@ export const resolveImageSource = (
   // Fallback for other local paths
   return {uri: `file://${imageUri}`};
 };
-
-/**
- * The standard placeholder image used for AI-created tiles that have no photo
- */
-export const AI_PLACEHOLDER_IMAGE_URI = 'https://placehold.co/200x200/E1BEE7/9C27B0/png?text=Photo';
 
 /**
  * Checks if an image URI is considered a placeholder

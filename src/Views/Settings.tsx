@@ -1659,9 +1659,9 @@ const SettingsScreen: React.FC = () => {
                 </Text>
                 <Text style={styles.myPepesDescription}>
                   Your people, stuff, food, drinks, places, and tv shows with
-                  images, names, and aliases for better conversation context.
+                  images, names, and aliases for better conversation context.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    All Images are kept on your device only.
+                    All images are kept on your device only.
                   </Text>
                 </Text>
                 <MyPepesAndStuff resetSessionTrigger={sessionResetTrigger} />
@@ -1674,9 +1674,9 @@ const SettingsScreen: React.FC = () => {
                 <Text style={styles.my8WordsDescription}>
                   Customize the 8 words that appear on your main screen cards.
                   Search for words and their images to personalize your
-                  experience.
+                  experience.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    Images are downloaded and stored on your device only.
+                    images are downloaded and stored on your device only.
                   </Text>
                 </Text>
                 <My8WordsCustomizer isTablet={isTablet} />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   Modal,
   View,
@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
+  TextInput,
 } from 'react-native';
 import {AITile, AITilesMap, MagicPreviewSummary} from '../../types/HeroContext';
 
@@ -16,7 +16,8 @@ interface PreviewModalProps {
   freeText: string;
   summary?: MagicPreviewSummary;
   heroName: string;
-  onAccept: () => void;
+  onAccept: (updatedText: string, updatedTiles: AITilesMap | null) => void;
+  onBack: () => void;
   onCancel: () => void;
 }
 
@@ -42,8 +43,33 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
   summary,
   heroName,
   onAccept,
+  onBack,
   onCancel,
 }) => {
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [editedFreeText, setEditedFreeText] = useState(freeText);
+  const [localTiles, setLocalTiles] = useState<AITilesMap | null>(tiles);
+
+  useEffect(() => {
+    if (visible) {
+      setEditedFreeText(freeText);
+      setLocalTiles(tiles);
+      setIsEditingText(false);
+    }
+  }, [visible, freeText, tiles]);
+
+  const handleUpdateTileName = (
+    category: keyof AITilesMap,
+    id: string,
+    newName: string,
+  ) => {
+    if (!localTiles) return;
+    const updated = {...localTiles};
+    updated[category] = updated[category].map(t =>
+      t.id === id ? {...t, name: newName} : t,
+    );
+    setLocalTiles(updated);
+  };
   const actionStyle = (action: string) => {
     switch (action) {
       case 'create':
@@ -71,12 +97,18 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
   };
 
   // Collect all changed tiles across categories
-  const changedTiles: Array<AITile & {categoryLabel: string}> = [];
-  if (tiles) {
-    (Object.keys(tiles) as (keyof AITilesMap)[]).forEach(cat => {
-      tiles[cat].forEach(tile => {
+  const changedTiles: Array<
+    AITile & {categoryLabel: string; categoryKey: keyof AITilesMap}
+  > = [];
+  if (localTiles) {
+    (Object.keys(localTiles) as (keyof AITilesMap)[]).forEach(cat => {
+      localTiles[cat].forEach(tile => {
         if (tile._action !== 'none') {
-          changedTiles.push({...tile, categoryLabel: CATEGORY_LABELS[cat]});
+          changedTiles.push({
+            ...tile,
+            categoryLabel: CATEGORY_LABELS[cat],
+            categoryKey: cat,
+          });
         }
       });
     });
@@ -160,13 +192,20 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
                       key={tile.id}
                       style={[styles.tileRow, actionStyle(tile._action)]}>
                       <View style={styles.tileMeta}>
-                        <Text
-                          style={[
-                            styles.tileName,
-                            tile._action === 'delete' && styles.tileNameDeleted,
-                          ]}>
-                          {tile.name}
-                        </Text>
+                        {tile._action === 'delete' ? (
+                          <Text style={[styles.tileName, styles.tileNameDeleted]}>
+                            {tile.name}
+                          </Text>
+                        ) : (
+                          <TextInput
+                            style={styles.tileNameInput}
+                            value={tile.name}
+                            onChangeText={txt =>
+                              handleUpdateTileName(tile.categoryKey, tile.id, txt)
+                            }
+                            placeholder="Tile name"
+                          />
+                        )}
                         <Text style={styles.tileCategory}>
                           {tile.categoryLabel}
                         </Text>
@@ -190,8 +229,29 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
             {/* Free text preview */}
             {freeText ? (
               <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Context Update</Text>
-                <View style={styles.freeTextBox}>{renderFreeText(freeText)}</View>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionLabel}>Context Update</Text>
+                  <TouchableOpacity
+                    onPress={() => setIsEditingText(!isEditingText)}
+                    style={styles.editBtn}>
+                    <Text style={styles.editBtnText}>
+                      {isEditingText ? 'Done' : 'Edit'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.freeTextBox}>
+                  {isEditingText ? (
+                    <TextInput
+                      style={styles.freeTextInput}
+                      multiline
+                      value={editedFreeText}
+                      onChangeText={setEditedFreeText}
+                      autoFocus
+                    />
+                  ) : (
+                    renderFreeText(editedFreeText)
+                  )}
+                </View>
               </View>
             ) : null}
 
@@ -204,10 +264,12 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
 
           {/* Actions */}
           <View style={styles.footer}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-              <Text style={styles.cancelBtnText}>Cancel</Text>
+            <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+              <Text style={styles.backBtnText}>← Back</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.acceptBtn} onPress={onAccept}>
+            <TouchableOpacity
+              style={styles.acceptBtn}
+              onPress={() => onAccept(editedFreeText, localTiles)}>
               <Text style={styles.acceptBtnText}>✓ Accept & Save</Text>
             </TouchableOpacity>
           </View>
@@ -343,6 +405,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#222',
   },
+  tileNameInput: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#222',
+    padding: 0,
+    margin: 0,
+  },
   tileNameDeleted: {
     textDecorationLine: 'line-through',
     color: '#999',
@@ -384,6 +453,31 @@ const styles = StyleSheet.create({
     color: '#2d2d2d',
     lineHeight: 24,
   },
+  freeTextInput: {
+    fontSize: 15,
+    color: '#2d2d2d',
+    lineHeight: 24,
+    padding: 0,
+    margin: 0,
+    textAlignVertical: 'top',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  editBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#f0f0f0',
+  },
+  editBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8E24AA',
+  },
   strikethrough: {
     textDecorationLine: 'line-through',
     color: '#e57373',
@@ -410,6 +504,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   cancelBtnText: {
+    fontSize: 16,
+    color: '#555',
+    fontWeight: '600',
+  },
+  backBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  backBtnText: {
     fontSize: 16,
     color: '#555',
     fontWeight: '600',
