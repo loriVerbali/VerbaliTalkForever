@@ -35,6 +35,7 @@ import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
 import WhisperModelManager from '../utils/WhisperModelManager';
+import OrganizationConnect from '../Components/OrganizationConnect';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ const onboardingSteps = [
     additionalComponents: 'terms-and-conditions',
     buttonText: 'Next',
   },
+
   {
     id: 'name',
     question: "What is our Hero's name?",
@@ -1173,8 +1175,8 @@ const OnboardingScreen: React.FC = () => {
               style={[
                 styles.button,
                 // Hide the button until step requirements are met
-                ((currentStepData.id === 'terms' && !termsAgreed) || (currentStepData.id === 'Permissions' &&
-                  !permissionsAttempted) ||
+                ((currentStepData.id === 'terms' && !termsAgreed) ||
+                  (currentStepData.id === 'Permissions' && !permissionsAttempted) ||
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
                   (currentStepData.id === 'Optional Permissions' &&
                     !locationPermissionAttempted) ||

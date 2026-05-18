@@ -355,7 +355,7 @@
 				CODE_SIGN_ENTITLEMENTS = matalkforever.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = matalkaiforever.verbali.io/Info.plist;
@@ -396,7 +396,7 @@
 				CODE_SIGN_ENTITLEMENTS = matalkforever.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 5H8P29SJNH;
 				INFOPLIST_FILE = matalkaiforever.verbali.io/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "MaTalk AI Forever";
