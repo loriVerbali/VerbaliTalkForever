@@ -396,8 +396,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       }
     };
 
+    const loadGobackAfterSelectionSetting = async () => {
+      try {
+        const setting = await getItem('gobackAfterSelection');
+        setGobackAfterSelection(setting === '1');
+      } catch (error) { }
+    };
+
     // Load the setting
-    // loadGobackAfterSelectionSetting();
+    loadGobackAfterSelectionSetting();
 
     // Setup audio recording
 

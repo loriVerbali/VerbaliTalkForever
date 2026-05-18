@@ -301,6 +301,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   // Removed settings loading useFocusEffect - now using reactive preferences
 
   useEffect(() => {
+    const loadGobackAfterSelectionSetting = async () => {
+      try {
+        const setting = await getItem('gobackAfterSelection');
+        setGobackAfterSelection(setting === '1');
+      } catch (error) { }
+    };
+
+    // Load the setting
+    loadGobackAfterSelectionSetting();
+
     // Track screen opening
     mixpanel.track('Conversation', {
       Opened: 'Conversation',
