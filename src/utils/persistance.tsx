@@ -97,7 +97,6 @@ export const initialPreferences: Preferences = {
   objectsCount: '4',
   heroName: '',
   onboardingStatus: '0',
-
   parentalCode: '0000',
   adminCode: '',
   gender: '',

@@ -248,19 +248,6 @@ class SessionManager {
       if (!response.ok) {
         const responseText = await response.text();
         console.error(`Bootstrap failed with status ${response.status}:`, responseText);
-
-        if (response.status === 403) {
-          try {
-            const data = JSON.parse(responseText);
-            if (data.error === 'device_revoked' || data.error === 'organization_inactive') {
-              const { setItem } = await this.getAppSettings();
-              await setItem('deviceRevoked', '1');
-              return { success: false, error: data.error };
-            }
-          } catch (e) {
-            console.error('Failed to parse 403 bootstrap response:', e);
-          }
-        }
         return { success: false, error: `server_error_${response.status}` };
       }
 
@@ -275,7 +262,6 @@ class SessionManager {
 
       if (data.success) {
         const { setItem } = await this.getAppSettings();
-        await setItem('deviceRevoked', '0'); // Clear if it was previously revoked
         if (data.enrolled) {
           await setItem('isEnrolled', '1');
           if (data.organization?.name) {
@@ -286,10 +272,6 @@ class SessionManager {
         }
         return data;
       } else if (data.error) {
-        if (data.error === 'device_revoked' || data.error === 'organization_inactive') {
-          const { setItem } = await this.getAppSettings();
-          await setItem('deviceRevoked', '1');
-        }
         return { success: false, error: data.error };
       }
 

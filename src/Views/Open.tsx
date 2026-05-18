@@ -297,7 +297,6 @@ const OpenScreen: React.FC = () => {
           if (isMounted.current) {
             setShowLoadingModal(false);
           }
-
           if (loadingModalCheckIntervalRef.current) {
             clearInterval(loadingModalCheckIntervalRef.current);
             loadingModalCheckIntervalRef.current = null;
@@ -334,12 +333,7 @@ const OpenScreen: React.FC = () => {
     // Initialize wake word service with proper cleanup and restart
     // NOTE: LoggedNavigation also initializes wake word, so check if already initialized first
     const initializeWakeWord = async () => {
-      // Check if blocked by revocation/inactivity
-      const isBlocked = await getItem('deviceRevoked');
-      if (isBlocked === '1') {
-        handleSettingsPress();
-        return;
-      }
+
       // First check if onboarding is complete - don't start wakeword during onboarding
       const wasOnboarded = await getItem('wasOnboarded');
       if (wasOnboarded !== '1') {
@@ -1052,10 +1046,6 @@ const OpenScreen: React.FC = () => {
               <View style={styles.modalContent}>
                 {!isSettingNewPassword && !isForgotPassword ? (
                   <>
-                    <Text style={styles.modalTitle}>Enter Admin Code</Text>
-                    <Text style={styles.modalDescription}>
-                      Enter your 4-digit parent code to continue.
-                    </Text>
 
                     {/* PIN Input Row */}
                     <Pressable

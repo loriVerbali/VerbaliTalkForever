@@ -34,7 +34,8 @@ const RootStackScreen: React.FC = () => {
     const initApp = async () => {
       if (isLoading) {
         const wasOnboarded = await getItem('wasOnboarded');
-        setShowOnboarding(wasOnboarded !== '1');
+        const isEnrolled = await getItem('isEnrolled');
+        setShowOnboarding(wasOnboarded !== '1' || isEnrolled !== '1');
         setIsLoading(false);
       }
     };

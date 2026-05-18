@@ -257,6 +257,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
 
+  let currentRecordingURI: string | null = null;
+
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
     null,

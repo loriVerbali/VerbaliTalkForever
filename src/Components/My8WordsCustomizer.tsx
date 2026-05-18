@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import {useAppSettings} from '../utils/persistance';
+import { useAppSettings } from '../utils/persistance';
 import {
   parseMy8Words,
   stringifyMy8Words,
@@ -19,17 +19,49 @@ import {
   My8WordsData,
   My8WordsCard,
 } from '../utils/my8wordsUtils';
-import {searchWordImages, WordImageResult} from '../utils/wordImageApi';
-import {downloadImageForCard, getImageSource} from '../utils/imageDownloader';
+import { searchWordImages, WordImageResult } from '../utils/wordImageApi';
+import { downloadImageForCard, getImageSource } from '../utils/imageDownloader';
+import { resolveImageSource, isPlaceholderImage } from '../utils/imageSourceResolver';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+interface AddressDetails {
+  address: string;
+  address2: string;
+  city: string;
+  state: string;
+  zipcode: string;
+  country: 'USA' | 'Canada' | 'Other';
+}
+
+interface PepeItem {
+  id: string;
+  imageUri: string;
+  name: string;
+  aliases: string[];
+  type?: string;
+  relationship?: string;
+  isFavorite?: boolean;
+  addressDetails?: AddressDetails;
+  isCurrentLocation?: boolean;
+}
+
+interface PepesData {
+  People: PepeItem[];
+  Toys: PepeItem[];
+  Pets: PepeItem[];
+  TVShows: PepeItem[];
+  Food: PepeItem[];
+  Drinks: PepeItem[];
+  Places: PepeItem[];
+}
 
 interface My8WordsCustomizerProps {
   isTablet?: boolean;
 }
 
-const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
-  const {getItem, setItem} = useAppSettings();
+const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => {
+  const { getItem, setItem } = useAppSettings();
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<WordImageResult[]>([]);
@@ -38,6 +70,10 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
     null,
   );
   const [isDownloading, setIsDownloading] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<'web' | 'pepes'>('web');
+  const [pepesData, setPepesData] = useState<PepesData | null>(null);
+  const [selectedPepeCategory, setSelectedPepeCategory] = useState<string>('All');
 
   // Load current my8words data
   useEffect(() => {
@@ -59,11 +95,119 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
           await setItem('my8words', stringifyMy8Words(parsedData));
         }
       } catch (error) {
-        
+
       }
     };
     loadMy8Words();
   }, [getItem, setItem]);
+
+  // Load Pepes data when a card is selected to keep it fresh
+  useEffect(() => {
+    if (selectedCardIndex !== null) {
+      const loadPepes = async () => {
+        try {
+          const pepesJson = await getItem('pepes');
+          if (pepesJson) {
+            const parsedData = JSON.parse(pepesJson);
+            setPepesData({
+              People: parsedData.People || [],
+              Toys: parsedData.Toys || [],
+              Pets: parsedData.Pets || [],
+              TVShows: parsedData.TVShows || [],
+              Food: parsedData.Food || [],
+              Drinks: parsedData.Drinks || [],
+              Places: parsedData.Places || [],
+            });
+          } else {
+            setPepesData({
+              People: [],
+              Toys: [],
+              Pets: [],
+              TVShows: [],
+              Food: [],
+              Drinks: [],
+              Places: [],
+            });
+          }
+        } catch (error) {
+
+        }
+      };
+      loadPepes();
+    }
+  }, [selectedCardIndex, getItem]);
+
+  // Update card directly using Pepe local image
+  const handleUpdateCardWithPepe = async (
+    cardIndex: number,
+    pepe: PepeItem,
+  ) => {
+    if (!my8WordsData) return;
+
+    if (isPlaceholderImage(pepe.imageUri)) {
+      Alert.alert(
+        'Missing an image here',
+        "Please add an image in the Pepes section first.",
+      );
+      return;
+    }
+
+    try {
+      const newCard: My8WordsCard = {
+        word: pepe.name,
+        imageUrl: pepe.imageUri,
+        id: pepe.id,
+      };
+
+      // Update the data
+      const updatedData = updateCard(my8WordsData, cardIndex, newCard);
+      setMy8WordsData(updatedData);
+
+      // Save to preferences
+      await setItem('my8words', stringifyMy8Words(updatedData));
+
+      // Clear selection & search query
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedCardIndex(null);
+
+      Alert.alert(
+        'Success',
+        `Card ${cardIndex + 1} updated with "${pepe.name}"`,
+      );
+    } catch (error) {
+
+      Alert.alert('Error', 'Failed to update card. Please try again.');
+    }
+  };
+
+  const getFilteredPepes = (): PepeItem[] => {
+    if (!pepesData) return [];
+    if (selectedPepeCategory === 'All') {
+      return [
+        ...(pepesData.People || []),
+        ...(pepesData.Toys || []),
+        ...(pepesData.Pets || []),
+        ...(pepesData.TVShows || []),
+        ...(pepesData.Food || []),
+        ...(pepesData.Drinks || []),
+        ...(pepesData.Places || []),
+      ];
+    }
+    const key = selectedPepeCategory as keyof PepesData;
+    return pepesData[key] || [];
+  };
+
+  const PEPE_CATEGORIES = [
+    { key: 'All', label: 'All' },
+    { key: 'People', label: 'People' },
+    { key: 'Toys', label: 'Toys' },
+    { key: 'Pets', label: 'Pets' },
+    { key: 'TVShows', label: 'TV Shows' },
+    { key: 'Food', label: 'Food' },
+    { key: 'Drinks', label: 'Drinks' },
+    { key: 'Places', label: 'Places' },
+  ];
 
   // Search for words with debouncing
   useEffect(() => {
@@ -84,7 +228,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
       const results = await searchWordImages(query);
       setSearchResults(results.results);
     } catch (error) {
-      
+
       Alert.alert('Error', 'Failed to search for words. Please try again.');
     } finally {
       setIsSearching(false);
@@ -134,7 +278,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
         `Card ${cardIndex + 1} updated with "${wordImage.word}"`,
       );
     } catch (error) {
-      
+
       Alert.alert('Error', 'Failed to update card. Please try again.');
     } finally {
       setIsDownloading(false);
@@ -147,7 +291,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
       'Reset to Default',
       'Are you sure you want to reset all cards to default words?',
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Reset',
           style: 'destructive',
@@ -158,7 +302,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
               await setItem('my8words', stringifyMy8Words(defaultData));
               Alert.alert('Success', 'Cards reset to default words');
             } catch (error) {
-              
+
               Alert.alert('Error', 'Failed to reset cards. Please try again.');
             }
           },
@@ -167,7 +311,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
     );
   };
 
-  const renderCard = ({item, index}: {item: My8WordsCard; index: number}) => (
+  const renderCard = ({ item, index }: { item: My8WordsCard; index: number }) => (
     <TouchableOpacity
       style={[
         styles.card,
@@ -191,7 +335,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
     </TouchableOpacity>
   );
 
-  const renderSearchResult = ({item}: {item: WordImageResult}) => (
+  const renderSearchResult = ({ item }: { item: WordImageResult }) => (
     <TouchableOpacity
       style={[styles.searchResult, isTablet && styles.searchResultTablet]}
       onPress={() => {
@@ -201,7 +345,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
       }}
       disabled={selectedCardIndex === null || isDownloading}>
       <FastImage
-        source={{uri: item.imageUrl}}
+        source={{ uri: item.imageUrl }}
         style={[
           styles.searchResultImage,
           isTablet && styles.searchResultImageTablet,
@@ -257,7 +401,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
                   styles.cardWrapper,
                   isTablet && styles.cardWrapperTablet,
                 ]}>
-                {renderCard({item, index})}
+                {renderCard({ item, index })}
               </View>
             ))}
           </View>
@@ -270,7 +414,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
                   styles.cardWrapper,
                   isTablet && styles.cardWrapperTablet,
                 ]}>
-                {renderCard({item, index: index + 4})}
+                {renderCard({ item, index: index + 4 })}
               </View>
             ))}
           </View>
@@ -285,51 +429,140 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
             Replace Card {selectedCardIndex + 1} with:
           </Text>
 
-          <View style={styles.searchInputContainer}>
-            <TextInput
-              style={[styles.searchInput, isTablet && styles.searchInputTablet]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search for a word..."
-              placeholderTextColor="#999"
-              returnKeyType="search"
-              onSubmitEditing={handleSearch}
-            />
+          {/* Segmented Tab Bar */}
+          <View style={styles.tabContainer}>
             <TouchableOpacity
-              style={[
-                styles.searchButton,
-                isTablet && styles.searchButtonTablet,
-                (isSearching || searchQuery.trim().length < 3) &&
-                  styles.disabledButton,
-              ]}
-              onPress={handleSearch}
-              disabled={isSearching || searchQuery.trim().length < 3}>
-              {isSearching ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.searchButtonText}>Search</Text>
-              )}
+              style={[styles.tab, activeTab === 'web' && styles.activeTab]}
+              onPress={() => setActiveTab('web')}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'web' && styles.activeTabText,
+                  isTablet && styles.tabTextTablet,
+                ]}>
+                Search Web
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'pepes' && styles.activeTab]}
+              onPress={() => setActiveTab('pepes')}>
+              <Text
+                style={[
+                  styles.tabText,
+                  activeTab === 'pepes' && styles.activeTabText,
+                  isTablet && styles.tabTextTablet,
+                ]}>
+                My Pepes & Stuff
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Search Results */}
-          {searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
-            <View style={styles.hintContainer}>
-              <Text style={styles.hintText}>
-                Type at least 3 characters to search
-              </Text>
-            </View>
-          )}
+          {activeTab === 'web' ? (
+            <View>
+              <View style={styles.searchInputContainer}>
+                <TextInput
+                  style={[styles.searchInput, isTablet && styles.searchInputTablet]}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Search for a word..."
+                  placeholderTextColor="#999"
+                  returnKeyType="search"
+                  onSubmitEditing={handleSearch}
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.searchButton,
+                    isTablet && styles.searchButtonTablet,
+                    (isSearching || searchQuery.trim().length < 3) &&
+                    styles.disabledButton,
+                  ]}
+                  onPress={handleSearch}
+                  disabled={isSearching || searchQuery.trim().length < 3}>
+                  {isSearching ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.searchButtonText}>Search</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
 
-          {searchResults.length > 0 && (
-            <View style={styles.resultsContainer}>
-              <Text
-                style={[
-                  styles.resultsTitle,
-                  isTablet && styles.resultsTitleTablet,
-                ]}>
-                Search Results:
-              </Text>
+              {/* Search Results */}
+              {searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
+                <View style={styles.hintContainer}>
+                  <Text style={styles.hintText}>
+                    Type at least 3 characters to search
+                  </Text>
+                </View>
+              )}
+
+              {searchResults.length > 0 && (
+                <View style={styles.resultsContainer}>
+                  <Text
+                    style={[
+                      styles.resultsTitle,
+                      isTablet && styles.resultsTitleTablet,
+                    ]}>
+                    Search Results:
+                  </Text>
+                  <ScrollView
+                    style={[
+                      styles.resultsListContainer,
+                      isTablet && styles.resultsListContainerTablet,
+                    ]}
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}>
+                    <View style={styles.resultsList}>
+                      {searchResults.map((item) => (
+                        <View
+                          key={item.id}
+                          style={[
+                            styles.searchResultWrapper,
+                            isTablet && styles.searchResultWrapperTablet,
+                          ]}>
+                          {renderSearchResult({ item })}
+                        </View>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+              )}
+
+              {isDownloading && (
+                <View style={styles.downloadingContainer}>
+                  <ActivityIndicator size="small" color="#8E24AA" />
+                  <Text style={styles.downloadingText}>Downloading image...</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View>
+              {/* Category pills */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.categoryPillsContainer}
+                contentContainerStyle={styles.categoryPillsContent}>
+                {PEPE_CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.key}
+                    style={[
+                      styles.categoryPill,
+                      selectedPepeCategory === cat.key && styles.activeCategoryPill,
+                    ]}
+                    onPress={() => setSelectedPepeCategory(cat.key)}>
+                    <Text
+                      style={[
+                        styles.categoryPillText,
+                        selectedPepeCategory === cat.key &&
+                        styles.activeCategoryPillText,
+                      ]}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Pepes Grid */}
               <ScrollView
                 style={[
                   styles.resultsListContainer,
@@ -337,26 +570,53 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({isTablet}) => {
                 ]}
                 showsVerticalScrollIndicator={true}
                 nestedScrollEnabled={true}>
-                <View style={styles.resultsList}>
-                  {searchResults.map((item, index) => (
-                    <View
-                      key={item.id}
-                      style={[
-                        styles.searchResultWrapper,
-                        isTablet && styles.searchResultWrapperTablet,
-                      ]}>
-                      {renderSearchResult({item})}
-                    </View>
-                  ))}
-                </View>
+                {getFilteredPepes().length > 0 ? (
+                  <View style={styles.resultsList}>
+                    {getFilteredPepes().map((pepe) => (
+                      <View
+                        key={pepe.id}
+                        style={[
+                          styles.pepeItemWrapper,
+                          isTablet && styles.pepeItemWrapperTablet,
+                        ]}>
+                        <TouchableOpacity
+                          style={[
+                            styles.pepeItem,
+                            isTablet && styles.pepeItemTablet,
+                          ]}
+                          onPress={() => {
+                            if (selectedCardIndex !== null) {
+                              handleUpdateCardWithPepe(selectedCardIndex, pepe);
+                            }
+                          }}>
+                          <FastImage
+                            source={resolveImageSource(pepe.imageUri) || require('../assets/taptoAdd.png')}
+                            style={[
+                              styles.pepeItemImage,
+                              isTablet && styles.pepeItemImageTablet,
+                            ]}
+                            resizeMode={FastImage.resizeMode.cover}
+                          />
+                          <Text
+                            style={[
+                              styles.pepeItemText,
+                              isTablet && styles.pepeItemTextTablet,
+                            ]}
+                            numberOfLines={1}>
+                            {pepe.name}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.emptyPepesContainer}>
+                    <Text style={styles.emptyPepesText}>
+                      No custom tiles found in this category. You can add them in the "My People & Stuff" section above!
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
-            </View>
-          )}
-
-          {isDownloading && (
-            <View style={styles.downloadingContainer}>
-              <ActivityIndicator size="small" color="#8E24AA" />
-              <Text style={styles.downloadingText}>Downloading image...</Text>
             </View>
           )}
         </View>
@@ -450,7 +710,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -605,7 +865,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 1,
-    shadowOffset: {width: 0, height: 0.5},
+    shadowOffset: { width: 0, height: 0.5 },
     elevation: 1,
   },
   searchResultTablet: {
@@ -640,6 +900,127 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     color: '#666',
+  },
+  // Tab styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#eee',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+  },
+  activeTab: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  tabTextTablet: {
+    fontSize: 14,
+  },
+  activeTabText: {
+    color: '#8E24AA',
+  },
+  // Category pills styles
+  categoryPillsContainer: {
+    marginBottom: 12,
+  },
+  categoryPillsContent: {
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+  },
+  categoryPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#eee',
+    marginRight: 8,
+  },
+  activeCategoryPill: {
+    backgroundColor: '#8E24AA',
+  },
+  categoryPillText: {
+    fontSize: 11,
+    color: '#555',
+    fontWeight: '600',
+  },
+  activeCategoryPillText: {
+    color: '#fff',
+  },
+  // Pepe item styles
+  pepeItemWrapper: {
+    width: (width - 120) / 4,
+    margin: 4,
+  },
+  pepeItemWrapperTablet: {
+    width: (width - 160) / 6,
+  },
+  pepeItem: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 1.5,
+    shadowOffset: { width: 0, height: 0.5 },
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  pepeItemTablet: {
+    padding: 6,
+  },
+  pepeItemImage: {
+    width: '65%',
+    height: '50%',
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  pepeItemImageTablet: {
+    width: '70%',
+    height: '55%',
+  },
+  pepeItemText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
+    width: '100%',
+  },
+  pepeItemTextTablet: {
+    fontSize: 11,
+  },
+  emptyPepesContainer: {
+    paddingVertical: 30,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyPepesText: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
 });
 

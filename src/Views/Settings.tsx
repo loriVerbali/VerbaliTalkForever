@@ -353,6 +353,7 @@ const SettingsScreen: React.FC = () => {
         const savedHandshakeMessage = await getItem('handshakeMessage');
         const savedUseLocalWhisper = await getItem('useLocalWhisper');
 
+
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
         setActionsCount(parseInt(savedActionsCount) || 4);
@@ -470,11 +471,7 @@ const SettingsScreen: React.FC = () => {
     setItem('objectsCount', newValue.toString());
   };
 
-  const ANSWER_VALUES = [5, 7, 11] as const;
-
-  const handleAnswersCountChange = (sliderIndex: number) => {
-    const index = Math.round(sliderIndex);
-    const count = ANSWER_VALUES[index] ?? 5;
+  const handleAnswersCountChange = (count: number) => {
     mixpanel.track('Settings Answers Count Changed', { count });
     setItem('answersCount', count.toString());
   };
@@ -960,6 +957,7 @@ const SettingsScreen: React.FC = () => {
             <View style={[styles.section, styles.sectionAccountSettings]}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
 
+
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Hero Name</Text>
                 {/* Hero Name Edit UI */}
@@ -1124,7 +1122,7 @@ const SettingsScreen: React.FC = () => {
               </View>
               </View> */}
 
-              {/* ── Number of Answers Slider ── */}
+              {/* ── Number of Answers Switch Case ── */}
               <View
                 style={{
                   marginTop: 16,
@@ -1135,7 +1133,7 @@ const SettingsScreen: React.FC = () => {
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    marginBottom: 8,
+                    marginBottom: 12,
                   }}>
                   <Text
                     style={[
@@ -1144,73 +1142,60 @@ const SettingsScreen: React.FC = () => {
                     ]}>
                     Number of Answers
                   </Text>
-                  <View
-                    style={{
-                      backgroundColor: '#8E24AA',
-                      borderRadius: 20,
-                      paddingHorizontal: 14,
-                      paddingVertical: 4,
-                      minWidth: 44,
-                      alignItems: 'center',
-                    }}>
-                    <Text
-                      style={{
-                        color: '#fff',
-                        fontWeight: '700',
-                        fontSize: 16,
-                      }}>
-                      {preferences.answersCount}
-                    </Text>
-                  </View>
                 </View>
 
-                <Slider
-                  style={{ width: '100%', height: 40 }}
-                  value={(() => {
-                    const current = parseInt(preferences.answersCount) || 5;
-                    // Map old values to new ones if necessary
-                    const normalized = current === 8 ? 7 : (current === 12 ? 11 : current);
-                    const index = [5, 7, 11].indexOf(normalized);
-                    return index >= 0 ? index : 0;
-                  })()}
-                  minimumValue={0}
-                  maximumValue={2}
-                  step={1}
-                  minimumTrackTintColor="#8E24AA"
-                  maximumTrackTintColor="#d3d3d3"
-                  thumbTintColor="#8E24AA"
-                  onSlidingComplete={handleAnswersCountChange}
-                />
-
-                {/* Tick labels */}
+                {/* 3-Button Switch Case Control */}
                 <View
                   style={{
                     flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    paddingHorizontal: 10,
-                    marginTop: -4,
+                    backgroundColor: '#F3E5F5',
+                    borderRadius: 12,
+                    padding: 4,
+                    borderWidth: 1,
+                    borderColor: '#E1BEE7',
                   }}>
-                  {[5, 7, 11].map(val => (
-                    <Text
-                      key={val}
-                      style={{
-                        fontSize: 13,
-                        fontWeight: (parseInt(preferences.answersCount) || 5) === val ? '700' : '400',
-                        color: (parseInt(preferences.answersCount) || 5) === val ? '#8E24AA' : '#999',
-                      }}>
-                      {val}
-                    </Text>
-                  ))}
+                  {[5, 7, 11].map(val => {
+                    const currentVal = parseInt(preferences.answersCount) || 5;
+                    const isSelected = currentVal === val;
+                    return (
+                      <TouchableOpacity
+                        key={val}
+                        activeOpacity={0.8}
+                        style={{
+                          flex: 1,
+                          backgroundColor: isSelected ? '#8E24AA' : 'transparent',
+                          borderRadius: 8,
+                          paddingVertical: 10,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          shadowColor: isSelected ? '#000' : 'transparent',
+                          shadowOpacity: isSelected ? 0.15 : 0,
+                          shadowRadius: 3,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: isSelected ? 3 : 0,
+                        }}
+                        onPress={() => handleAnswersCountChange(val)}>
+                        <Text
+                          style={{
+                            color: isSelected ? '#fff' : '#8E24AA',
+                            fontWeight: '700',
+                            fontSize: 16,
+                          }}>
+                          {val}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
                 <Text
                   style={{
                     fontSize: 12,
                     color: '#888',
-                    marginTop: 6,
+                    marginTop: 8,
                     fontStyle: 'italic',
                   }}>
-                  Choose how many answer cards appear after each question.
+                  Choose how many answer cards appear after each question. Default is 5.
                 </Text>
               </View>
             </View>
@@ -1638,9 +1623,9 @@ const SettingsScreen: React.FC = () => {
                 </Text>
                 <Text style={styles.myPepesDescription}>
                   Your people, stuff, food, drinks, places, and tv shows with
-                  images, names, and aliases for better conversation context.
+                  images, names, and aliases for better conversation context.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    All Images are kept on your device only.
+                    All images are kept on your device only.
                   </Text>
                 </Text>
                 <MyPepesAndStuff resetSessionTrigger={sessionResetTrigger} />
@@ -1653,9 +1638,9 @@ const SettingsScreen: React.FC = () => {
                 <Text style={styles.my8WordsDescription}>
                   Customize the 8 words that appear on your main screen cards.
                   Search for words and their images to personalize your
-                  experience.
+                  experience.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    Images are downloaded and stored on your device only.
+                    images are downloaded and stored on your device only.
                   </Text>
                 </Text>
                 <My8WordsCustomizer isTablet={isTablet} />
@@ -2138,6 +2123,7 @@ const SettingsScreen: React.FC = () => {
           </Pressable>
         </View>
 
+
         <View style={[styles.section, styles.sectionAbout]}>
           <Text style={styles.sectionTitle}>About</Text>
           <TouchableOpacity
@@ -2302,6 +2288,9 @@ const styles = StyleSheet.create({
   },
   sectionReset: {
     backgroundColor: '#fce8e8',
+  },
+  sectionAccountStatus: {
+    backgroundColor: '#fffbe6',
   },
   sectionLegal: {
     backgroundColor: '#f0f0f2',
