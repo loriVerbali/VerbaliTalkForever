@@ -440,7 +440,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
                   activeTab === 'web' && styles.activeTabText,
                   isTablet && styles.tabTextTablet,
                 ]}>
-                Search Web
+                Verbali Library
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -452,7 +452,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
                   activeTab === 'pepes' && styles.activeTabText,
                   isTablet && styles.tabTextTablet,
                 ]}>
-                My Pepes & Stuff
+                Personal images (People and Stuff)
               </Text>
             </TouchableOpacity>
           </View>
