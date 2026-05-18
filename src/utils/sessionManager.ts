@@ -176,7 +176,6 @@ class SessionManager {
     await setItem('deviceId', 'init.NotSet');
     await setItem('sessionToken', 'init.NotSet');
     await setItem('lastRefreshCheck', '0');
-    await setItem('isEnrolled', '0');
     await setItem('orgName', '');
   }
 
@@ -263,12 +262,9 @@ class SessionManager {
       if (data.success) {
         const { setItem } = await this.getAppSettings();
         if (data.enrolled) {
-          await setItem('isEnrolled', '1');
           if (data.organization?.name) {
             await setItem('orgName', data.organization.name);
           }
-        } else {
-          await setItem('isEnrolled', '0');
         }
         return data;
       } else if (data.error) {

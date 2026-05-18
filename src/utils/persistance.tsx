@@ -59,7 +59,6 @@ interface Preferences {
   handshakeMessage: string;
   // Device-based organization access
   deviceId: string;
-  isEnrolled: string;
   orgName: string;
   // Guest session management
   installationGuid: string;
@@ -131,7 +130,6 @@ export const initialPreferences: Preferences = {
     'Hi ,this is how I communicate say Hey Verby and it will record the question.',
   // Device-based organization access
   deviceId: initEnum.notSet,
-  isEnrolled: initEnum.false,
   orgName: '',
   // Guest session management
   installationGuid: initEnum.notSet,
