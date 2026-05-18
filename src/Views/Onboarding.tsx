@@ -35,7 +35,6 @@ import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
 import WhisperModelManager from '../utils/WhisperModelManager';
-import OrganizationConnect from '../Components/OrganizationConnect';
 
 const { width, height } = Dimensions.get('window');
 

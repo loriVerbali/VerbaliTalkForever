@@ -109,7 +109,6 @@ const App = () => {
         try {
           await sessionManager.ensureValidSession();
           await fetchHelper('wakeup', {}, {});
-          await runBootstrap();
         } catch (error) { }
         // Don't start wakeword here - let Open.tsx handle it after onboarding
       }
