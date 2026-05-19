@@ -16,17 +16,15 @@ import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
 import { useAssistant } from '../contexts/AssistantContext';
-import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
 } from '../contexts/ChatContextProvider';
 import TTSService from '../utils/TTSService';
-import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { logConversation } from '../utils/conversationLogger';
 import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
@@ -35,7 +33,6 @@ import WakeWordService from '../utils/wakewordService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import WhisperService from '../utils/WhisperService';
 import { useDatabase } from '../contexts/DatabaseContext';
-import { polishText } from '../utils/polishApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -126,6 +123,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [directAnswers, setDirectAnswers] = useState<
     Array<{ word: string; imageUrl?: string }>
   >([]);
+  const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
 
 
   // AI Resolved tracking state
@@ -241,7 +239,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const { playAttention } = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
@@ -261,8 +258,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
-  let currentRecordingURI: string | null = null;
 
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
@@ -676,12 +671,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         );
 
         setDirectAnswers(processedAnswers);
+        const answerWords = processedAnswers.map(answer => answer.word);
+        setAccumulatedPriors(answerWords);
         setIsProcessingAnswer(false);
         setShowImages(true);
         startResponseTimer();
 
         // Initialize AI Resolved record for Round 1
-        const answerWords = processedAnswers.map(answer => answer.word);
         setCurrentAIRecord({
           question: transcribedText,
           round1Answers: answerWords,
@@ -874,6 +870,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
+    setAccumulatedPriors([]); // Reset accumulated priors
     setCurrentAIRecord(null); // Clear AI Resolved record
 
     // Clear the input in the Inputs component
@@ -921,10 +918,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
 
-      // Capture current answers before clearing to pass as prior
-      const priorAnswers = directAnswers
-        .map(answer => answer.word)
-        .filter(word => word); // Get the 5 words that were shown
+      // Use accumulated priors to pass to server
+      const currentAccumulated = [...accumulatedPriors];
 
       // Clear old images immediately to prevent flickering
       setDirectAnswers([]);
@@ -951,7 +946,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
-          answers: priorAnswers || [], // Pass the 5 current answers so they aren't shown again
+          answers: currentAccumulated || [], // Pass all accumulated previous answers
         },
         countMin: 5,
         countMax: 5,
@@ -974,6 +969,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         );
 
         setDirectAnswers(processedAnswers);
+        const newAnswerWords = processedAnswers.map(answer => answer.word);
+        setAccumulatedPriors(prev => [...prev, ...newAnswerWords]);
+
         setIsProcessingAnswer(false);
         setIsRetrying(false);
         setShowImages(true);
@@ -981,13 +979,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
         // Update AI Resolved record for next round
         if (currentAIRecord && currentAIRecord.currentRound < 3) {
-          const answerWords = processedAnswers.map(answer => answer.word);
           const nextRound = currentAIRecord.currentRound + 1;
 
           setCurrentAIRecord({
             ...currentAIRecord,
             currentRound: nextRound,
-            [`round${nextRound}Answers`]: answerWords,
+            [`round${nextRound}Answers`]: newAnswerWords,
           });
         }
 
@@ -1111,6 +1108,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Navigate to Open.tsx only if gobackAfterSelection is true
       setTimeout(async () => {
         setDirectAnswers([]);
+        setAccumulatedPriors([]);
         if (gobackAfterSelection) {
           // Wait 1 second to allow user to hear the selected answer being spoken
           resetLocalStates();
@@ -1121,6 +1119,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           setShowImages(false);
           setWaitingForNextConversation(true);
           setDirectAnswers([]);
+          setAccumulatedPriors([]);
           // Reset states but preserve waitingForNextConversation
           setFinishedTranscribing(false);
           setTranscribedText('');
@@ -1175,11 +1174,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#FFF8E7', '#FFFFFF']}
+      <View
         style={[
           styles.container,
           Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
+          { backgroundColor: '#FFF8E7' }
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1633,7 +1632,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             </View>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </View>
   );
 };

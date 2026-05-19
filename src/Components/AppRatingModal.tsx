@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -10,9 +10,9 @@ import {
   Dimensions,
 } from 'react-native';
 import InAppReview from 'react-native-in-app-review';
-import {Mixpanel} from 'mixpanel-react-native';
+import { Mixpanel } from 'mixpanel-react-native';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type RatingModalState =
   | 'initial' // "Do you like MaTalk AI?"
@@ -42,7 +42,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
   onClose,
   onDismiss,
 }) => {
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
+  const mixpanel = new Mixpanel('f88f7a27585868c53b1e08c06f5226bd', true);
   const [state, setState] = useState<RatingModalState>('initial');
   const [selectedFeedback, setSelectedFeedback] = useState<Set<string>>(
     new Set(),
@@ -56,7 +56,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
         const available = await InAppReview.isAvailable();
         setReviewAvailable(available);
       } catch (error) {
-        
         setReviewAvailable(false);
       }
     };
@@ -79,7 +78,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
         resetState();
         return;
       } catch (error) {
-        
         // Fallback to showing rating state if review fails
       }
     }
@@ -115,7 +113,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
       onClose();
       resetState();
     } catch (error) {
-      
       // On error, just close the modal
       onClose();
       resetState();
@@ -147,8 +144,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
     mixpanel.track('feedback', {
       feedback: feedbackArray,
     });
-
-    
 
     setState('confirmation');
   };
@@ -309,7 +304,7 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.8,
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,

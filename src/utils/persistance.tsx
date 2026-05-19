@@ -23,8 +23,10 @@ interface Preferences {
   topicsCount: string;
   actionsCount: string;
   objectsCount: string;
-  wasOnboarded: string;
   heroName: string;
+  onboardingStatus: string;
+
+  parentalCode: string;
   adminCode: string;
   gender: string;
   auth0Id: string;
@@ -37,6 +39,7 @@ interface Preferences {
   schoolIsCurrentLocation: string;
   therapyAddress: string;
   therapyIsCurrentLocation: string;
+  wasOnboarded: string;
   wasLocationOnboarded: string;
   conversationMode: string;
   gobackAfterSelection: string;
@@ -54,6 +57,10 @@ interface Preferences {
   showAndTellModalShown: string;
   my8words: string;
   handshakeMessage: string;
+  // Device-based organization access
+  deviceId: string;
+  isEnrolled: string;
+  orgName: string;
   // Guest session management
   installationGuid: string;
   sessionToken: string;
@@ -61,6 +68,7 @@ interface Preferences {
   // App rating
   ratingPromptShown: string;
   ratingPromptDismissed: string;
+  deviceRevoked: string;
 }
 
 const initEnum = {
@@ -86,9 +94,10 @@ export const initialPreferences: Preferences = {
   topicsCount: '4',
   actionsCount: '4',
   objectsCount: '4',
-  wasOnboarded: initEnum.false,
-  wasLocationOnboarded: initEnum.false,
   heroName: '',
+  onboardingStatus: '0',
+
+  parentalCode: '0000',
   adminCode: '',
   gender: '',
   auth0Id: '',
@@ -101,6 +110,8 @@ export const initialPreferences: Preferences = {
   schoolIsCurrentLocation: '',
   therapyAddress: '',
   therapyIsCurrentLocation: '',
+  wasOnboarded: initEnum.false,
+  wasLocationOnboarded: initEnum.false,
   conversationMode: 'easy',
   gobackAfterSelection: initEnum.false,
   wasDeleted: initEnum.false,
@@ -118,6 +129,10 @@ export const initialPreferences: Preferences = {
   my8words: '',
   handshakeMessage:
     'Hi ,this is how I communicate say Hey Verby and it will record the question.',
+  // Device-based organization access
+  deviceId: initEnum.notSet,
+  isEnrolled: initEnum.false,
+  orgName: '',
   // Guest session management
   installationGuid: initEnum.notSet,
   sessionToken: initEnum.notSet,
@@ -125,6 +140,7 @@ export const initialPreferences: Preferences = {
   // App rating
   ratingPromptShown: initEnum.false,
   ratingPromptDismissed: initEnum.false,
+  deviceRevoked: initEnum.false,
 };
 
 interface AppSettingsContextProps {
