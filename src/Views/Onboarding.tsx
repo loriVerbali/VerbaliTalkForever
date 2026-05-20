@@ -14,7 +14,7 @@ import {
   Linking,
   Alert,
   Image,
-  Keyboard
+  Keyboard,
 } from 'react-native';
 import { useAppSettings } from '../utils/persistance';
 import FastImage from 'react-native-fast-image';
@@ -259,7 +259,6 @@ const OnboardingScreen: React.FC = () => {
       if (selectedGender) {
         await setItem('gender', selectedGender);
       }
-
       if (permissionsDenied || permissionsPermanentlyDenied) {
         setCurrentStep(currentStep + 1);
       }

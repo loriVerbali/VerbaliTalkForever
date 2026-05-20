@@ -108,7 +108,6 @@ const InfoModal = ({
   );
 };
 
-
 // Individual slider components
 const MessagesSlider = ({
   value,
@@ -239,6 +238,7 @@ const SettingsScreen: React.FC = () => {
   const [topicsCount, setTopicsCount] = useState(4);
   const [actionsCount, setActionsCount] = useState(4);
   const [objectsCount, setObjectsCount] = useState(4);
+  // Removed local answersCount state - using preferences.answersCount
   const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(true);
 
   const [adminCode, setAdminCode] = useState('');
@@ -503,6 +503,11 @@ const SettingsScreen: React.FC = () => {
     const newValue = Math.round(value);
     setObjectsCount(newValue);
     setItem('objectsCount', newValue.toString());
+  };
+
+  const handleAnswersCountChange = (count: number) => {
+    mixpanel.track('Settings Answers Count Changed', { count });
+    setItem('answersCount', count.toString());
   };
 
   const handleOnboardingToggle = async (value: boolean) => {
@@ -1202,6 +1207,83 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
               </View> */}
+
+              {/* ── Number of Answers Switch Case ── */}
+              <View
+                style={{
+                  marginTop: 16,
+                  marginBottom: 8,
+                  paddingHorizontal: 4,
+                }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}>
+                  <Text
+                    style={[
+                      styles.settingLabel,
+                      { flex: 1, fontSize: 15, fontWeight: '600', color: '#333' },
+                    ]}>
+                    Number of Answers
+                  </Text>
+                </View>
+
+                {/* 3-Button Switch Case Control */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    backgroundColor: '#F3E5F5',
+                    borderRadius: 12,
+                    padding: 4,
+                    borderWidth: 1,
+                    borderColor: '#E1BEE7',
+                  }}>
+                  {[5, 7, 11].map(val => {
+                    const currentVal = parseInt(preferences.answersCount) || 5;
+                    const isSelected = currentVal === val;
+                    return (
+                      <TouchableOpacity
+                        key={val}
+                        activeOpacity={0.8}
+                        style={{
+                          flex: 1,
+                          backgroundColor: isSelected ? '#8E24AA' : 'transparent',
+                          borderRadius: 8,
+                          paddingVertical: 10,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          shadowColor: isSelected ? '#000' : 'transparent',
+                          shadowOpacity: isSelected ? 0.15 : 0,
+                          shadowRadius: 3,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: isSelected ? 3 : 0,
+                        }}
+                        onPress={() => handleAnswersCountChange(val)}>
+                        <Text
+                          style={{
+                            color: isSelected ? '#fff' : '#8E24AA',
+                            fontWeight: '700',
+                            fontSize: 16,
+                          }}>
+                          {val}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: '#888',
+                    marginTop: 8,
+                    fontStyle: 'italic',
+                  }}>
+                  Choose how many answer cards appear after each question. Default is 5.
+                </Text>
+              </View>
             </View>
 
             <View style={[styles.section, styles.sectionReports]}>
@@ -1343,7 +1425,6 @@ const SettingsScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             </View>
-
             {isConnected && (
               <View style={[styles.section, styles.sectionHelpCenter]}>
                 <Text style={styles.sectionTitle}>Help and Learn Center</Text>
@@ -1366,6 +1447,7 @@ const SettingsScreen: React.FC = () => {
                       onPress={() => handleVideoCardPress('homescreen')}>
                       <View style={styles.videoContainer}>
                         <Video
+                          disableAudioSessionManagement={true}
                           source={getVideoUrl('homescreen')}
                           style={styles.video}
                           resizeMode="cover"
@@ -1373,7 +1455,6 @@ const SettingsScreen: React.FC = () => {
                           muted={true}
                           repeat={false}
                           controls={false}
-                          disableAudioSessionManagement={true}
                         />
                         {watchedVideos.has(0) && (
                           <View
@@ -1408,6 +1489,7 @@ const SettingsScreen: React.FC = () => {
                       onPress={() => handleVideoCardPress('question')}>
                       <View style={styles.videoContainer}>
                         <Video
+                          disableAudioSessionManagement={true}
                           source={getVideoUrl('question')}
                           style={styles.video}
                           resizeMode="cover"
@@ -1415,7 +1497,6 @@ const SettingsScreen: React.FC = () => {
                           muted={true}
                           repeat={false}
                           controls={false}
-                          disableAudioSessionManagement={true}
                         />
                         {watchedVideos.has(1) && (
                           <View
@@ -1450,6 +1531,7 @@ const SettingsScreen: React.FC = () => {
                       onPress={() => handleVideoCardPress('convo')}>
                       <View style={styles.videoContainer}>
                         <Video
+                          disableAudioSessionManagement={true}
                           source={getVideoUrl('convo')}
                           style={styles.video}
                           resizeMode="cover"
@@ -1457,7 +1539,6 @@ const SettingsScreen: React.FC = () => {
                           muted={true}
                           repeat={false}
                           controls={false}
-                          disableAudioSessionManagement={true}
                         />
                         {watchedVideos.has(2) && (
                           <View
@@ -1492,6 +1573,7 @@ const SettingsScreen: React.FC = () => {
                       onPress={() => handleVideoCardPress('reports')}>
                       <View style={styles.videoContainer}>
                         <Video
+                          disableAudioSessionManagement={true}
                           source={getVideoUrl('reports')}
                           style={styles.video}
                           resizeMode="cover"
@@ -1499,7 +1581,6 @@ const SettingsScreen: React.FC = () => {
                           muted={true}
                           repeat={false}
                           controls={false}
-                          disableAudioSessionManagement={true}
                         />
                         {watchedVideos.has(3) && (
                           <View
@@ -1534,6 +1615,7 @@ const SettingsScreen: React.FC = () => {
                       onPress={() => handleVideoCardPress('personalization')}>
                       <View style={styles.videoContainer}>
                         <Video
+                          disableAudioSessionManagement={true}
                           source={getVideoUrl('personalization')}
                           style={styles.video}
                           resizeMode="cover"
@@ -1541,7 +1623,6 @@ const SettingsScreen: React.FC = () => {
                           muted={true}
                           repeat={false}
                           controls={false}
-                          disableAudioSessionManagement={true}
                         />
                         {watchedVideos.has(4) && (
                           <View
@@ -1576,6 +1657,7 @@ const SettingsScreen: React.FC = () => {
                       onPress={() => handleVideoCardPress('boardCustomize')}>
                       <View style={styles.videoContainer}>
                         <Video
+                          disableAudioSessionManagement={true}
                           source={getVideoUrl('boardCustomize')}
                           style={styles.video}
                           resizeMode="cover"
@@ -1583,7 +1665,6 @@ const SettingsScreen: React.FC = () => {
                           muted={true}
                           repeat={false}
                           controls={false}
-                          disableAudioSessionManagement={true}
                         />
                         {watchedVideos.has(5) && (
                           <View
@@ -1628,9 +1709,9 @@ const SettingsScreen: React.FC = () => {
                 </Text>
                 <Text style={styles.myPepesDescription}>
                   Your people, stuff, food, drinks, places, and tv shows with
-                  images, names, and aliases for better conversation context.
+                  images, names, and aliases for better conversation context.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    All Images are kept on your device only.
+                    All images are kept on your device only.
                   </Text>
                 </Text>
                 <MyPepesAndStuff resetSessionTrigger={sessionResetTrigger} />
@@ -1643,9 +1724,9 @@ const SettingsScreen: React.FC = () => {
                 <Text style={styles.my8WordsDescription}>
                   Customize the 8 words that appear on your main screen cards.
                   Search for words and their images to personalize your
-                  experience.
+                  experience.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    Images are downloaded and stored on your device only.
+                    images are downloaded and stored on your device only.
                   </Text>
                 </Text>
                 <My8WordsCustomizer isTablet={isTablet} />
@@ -2043,7 +2124,7 @@ const SettingsScreen: React.FC = () => {
               )}
             </View>
 
-            <View style={[styles.section, styles.sectionData]}>
+            <View style={[styles.section]}>
               <Text style={styles.sectionTitle}>Data Management</Text>
               <Text style={styles.aboutDescription}>
                 Export your profile data to keep a backup or transfer to another device.
@@ -2143,20 +2224,10 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>MaTalk AI v2.0</Text>
+            <Text style={styles.aboutText}>MaTalk AI v1.8</Text>
           </TouchableOpacity>
 
-          {showAssistantId && (
-            <>
-              <TouchableOpacity
-                onPress={() => {
-                  mixpanel.track('Settings Reset isIOSActive Pressed');
-                  setItem('isIOSActive', '1');
-                }}>
-                <Text style={styles.aboutText}>Reset isIOSActive</Text>
-              </TouchableOpacity>
-            </>
-          )}
+
           <Text style={styles.aboutDescription}>
             MaTalk AI is a communication tool designed to help users interact
             more effectively.
@@ -2299,11 +2370,11 @@ const styles = StyleSheet.create({
   sectionPersonalize: {
     backgroundColor: '#fce8f0',
   },
-  sectionData: {
-    backgroundColor: '#e8eaf6',
-  },
   sectionReset: {
     backgroundColor: '#fce8e8',
+  },
+  sectionAccountStatus: {
+    backgroundColor: '#fffbe6',
   },
   sectionLegal: {
     backgroundColor: '#f0f0f2',

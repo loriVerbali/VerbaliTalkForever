@@ -24,7 +24,7 @@ import AppConfig from '../utils/config';
 import { hasAppAccess } from '../utils/trialUtils';
 import { useConnection } from '../utils/connection';
 import ShowAndTell from '../Components/ShowAndTell';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import WakeWordService from '../utils/wakewordService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import { useAdmin } from '../contexts/adminContext';
@@ -105,9 +105,6 @@ const OpenScreen: React.FC = () => {
   const [showAndTellModalShown, setShowAndTellModalShown] = useState(false);
   const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
-  const mixpanel = useRef(
-    new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true),
-  ).current;
   const wakeWordService = WakeWordService.getInstance();
   const handScaleAnim = useRef(new Animated.Value(1)).current;
   const bubbleScaleAnim = useRef(new Animated.Value(1)).current;
@@ -125,6 +122,15 @@ const OpenScreen: React.FC = () => {
     typeof setInterval
   > | null>(null);
   const isDebouncing = useRef(false);
+  const isMounted = useRef(true);
+
+  // Track component mount status
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Track connection state changes
   useEffect(() => {
@@ -215,15 +221,19 @@ const OpenScreen: React.FC = () => {
     let animationTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const startPulseAnimation = () => {
-      // Check if both have been tapped before starting next animation
-      if (microphoneTappedOnce && settingsTappedOnce) {
-        return; // Stop animation if both have been tapped
+      // Check mount status and tap status before starting
+      if (!isMounted.current || (microphoneTappedOnce && settingsTappedOnce)) {
+        return;
       }
 
-      createPulseAnimation().start(() => {
-        // Only restart if at least one pointing element should still be visible
-        if (!microphoneTappedOnce || !settingsTappedOnce) {
-          animationTimeout = setTimeout(startPulseAnimation, 0);
+      createPulseAnimation().start((result) => {
+        // CRITICAL: Only recurse if the animation reached its natural conclusion.
+        // If result.finished is false, it means stopAnimation() was called,
+        // and we should NOT start a new loop.
+        if (isMounted.current && result.finished) {
+          if (!microphoneTappedOnce || !settingsTappedOnce) {
+            animationTimeout = setTimeout(startPulseAnimation, 0);
+          }
         }
       });
     };
@@ -285,7 +295,9 @@ const OpenScreen: React.FC = () => {
 
         // Set 5 second max timeout
         loadingModalTimeoutRef.current = setTimeout(() => {
-          setShowLoadingModal(false);
+          if (isMounted.current) {
+            setShowLoadingModal(false);
+          }
           if (loadingModalCheckIntervalRef.current) {
             clearInterval(loadingModalCheckIntervalRef.current);
             loadingModalCheckIntervalRef.current = null;
@@ -294,6 +306,14 @@ const OpenScreen: React.FC = () => {
 
         // Poll for wake word readiness
         loadingModalCheckIntervalRef.current = setInterval(() => {
+          if (!isMounted.current) {
+            if (loadingModalCheckIntervalRef.current) {
+              clearInterval(loadingModalCheckIntervalRef.current);
+              loadingModalCheckIntervalRef.current = null;
+            }
+            return;
+          }
+
           if (wakeWordService.isCurrentlyListening()) {
             setShowLoadingModal(false);
             if (loadingModalTimeoutRef.current) {
@@ -480,20 +500,6 @@ const OpenScreen: React.FC = () => {
           return;
         }
 
-        // CRITICAL: Check if Voice recognition is currently active
-        // If Voice is recognizing, don't start wakeword as it will steal the microphone
-        if (Platform.OS === 'android') {
-          try {
-            const Voice = require('@dev-amirzubair/react-native-voice').default;
-            const isVoiceRecognizing = await Voice.isRecognizing();
-            if (isVoiceRecognizing) {
-              return;
-            }
-          } catch (error) {
-            // Voice module might not be available, continue
-          }
-        }
-
         // CRITICAL: Always prepare audio session for wakeword when screen comes into focus
         // This ensures the audio session is properly configured even if it was changed
         // by other screens (e.g., Settings video playback)
@@ -586,16 +592,6 @@ const OpenScreen: React.FC = () => {
       await setItem('microphoneTappedOnce', '1');
     }
 
-    // CRITICAL: Stop WakeWordService before navigating to Home with 'Attention'
-    // This releases the microphone so Voice recognition can use it
-    try {
-      if (wakeWordService.isCurrentlyListening()) {
-        await wakeWordService.stopListening();
-      }
-    } catch (error) {
-      console.error('Error stopping wake word service:', error);
-    }
-
     navigation.navigate('HOME' as any, {
       stateof: 'Attention',
     });
@@ -637,10 +633,11 @@ const OpenScreen: React.FC = () => {
       askForAdultHelp();
       return;
     }
+
     // Start fade out before navigation
     Animated.timing(fadeAnim, {
       toValue: 0,
-      duration: 500,
+      duration: 300,
       useNativeDriver: true,
     }).start(() => {
       if (state === 'Talk') {
@@ -691,8 +688,6 @@ const OpenScreen: React.FC = () => {
     setIsHandshakeSpeaking(true);
     handshakeTappedRef.current = true; // Set flag to prevent navigation on wake word
 
-
-
     // Prepare audio session for TTS (after stopping wakeword)
     await AudioSessionManager.prepareForTTS();
 
@@ -701,7 +696,6 @@ const OpenScreen: React.FC = () => {
     await TTSService.speak(message, true, async () => {
       // Always clear the flag after playback completes
       AudioSessionManager.setTTSActive(false);
-
       // Prepare audio session for wakeword (after TTS ends)
       await AudioSessionManager.prepareForWakeword();
 
@@ -723,7 +717,6 @@ const OpenScreen: React.FC = () => {
       setIsHandshakeSpeaking(false);
     });
   };
-
 
   const closeModal = () => {
     setModalVisible(false);
@@ -938,11 +931,10 @@ const OpenScreen: React.FC = () => {
             <View style={styles.leftSideContainer}>
               <View style={styles.wrapper}>
                 <View style={styles.rowContent}>
-                  <Pressable
+                  <TouchableOpacity
                     style={styles.tileWrapper}
                     onPress={() => handleNavigation('Talk')}>
                     <View style={styles.imageWrapper}>
-
                       <FastImage
                         key="connected-image"
                         source={require('../assets/talk.png')}
@@ -957,10 +949,12 @@ const OpenScreen: React.FC = () => {
                       ]}>
                       <Text style={styles.kidText}>Start Talking</Text>
                     </View>
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.rowContent}>
-                  <Pressable style={styles.tileWrapper} onPress={handKeyboard}>
+                  <TouchableOpacity
+                    style={styles.tileWrapper}
+                    onPress={handKeyboard}>
                     <View style={styles.imageWrapper}>
                       <View style={styles.imageWrapper}>
                         <FastImage
@@ -977,9 +971,9 @@ const OpenScreen: React.FC = () => {
                       ]}>
                       <Text style={styles.kidText}>Type Here</Text>
                     </View>
-                  </Pressable>
-                </View>
-              </View>
+                  </TouchableOpacity>
+                </View >
+              </View >
 
               <View style={styles.wrapper}>
                 <View style={styles.rowContent}>
@@ -1073,10 +1067,10 @@ const OpenScreen: React.FC = () => {
                   </Pressable>
                 </View>
               </View>
-            </View>
+            </View >
 
             {/* Right side - YES/NO cards (50% width) */}
-            <View style={styles.rightSideContainer}>
+            < View style={styles.rightSideContainer} >
               <View style={styles.yesNoWrapper}>
                 <View style={styles.yesNoColumn}>
                   {(my8WordsData || getDefaultMy8Words()).cards
@@ -1091,7 +1085,6 @@ const OpenScreen: React.FC = () => {
                           setTimeout(() => {
                             isDebouncing.current = false;
                           }, 1000);
-
                           mixpanel.track('8 Words Pressed');
                           // Prepare audio session for TTS to ensure consistent volume
                           await AudioSessionManager.prepareForTTS();
@@ -1123,7 +1116,6 @@ const OpenScreen: React.FC = () => {
                           setTimeout(() => {
                             isDebouncing.current = false;
                           }, 1000);
-
                           mixpanel.track('8 Words Pressed');
                           // Prepare audio session for TTS to ensure consistent volume
                           await AudioSessionManager.prepareForTTS();
@@ -1143,11 +1135,10 @@ const OpenScreen: React.FC = () => {
                     ))}
                 </View>
               </View>
-            </View>
-          </View>
-        </View>
-      </Animated.View>
-
+            </View >
+          </View >
+        </View >
+      </Animated.View >
 
       <Modal
         visible={modalVisible}
@@ -1161,11 +1152,6 @@ const OpenScreen: React.FC = () => {
               <View style={styles.modalContent}>
                 {!isSettingNewPassword && !isForgotPassword ? (
                   <>
-                    <Text style={styles.modalTitle}>Enter Admin Code</Text>
-                    <Text style={styles.modalDescription}>
-                      Enter your 4-digit parent code to continue.
-                    </Text>
-
                     {/* PIN Input Row */}
                     <Pressable
                       style={styles.pinRow}
@@ -1472,20 +1458,19 @@ const OpenScreen: React.FC = () => {
                     </View>
                   </>
                 )}
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
+              </View >
+            </TouchableWithoutFeedback >
+          </View >
+        </TouchableWithoutFeedback >
+      </Modal >
 
       {/* Startup Show-and-Tell Modal */}
-      <Modal
+      < Modal
         visible={startupModalVisible}
         transparent={true}
         animationType="fade"
         supportedOrientations={['landscape-left', 'landscape-right']}
-        onRequestClose={closeStartupModal}>
+        onRequestClose={closeStartupModal} >
         <View style={styles.startupModalOverlay}>
           <View style={styles.startupModalContent}>
             <View style={styles.showAndTellHeader}>
@@ -1508,14 +1493,14 @@ const OpenScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </Modal >
 
       {/* Loading Modal - Shows on app launch after onboarding */}
-      <Modal
+      < Modal
         visible={showLoadingModal}
         transparent={true}
         animationType="fade"
-        supportedOrientations={['landscape-left', 'landscape-right']}>
+        supportedOrientations={['landscape-left', 'landscape-right']} >
         <View style={styles.loadingModalOverlay} pointerEvents="auto">
           <View style={styles.loadingModalContent} pointerEvents="auto">
             <FastImage
@@ -1531,7 +1516,7 @@ const OpenScreen: React.FC = () => {
             <Text style={styles.loadingText}>Hi, Loading up my magic</Text>
           </View>
         </View>
-      </Modal>
+      </Modal >
     </>
   );
 };
