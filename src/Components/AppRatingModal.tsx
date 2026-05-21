@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -10,9 +10,9 @@ import {
   Dimensions,
 } from 'react-native';
 import InAppReview from 'react-native-in-app-review';
-import {Mixpanel} from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type RatingModalState =
   | 'initial' // "Do you like MaTalk AI?"
@@ -42,7 +42,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
   onClose,
   onDismiss,
 }) => {
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+
   const [state, setState] = useState<RatingModalState>('initial');
   const [selectedFeedback, setSelectedFeedback] = useState<Set<string>>(
     new Set(),
@@ -165,7 +165,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
   const renderInitial = () => (
     <View style={styles.contentContainer}>
       <Text style={styles.title}>Quick question before you go</Text>
-      <Text style={styles.body}>Do you like VerbaliTalk Forever?</Text>
+      <Text style={styles.body}>Do you like VerbaliTalk?</Text>
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.primaryButton} onPress={handleYes}>
           <Text style={styles.primaryButtonText}>Yes</Text>
@@ -208,7 +208,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
 
   const renderFeedback = () => (
     <View style={styles.contentContainer}>
-      <Text style={styles.title}>How can we improve VerbaliTalk Forever?</Text>
+      <Text style={styles.title}>How can we improve VerbaliTalk?</Text>
       <Text style={styles.body}>Pick all that apply.</Text>
       <ScrollView
         style={styles.feedbackScrollView}
@@ -260,7 +260,7 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
   const renderConfirmation = () => (
     <View style={styles.contentContainer}>
       <Text style={styles.title}>
-        Thanks—your feedback helps us build a better VerbaliTalk Forever.
+        Thanks—your feedback helps us build a better VerbaliTalk.
       </Text>
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.primaryButton} onPress={handleDone}>
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.8,
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,

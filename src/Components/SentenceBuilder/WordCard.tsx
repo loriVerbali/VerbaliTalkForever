@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import {Node, FOLDER_COLOR} from '../../types/sentenceBuilder';
+import { Node } from '../../types/sentenceBuilder';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface WordCardProps {
   node: Node;
@@ -55,7 +55,7 @@ const WordCard: React.FC<WordCardProps> = ({
         <TouchableOpacity
           style={styles.editButton}
           onPress={handleEditPress}
-          hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Text style={styles.editButtonText}>✏️</Text>
         </TouchableOpacity>
       )}
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    shadowOffset: {width: 0, height: 1},
+    shadowOffset: { width: 0, height: 1 },
     elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: {width: 1, height: 1},
+    textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   ttsIndicator: {

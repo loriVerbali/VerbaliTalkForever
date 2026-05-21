@@ -13,6 +13,7 @@ import {
   TextInput,
   Linking,
   useWindowDimensions,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -32,7 +33,7 @@ import {
   GRID_CONFIGS,
   GridConfigKey,
 } from '../../types/sentenceBuilder';
-import { resolveImageSource } from '../../utils/imageSourceResolver';
+import { resolveImageSource, isPlaceholderImage } from '../../utils/imageSourceResolver';
 import { views } from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
@@ -46,6 +47,7 @@ type RootStackParamList = {
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
 
 interface SentenceBuilderGridProps {
   isTablet?: boolean;
@@ -69,7 +71,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   onResetDbPressed,
 }) => {
   const { addUtterance } = useDatabase();
-  const { getItem } = useAppSettings();
+  const { getItem, setItem } = useAppSettings();
   const navigation = useNavigation<NavigationProp>();
 
   // State
@@ -89,7 +91,23 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
   const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isAdminCodeError, setIsAdminCodeError] = useState(false);
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
+  const [showAdminCode, setShowAdminCode] = useState(false);
+  const pinInputRef = useRef<TextInput | null>(null);
+  // Set New Password flow state
+  const [isSettingNewPassword, setIsSettingNewPassword] = useState(false);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [newPinDigits, setNewPinDigits] = useState(['', '', '', '']);
+  const [newPinError, setNewPinError] = useState('');
+  const newPinInputRef = useRef<TextInput | null>(null);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotPinInput, setForgotPinInput] = useState('');
+  const [forgotPinDigits, setForgotPinDigits] = useState(['', '', '', '', '']);
+  const [forgotPinError, setForgotPinError] = useState('');
+  const forgotPinInputRef = useRef<TextInput | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showPlaceholderModal, setShowPlaceholderModal] = useState(false);
+  const [placeholderWord, setPlaceholderWord] = useState('');
   const isProcessingPressRef = useRef<boolean>(false);
   const isDebouncing = useRef(false);
 
@@ -207,6 +225,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     } catch (error) { }
   };
 
+
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -221,13 +240,13 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
     // Responsive breakpoints for different device types
     // Use prop if available, otherwise fallback to height check. Inclusive of 1024 for iPad Pro 12.9"
-    const isTabletDevice = isTablet !== undefined ? isTablet : height >= 768;
+    const isTabletDevice = isTablet !== undefined ? isTablet : (height >= 768);
     const isSmallMobile = height < 480;
 
     // Calculate UI elements height dynamically
     // Calculate UI elements height dynamically
     // Navigation bar height is approx 11-12% on mobile (9.5% token + padding)
-    const navBarRatio = isTabletDevice ? 0.1 : 0.12;
+    const navBarRatio = isTabletDevice ? 0.10 : 0.12;
     const navigationBarHeight = height * navBarRatio;
     const gridSizeSelectorHeight = isEditing ? 48 : 0; // Grid size selector (only in edit mode)
 
@@ -241,9 +260,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     // On tablet: subtract both top and bottom safe areas
     // On mobile: only subtract bottom safe area (home indicator) to maximize vertical space
     // We ignore top inset on mobile assuming landscape/immersive mode where we want to use that space
-    const insetsToSubtract = isTabletDevice
-      ? insets.top + insets.bottom
-      : insets.bottom;
+    const insetsToSubtract = isTabletDevice ? (insets.top + insets.bottom) : insets.bottom;
 
     const totalUIHeight =
       navigationBarHeight +
@@ -274,6 +291,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       const finalHeight = Math.min(cardHeight, 200);
       return { width: finalWidth, height: finalHeight };
     }
+
   }, [getGridConfig, isEditing]);
 
   const getColorForNode = useCallback((node: Node): string => {
@@ -470,6 +488,14 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
         // Navigate to folder - this should navigate, not add to sentence
         setFolderStack(prev => [...prev, { nodeId: node.id, title: node.title }]);
       } else {
+        // Check for placeholder image
+        if (isPlaceholderImage(node.imageUri)) {
+          setPlaceholderWord(node.title);
+          setShowPlaceholderModal(true);
+          isProcessingPressRef.current = false;
+          return;
+        }
+
         // Speak the word using TTS (always speak, even if it's a consecutive duplicate)
         const textToSpeak = node.ttsText || node.title;
         const onPlaybackComplete = async () => {
@@ -553,30 +579,44 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
       // Show admin code prompt modal
       setShowAdminCodeModal(true);
       setAdminCodeInput('');
+      setPinDigits(['', '', '', '']);
       setIsAdminCodeError(false);
     } catch (error) {
       Alert.alert('Error', 'Failed to verify admin access');
     }
   };
 
-  const handleCancelEditPress = () => {
+  const handleCancelEditPress = async () => {
     setIsEditing(false);
+    // Fully reload data to reset the view (prevents UI glitches after editing)
+    await initializeAndLoadData();
   };
 
   // Admin code modal handlers
   const closeAdminCodeModal = () => {
     setShowAdminCodeModal(false);
     setAdminCodeInput('');
+    setPinDigits(['', '', '', '']);
+    setShowAdminCode(false);
     setIsAdminCodeError(false);
+    // Reset new password flow state
+    setIsSettingNewPassword(false);
+    setNewPinInput('');
+    setNewPinDigits(['', '', '', '']);
+    setNewPinError('');
+    // Reset forgot password state
+    setIsForgotPassword(false);
+    setForgotPinInput('');
+    setForgotPinDigits(['', '', '', '', '']);
+    setForgotPinError('');
   };
 
-  const handleAdminCodeSubmit = async () => {
+  const handleAdminCodeSubmit = async (overrideCode?: string) => {
     try {
+      const codeToSubmit = overrideCode || adminCodeInput;
       const storedAdminCode = await getItem('adminCode');
-      if (
-        adminCodeInput === storedAdminCode ||
-        adminCodeInput === AppConfig.masterAdminCode
-      ) {
+
+      if (codeToSubmit === storedAdminCode) {
         closeAdminCodeModal();
         setIsEditing(true);
       } else {
@@ -589,6 +629,36 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
     } catch (error) {
       setIsAdminCodeError(true);
     }
+  };
+
+  const handleForgotCodeSubmit = async (overrideCode?: string) => {
+    const codeToSubmit = overrideCode || forgotPinInput;
+
+    if (codeToSubmit === AppConfig.masterAdminCode) {
+      setIsForgotPassword(false);
+      setForgotPinInput('');
+      setForgotPinDigits(['', '', '', '', '']);
+      setForgotPinError('');
+
+      setIsSettingNewPassword(true);
+      setNewPinInput('');
+      setNewPinDigits(['', '', '', '']);
+      setNewPinError('');
+      setTimeout(() => newPinInputRef.current?.focus(), 200);
+    } else {
+      setForgotPinError('Incorrect master code.');
+      // Clear error after 2 seconds
+      setTimeout(() => setForgotPinError(''), 2000);
+    }
+  };
+
+  const handleNewPinSave = async () => {
+    if (newPinInput.length !== 4) {
+      setNewPinError('Please enter a 4-digit code.');
+      return;
+    }
+    await setItem('adminCode', newPinInput);
+    closeAdminCodeModal();
   };
 
   // Grid size change handler
@@ -655,9 +725,11 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
   // New handler functions for NavigationBar
   const handleMicrophonePress = () => {
-    navigation.navigate('HOME', {
+
+    navigation.navigate("HOME", {
       stateof: 'Attention',
     });
+
   };
 
   const handleTrashPress = () => {
@@ -834,8 +906,8 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               //shadowRadius: 10,
               shadowOffset: { width: 0, height: 6 },
               elevation: 12,
-              borderWidth: 3,
-              borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : color,
+              borderWidth: node.kind === 'folder' ? 4 : 3,
+              borderColor: isEmptyCell || isDeletedCard ? '#BDBDBD' : (node.kind === 'folder' ? '#222222' : color),
               borderStyle: isEmptyCell || isDeletedCard ? 'dashed' : 'solid',
             },
           ]}>
@@ -864,6 +936,48 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
               </Text>
             </TouchableOpacity>
           )}
+
+          {/* Top semi-transparent strip for folders */}
+          {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: cardDimensions.width * 0.6,
+                height: cardDimensions.height * 0.12,
+                backgroundColor: 'rgba(140, 137, 129, 0.8)',
+                borderTopLeftRadius: 0,
+                borderTopRightRadius: cardDimensions.height * 0.02,
+                borderBottomRightRadius: cardDimensions.height * 0.2,
+                borderBottomLeftRadius: 0,
+
+                borderBottomWidth: 5,
+                borderTopWidth: 2,
+                borderLeftWidth: 0,
+                borderRightWidth: 5,
+                borderColor: '#4d4d4a',
+                zIndex: 12,
+              }}
+            />
+          )}
+
+          {/* Full-width transparent strip for folders */}
+          {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
+            <View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: cardDimensions.height * 0.12,
+                backgroundColor: 'rgba(255, 248, 231, 0.8)',
+                zIndex: 11,
+              }}
+            />
+          )}
+
+
 
           {/* Image section - full height on mobile, partial on desktop */}
           <View
@@ -898,56 +1012,108 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
                 </Text>
               </View>
             ) : node.kind === 'word' ? (
-              <View
-                style={{
-                  width: cardDimensions.width,
-                  height: cardDimensions.height,
-                  backgroundColor: color,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  borderRadius: 8,
-                }}>
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit={true}
-                  style={{
-                    fontSize: isMobile ? cardDimensions.width * 0.5 : cardDimensions.width * 0.3,
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    textAlign: 'center',
-                    width: '85%',
-                    alignSelf: 'center',
-                  }}>
-                  {node.title}
-                </Text>
-              </View>
+              <>
+                {node.imageUri ? (
+                  <FastImage
+                    source={
+                      resolveImageSource(node.imageUri) ||
+                      require('../../assets/welcome.png')
+                    }
+                    style={{
+                      width: cardDimensions.width,
+                      height: isMobile
+                        ? cardDimensions.height
+                        : cardDimensions.height * 0.82,
+                      borderTopLeftRadius: 8,
+                      borderTopRightRadius: 8,
+                      borderBottomLeftRadius: isMobile ? 8 : 0,
+                      borderBottomRightRadius: isMobile ? 8 : 0,
+                    }}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                ) : (
+                  <View
+                    style={{
+                      width: cardDimensions.width,
+                      height: isMobile
+                        ? cardDimensions.height
+                        : cardDimensions.height * 0.82,
+                      backgroundColor: color,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      borderTopLeftRadius: 8,
+                      borderTopRightRadius: 8,
+                      borderBottomLeftRadius: isMobile ? 8 : 0,
+                      borderBottomRightRadius: isMobile ? 8 : 0,
+                    }}>
+                    <Text
+                      style={{
+                        fontSize: cardDimensions.width * 0.15,
+                        color: '#fff',
+                      }}>
+                      {node.title.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </>
             ) : (
-              // Folder - show folder icon and title inside
+              // Folder - show image if available, otherwise folder icon
+              <>
+                {node.imageUri ? (
+                  <FastImage
+                    source={
+                      resolveImageSource(node.imageUri) ||
+                      require('../../assets/welcome.png')
+                    }
+                    style={{
+                      width: cardDimensions.width,
+                      height: isMobile
+                        ? cardDimensions.height
+                        : cardDimensions.height * 0.82,
+                      borderTopLeftRadius: 8,
+                      borderTopRightRadius: 8,
+                      borderBottomLeftRadius: isMobile ? 8 : 0,
+                      borderBottomRightRadius: isMobile ? 8 : 0,
+                    }}
+                    resizeMode={FastImage.resizeMode.cover}
+                  />
+                ) : null}
+              </>
+            )}
+
+            {/* Text overlay for all devices */}
+            {!isEmptyCell && !isDeletedCard && (
               <View
                 style={{
-                  width: cardDimensions.width,
-                  height: cardDimensions.height,
-                  backgroundColor: color,
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  backgroundColor: node.kind === 'folder' ? '#FFF8E7' : 'rgba(255, 255, 255, 0.7)',
+                  borderBottomLeftRadius: 4,
+                  borderBottomRightRadius: 4,
+                  paddingVertical: node.kind === 'folder' ? 4 : 2,
+                  paddingHorizontal: 2,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  borderRadius: 8,
+                  borderTopWidth: node.kind === 'folder' ? 2 : 0,
+                  borderColor: node.kind === 'folder' ? '#222222' : color,
                 }}>
                 <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit={true}
                   style={{
-                    fontSize: isMobile ? cardDimensions.width * 0.4 : cardDimensions.width * 0.25,
-                    color: '#fff',
-                    fontWeight: 'bold',
+                    fontSize: node.kind === 'folder' ? Math.max(10, cardDimensions.width * 0.07) : Math.max(8, cardDimensions.width * 0.06),
+                    fontWeight: node.kind === 'folder' ? '800' : '600',
+                    color: '#000',
                     textAlign: 'center',
-                    width: '85%',
-                    alignSelf: 'center',
-                  }}>
-                  📁 {node.title}
+                    textShadowColor: node.kind === 'folder' ? undefined : 'rgba(0, 0, 0, 0.8)',
+                    textShadowOffset: node.kind === 'folder' ? undefined : { width: 1, height: 1 },
+                    textShadowRadius: node.kind === 'folder' ? undefined : 2,
+                  }}
+                  numberOfLines={2}>
+                  {node.kind === 'folder' ? node.title.toUpperCase() : node.title}
                 </Text>
               </View>
             )}
-
           </View>
         </View>
       </View>
@@ -1080,58 +1246,360 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
               <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Enter Admin Code</Text>
-                <TextInput
-                  style={[
-                    styles.codeInput,
-                    isAdminCodeError && styles.errorInput,
-                  ]}
-                  value={adminCodeInput}
-                  onChangeText={text => {
-                    const numericText = text.replace(/[^0-9]/g, '');
-                    if (numericText.length <= 4) {
-                      setAdminCodeInput(numericText);
-                      setIsAdminCodeError(false);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  maxLength={4}
-                  secureTextEntry={true}
-                  autoFocus={true}
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (adminCodeInput.length === 4) {
-                      handleAdminCodeSubmit();
-                    }
-                  }}
-                  onBlur={() => {
-                    // Auto-cancel when user dismisses keyboard by tapping away
-                    setTimeout(() => {
-                      if (showAdminCodeModal && adminCodeInput.length !== 4) {
-                        closeAdminCodeModal();
-                      }
-                    }, 100);
-                  }}
-                  blurOnSubmit={true}
-                />
+                {/* Lock Icon */}
+                <Text style={styles.lockIcon}>🔒</Text>
 
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={closeAdminCodeModal}>
-                    <Text style={styles.buttonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton,
-                      styles.submitButton,
-                      adminCodeInput.length !== 4 && styles.disabledButton,
-                    ]}
-                    onPress={handleAdminCodeSubmit}
-                    disabled={adminCodeInput.length !== 4}>
-                    <Text style={styles.buttonText}>Submit</Text>
-                  </TouchableOpacity>
-                </View>
+                {!isSettingNewPassword && !isForgotPassword ? (
+                  <>
+                    <Text style={styles.modalTitle}>Enter Admin Code</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter your 4-digit parent code to continue.
+                    </Text>
+
+                    {/* PIN Input Row */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => {
+                        if (pinInputRef.current) {
+                          pinInputRef.current.blur();
+                          setTimeout(() => {
+                            pinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
+                      <TextInput
+                        ref={pinInputRef}
+                        value={adminCodeInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setAdminCodeInput(numericText);
+                            const newDigits = ['', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              newDigits[i] = numericText[i];
+                            }
+                            setPinDigits(newDigits);
+                            setIsAdminCodeError(false);
+
+                            // Auto-submit when all 4 digits entered
+                            if (numericText.length === 4) {
+                              setTimeout(() => {
+                                handleAdminCodeSubmit(numericText);
+                              }, 100);
+                            }
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {pinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.12, 80);
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                              isAdminCodeError && styles.pinBoxError,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                {
+                                  fontSize: showAdminCode ? 24 : 36,
+                                  lineHeight: pinBoxSize,
+                                },
+                              ]}>
+                              {showAdminCode ? digit : (digit ? '●' : '')}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={closeAdminCodeModal}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          adminCodeInput.length !== 4 && styles.disabledButton,
+                        ]}
+                        onPress={() => handleAdminCodeSubmit()}
+                        disabled={adminCodeInput.length !== 4}>
+                        <Text style={styles.buttonText}>Submit</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Forgot Password */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsForgotPassword(true);
+                        setAdminCodeInput('');
+                        setPinDigits(['', '', '', '']);
+                        setIsAdminCodeError(false);
+                        setTimeout(() => forgotPinInputRef.current?.focus(), 200);
+                      }}>
+                      <Text style={styles.forgotCodeText}>
+                        <Text style={styles.forgotCodeLabel}>Forgot password?</Text>
+                      </Text>
+                      <Text style={[styles.forgotCodeText, { marginTop: 4 }]}>
+                        Open a browser and go to <Text style={{ fontWeight: 'bold' }}>verbali.io/forgotadminpassword</Text>
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : isForgotPassword ? (
+                  <>
+                    <Text style={styles.modalTitle}>Master Override</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter your 5-digit master override code to reset your admin PIN.
+                    </Text>
+                    <Text style={[styles.modalDescription, { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 15 }]}>
+                      you need to go to https://www.verbali.io/forgotadminpassword to get the code
+                    </Text>
+
+                    {/* 5-Digit PIN Input Row */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => {
+                        if (forgotPinInputRef.current) {
+                          forgotPinInputRef.current.blur();
+                          setTimeout(() => {
+                            forgotPinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
+                      <TextInput
+                        ref={forgotPinInputRef}
+                        value={forgotPinInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 5) {
+                            setForgotPinInput(numericText);
+                            const newDigits = ['', '', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              newDigits[i] = numericText[i];
+                            }
+                            setForgotPinDigits(newDigits);
+                            setForgotPinError('');
+
+                            // Auto-submit when all 5 digits entered
+                            if (numericText.length === 5) {
+                              setTimeout(() => {
+                                handleForgotCodeSubmit(numericText);
+                              }, 100);
+                            }
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {forgotPinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.1, 70);
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                              forgotPinError !== '' && styles.pinBoxError,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                {
+                                  fontSize: 36,
+                                  lineHeight: pinBoxSize,
+                                },
+                              ]}>
+                              {digit ? '●' : ''}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    {/* Error message */}
+                    {forgotPinError !== '' && (
+                      <Text style={{ color: '#E54848', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                        {forgotPinError}
+                      </Text>
+                    )}
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={() => {
+                          setIsForgotPassword(false);
+                          setForgotPinInput('');
+                          setForgotPinDigits(['', '', '', '', '']);
+                          setForgotPinError('');
+                          setTimeout(() => pinInputRef.current?.focus(), 200);
+                        }}>
+                        <Text style={styles.buttonText}>I remember my code</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          forgotPinInput.length !== 5 && styles.disabledButton,
+                        ]}
+                        onPress={() => handleForgotCodeSubmit()}
+                        disabled={forgotPinInput.length !== 5}>
+                        <Text style={styles.buttonText}>Submit</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalTitle}>Set New Password</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter a new 4-digit admin code.
+                    </Text>
+
+                    {/* New PIN Entry */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => {
+                        if (newPinInputRef.current) {
+                          newPinInputRef.current.blur();
+                          setTimeout(() => {
+                            newPinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
+                      <TextInput
+                        ref={newPinInputRef}
+                        value={newPinInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setNewPinInput(numericText);
+                            const digits = ['', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              digits[i] = numericText[i];
+                            }
+                            setNewPinDigits(digits);
+                            setNewPinError('');
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {newPinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.12, 80);
+                        return (
+                          <View
+                            key={`new-${index}`}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                { fontSize: 36, lineHeight: pinBoxSize },
+                              ]}>
+                              {digit ? '●' : ''}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    {/* Error message */}
+                    {newPinError !== '' && (
+                      <Text style={{ color: '#E54848', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                        {newPinError}
+                      </Text>
+                    )}
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={closeAdminCodeModal}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          newPinInput.length !== 4 && styles.disabledButton,
+                        ]}
+                        onPress={handleNewPinSave}
+                        disabled={newPinInput.length !== 4}>
+                        <Text style={styles.buttonText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Placeholder Image Warning Modal */}
+      <Modal
+        visible={showPlaceholderModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPlaceholderModal(false)}>
+        <TouchableWithoutFeedback onPress={() => setShowPlaceholderModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, { borderColor: '#ff3b30', borderWidth: 2 }]}>
+                <Text style={styles.warningIcon}>⚠️</Text>
+                <Text style={[styles.modalTitle, { color: '#ff3b30' }]}>Missing Image</Text>
+                <Text style={styles.placeholderWarningText}>
+                  No image is attached to "{placeholderWord}", please go to settings and add an image to this word.
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.settingsLinkButton}
+                  onPress={() => {
+                    setShowPlaceholderModal(false);
+                    navigation.navigate(views.SETTINGS as never);
+                  }}>
+                  <Text style={styles.settingsLinkText}>Go to Settings</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton, { marginTop: 15, width: '100%' }]}
+                  onPress={() => setShowPlaceholderModal(false)}>
+                  <Text style={styles.buttonText}>Dismiss</Text>
+                </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1241,54 +1709,85 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingTop: height * 0.2,
+    paddingTop: height * 0.15,
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: '#f5f0e8',
     borderRadius: 20,
     padding: width * 0.05,
     width: width * 0.8,
-    maxWidth: 400,
+    maxWidth: 450,
     alignItems: 'center',
+  },
+  lockIcon: {
+    fontSize: 32,
+    marginBottom: 8,
   },
   modalTitle: {
     fontSize: height * 0.03,
     fontWeight: 'bold',
-    marginBottom: height * 0.02,
+    marginBottom: 4,
     textAlign: 'center',
+    color: '#333',
   },
-  forgotCodeText: {
+  modalDescription: {
     fontSize: height * 0.018,
     color: '#666',
     textAlign: 'center',
     marginBottom: height * 0.02,
-    lineHeight: height * 0.025,
+  },
+  pinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: height * 0.025,
+    width: '100%',
+  },
+  pinBox: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pinBoxFilled: {
+    borderColor: '#007bff',
+  },
+  pinBoxError: {
+    borderColor: '#ff3b30',
+    backgroundColor: '#fff0f0',
+  },
+  pinInput: {
+    width: '100%',
+    height: '100%',
+    textAlign: 'center',
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  eyeIcon: {
+    fontSize: 22,
+  },
+  forgotCodeText: {
+    fontSize: height * 0.016,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: height * 0.015,
+    lineHeight: height * 0.022,
     paddingHorizontal: 16,
     fontStyle: 'italic',
   },
   forgotCodeLabel: {
     fontWeight: 'bold',
     color: '#007bff',
-  },
-  emailLink: {
-    color: '#007bff',
-    textDecorationLine: 'underline',
-  },
-  codeInput: {
-    width: '100%',
-    height: height * 0.08,
-    backgroundColor: '#f5f5f5',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    fontSize: height * 0.025,
-    textAlign: 'center',
-    marginBottom: height * 0.02,
-  },
-  errorInput: {
-    borderColor: '#ff3b30',
-    backgroundColor: '#fff0f0',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -1315,6 +1814,33 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  warningIcon: {
+    fontSize: 40,
+    marginBottom: 10,
+  },
+  placeholderWarningText: {
+    fontSize: 18,
+    color: '#ff3b30',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '600',
+    lineHeight: 24,
+  },
+  settingsLinkButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#007bff',
+    width: '100%',
+    alignItems: 'center',
+  },
+  settingsLinkText: {
+    color: '#007bff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

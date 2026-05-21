@@ -83,7 +83,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 25
-        versionName "GoaliV1"
+        versionName "VERBALITALKV1"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
         missingDimensionStrategy "store", "play"
         

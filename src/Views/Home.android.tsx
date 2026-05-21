@@ -9,24 +9,25 @@ import {
   PermissionsAndroid,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, RouteProp } from '@react-navigation/native';
+import {
+  useNavigation,
+  RouteProp,
+} from '@react-navigation/native';
 
 // Add imports for the components
 import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
 import { useAssistant } from '../contexts/AssistantContext';
-import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
 } from '../contexts/ChatContextProvider';
 import TTSService from '../utils/TTSService';
-import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { logConversation } from '../utils/conversationLogger';
 import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
@@ -34,7 +35,6 @@ import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice from '@dev-amirzubair/react-native-voice';
 import { useDatabase } from '../contexts/DatabaseContext';
-import { polishText } from '../utils/polishApi';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,7 +53,12 @@ const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was school today?';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
-  const { generateAnswers } = useAssistant();
+  const {
+    generateAnswers,
+    conversationHistory,
+    addToConversationHistory,
+    updateLastAssistantMessage,
+  } = useAssistant();
   const { weather, location } = useChatContext();
   const { isTablet } = useAdmin();
   const insets = useSafeAreaInsets();
@@ -112,27 +117,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-  // Function to manage conversation history with sliding window
-  const addToConversationHistory = (
-    userMessage: string,
-    assistantResponse: string,
-    maxHistoryLength: number = 20, // Keep last 20 exchanges
-  ) => {
-    setConversationHistory(prev => {
-      const newHistory = [
-        ...prev,
-        { role: 'user' as const, content: userMessage, timestamp: Date.now() },
-        {
-          role: 'assistant' as const,
-          content: assistantResponse,
-          timestamp: Date.now(),
-        },
-      ];
-
-      // Keep only the most recent exchanges
-      return newHistory.slice(-maxHistoryLength * 2); // *2 because each exchange has user + assistant
-    });
-  };
 
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
@@ -142,11 +126,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [directAnswers, setDirectAnswers] = useState<
     Array<{ word: string; imageUrl?: string }>
   >([]);
-
-  // Conversation history state
-  const [conversationHistory, setConversationHistory] = useState<
-    Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>
-  >([]);
+  const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
+  // Removed local answersCount state - using preferences.answersCount
 
   // AI Resolved tracking state
   const [currentAIRecord, setCurrentAIRecord] = useState<{
@@ -195,7 +176,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     keyboardTypingFontSize: isTablet ? 20 : 18,
     buttonFontSize: isTablet ? 18 : 16,
     errorFontSize: isTablet ? 20 : 18,
-    cardTextFontSize: isTablet ? width * 0.1 : width * 0.15,
+    cardTextFontSize: isTablet ? 18 : 16,
 
     // Button dimensions
     keyboardButtonPadding: isTablet
@@ -260,7 +241,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const inputsRef = useRef<InputsRef>(null);
   const metering = useRef<number>(-100);
   const lastSoundTimeRef = useRef<number>(Date.now());
-  const { playAttention } = useSound();
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showImages, setShowImages] = useState(false);
@@ -279,7 +259,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const SILENCE_TIMEOUT = 2000; // Stop recording if no new partial results for 2 seconds
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
@@ -328,15 +307,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     string | null
   >(null);
 
-  useEffect(() => {
-    // Load gobackAfterSelection setting
-    const loadGobackAfterSelectionSetting = async () => {
-      try {
-        const setting = await getItem('gobackAfterSelection');
-        setGobackAfterSelection(setting === '1');
-      } catch (error) { }
-    };
+  // Removed settings loading useFocusEffect - now using reactive preferences
 
+  useEffect(() => {
     try {
       // Always use Voice recognition
       setCachedUseLocalWhisper('1');
@@ -422,6 +395,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       }
     };
 
+    const loadGobackAfterSelectionSetting = async () => {
+      try {
+        const setting = await getItem('gobackAfterSelection');
+        setGobackAfterSelection(setting === '1');
+      } catch (error) { }
+    };
+
     // Load the setting
     loadGobackAfterSelectionSetting();
 
@@ -432,6 +412,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       Opened: 'Conversation',
     });
     if (stateof === 'Attention') {
+      console.log(
+        `[Home] Entering Attention state (Android). Current answersCount: ${preferences.answersCount}`,
+      );
       // wakeWord.stopListening();
       handleRecord();
     }
@@ -444,7 +427,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     return () => {
       Voice.destroy();
     };
-  }, []);
+  }, [stateof]);
 
   // Cleanup useEffect for wake word service and timers
   useEffect(() => {
@@ -546,9 +529,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
       setIsRecording(true);
       setIsUsingLocalWhisper(true); // Voice uses device recognition
-
-      const availableServices = await Voice.getSpeechRecognitionServices();
-      console.log('Available speech services:', availableServices);
 
       // Start Voice recognition with locale
       // NOTE: Don't force RECOGNIZER_ENGINE - let Android choose the best available
@@ -669,24 +649,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
         try {
-          // Get pepes data for context
-          const pepesData = await getItem('pepes');
-          const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
           // Use the new generateAnswers function
+          const currentAnswersCount = parseInt(preferences.answersCount) || 5;
+          console.log(
+            `[Home] Requesting AI answers (Android). Count: ${currentAnswersCount} (from preference: "${preferences.answersCount}")`,
+          );
           const answers = await generateAnswers(transcribedText, {
             mode: 'generate_answers',
             metadata: {
-              kidName: preferences?.heroName || 'I',
-              speaker: 'anyone',
-              audience: preferences?.heroName || 'my',
-              pepes: parsedPepes,
-              conversationHistory: conversationHistory,
               contextInfo: contextInfo, // Weather, time, and location context
             },
-            countMin: 5,
-            countMax: 5,
-            genderType: preferences?.gender || 'white boy',
+            number: currentAnswersCount,
+            countMin: currentAnswersCount,
+            countMax: currentAnswersCount,
           });
 
           if (answers && answers.length > 0) {
@@ -705,22 +680,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             );
 
             setDirectAnswers(processedAnswers);
+            const answerWords = processedAnswers.map(answer => answer.word);
+            setAccumulatedPriors(answerWords);
             setIsProcessingAnswer(false);
             setShowImages(true);
             startResponseTimer();
 
-            // Initialize AI Resolved record for Round 1
-            const answerWords = processedAnswers.map(answer => answer.word);
             setCurrentAIRecord({
               question: transcribedText,
               round1Answers: answerWords,
               currentRound: 1,
             });
 
-            // Add to conversation history
-            const assistantResponse = processedAnswers
+            // Add to conversation history with "Suggested" prefix
+            const assistantResponse = `Suggested: ${processedAnswers
               .map(answer => answer.word)
-              .join(', ');
+              .join(', ')}`;
             addToConversationHistory(transcribedText, assistantResponse);
           } else {
             setIsProcessingAnswer(false);
@@ -773,7 +748,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
-    setConversationHistory([]); // Clear conversation history
+    setAccumulatedPriors([]); // Reset accumulated priors
     setCurrentAIRecord(null); // Clear AI Resolved record
     setPartialResult(''); // Clear partial results
     voiceResultsRef.current = []; // Clear refs too
@@ -824,10 +799,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setIsProcessingAnswer(true); // Show processing immediately
       setShowImages(false); // Hide current images while getting new ones
 
-      // Capture current answers before clearing to pass as prior
-      const priorAnswers = directAnswers
-        .map(answer => answer.word)
-        .filter(word => word); // Get the 5 words that were shown
+      // Use accumulated priors to pass to server
+      const currentAccumulated = [...accumulatedPriors];
 
       // Clear old images immediately to prevent flickering
       setDirectAnswers([]);
@@ -839,27 +812,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Create a retry message asking for more alternatives
       const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
 
-      // Get pepes data for context
-      const pepesData = await getItem('pepes');
-      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
+      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
       // Use generateAnswers to get more answers
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_more_answers',
         metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-          pepes: parsedPepes, // Include pepes data for better context
-          conversationHistory: conversationHistory, // Include conversation history
-          contextInfo: contextInfo, // Weather, time, and location context
+          contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
-          answers: priorAnswers, // Pass the 5 current answers so they aren't shown again
+          answers: currentAccumulated || [], // Pass all accumulated previous answers
         },
-        countMin: 5,
-        countMax: 5,
-        genderType: preferences?.gender || 'white boy',
+        number: currentAnswersCount,
+        countMin: currentAnswersCount,
+        countMax: currentAnswersCount,
       });
 
       if (answers && answers.length > 0) {
@@ -878,6 +843,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         );
 
         setDirectAnswers(processedAnswers);
+        const newAnswerWords = processedAnswers.map(answer => answer.word);
+        setAccumulatedPriors(prev => [...prev, ...newAnswerWords]);
+
         setIsProcessingAnswer(false);
         setIsRetrying(false);
         setShowImages(true);
@@ -885,20 +853,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
         // Update AI Resolved record for next round
         if (currentAIRecord && currentAIRecord.currentRound < 3) {
-          const answerWords = processedAnswers.map(answer => answer.word);
           const nextRound = currentAIRecord.currentRound + 1;
 
           setCurrentAIRecord({
             ...currentAIRecord,
             currentRound: nextRound,
-            [`round${nextRound}Answers`]: answerWords,
+            [`round${nextRound}Answers`]: newAnswerWords,
           });
         }
 
-        // Add to conversation history
-        const assistantResponse = processedAnswers
+        // Add to conversation history with "Suggested" prefix
+        const assistantResponse = `Suggested: ${processedAnswers
           .map(answer => answer.word)
-          .join(', ');
+          .join(', ')}`;
         addToConversationHistory(transcribedText, assistantResponse);
       } else {
         setIsProcessingAnswer(false);
@@ -938,6 +905,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Log the selected word to database (only if it's not "MoreAnswers")
     if (selectedAnswer !== 'MoreAnswers') {
       await logWordSelection(selectedAnswer, 'Home');
+      // Update history with the user's specific choice
+      updateLastAssistantMessage(selectedAnswer);
+      setAccumulatedPriors([]); // Reset accumulated priors on selection
     }
 
     // Update AI Resolved record with the selected answer
@@ -983,11 +953,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     try {
       await generateAnswers(transcribedText, {
         mode: 'learning_feedback',
-        metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-        },
       });
     } catch (error) {
       // Don't block the user flow if learning feedback fails
@@ -999,6 +964,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       setTimeout(async () => {
         // Reset assistant state
         setDirectAnswers([]);
+        setAccumulatedPriors([]); // Clear accumulated priors
 
         // Navigate to Open.tsx only if gobackAfterSelection is true
         if (gobackAfterSelection) {
@@ -1008,6 +974,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           // NEW: Set waiting state and activate wake word
           setWaitingForNextConversation(true);
           setDirectAnswers([]);
+          setAccumulatedPriors([]); // Reset accumulated priors
 
           // Reset states but preserve waitingForNextConversation
           setFinishedTranscribing(false);
@@ -1077,14 +1044,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   };
 
   // handleKeyboardSubmit, handleKeyboardInputChange, handleKeyboardCancel moved to KeyboardHome
+  const handlePolish = () => {
+    // Moved to KeyboardHome
+  };
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#FFF8E7', '#FFFFFF']}
+      <View
         style={[
           styles.container,
           Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
+          { backgroundColor: '#FFF8E7' }
         ]}>
         {stateof === 'Keyboard' ? null : (
           <View
@@ -1108,6 +1078,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         {/* Home Button */}
         <HomeButton navigation={navigation} onReset={resetLocalStates} />
 
+
+
         {/* Matalk Icon */}
         <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
           <MatalkIcon />
@@ -1121,10 +1093,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               ? { height: 0, opacity: 0 }
               : {
                 height: responsiveValues.inputNavigationHeight,
-                marginTop: Math.max(insets.top, 10),
+                marginTop: Math.max(insets.top, 10)
               },
           ]}>
-          {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
+          {stateof !== 'Keyboard' && (
+            <Inputs
+              ref={inputsRef}
+              mode={stateof}
+            />
+          )}
         </View>
 
         <View style={{ flex: 1, width: '100%' }}>
@@ -1212,7 +1189,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                                 },
                               ]}>
                               <FastImage
-                                source={require('../assets/shortCuts.png')}
+                                source={require('../assets/shortCuts.jpg')}
                                 style={{
                                   width: '100%',
                                   height: '100%',
@@ -1221,15 +1198,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                               />
                             </View>
                             <Text
-                              numberOfLines={1}
-                              adjustsFontSizeToFit={true}
                               style={[
                                 styles.cardText,
                                 { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
-                              Shortcuts
-                            </Text>
-                          </TouchableOpacity>
+                              ShortCuts
+                            </Text >
+                          </TouchableOpacity >
 
                           <TouchableOpacity
                             style={[
@@ -1264,7 +1239,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                                 },
                               ]}>
                               <FastImage
-                                source={require('../assets/feelings.png')}
+                                source={require('../assets/feelings.jpg')}
                                 style={{
                                   width: '100%',
                                   height: '100%',
@@ -1273,8 +1248,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                               />
                             </View>
                             <Text
-                              numberOfLines={1}
-                              adjustsFontSizeToFit={true}
                               style={[
                                 styles.cardText,
                                 { fontSize: responsiveValues.cardTextFontSize },
@@ -1282,8 +1255,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                               Feelings
                             </Text>
                           </TouchableOpacity>
-                        </View>
-                      </View>
+                        </View >
+                      </View >
                     );
                   }
 
@@ -1300,6 +1273,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         maxRetries={MAX_RETRIES}
                         onAnswerSelected={handleAnswerSelected}
                         ttsService={TTSService}
+                        answersCount={parseInt(preferences.answersCount) || 5}
                       />
                     </View>
                   );
@@ -1362,7 +1336,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           />
                         </TouchableOpacity>
                       </View>
-                    ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
+                    ) : stateof === 'Keyboard' ? (
+                      null // Keyboard mode handled by KeyboardHome view
+                    ) : isTranscribing ? (
                       <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
@@ -1512,11 +1488,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                   </View>
                 </>
               )}
-            </View>
-          </View>
-        </View>
-      </LinearGradient>
-    </View>
+            </View >
+          </View >
+        </View >
+      </View>
+    </View >
   );
 };
 
@@ -1799,8 +1775,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
-    width: '80%',
-    alignSelf: 'center',
   },
   waitingForNextContainer: {
     flex: 1,

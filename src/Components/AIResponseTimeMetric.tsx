@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,10 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {useDatabase} from '../contexts/DatabaseContext';
+import { useNavigation } from '@react-navigation/native';
+import { useDatabase } from '../contexts/DatabaseContext';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
 
 interface ResponseTimeStats {
@@ -27,11 +26,11 @@ interface DistributionBucket {
   count: number;
 }
 
-interface AIResponseTimeMetricProps {}
+interface AIResponseTimeMetricProps { }
 
 const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
   const navigation = useNavigation<any>();
-  const {getAIResponseTimeData, isInitialized, isLoading} = useDatabase();
+  const { getAIResponseTimeData, isInitialized, isLoading } = useDatabase();
   const [stats, setStats] = useState<ResponseTimeStats>({
     observations: 0,
     median: 0,
@@ -41,7 +40,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
   const [distribution, setDistribution] = useState<DistributionBucket[]>([]);
   const [timeFrame, setTimeFrame] = useState('thisWeek');
   const [responseTimeData, setResponseTimeData] = useState<
-    {id: number; responseTime: number; timestamp: string}[]
+    { id: number; responseTime: number; timestamp: string }[]
   >([]);
 
   // Load data from database
@@ -59,7 +58,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
         }));
         setResponseTimeData(formattedData);
       } catch (error) {
-        
+
         setResponseTimeData([]);
       }
     };
@@ -123,9 +122,9 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
   };
 
   const timeFrames = [
-    {key: 'today', label: 'Today'},
-    {key: 'thisWeek', label: 'This Week'},
-    {key: 'thisMonth', label: 'This Month'},
+    { key: 'today', label: 'Today' },
+    { key: 'thisWeek', label: 'This Week' },
+    { key: 'thisMonth', label: 'This Month' },
   ];
 
   useEffect(() => {
@@ -137,7 +136,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
     const responseTimes = responseTimeData.map(item => item.responseTime);
 
     if (responseTimes.length === 0) {
-      setStats({observations: 0, median: 0, average: 0, p90: 0});
+      setStats({ observations: 0, median: 0, average: 0, p90: 0 });
       return;
     }
 
@@ -171,12 +170,12 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
     const responseTimes = responseTimeData.map(item => item.responseTime);
 
     const buckets = [
-      {range: '0-3s', min: 0, max: 3},
-      {range: '3-5s', min: 3, max: 5},
-      {range: '5-10s', min: 5, max: 10},
-      {range: '10-15s', min: 10, max: 15},
-      {range: '15-20s', min: 15, max: 20},
-      {range: '20s+', min: 20, max: Infinity},
+      { range: '0-3s', min: 0, max: 3 },
+      { range: '3-5s', min: 3, max: 5 },
+      { range: '5-10s', min: 5, max: 10 },
+      { range: '10-15s', min: 10, max: 15 },
+      { range: '15-20s', min: 15, max: 20 },
+      { range: '20s+', min: 20, max: Infinity },
     ];
 
     const distribution = buckets.map(bucket => ({
@@ -233,7 +232,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
   };
 
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
       {/* Header with Back Button */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -301,7 +300,7 @@ const AIResponseTimeMetric: React.FC<AIResponseTimeMetricProps> = () => {
         {/* Distribution Chart */}
         {renderBarChart()}
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 };
 
@@ -402,7 +401,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     elevation: 3,
     borderWidth: 1,
     borderColor: '#f0f0f0',
@@ -429,7 +428,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     elevation: 3,
     borderWidth: 1,
     borderColor: '#f0f0f0',

@@ -8,7 +8,6 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { useNavigation, RouteProp } from '@react-navigation/native';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
@@ -16,17 +15,15 @@ import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
 import { useAssistant } from '../contexts/AssistantContext';
-import { useSound } from '../contexts/soundContext';
 import {
   useChatContext,
   getContextualInfo,
 } from '../contexts/ChatContextProvider';
 import TTSService from '../utils/TTSService';
-import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { logConversation } from '../utils/conversationLogger';
 import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
@@ -53,7 +50,12 @@ const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was your practice today?';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
-  const { generateAnswers, conversationHistory, addToConversationHistory, updateLastAssistantMessage } = useAssistant();
+  const {
+    generateAnswers,
+    conversationHistory,
+    addToConversationHistory,
+    updateLastAssistantMessage,
+  } = useAssistant();
   const { weather, location } = useChatContext();
   const { isTablet } = useAdmin();
   const insets = useSafeAreaInsets();
@@ -71,7 +73,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const parsed = JSON.parse(pepesData);
       const allCategories = [
         'People',
-        'Medicine',
+        'Toys',
         'Pets',
         'TVShows',
         'Food',
@@ -112,7 +114,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   };
 
 
-
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
@@ -121,8 +122,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [directAnswers, setDirectAnswers] = useState<
     Array<{ word: string; imageUrl?: string }>
   >([]);
-
-
   const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
 
   // AI Resolved tracking state
@@ -169,10 +168,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
     retryFontSize: isTablet ? 18 : 16,
-    keyboardTypingFontSize: isTablet ? 40 : 40,
+    keyboardTypingFontSize: isTablet ? 20 : 18,
     buttonFontSize: isTablet ? 18 : 16,
     errorFontSize: isTablet ? 20 : 18,
-    cardTextFontSize: isTablet ? width * 0.1 : width * 0.15,
+    cardTextFontSize: isTablet ? 18 : 16,
 
     // Button dimensions
     keyboardButtonPadding: isTablet
@@ -236,6 +235,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   // Add keyboard input state
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputsRef = useRef<InputsRef>(null);
+  const metering = useRef<number>(-100);
+  const lastSoundTimeRef = useRef<number>(Date.now());
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
@@ -255,7 +256,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
   let currentRecordingURI: string | null = null;
 
   // AI response timer state
@@ -297,8 +297,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
+  // Removed settings loading useFocusEffect - now using reactive preferences
+
   useEffect(() => {
-    // Load gobackAfterSelection setting
     const loadGobackAfterSelectionSetting = async () => {
       try {
         const setting = await getItem('gobackAfterSelection');
@@ -314,6 +315,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       Opened: 'Conversation',
     });
     if (stateof === 'Attention') {
+      console.log(
+        `[Home] Entering Attention state. Current answersCount: ${preferences.answersCount}`,
+      );
       // wakeWord.stopListening();
       mixpanel.track('Recording Restarted', {
         source: 'attention_state',
@@ -324,7 +328,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const wakeWordService = WakeWordService.getInstance();
       wakeWordService.stopListening();
     }
-  }, []);
+  }, [stateof]); // Dependency on stateof ensures this runs when coming from Open.tsx
 
   // Cleanup useEffect for wake word service and Whisper
   useEffect(() => {
@@ -636,24 +640,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       const contextPrompt = `Context: ${contextInfo}`;
       const messageWithContext = `${corePrompt}. ${contextPrompt}`;
 
-      // Get pepes data for context
-      const pepesData = await getItem('pepes');
-      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
-      // Generate answers
+      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
+      console.log(
+        `[Home] Requesting AI answers. Count: ${currentAnswersCount} (from preference: "${preferences.answersCount}")`,
+      );
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_answers',
         metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-          pepes: parsedPepes,
-          conversationHistory: conversationHistory,
           contextInfo: contextInfo, // Weather, time, and location context
         },
-        countMin: 5,
-        countMax: 5,
-        genderType: preferences?.gender || 'white boy',
+        number: currentAnswersCount,
+        countMin: currentAnswersCount,
+        countMax: currentAnswersCount,
       });
 
       if (answers && answers.length > 0) {
@@ -685,10 +683,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           currentRound: 1,
         });
 
-        // Add to conversation history
-        const assistantResponse = processedAnswers
+        // Add to conversation history with "Suggested" prefix
+        const assistantResponse = `Suggested: ${processedAnswers
           .map(answer => answer.word)
-          .join(', ');
+          .join(', ')}`;
         addToConversationHistory(transcribedText, assistantResponse);
       } else {
         mixpanel.track('Error', {
@@ -776,12 +774,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     formData.append('model', 'whisper-1');
     formData.append('language', 'en');
 
-    const transcribeResponse = await fetchHelper(
-      'transcribeAudio',
-      {},
-      formData,
-    );
-    return transcribeResponse;
+    try {
+      const response = await fetchHelper(
+        'transcribeAudio',
+        {},
+        formData,
+      );
+      return response;
+    } catch (error) {
+      throw error;
+    }
   };
 
   const transcribeAudio = async (audioPath: string) => {
@@ -932,27 +934,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Create a retry message asking for more alternatives
       const retryMessage = `${contextInfo}. User said: "${transcribedText}". The user couldn't find what they were looking for in the previous answers. Please provide 5 different alternative answers or suggestions.`;
 
-      // Get pepes data for context
-      const pepesData = await getItem('pepes');
-      const parsedPepes = pepesData ? JSON.parse(pepesData) : null;
-
+      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
       // Use generateAnswers to get more answers
       const answers = await generateAnswers(transcribedText, {
         mode: 'generate_more_answers',
         metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-          pepes: parsedPepes, // Include pepes data for better context
-          conversationHistory: conversationHistory, // Include conversation history
           contextInfo: contextInfo || '', // Weather, time, and location context
         },
         prior: {
-          answers: currentAccumulated || [], // Pass the 5 current answers so they aren't shown again
+          answers: currentAccumulated || [], // Pass all accumulated previous answers
         },
-        countMin: 5,
-        countMax: 5,
-        genderType: preferences?.gender || 'white boy',
+        number: currentAnswersCount,
+        countMin: currentAnswersCount,
+        countMax: currentAnswersCount,
       });
 
       if (answers && answers.length > 0) {
@@ -981,7 +975,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
         // Update AI Resolved record for next round
         if (currentAIRecord && currentAIRecord.currentRound < 3) {
-          const answerWords = processedAnswers.map(answer => answer.word);
           const nextRound = currentAIRecord.currentRound + 1;
 
           setCurrentAIRecord({
@@ -1049,8 +1042,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Log the selected word to database (only if it's not "MoreAnswers")
     if (selectedAnswer !== 'MoreAnswers') {
       await logWordSelection(selectedAnswer, 'Home');
+      // Update history with the user's specific choice
       updateLastAssistantMessage(selectedAnswer);
-
     }
 
     // Update AI Resolved record with the selected answer
@@ -1096,11 +1089,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     try {
       await generateAnswers(transcribedText, {
         mode: 'learning_feedback',
-        metadata: {
-          kidName: preferences?.heroName || 'I',
-          speaker: 'anyone',
-          audience: preferences?.heroName || 'my',
-        },
       });
     } catch (error) {
       // Don't block the user flow if learning feedback fails
@@ -1171,13 +1159,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
+  const handlePolish = () => {
+    // Moved to KeyboardHome
+  };
+
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#FFF8E7', '#FFFFFF']}
+      <View
         style={[
           styles.container,
           Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
+          { backgroundColor: '#FFF8E7' }
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1229,10 +1221,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               ? { height: 0, opacity: 0 }
               : {
                 height: responsiveValues.inputNavigationHeight,
-                marginTop: Math.max(insets.top, 10),
+                marginTop: Math.max(insets.top, 10)
               },
           ]}>
-          {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
+          {stateof !== 'Keyboard' && (
+            <Inputs
+              ref={inputsRef}
+              mode={stateof}
+            />
+          )}
         </View>
 
         <View style={{ flex: 1, width: '100%' }}>
@@ -1332,13 +1329,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                               />
                             </View>
                             <Text
-                              numberOfLines={1}
-                              adjustsFontSizeToFit={true}
                               style={[
                                 styles.cardText,
                                 { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
-                              Shortcuts
+                              ShortCuts
                             </Text>
                           </TouchableOpacity>
 
@@ -1384,8 +1379,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                               />
                             </View>
                             <Text
-                              numberOfLines={1}
-                              adjustsFontSizeToFit={true}
                               style={[
                                 styles.cardText,
                                 { fontSize: responsiveValues.cardTextFontSize },
@@ -1411,6 +1404,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         maxRetries={MAX_RETRIES}
                         onAnswerSelected={handleAnswerSelected}
                         ttsService={TTSService}
+                        answersCount={parseInt(preferences.answersCount) || 5}
                       />
                     </View>
                   );
@@ -1467,17 +1461,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             playSound(); // This will trigger handleRecord()
                           }}>
                           <FastImage
-                            source={require('../assets/talk.jpg')}
+                            source={require('../assets/talk.png')}
                             style={[
                               styles.iconSize,
                               responsiveValues.fetchingSize,
-                              { borderRadius: 24 },
                             ]}
                             resizeMode={FastImage.resizeMode.contain}
                           />
                         </TouchableOpacity>
                       </View>
-                    ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
+                    ) : stateof === 'Keyboard' ? (
+                      null // Keyboard mode handled by KeyboardHome view
+                    ) : isTranscribing ? (
                       <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
@@ -1629,7 +1624,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             </View>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </View>
   );
 };
@@ -1913,8 +1908,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     textAlign: 'center',
-    width: '80%',
-    alignSelf: 'center',
   },
   waitingForNextContainer: {
     flex: 1,

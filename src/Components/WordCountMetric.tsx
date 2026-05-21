@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,10 @@ import {
   Modal,
   TextInput,
 } from 'react-native';
-import {useDatabase} from '../contexts/DatabaseContext';
-import {Mixpanel} from 'mixpanel-react-native';
+import { useDatabase } from '../contexts/DatabaseContext';
+import mixpanel from '../utils/mixpanelInstance';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface WordCountData {
   word: string;
@@ -37,10 +37,10 @@ interface WordCountMetricProps {
 }
 
 const WordCountMetric: React.FC<WordCountMetricProps> = () => {
-  const {getWordCountData, isInitialized, isLoading} = useDatabase();
+  const { getWordCountData, isInitialized, isLoading } = useDatabase();
   const [wordCounts, setWordCounts] = useState<WordCountData[]>([]);
   const [topX, setTopX] = useState<number>(10);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>({type: 'today'});
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>({ type: 'today' });
   const [filters, setFilters] = useState<AdditionalFilters>({
     source: 'all',
   });
@@ -53,7 +53,6 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
 
   // Track when this metric component is viewed
   useEffect(() => {
-    const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
     mixpanel.track('WordCountMetric Viewed', {
       MetricKey: 'metric1',
     });
@@ -64,13 +63,13 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
 
   // Days of week labels
   const daysOfWeek = [
-    {label: 'Sun', value: 0},
-    {label: 'Mon', value: 1},
-    {label: 'Tue', value: 2},
-    {label: 'Wed', value: 3},
-    {label: 'Thu', value: 4},
-    {label: 'Fri', value: 5},
-    {label: 'Sat', value: 6},
+    { label: 'Sun', value: 0 },
+    { label: 'Mon', value: 1 },
+    { label: 'Tue', value: 2 },
+    { label: 'Wed', value: 3 },
+    { label: 'Thu', value: 4 },
+    { label: 'Fri', value: 5 },
+    { label: 'Sat', value: 6 },
   ];
 
   // Sync selected days and time filters when modal opens or filters change
@@ -167,7 +166,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
   };
 
   const handleTimeFilterChange = (type: TimeFilter['type']) => {
-    setTimeFilter({type});
+    setTimeFilter({ type });
   };
 
   const handleDateRangeSubmit = () => {
@@ -211,7 +210,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
   };
 
   const clearFilters = () => {
-    setFilters({source: 'all'});
+    setFilters({ source: 'all' });
     setSelectedDays([]);
     setTimeStart('07:00');
     setTimeEnd('08:00');
@@ -226,9 +225,8 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
       case 'thisMonth':
         return 'This Month';
       case 'dateRange':
-        return `${timeFilter.startDate?.toLocaleDateString() || 'Start'} - ${
-          timeFilter.endDate?.toLocaleDateString() || 'End'
-        }`;
+        return `${timeFilter.startDate?.toLocaleDateString() || 'Start'} - ${timeFilter.endDate?.toLocaleDateString() || 'End'
+          }`;
       default:
         return 'Today';
     }
@@ -284,7 +282,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     style={[
                       styles.filterButtonText,
                       timeFilter.type === 'today' &&
-                        styles.filterButtonTextActive,
+                      styles.filterButtonTextActive,
                     ]}>
                     Today
                   </Text>
@@ -299,7 +297,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     style={[
                       styles.filterButtonText,
                       timeFilter.type === 'thisWeek' &&
-                        styles.filterButtonTextActive,
+                      styles.filterButtonTextActive,
                     ]}>
                     This Week
                   </Text>
@@ -308,14 +306,14 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                   style={[
                     styles.filterButton,
                     timeFilter.type === 'thisMonth' &&
-                      styles.filterButtonActive,
+                    styles.filterButtonActive,
                   ]}
                   onPress={() => handleTimeFilterChange('thisMonth')}>
                   <Text
                     style={[
                       styles.filterButtonText,
                       timeFilter.type === 'thisMonth' &&
-                        styles.filterButtonTextActive,
+                      styles.filterButtonTextActive,
                     ]}>
                     This Month
                   </Text>
@@ -353,7 +351,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     styles.sourceButton,
                     filters.source === 'all' && styles.sourceButtonActive,
                   ]}
-                  onPress={() => setFilters({...filters, source: 'all'})}>
+                  onPress={() => setFilters({ ...filters, source: 'all' })}>
                   <Text
                     style={[
                       styles.sourceButtonText,
@@ -367,12 +365,12 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     styles.sourceButton,
                     filters.source === 'AI Only' && styles.sourceButtonActive,
                   ]}
-                  onPress={() => setFilters({...filters, source: 'AI Only'})}>
+                  onPress={() => setFilters({ ...filters, source: 'AI Only' })}>
                   <Text
                     style={[
                       styles.sourceButtonText,
                       filters.source === 'AI Only' &&
-                        styles.sourceButtonTextActive,
+                      styles.sourceButtonTextActive,
                     ]}>
                     AI Only
                   </Text>
@@ -381,16 +379,16 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                   style={[
                     styles.sourceButton,
                     filters.source === 'Classic Board' &&
-                      styles.sourceButtonActive,
+                    styles.sourceButtonActive,
                   ]}
                   onPress={() =>
-                    setFilters({...filters, source: 'Classic Board'})
+                    setFilters({ ...filters, source: 'Classic Board' })
                   }>
                   <Text
                     style={[
                       styles.sourceButtonText,
                       filters.source === 'Classic Board' &&
-                        styles.sourceButtonTextActive,
+                      styles.sourceButtonTextActive,
                     ]}>
                     Classic Board
                   </Text>
@@ -552,14 +550,14 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                     style={[
                       styles.dayButton,
                       selectedDays.includes(day.value) &&
-                        styles.dayButtonActive,
+                      styles.dayButtonActive,
                     ]}
                     onPress={() => toggleDayOfWeek(day.value)}>
                     <Text
                       style={[
                         styles.dayButtonText,
                         selectedDays.includes(day.value) &&
-                          styles.dayButtonTextActive,
+                        styles.dayButtonTextActive,
                       ]}>
                       {day.label}
                     </Text>

@@ -9,7 +9,6 @@ import {
   Image,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
-import Config from '../utils/config';
 import { useAppSettings } from '../utils/persistance';
 import { useNavigation } from '@react-navigation/native';
 import { views } from '../utils/constants';
@@ -28,7 +27,12 @@ interface ImageErrorEvent {
 }
 
 export interface ImageCardProps {
-  images: Array<{ url: { url: string }; prompt: string; isMoreButton?: boolean }>;
+  images: Array<{
+    url: { url: string };
+    prompt: string;
+    isMoreButton?: boolean;
+    isSpacer?: boolean;
+  }>;
   width?: number;
   height?: number;
   onRefresh?: () => void;
@@ -86,13 +90,15 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   const sayAnswer = async (prompt: string) => {
+
     // Put the session in playback mode with speaker override
     await AudioSessionManager.prepareForTTS();
 
-    // We pass the session restoration as a callback to ensure it only runs
+    // We pass the session restoration as a callback to ensure it only runs 
     // AFTER the audio has finished playing.
     // NOTE: speak(..., true) returns immediately, so we cannot use await + finally here.
     const onPlaybackComplete = async () => {
+
       // Always clear the flag after playback completes
       // If your native module exposes endTTS() (we added it), prefer that:
       // await AudioSessionManagerModule.endTTS();
@@ -126,6 +132,26 @@ const ImageCard: React.FC<ImageCardProps> = ({
         { marginVertical: responsiveValues.containerMarginVertical },
       ]}>
       {images.map((image, index) => {
+        // Handle spacers for layout alignment
+        if (image.isSpacer) {
+          return (
+            <View
+              key={index}
+              style={[
+                styles.imageContainer,
+                {
+                  width: width,
+                  height: height, // Maintain vertical space
+                  marginBottom: responsiveValues.containerMarginBottom,
+                  backgroundColor: 'transparent',
+                  shadowOpacity: 0,
+                  elevation: 0,
+                },
+              ]}
+            />
+          );
+        }
+
         // Handle the "More" button specially
         if (image.isMoreButton) {
           const isMaxRetries = retryCount >= maxRetries;
