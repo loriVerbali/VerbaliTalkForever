@@ -251,37 +251,11 @@ const OnboardingScreen: React.FC = () => {
     switch (additionalComponents) {
       case 'welcome':
         return (
-          <View style={styles.welcomeContainer}>
-            <View style={styles.gridItem}>
-              <View style={styles.gridImageContainer}>
-                <FastImage
-                  source={require('../assets/shortCuts/fun/game.jpg')}
-                  style={styles.welcomeImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              </View>
-            </View>
-
-            <View style={styles.gridItem}>
-              <View style={styles.gridImageContainer}>
-                <FastImage
-                  source={require('../assets/shortCuts/wantNeed/eat.jpg')}
-                  style={styles.welcomeImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              </View>
-            </View>
-
-            <View style={styles.gridItem}>
-              <View style={styles.gridImageContainer}>
-                <FastImage
-                  source={require('../assets/shortCuts/fun/outside.jpg')}
-                  style={styles.welcomeImage}
-                  resizeMode={FastImage.resizeMode.contain}
-                />
-              </View>
-            </View>
-          </View>
+          <FastImage
+            source={require('../assets/heroImage.jpg')}
+            style={styles.heroImage}
+            resizeMode={FastImage.resizeMode.contain}
+          />
         );
       // Removed login case - guest sessions don't need login
       // Removed subscription case - this is a paid app
@@ -356,7 +330,147 @@ const OnboardingScreen: React.FC = () => {
                 style={[
                   styles.genderOption,
                   {
-                    width: isTablet ? '33.33%' : (tileWidth as any),
+                    width: isTablet ? '25%' : (tileWidth as any),
+                  },
+                  selectedGender === 'old black man' && styles.selectedGender,
+                ]}
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('old black man');
+                }}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'old black man' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/obman.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '25%' : (tileWidth as any),
+                  },
+                  selectedGender === 'old white woman' && styles.selectedGender,
+                ]}
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('old white woman');
+                }}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'old white woman' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/owwoman.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '25%' : (tileWidth as any),
+                  },
+                  selectedGender === 'old black woman' && styles.selectedGender,
+                ]}
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('old black woman');
+                }}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'old black woman' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/obwoman.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '25%' : (tileWidth as any),
+                  },
+                  selectedGender === 'asian old woman' && styles.selectedGender,
+                ]}
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('asian old woman');
+                }}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'asian old woman' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/aowoman.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '25%' : (tileWidth as any),
+                  },
+                  selectedGender === 'old man' && styles.selectedGender,
+                ]}
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('old man');
+                }}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'old man' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/oman.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '25%' : (tileWidth as any),
                   },
                   selectedGender === 'white boy' && styles.selectedGender,
                 ]}
@@ -384,7 +498,7 @@ const OnboardingScreen: React.FC = () => {
                 style={[
                   styles.genderOption,
                   {
-                    width: isTablet ? '33.33%' : (tileWidth as any),
+                    width: isTablet ? '25%' : (tileWidth as any),
                   },
                   selectedGender === 'black boy' && styles.selectedGender,
                 ]}
@@ -412,7 +526,7 @@ const OnboardingScreen: React.FC = () => {
                 style={[
                   styles.genderOption,
                   {
-                    width: isTablet ? '33.33%' : (tileWidth as any),
+                    width: isTablet ? '25%' : (tileWidth as any),
                   },
                   selectedGender === 'asian boy' && styles.selectedGender,
                 ]}
@@ -440,9 +554,9 @@ const OnboardingScreen: React.FC = () => {
                 style={[
                   styles.genderOption,
                   {
-                    width: isTablet ? '33.33%' : (tileWidth as any),
+                    width: isTablet ? '25%' : (tileWidth as any),
                   },
-                  selectedGender === 'white girl' && styles.selectedGender,
+                  selectedGender === 'white man' && styles.selectedGender,
                 ]}
                 onPress={() => {
                   if (!selectedGender) {
@@ -450,14 +564,14 @@ const OnboardingScreen: React.FC = () => {
                       screen_label: 'gender',
                     });
                   }
-                  setSelectedGender('white girl');
+                  setSelectedGender('white man');
                 }}>
                 <View style={genderWrapperStyle}>
-                  {selectedGender === 'white girl' && (
+                  {selectedGender === 'white man' && (
                     <Text style={styles.heartOverlay}>♥</Text>
                   )}
                   <FastImage
-                    source={require('../assets/gender/wgirl.jpg')}
+                    source={require('../assets/gender/wman.jpg')}
                     style={styles.genderImage}
                     resizeMode={FastImage.resizeMode.contain}
                   />
@@ -468,9 +582,9 @@ const OnboardingScreen: React.FC = () => {
                 style={[
                   styles.genderOption,
                   {
-                    width: isTablet ? '33.33%' : (tileWidth as any),
+                    width: isTablet ? '25%' : (tileWidth as any),
                   },
-                  selectedGender === 'black girl' && styles.selectedGender,
+                  selectedGender === 'white woman' && styles.selectedGender,
                 ]}
                 onPress={() => {
                   if (!selectedGender) {
@@ -478,14 +592,14 @@ const OnboardingScreen: React.FC = () => {
                       screen_label: 'gender',
                     });
                   }
-                  setSelectedGender('black girl');
+                  setSelectedGender('white woman');
                 }}>
                 <View style={genderWrapperStyle}>
-                  {selectedGender === 'black girl' && (
+                  {selectedGender === 'white woman' && (
                     <Text style={styles.heartOverlay}>♥</Text>
                   )}
                   <FastImage
-                    source={require('../assets/gender/bgirl.jpg')}
+                    source={require('../assets/gender/wwoman.jpg')}
                     style={styles.genderImage}
                     resizeMode={FastImage.resizeMode.contain}
                   />
@@ -496,9 +610,9 @@ const OnboardingScreen: React.FC = () => {
                 style={[
                   styles.genderOption,
                   {
-                    width: isTablet ? '33.33%' : (tileWidth as any),
+                    width: isTablet ? '25%' : (tileWidth as any),
                   },
-                  selectedGender === 'asian girl' && styles.selectedGender,
+                  selectedGender === 'black woman' && styles.selectedGender,
                 ]}
                 onPress={() => {
                   if (!selectedGender) {
@@ -506,14 +620,42 @@ const OnboardingScreen: React.FC = () => {
                       screen_label: 'gender',
                     });
                   }
-                  setSelectedGender('asian girl');
+                  setSelectedGender('black woman');
                 }}>
                 <View style={genderWrapperStyle}>
-                  {selectedGender === 'asian girl' && (
+                  {selectedGender === 'black woman' && (
                     <Text style={styles.heartOverlay}>♥</Text>
                   )}
                   <FastImage
-                    source={require('../assets/gender/agirl.jpg')}
+                    source={require('../assets/gender/bwoman.jpg')}
+                    style={styles.genderImage}
+                    resizeMode={FastImage.resizeMode.contain}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderOption,
+                  {
+                    width: isTablet ? '25%' : (tileWidth as any),
+                  },
+                  selectedGender === 'asian woman' && styles.selectedGender,
+                ]}
+                onPress={() => {
+                  if (!selectedGender) {
+                    mixpanel.track('Onboarding Gender Selected', {
+                      screen_label: 'gender',
+                    });
+                  }
+                  setSelectedGender('asian woman');
+                }}>
+                <View style={genderWrapperStyle}>
+                  {selectedGender === 'asian woman' && (
+                    <Text style={styles.heartOverlay}>♥</Text>
+                  )}
+                  <FastImage
+                    source={require('../assets/gender/awoman.jpg')}
                     style={styles.genderImage}
                     resizeMode={FastImage.resizeMode.contain}
                   />
@@ -1760,6 +1902,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  heroImage: {
+    width: '100%',
+    maxWidth: width * 0.9,
+    height: height * 0.4,
+    borderRadius: 16,
   },
 });
 

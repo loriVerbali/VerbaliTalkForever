@@ -868,7 +868,7 @@ const OpenScreen: React.FC = () => {
                     <View style={styles.imageWrapper}>
                       <FastImage
                         key="connected-image"
-                        source={require('../assets/talk.png')}
+                        source={require('../assets/talk.jpg')}
                         style={styles.image}
                         resizeMode={FastImage.resizeMode.contain}
                       />

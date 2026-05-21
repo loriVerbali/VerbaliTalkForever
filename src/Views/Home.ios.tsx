@@ -1461,7 +1461,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             playSound(); // This will trigger handleRecord()
                           }}>
                           <FastImage
-                            source={require('../assets/talk.png')}
+                            source={require('../assets/talk.jpg')}
                             style={[
                               styles.iconSize,
                               responsiveValues.fetchingSize,
