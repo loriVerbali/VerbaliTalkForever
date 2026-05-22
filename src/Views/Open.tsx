@@ -1018,10 +1018,10 @@ const OpenScreen: React.FC = () => {
                                   onError={() => { }}
                                 />
                               </View>
-                              <Text style={styles.yesNoTextSmall}>{card.word}</Text>
+                              <Text style={styles.yesNoTextSmall} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.4}>{card.word}</Text>
                             </>
                           ) : (
-                            <Text style={styles.verbaliCardTextOpen}>{card.word}</Text>
+                            <Text style={styles.verbaliCardTextOpen} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.4}>{card.word}</Text>
                           )}
                         </TouchableOpacity>
                       );
@@ -1576,7 +1576,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   yesNoTextSmall: {
-    fontSize: height * 0.025,
+    fontSize: height * 0.0375,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
@@ -1587,8 +1587,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   verbaliCardTextOpen: {
-    width: '80%',
-    fontSize: height * 0.035,
+    width: '90%',
+    fontSize: height * 0.0525,
     fontWeight: 'bold',
     color: '#000000',
     textAlign: 'center',

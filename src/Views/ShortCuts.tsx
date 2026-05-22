@@ -6,7 +6,6 @@ import {
   Dimensions,
   ScrollView,
   Pressable,
-  Image,
   Animated,
   Platform,
 } from 'react-native';
@@ -26,46 +25,6 @@ import { useConnection } from '../utils/connection';
 // General assets
 import matalkImg from '../assets/matalk.png';
 
-// Attention category images
-import hiImg from '../assets/shortCuts/attention/hi.jpg';
-import lookImg from '../assets/shortCuts/attention/look.jpg';
-import listenImg from '../assets/shortCuts/attention/listen.jpg';
-import myturnImg from '../assets/shortCuts/attention/myturn.jpg';
-import questionImg from '../assets/shortCuts/attention/question.jpg';
-import stopImg from '../assets/shortCuts/attention/stop.jpg';
-
-// Want/Need category images
-import eatImg from '../assets/shortCuts/wantNeed/eat.jpg';
-import drinkImg from '../assets/shortCuts/wantNeed/drink.jpg';
-import bathroomImg from '../assets/shortCuts/wantNeed/bathroom.jpg';
-import sleepImg from '../assets/shortCuts/wantNeed/sleep.jpg';
-import helpImg from '../assets/shortCuts/wantNeed/help.jpg';
-import moreImg from '../assets/shortCuts/wantNeed/more.jpg';
-import allDoneImg from '../assets/shortCuts/wantNeed/alldone.jpg';
-
-// Fun category images
-import playImg from '../assets/shortCuts/fun/play.jpg';
-import outsideImg from '../assets/shortCuts/fun/outside.jpg';
-import mineImg from '../assets/shortCuts/fun/mine.jpg';
-import goImg from '../assets/shortCuts/fun/go.png';
-import gameImg from '../assets/shortCuts/fun/game.jpg';
-import bookImg from '../assets/shortCuts/fun/book.jpg';
-
-// Positions category images
-import upImg from '../assets/shortCuts/positions/up.jpg';
-import downImg from '../assets/shortCuts/positions/down.jpg';
-import inImg from '../assets/shortCuts/positions/in.jpg';
-import outImg from '../assets/shortCuts/positions/out.jpg';
-import onImg from '../assets/shortCuts/positions/on.jpg';
-import underImg from '../assets/shortCuts/positions/under.jpg';
-
-// Actions category images
-import openImg from '../assets/shortCuts/actions/open.png';
-import closeImg from '../assets/shortCuts/actions/close.png';
-import turnOnImg from '../assets/shortCuts/actions/turnOn.png';
-import turnOffImg from '../assets/shortCuts/actions/turnOff.png';
-import giveImg from '../assets/shortCuts/actions/give.png';
-import takeImg from '../assets/shortCuts/actions/take.png';
 import mixpanel from '../utils/mixpanelInstance';
 const { width, height } = Dimensions.get('window');
 const attentionImg = require('../assets/shortCuts/attention.jpg');
@@ -110,50 +69,50 @@ const topCategories = [
 
 // Shortcut grid data - static arrays extracted outside component
 const attention = [
-  { label: 'Hi', image: hiImg, backgroundColor: '#FFFFFF' },
-  { label: 'Look', image: lookImg, backgroundColor: '#FFFFFF' },
-  { label: 'Listen', image: listenImg, backgroundColor: '#FFFFFF' },
-  { label: 'Come', image: myturnImg, backgroundColor: '#FFFFFF' },
-  { label: 'My Turn', image: myturnImg, backgroundColor: '#FFFFFF' },
-  { label: 'Stop', image: stopImg, backgroundColor: '#FFFFFF' },
-  { label: 'I have a question', image: questionImg, backgroundColor: '#FFFFFF' },
+  { label: 'Hi', backgroundColor: '#FFFFFF' },
+  { label: 'Look', backgroundColor: '#FFFFFF' },
+  { label: 'Listen', backgroundColor: '#FFFFFF' },
+  { label: 'Come', backgroundColor: '#FFFFFF' },
+  { label: 'My Turn', backgroundColor: '#FFFFFF' },
+  { label: 'Stop', backgroundColor: '#FFFFFF' },
+  { label: 'I have a question', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const iWantNeed = [
-  { label: 'Eat', image: eatImg, backgroundColor: '#FFFFFF' },
-  { label: 'Drink', image: drinkImg, backgroundColor: '#FFFFFF' },
-  { label: 'Bathroom', image: bathroomImg, backgroundColor: '#FFFFFF' },
-  { label: 'Sleep', image: sleepImg, backgroundColor: '#FFFFFF' },
-  { label: 'Help', image: helpImg, backgroundColor: '#FFFFFF' },
-  { label: 'More', image: moreImg, backgroundColor: '#FFFFFF' },
-  { label: 'All done', image: allDoneImg, backgroundColor: '#FFFFFF' },
+  { label: 'Eat', backgroundColor: '#FFFFFF' },
+  { label: 'Drink', backgroundColor: '#FFFFFF' },
+  { label: 'Bathroom', backgroundColor: '#FFFFFF' },
+  { label: 'Sleep', backgroundColor: '#FFFFFF' },
+  { label: 'Help', backgroundColor: '#FFFFFF' },
+  { label: 'More', backgroundColor: '#FFFFFF' },
+  { label: 'All done', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const fun = [
-  { label: 'Play', image: playImg, backgroundColor: '#FFFFFF' },
-  { label: 'Outside', image: outsideImg, backgroundColor: '#FFFFFF' },
-  { label: 'Mine', image: mineImg, backgroundColor: '#FFFFFF' },
-  { label: 'Go', image: goImg, backgroundColor: '#FFFFFF' },
-  { label: 'Game', image: gameImg, backgroundColor: '#FFFFFF' },
-  { label: 'Book', image: bookImg, backgroundColor: '#FFFFFF' },
+  { label: 'Play', backgroundColor: '#FFFFFF' },
+  { label: 'Outside', backgroundColor: '#FFFFFF' },
+  { label: 'Mine', backgroundColor: '#FFFFFF' },
+  { label: 'Go', backgroundColor: '#FFFFFF' },
+  { label: 'Game', backgroundColor: '#FFFFFF' },
+  { label: 'Book', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const actions = [
-  { label: 'Open', image: openImg, backgroundColor: '#FFFFFF' },
-  { label: 'Close', image: closeImg, backgroundColor: '#FFFFFF' },
-  { label: 'Turn On', image: turnOnImg, backgroundColor: '#FFFFFF' },
-  { label: 'Turn Off', image: turnOffImg, backgroundColor: '#FFFFFF' },
-  { label: 'Give', image: giveImg, backgroundColor: '#FFFFFF' },
-  { label: 'Take', image: takeImg, backgroundColor: '#FFFFFF' },
+  { label: 'Open', backgroundColor: '#FFFFFF' },
+  { label: 'Close', backgroundColor: '#FFFFFF' },
+  { label: 'Turn On', backgroundColor: '#FFFFFF' },
+  { label: 'Turn Off', backgroundColor: '#FFFFFF' },
+  { label: 'Give', backgroundColor: '#FFFFFF' },
+  { label: 'Take', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const positions = [
-  { label: 'Up', image: upImg, backgroundColor: '#FFFFFF' },
-  { label: 'Down', image: downImg, backgroundColor: '#FFFFFF' },
-  { label: 'In', image: inImg, backgroundColor: '#FFFFFF' },
-  { label: 'Out', image: outImg, backgroundColor: '#FFFFFF' },
-  { label: 'On', image: onImg, backgroundColor: '#FFFFFF' },
-  { label: 'Under', image: underImg, backgroundColor: '#FFFFFF' },
+  { label: 'Up', backgroundColor: '#FFFFFF' },
+  { label: 'Down', backgroundColor: '#FFFFFF' },
+  { label: 'In', backgroundColor: '#FFFFFF' },
+  { label: 'Out', backgroundColor: '#FFFFFF' },
+  { label: 'On', backgroundColor: '#FFFFFF' },
+  { label: 'Under', backgroundColor: '#FFFFFF' },
 ] as const;
 
 // Static category mapping to prevent recreation
@@ -213,7 +172,7 @@ const ShortCuts = () => {
       gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
       gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? 16 : 14,
+      labelGridFontSize: isTablet ? 60 : 48,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.01 : height * 0.005,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -703,49 +662,33 @@ const ShortCuts = () => {
                       styles.gridItem,
                       {
                         width: responsiveValues.gridWidth,
+                        height: responsiveValues.gridImageHeight,
+                        backgroundColor: feeling.backgroundColor || 'white',
                         borderRadius: responsiveValues.borderRadius,
                         shadowRadius: responsiveValues.shadowRadius,
                         shadowOffset: responsiveValues.shadowOffset,
                         elevation: responsiveValues.elevation,
                         marginBottom: responsiveValues.gridItemMarginBottom,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 10,
                       },
                       pressed && styles.buttonPressed,
                     ]}
                     onPress={() => handleFeelingPress(feeling.label)}>
-                    <View
+                    <Text
                       style={[
-                        styles.gridImageContainer,
+                        styles.labelGrid,
                         {
-                          backgroundColor: feeling.backgroundColor,
-                          height: responsiveValues.gridImageHeight,
-                          borderTopLeftRadius: 16,
-                          borderTopRightRadius: 16,
+                          fontSize: responsiveValues.gridWidth * 0.5,
+                          width: '100%',
                         },
-                      ]}>
-                      <Image
-                        source={feeling.image}
-                        style={styles.imageGrid}
-                        resizeMode={isTablet ? 'cover' : 'contain'}
-                      />
-                    </View>
-                    <View
-                      style={[
-                        styles.gridLabelContainer,
-                        {
-                          paddingVertical: responsiveValues.gridLabelPadding,
-                          borderBottomLeftRadius: responsiveValues.borderRadius,
-                          borderBottomRightRadius:
-                            responsiveValues.borderRadius,
-                        },
-                      ]}>
-                      <Text
-                        style={[
-                          styles.labelGrid,
-                          { fontSize: responsiveValues.labelGridFontSize },
-                        ]}>
-                        {feeling.label}
-                      </Text>
-                    </View>
+                      ]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.2}>
+                      {feeling.label}
+                    </Text>
                   </Pressable>
                 ))}
 

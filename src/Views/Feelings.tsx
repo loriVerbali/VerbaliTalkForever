@@ -23,41 +23,13 @@ import {
 } from 'react-native-gesture-handler';
 import { useConnection } from '../utils/connection';
 
-const { width, height } = Dimensions.get('window');
-//Good Feelings
-import happyImg from '../assets/feelings/goodFeelings/happy.jpg';
-import excitedImg from '../assets/feelings/goodFeelings/excited.jpg';
-import lovedImg from '../assets/feelings/goodFeelings/loved.jpg';
-import calmImg from '../assets/feelings/goodFeelings/calm.jpg';
-import proudImg from '../assets/feelings/goodFeelings/proud.jpg';
-import sillyImg from '../assets/feelings/goodFeelings/silly.jpg';
-//Good Body
-import comfortableImg from '../assets/feelings/goodBody/comfortable.jpg';
-import relaxedImg from '../assets/feelings/goodBody/relaxed.jpg';
-import okImg from '../assets/feelings/goodBody/ok.jpg';
-import warmImg from '../assets/feelings/goodBody/warm.jpg';
-import strongImg from '../assets/feelings/goodBody/strong.jpg';
-import energeticImg from '../assets/feelings/goodBody/energetic.jpg';
-//Bad Feelings
-import sadImg from '../assets/feelings/badFeeling/sad.jpg';
-import boredImg from '../assets/feelings/badFeeling/bored.jpg';
-import scaredImg from '../assets/feelings/badFeeling/scared.jpg';
-import worriedImg from '../assets/feelings/badFeeling/worried.jpg';
-import embarrassedImg from '../assets/feelings/badFeeling/embarrassed.jpg';
-import angryImg from '../assets/feelings/badFeeling/angry.jpg';
-//Bad Body
-import coldImg from '../assets/feelings/badBody/cold.jpg';
-import hurtImg from '../assets/feelings/badBody/hurt.jpg';
-import sickImg from '../assets/feelings/badBody/sick.jpg';
-import tiredImg from '../assets/feelings/badBody/tired.jpg';
-import dizzyImg from '../assets/feelings/badBody/dizzy.jpg';
-import itchyImg from '../assets/feelings/badBody/itchy.jpg';
-
 import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
-// For simplicity, we'll use the same dog image for all feeling cards
-// In a real app, you would have different images for each feeling
-const dogImg = require('../assets/welcome.png'); // Replace with actual dog image
+
+const { width, height } = Dimensions.get('window');
+// Individual feeling images removed — cards display text only
+
+const dogImg = require('../assets/welcome.png');
 const micImg = require('../assets/microphone.png');
 const badEmotionImg = require('../assets/feelings/badEmotional.jpg');
 const goodEmotionImg = require('../assets/feelings/goodEmotional.jpg');
@@ -95,39 +67,39 @@ const topCategories = [
 
 // Feeling grid data - static arrays extracted outside component
 const goodBody = [
-  { label: 'Comfortable', image: comfortableImg, backgroundColor: '#FFFFFF' },
-  { label: 'Relaxed', image: relaxedImg, backgroundColor: '#FFFFFF' },
-  { label: "I'm OK", image: okImg, backgroundColor: '#FFFFFF' },
-  { label: 'Warm', image: warmImg, backgroundColor: '#FFFFFF' },
-  { label: 'Strong', image: strongImg, backgroundColor: '#FFFFFF' },
-  { label: 'Energetic', image: energeticImg, backgroundColor: '#FFFFFF' },
+  { label: 'Comfortable', backgroundColor: '#FFFFFF' },
+  { label: 'Relaxed', backgroundColor: '#FFFFFF' },
+  { label: "I'm OK", backgroundColor: '#FFFFFF' },
+  { label: 'Warm', backgroundColor: '#FFFFFF' },
+  { label: 'Strong', backgroundColor: '#FFFFFF' },
+  { label: 'Energetic', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const goodFeelings = [
-  { label: 'Happy', image: happyImg, backgroundColor: '#FFFFFF' },
-  { label: 'Excited', image: excitedImg, backgroundColor: '#FFFFFF' },
-  { label: 'Loved', image: lovedImg, backgroundColor: '#FFFFFF' },
-  { label: 'Calm', image: calmImg, backgroundColor: '#FFFFFF' },
-  { label: 'Proud', image: proudImg, backgroundColor: '#FFFFFF' },
-  { label: 'Silly', image: sillyImg, backgroundColor: '#FFFFFF' },
+  { label: 'Happy', backgroundColor: '#FFFFFF' },
+  { label: 'Excited', backgroundColor: '#FFFFFF' },
+  { label: 'Loved', backgroundColor: '#FFFFFF' },
+  { label: 'Calm', backgroundColor: '#FFFFFF' },
+  { label: 'Proud', backgroundColor: '#FFFFFF' },
+  { label: 'Silly', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const badFeelings = [
-  { label: 'Sad', image: sadImg, backgroundColor: '#FFFFFF' },
-  { label: 'Bored', image: boredImg, backgroundColor: '#FFFFFF' },
-  { label: 'Scared', image: scaredImg, backgroundColor: '#FFFFFF' },
-  { label: 'Worried', image: worriedImg, backgroundColor: '#FFFFFF' },
-  { label: 'Embarrassed', image: embarrassedImg, backgroundColor: '#FFFFFF' },
-  { label: 'Angry', image: angryImg, backgroundColor: '#FFFFFF' },
+  { label: 'Sad', backgroundColor: '#FFFFFF' },
+  { label: 'Bored', backgroundColor: '#FFFFFF' },
+  { label: 'Scared', backgroundColor: '#FFFFFF' },
+  { label: 'Worried', backgroundColor: '#FFFFFF' },
+  { label: 'Embarrassed', backgroundColor: '#FFFFFF' },
+  { label: 'Angry', backgroundColor: '#FFFFFF' },
 ] as const;
 
 const badBody = [
-  { label: 'Cold', image: coldImg, backgroundColor: '#FFFFFF' },
-  { label: 'Hurt', image: hurtImg, backgroundColor: '#FFFFFF' },
-  { label: 'Sick', image: sickImg, backgroundColor: '#FFFFFF' },
-  { label: 'Tired', image: tiredImg, backgroundColor: '#FFFFFF' },
-  { label: 'Dizzy', image: dizzyImg, backgroundColor: '#FFFFFF' },
-  { label: 'Itchy', image: itchyImg, backgroundColor: '#FFFFFF' },
+  { label: 'Cold', backgroundColor: '#FFFFFF' },
+  { label: 'Hurt', backgroundColor: '#FFFFFF' },
+  { label: 'Sick', backgroundColor: '#FFFFFF' },
+  { label: 'Tired', backgroundColor: '#FFFFFF' },
+  { label: 'Dizzy', backgroundColor: '#FFFFFF' },
+  { label: 'Itchy', backgroundColor: '#FFFFFF' },
 ] as const;
 
 // Static category mapping to prevent recreation
@@ -177,7 +149,7 @@ const Feelings = () => {
       gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4, // Back to 4 columns
       gridImageHeight: isTablet ? height * 0.25 : height * 0.16, // Slight height increase
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? 16 : 14,
+      labelGridFontSize: isTablet ? 88 : 72,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.05 : height * 0.03,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -552,48 +524,33 @@ const Feelings = () => {
                   styles.gridItem,
                   {
                     width: responsiveValues.gridWidth,
+                    height: responsiveValues.gridImageHeight,
+                    backgroundColor: feeling.backgroundColor || 'white',
                     borderRadius: responsiveValues.borderRadius,
                     shadowRadius: responsiveValues.shadowRadius,
                     shadowOffset: responsiveValues.shadowOffset,
                     elevation: responsiveValues.elevation,
                     marginBottom: responsiveValues.gridItemMarginBottom,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 12,
                   },
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={() => handleFeelingPress(feeling.label)}>
-                <View
+                <Text
                   style={[
-                    styles.gridImageContainer,
+                    styles.labelGrid,
                     {
-                      backgroundColor: feeling.backgroundColor,
-                      height: responsiveValues.gridImageHeight,
-                      borderTopLeftRadius: 16,
-                      borderTopRightRadius: 16,
+                      fontSize: responsiveValues.gridWidth * 0.5,
+                      width: '100%',
                     },
-                  ]}>
-                  <Image
-                    source={feeling.image}
-                    style={styles.imageGrid}
-                    resizeMode="contain"
-                  />
-                </View>
-                <View
-                  style={[
-                    styles.gridLabelContainer,
-                    {
-                      paddingVertical: responsiveValues.gridLabelPadding,
-                      borderBottomLeftRadius: responsiveValues.borderRadius,
-                      borderBottomRightRadius: responsiveValues.borderRadius,
-                    },
-                  ]}>
-                  <Text
-                    style={[
-                      styles.labelGrid,
-                      { fontSize: responsiveValues.labelGridFontSize },
-                    ]}>
-                    {feeling.label}
-                  </Text>
-                </View>
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.2}>
+                  {feeling.label}
+                </Text>
               </Pressable>
             ))}
           </View>
