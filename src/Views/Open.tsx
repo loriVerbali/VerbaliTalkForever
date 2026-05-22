@@ -33,6 +33,7 @@ import {
   parseMy8Words,
   My8WordsData,
   getDefaultMy8Words,
+  My8WordsCard,
 } from '../utils/my8wordsUtils';
 import { getImageSource } from '../utils/imageDownloader';
 
@@ -88,6 +89,16 @@ type RootStackParamList = {
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { height, width } = Dimensions.get('window');
+
+const isPepeCard = (card: My8WordsCard): boolean => {
+  if (card.isPepe !== undefined) {
+    return card.isPepe;
+  }
+  if (card.id.startsWith('default_') || card.imageUrl.startsWith('../assets/') || card.imageUrl.startsWith('http')) {
+    return false;
+  }
+  return true;
+};
 
 const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -870,7 +881,7 @@ const OpenScreen: React.FC = () => {
                         key="connected-image"
                         source={require('../assets/talk.jpg')}
                         style={styles.image}
-                        resizeMode={FastImage.resizeMode.contain}
+                        resizeMode={FastImage.resizeMode.cover}
                       />
                     </View>
                     <View
@@ -979,64 +990,82 @@ const OpenScreen: React.FC = () => {
                 <View style={styles.yesNoColumn}>
                   {(my8WordsData || getDefaultMy8Words()).cards
                     .slice(0, 4)
-                    .map((card, index) => (
-                      <TouchableOpacity
-                        key={`left-${index}`}
-                        style={styles.yesNoCard}
-                        onPress={async () => {
-                          if (isDebouncing.current) return;
-                          isDebouncing.current = true;
-                          setTimeout(() => {
-                            isDebouncing.current = false;
-                          }, 1000);
-                          mixpanel.track('8 Words Pressed');
-                          // Prepare audio session for TTS to ensure consistent volume
-                          await AudioSessionManager.prepareForTTS();
-                          TTSService.speak(card.word, true);
-                        }}
-                        activeOpacity={0.7}>
-                        <View style={styles.cardImageContainer}>
-                          <FastImage
-                            source={getImageSource(card)}
-                            style={styles.cardImage}
-                            resizeMode={FastImage.resizeMode.cover}
-                            onError={() => { }}
-                          />
-                        </View>
-                        <Text style={styles.yesNoTextSmall}>{card.word}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    .map((card, index) => {
+                      const isPepe = isPepeCard(card);
+                      return (
+                        <TouchableOpacity
+                          key={`left-${index}`}
+                          style={[styles.yesNoCard, !isPepe && styles.verbaliCardBg]}
+                          onPress={async () => {
+                            if (isDebouncing.current) return;
+                            isDebouncing.current = true;
+                            setTimeout(() => {
+                              isDebouncing.current = false;
+                            }, 1000);
+                            mixpanel.track('8 Words Pressed');
+                            // Prepare audio session for TTS to ensure consistent volume
+                            await AudioSessionManager.prepareForTTS();
+                            TTSService.speak(card.word, true);
+                          }}
+                          activeOpacity={0.7}>
+                          {isPepe ? (
+                            <>
+                              <View style={styles.cardImageContainer}>
+                                <FastImage
+                                  source={getImageSource(card)}
+                                  style={styles.cardImage}
+                                  resizeMode={FastImage.resizeMode.cover}
+                                  onError={() => { }}
+                                />
+                              </View>
+                              <Text style={styles.yesNoTextSmall}>{card.word}</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.verbaliCardTextOpen}>{card.word}</Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                 </View>
                 <View style={styles.yesNoColumn}>
                   {(my8WordsData || getDefaultMy8Words()).cards
                     .slice(4, 8)
-                    .map((card, index) => (
-                      <TouchableOpacity
-                        key={`right-${index}`}
-                        style={styles.yesNoCard}
-                        onPress={async () => {
-                          if (isDebouncing.current) return;
-                          isDebouncing.current = true;
-                          setTimeout(() => {
-                            isDebouncing.current = false;
-                          }, 1000);
-                          mixpanel.track('8 Words Pressed');
-                          // Prepare audio session for TTS to ensure consistent volume
-                          await AudioSessionManager.prepareForTTS();
-                          TTSService.speak(card.word, true);
-                        }}
-                        activeOpacity={0.7}>
-                        <View style={styles.cardImageContainer}>
-                          <FastImage
-                            source={getImageSource(card)}
-                            style={styles.cardImage}
-                            resizeMode={FastImage.resizeMode.cover}
-                            onError={() => { }}
-                          />
-                        </View>
-                        <Text style={styles.yesNoTextSmall}>{card.word}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    .map((card, index) => {
+                      const isPepe = isPepeCard(card);
+                      return (
+                        <TouchableOpacity
+                          key={`right-${index}`}
+                          style={[styles.yesNoCard, !isPepe && styles.verbaliCardBg]}
+                          onPress={async () => {
+                            if (isDebouncing.current) return;
+                            isDebouncing.current = true;
+                            setTimeout(() => {
+                              isDebouncing.current = false;
+                            }, 1000);
+                            mixpanel.track('8 Words Pressed');
+                            // Prepare audio session for TTS to ensure consistent volume
+                            await AudioSessionManager.prepareForTTS();
+                            TTSService.speak(card.word, true);
+                          }}
+                          activeOpacity={0.7}>
+                          {isPepe ? (
+                            <>
+                              <View style={styles.cardImageContainer}>
+                                <FastImage
+                                  source={getImageSource(card)}
+                                  style={styles.cardImage}
+                                  resizeMode={FastImage.resizeMode.cover}
+                                  onError={() => { }}
+                                />
+                              </View>
+                              <Text style={styles.yesNoTextSmall}>{card.word}</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.verbaliCardTextOpen}>{card.word}</Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                 </View>
               </View>
             </View>
@@ -1486,6 +1515,7 @@ const styles = StyleSheet.create({
   image: {
     width: '85%',
     height: '85%',
+    borderRadius: 12,
   },
   rowContent: {
     width: '48%',
@@ -1527,12 +1557,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 16,
-    shadowColor: 'rgba(0, 0, 0, 0.50)',
-    shadowOpacity: 8,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
     backgroundColor: 'white',
+  },
+  verbaliCardBg: {
+    backgroundColor: '#D4E7FD',
+    borderColor: '#B9D5F6',
+    borderWidth: 1,
   },
   yesNoText: {
     fontSize: height * 0.04,
@@ -1544,6 +1579,18 @@ const styles = StyleSheet.create({
     fontSize: height * 0.025,
     fontWeight: 'bold',
     color: '#333',
+    textAlign: 'center',
+  },
+  pepeCardImageOpen: {
+    width: '80%',
+    height: '80%',
+    borderRadius: 8,
+  },
+  verbaliCardTextOpen: {
+    width: '80%',
+    fontSize: height * 0.035,
+    fontWeight: 'bold',
+    color: '#000000',
     textAlign: 'center',
   },
   cardImageContainer: {

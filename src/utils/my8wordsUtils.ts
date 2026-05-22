@@ -5,6 +5,7 @@ export interface My8WordsCard {
   imageUrl: string;
   localImagePath?: string; // Path to downloaded image on device
   id: string;
+  isPepe?: boolean; // Indicates if the card is from Pepes and stuff
 }
 
 export interface My8WordsData {

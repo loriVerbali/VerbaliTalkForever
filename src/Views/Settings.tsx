@@ -299,20 +299,37 @@ const SettingsScreen: React.FC = () => {
     switch (gender) {
       case 'white boy':
         return require('../assets/gender/wboy.jpg');
-      case 'boy':
-        return require('../assets/gender/wboy.jpg');
       case 'black boy':
         return require('../assets/gender/bboy.jpg');
       case 'asian boy':
         return require('../assets/gender/aboy.jpg');
       case 'white girl':
-        return require('../assets/gender/wgirl.jpg');
+        return require('../assets/gender/wwoman.jpg');
       case 'black girl':
-        return require('../assets/gender/bgirl.jpg');
+        return require('../assets/gender/bwoman.jpg');
       case 'asian girl':
-        return require('../assets/gender/agirl.jpg');
+        return require('../assets/gender/awoman.jpg');
+      case 'white man':
+        return require('../assets/gender/wman.jpg');
+      case 'white woman':
+        return require('../assets/gender/wwoman.jpg');
+      case 'black woman':
+        return require('../assets/gender/bwoman.jpg');
+      case 'asian woman':
+        return require('../assets/gender/awoman.jpg');
+      case 'old man':
+        return require('../assets/gender/oman.jpg');
+      case 'old black man':
+        return require('../assets/gender/obman.jpg');
+      case 'old white woman':
+        return require('../assets/gender/owwoman.jpg');
+      case 'old black woman':
+        return require('../assets/gender/obwoman.jpg');
+      case 'asian old woman':
+        return require('../assets/gender/aowoman.jpg');
       default:
-        return require('../assets/gender/wboy.jpg'); // fallback
+        // Default to hand icon if no gender is selected
+        return require('../assets/hand.png');
     }
   };
 
@@ -1702,6 +1719,136 @@ const SettingsScreen: React.FC = () => {
                       <TouchableOpacity
                         style={[
                           styles.avatarOption,
+                          preferences.gender === 'old black man' &&
+                          styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'old black man',
+                            previousAvatar: preferences.gender || 'none',
+                          });
+                          setItem('gender', 'old black man');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'old black man' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/obman.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'old white woman' &&
+                          styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'old white woman',
+                            previousAvatar: preferences.gender || 'none',
+                          });
+                          setItem('gender', 'old white woman');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'old white woman' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/owwoman.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'old black woman' &&
+                          styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'old black woman',
+                            previousAvatar: preferences.gender || 'none',
+                          });
+                          setItem('gender', 'old black woman');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'old black woman' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/obwoman.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'asian old woman' &&
+                          styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'asian old woman',
+                            previousAvatar: preferences.gender || 'none',
+                          });
+                          setItem('gender', 'asian old woman');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'asian old woman' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/aowoman.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'old man' &&
+                          styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'old man',
+                            previousAvatar: preferences.gender || 'none',
+                          });
+                          setItem('gender', 'old man');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'old man' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/oman.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
                           (preferences.gender === 'white boy' ||
                             preferences.gender === 'boy') &&
                           styles.selectedAvatarOption,
@@ -1782,23 +1929,23 @@ const SettingsScreen: React.FC = () => {
                       <TouchableOpacity
                         style={[
                           styles.avatarOption,
-                          preferences.gender === 'white girl' &&
+                          preferences.gender === 'white man' &&
                           styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
-                            avatar: 'white girl',
+                            avatar: 'white man',
                             previousAvatar: preferences.gender || 'none',
                           });
-                          setItem('gender', 'white girl');
+                          setItem('gender', 'white man');
                           setShowAvatarOptions(false);
                         }}>
                         <View style={styles.avatarOptionWrapper}>
-                          {preferences.gender === 'white girl' && (
+                          {preferences.gender === 'white man' && (
                             <Text style={styles.avatarHeartOverlay}>♥</Text>
                           )}
                           <FastImage
-                            source={require('../assets/gender/wgirl.jpg')}
+                            source={require('../assets/gender/wman.jpg')}
                             style={styles.avatarOptionImage}
                             resizeMode={FastImage.resizeMode.contain}
                           />
@@ -1808,23 +1955,23 @@ const SettingsScreen: React.FC = () => {
                       <TouchableOpacity
                         style={[
                           styles.avatarOption,
-                          preferences.gender === 'black girl' &&
+                          preferences.gender === 'white woman' &&
                           styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
-                            avatar: 'black girl',
+                            avatar: 'white woman',
                             previousAvatar: preferences.gender || 'none',
                           });
-                          setItem('gender', 'black girl');
+                          setItem('gender', 'white woman');
                           setShowAvatarOptions(false);
                         }}>
                         <View style={styles.avatarOptionWrapper}>
-                          {preferences.gender === 'black girl' && (
+                          {preferences.gender === 'white woman' && (
                             <Text style={styles.avatarHeartOverlay}>♥</Text>
                           )}
                           <FastImage
-                            source={require('../assets/gender/bgirl.jpg')}
+                            source={require('../assets/gender/wwoman.jpg')}
                             style={styles.avatarOptionImage}
                             resizeMode={FastImage.resizeMode.contain}
                           />
@@ -1834,23 +1981,49 @@ const SettingsScreen: React.FC = () => {
                       <TouchableOpacity
                         style={[
                           styles.avatarOption,
-                          preferences.gender === 'asian girl' &&
+                          preferences.gender === 'black woman' &&
                           styles.selectedAvatarOption,
                         ]}
                         onPress={() => {
                           mixpanel.track('Settings Avatar Selected', {
-                            avatar: 'asian girl',
+                            avatar: 'black woman',
                             previousAvatar: preferences.gender || 'none',
                           });
-                          setItem('gender', 'asian girl');
+                          setItem('gender', 'black woman');
                           setShowAvatarOptions(false);
                         }}>
                         <View style={styles.avatarOptionWrapper}>
-                          {preferences.gender === 'asian girl' && (
+                          {preferences.gender === 'black woman' && (
                             <Text style={styles.avatarHeartOverlay}>♥</Text>
                           )}
                           <FastImage
-                            source={require('../assets/gender/agirl.jpg')}
+                            source={require('../assets/gender/bwoman.jpg')}
+                            style={styles.avatarOptionImage}
+                            resizeMode={FastImage.resizeMode.contain}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.avatarOption,
+                          preferences.gender === 'asian woman' &&
+                          styles.selectedAvatarOption,
+                        ]}
+                        onPress={() => {
+                          mixpanel.track('Settings Avatar Selected', {
+                            avatar: 'asian woman',
+                            previousAvatar: preferences.gender || 'none',
+                          });
+                          setItem('gender', 'asian woman');
+                          setShowAvatarOptions(false);
+                        }}>
+                        <View style={styles.avatarOptionWrapper}>
+                          {preferences.gender === 'asian woman' && (
+                            <Text style={styles.avatarHeartOverlay}>♥</Text>
+                          )}
+                          <FastImage
+                            source={require('../assets/gender/awoman.jpg')}
                             style={styles.avatarOptionImage}
                             resizeMode={FastImage.resizeMode.contain}
                           />

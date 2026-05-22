@@ -19,8 +19,7 @@ import {
   My8WordsData,
   My8WordsCard,
 } from '../utils/my8wordsUtils';
-import { searchWordImages, WordImageResult } from '../utils/wordImageApi';
-import { downloadImageForCard, getImageSource } from '../utils/imageDownloader';
+import { getImageSource } from '../utils/imageDownloader';
 import { resolveImageSource, isPlaceholderImage } from '../utils/imageSourceResolver';
 
 const { width, height } = Dimensions.get('window');
@@ -60,16 +59,23 @@ interface My8WordsCustomizerProps {
   isTablet?: boolean;
 }
 
+const isPepeCard = (card: My8WordsCard): boolean => {
+  if (card.isPepe !== undefined) {
+    return card.isPepe;
+  }
+  if (card.id.startsWith('default_') || card.imageUrl.startsWith('../assets/') || card.imageUrl.startsWith('http')) {
+    return false;
+  }
+  return true;
+};
+
 const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => {
   const { getItem, setItem } = useAppSettings();
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<WordImageResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [selectedCardIndex, setSelectedCardIndex] = useState<number | null>(
     null,
   );
-  const [isDownloading, setIsDownloading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'web' | 'pepes'>('web');
   const [pepesData, setPepesData] = useState<PepesData | null>(null);
@@ -157,6 +163,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
         word: pepe.name,
         imageUrl: pepe.imageUri,
         id: pepe.id,
+        isPepe: true,
       };
 
       // Update the data
@@ -168,7 +175,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
 
       // Clear selection & search query
       setSearchQuery('');
-      setSearchResults([]);
       setSelectedCardIndex(null);
 
       Alert.alert(
@@ -209,57 +215,19 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
     { key: 'Places', label: 'Places' },
   ];
 
-  // Search for words with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery.trim().length >= 3) {
-        performSearch(searchQuery.trim());
-      } else if (searchQuery.trim().length === 0) {
-        setSearchResults([]);
-      }
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  const performSearch = async (query: string) => {
-    setIsSearching(true);
-    try {
-      const results = await searchWordImages(query);
-      setSearchResults(results.results);
-    } catch (error) {
-
-      Alert.alert('Error', 'Failed to search for words. Please try again.');
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Manual search (when search button is pressed)
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    await performSearch(searchQuery.trim());
-  };
-
-  // Update a card with new word/image
-  const handleUpdateCard = async (
+  const handleSaveTypedWord = async (
     cardIndex: number,
-    wordImage: WordImageResult,
+    word: string,
   ) => {
-    if (!my8WordsData) return;
+    if (!my8WordsData || !word.trim()) return;
 
-    setIsDownloading(true);
     try {
-      // Download the image
-      const newCard = await downloadImageForCard({
-        word: wordImage.word,
-        imageUrl: wordImage.imageUrl,
-        id: wordImage.id,
-      });
+      const newCard: My8WordsCard = {
+        word: word.trim(),
+        imageUrl: '', // No image for Verbali library words
+        id: `custom_verbali_${Date.now()}`,
+        isPepe: false,
+      };
 
       // Update the data
       const updatedData = updateCard(my8WordsData, cardIndex, newCard);
@@ -268,20 +236,16 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
       // Save to preferences
       await setItem('my8words', stringifyMy8Words(updatedData));
 
-      // Clear search
+      // Clear search/input
       setSearchQuery('');
-      setSearchResults([]);
       setSelectedCardIndex(null);
 
       Alert.alert(
         'Success',
-        `Card ${cardIndex + 1} updated with "${wordImage.word}"`,
+        `Card ${cardIndex + 1} updated with "${word.trim()}"`,
       );
     } catch (error) {
-
       Alert.alert('Error', 'Failed to update card. Please try again.');
-    } finally {
-      setIsDownloading(false);
     }
   };
 
@@ -311,56 +275,36 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
     );
   };
 
-  const renderCard = ({ item, index }: { item: My8WordsCard; index: number }) => (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        selectedCardIndex === index && styles.selectedCard,
-        isTablet && styles.cardTablet,
-      ]}
-      onPress={() =>
-        setSelectedCardIndex(selectedCardIndex === index ? null : index)
-      }>
-      <FastImage
-        source={getImageSource(item)}
-        style={[styles.cardImage, isTablet && styles.cardImageTablet]}
-        resizeMode={FastImage.resizeMode.cover}
-      />
-      <Text style={[styles.cardText, isTablet && styles.cardTextTablet]}>
-        {item.word}
-      </Text>
-      <Text style={[styles.cardNumber, isTablet && styles.cardNumberTablet]}>
-        {index + 1}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const renderSearchResult = ({ item }: { item: WordImageResult }) => (
-    <TouchableOpacity
-      style={[styles.searchResult, isTablet && styles.searchResultTablet]}
-      onPress={() => {
-        if (selectedCardIndex !== null) {
-          handleUpdateCard(selectedCardIndex, item);
-        }
-      }}
-      disabled={selectedCardIndex === null || isDownloading}>
-      <FastImage
-        source={{ uri: item.imageUrl }}
+  const renderCard = ({ item, index }: { item: My8WordsCard; index: number }) => {
+    const isPepe = isPepeCard(item);
+    return (
+      <TouchableOpacity
         style={[
-          styles.searchResultImage,
-          isTablet && styles.searchResultImageTablet,
+          styles.card,
+          !isPepe && styles.verbaliCardBg,
+          selectedCardIndex === index && styles.selectedCard,
+          isTablet && styles.cardTablet,
         ]}
-        resizeMode={FastImage.resizeMode.cover}
-      />
-      <Text
-        style={[
-          styles.searchResultText,
-          isTablet && styles.searchResultTextTablet,
-        ]}>
-        {item.word}
-      </Text>
-    </TouchableOpacity>
-  );
+        onPress={() =>
+          setSelectedCardIndex(selectedCardIndex === index ? null : index)
+        }>
+        {isPepe ? (
+          <FastImage
+            source={getImageSource(item)}
+            style={[styles.pepeCardImage, isTablet && styles.pepeCardImageTablet]}
+            resizeMode={FastImage.resizeMode.cover}
+          />
+        ) : (
+          <Text style={[styles.verbaliCardText, isTablet && styles.verbaliCardTextTablet]}>
+            {item.word}
+          </Text>
+        )}
+        <Text style={[styles.cardNumber, isTablet && styles.cardNumberTablet]}>
+          {index + 1}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   if (!my8WordsData) {
     return (
@@ -440,7 +384,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
                   activeTab === 'web' && styles.activeTabText,
                   isTablet && styles.tabTextTablet,
                 ]}>
-                Verbali Library
+                Any word you want!
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -464,75 +408,30 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
                   style={[styles.searchInput, isTablet && styles.searchInputTablet]}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
-                  placeholder="Search for a word..."
+                  placeholder="Enter a word..."
                   placeholderTextColor="#999"
-                  returnKeyType="search"
-                  onSubmitEditing={handleSearch}
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    if (selectedCardIndex !== null && searchQuery.trim().length > 0) {
+                      handleSaveTypedWord(selectedCardIndex, searchQuery);
+                    }
+                  }}
                 />
                 <TouchableOpacity
                   style={[
                     styles.searchButton,
                     isTablet && styles.searchButtonTablet,
-                    (isSearching || searchQuery.trim().length < 3) &&
-                    styles.disabledButton,
+                    searchQuery.trim().length === 0 && styles.disabledButton,
                   ]}
-                  onPress={handleSearch}
-                  disabled={isSearching || searchQuery.trim().length < 3}>
-                  {isSearching ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.searchButtonText}>Search</Text>
-                  )}
+                  onPress={() => {
+                    if (selectedCardIndex !== null && searchQuery.trim().length > 0) {
+                      handleSaveTypedWord(selectedCardIndex, searchQuery);
+                    }
+                  }}
+                  disabled={searchQuery.trim().length === 0}>
+                  <Text style={styles.searchButtonText}>Save Word</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Search Results */}
-              {searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && (
-                <View style={styles.hintContainer}>
-                  <Text style={styles.hintText}>
-                    Type at least 3 characters to search
-                  </Text>
-                </View>
-              )}
-
-              {searchResults.length > 0 && (
-                <View style={styles.resultsContainer}>
-                  <Text
-                    style={[
-                      styles.resultsTitle,
-                      isTablet && styles.resultsTitleTablet,
-                    ]}>
-                    Search Results:
-                  </Text>
-                  <ScrollView
-                    style={[
-                      styles.resultsListContainer,
-                      isTablet && styles.resultsListContainerTablet,
-                    ]}
-                    showsVerticalScrollIndicator={true}
-                    nestedScrollEnabled={true}>
-                    <View style={styles.resultsList}>
-                      {searchResults.map((item) => (
-                        <View
-                          key={item.id}
-                          style={[
-                            styles.searchResultWrapper,
-                            isTablet && styles.searchResultWrapperTablet,
-                          ]}>
-                          {renderSearchResult({ item })}
-                        </View>
-                      ))}
-                    </View>
-                  </ScrollView>
-                </View>
-              )}
-
-              {isDownloading && (
-                <View style={styles.downloadingContainer}>
-                  <ActivityIndicator size="small" color="#8E24AA" />
-                  <Text style={styles.downloadingText}>Downloading image...</Text>
-                </View>
-              )}
             </View>
           ) : (
             <View>
@@ -684,11 +583,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardWrapper: {
-    width: (width - 80) / 4,
+    width: ((width - 80) / 4) * 0.75,
     margin: 4,
   },
   cardWrapperTablet: {
-    width: (width - 120) / 4,
+    width: ((width - 120) / 4) * 0.75,
   },
   cardRow: {
     flexDirection: 'row',
@@ -741,6 +640,30 @@ const styles = StyleSheet.create({
   },
   cardTextTablet: {
     fontSize: 12,
+  },
+  pepeCardImage: {
+    width: '80%',
+    height: '80%',
+    borderRadius: 6,
+  },
+  pepeCardImageTablet: {
+    width: '85%',
+    height: '85%',
+  },
+  verbaliCardText: {
+    width: '90%',
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  verbaliCardTextTablet: {
+    fontSize: 28,
+  },
+  verbaliCardBg: {
+    backgroundColor: '#D4E7FD',
+    borderColor: '#B9D5F6',
+    borderWidth: 1,
   },
   cardNumber: {
     position: 'absolute',
