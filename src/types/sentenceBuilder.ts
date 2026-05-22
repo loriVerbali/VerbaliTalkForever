@@ -61,7 +61,7 @@ export const GRID_CONFIGS = {
 
 export type GridConfigKey = keyof typeof GRID_CONFIGS;
 
-// Default color mapping for word types (Modified Fitzgerald Key standard)
+// Default color mapping for word types - Modified Fitzgerald Key
 export const DEFAULT_COLOR_MAP: Record<WordType, string> = {
   pronoun: '#FBC02D',      // Yellow - People/Pronouns
   verb: '#4CAF50',         // Green - Actions/Verbs

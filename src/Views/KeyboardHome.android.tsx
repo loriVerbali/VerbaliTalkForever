@@ -9,9 +9,8 @@ import {
     KeyboardAvoidingView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
 import FastImage from 'react-native-fast-image';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import HomeButton from '../Components/HomeButton';
 import MatalkIcon from '../Components/MatalkIcon';
 import TTSService from '../utils/TTSService';
@@ -26,7 +25,6 @@ const KeyboardHomeScreen: React.FC = () => {
     const { isTablet } = useAdmin();
     const [keyboardInput, setKeyboardInput] = useState('');
     const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
-    const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
     const handleKeyboardSubmit = async () => {
         const inputText = keyboardInput.trim();
@@ -63,7 +61,7 @@ const KeyboardHomeScreen: React.FC = () => {
 
     return (
         <View style={styles.container}>
-            <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
+            <View style={[styles.container, { backgroundColor: '#FFF8E7' }]}>
                 <HomeButton navigation={navigation} onReset={() => { }} />
                 <View style={styles.matalkIcon}>
                     <MatalkIcon />
@@ -132,8 +130,8 @@ const KeyboardHomeScreen: React.FC = () => {
                         </View>
                     </View>
                 </KeyboardAvoidingView>
-            </LinearGradient>
-        </View>
+            </View>
+        </View >
     );
 };
 

@@ -53,7 +53,7 @@ import tiredImg from '../assets/feelings/badBody/tired.jpg';
 import dizzyImg from '../assets/feelings/badBody/dizzy.jpg';
 import itchyImg from '../assets/feelings/badBody/itchy.jpg';
 
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // For simplicity, we'll use the same dog image for all feeling cards
 // In a real app, you would have different images for each feeling
@@ -95,39 +95,39 @@ const topCategories = [
 
 // Feeling grid data - static arrays extracted outside component
 const goodBody = [
-  { label: 'Comfortable', backgroundColor: '#FFFFFF' },
-  { label: 'Relaxed', backgroundColor: '#FFFFFF' },
-  { label: "I'm OK", backgroundColor: '#FFFFFF' },
-  { label: 'Warm', backgroundColor: '#FFFFFF' },
-  { label: 'Strong', backgroundColor: '#FFFFFF' },
-  { label: 'Energetic', backgroundColor: '#FFFFFF' },
+  { label: 'Comfortable', image: comfortableImg, backgroundColor: '#FFFFFF' },
+  { label: 'Relaxed', image: relaxedImg, backgroundColor: '#FFFFFF' },
+  { label: "I'm OK", image: okImg, backgroundColor: '#FFFFFF' },
+  { label: 'Warm', image: warmImg, backgroundColor: '#FFFFFF' },
+  { label: 'Strong', image: strongImg, backgroundColor: '#FFFFFF' },
+  { label: 'Energetic', image: energeticImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 const goodFeelings = [
-  { label: 'Happy', backgroundColor: '#FFFFFF' },
-  { label: 'Excited', backgroundColor: '#FFFFFF' },
-  { label: 'Loved', backgroundColor: '#FFFFFF' },
-  { label: 'Calm', backgroundColor: '#FFFFFF' },
-  { label: 'Proud', backgroundColor: '#FFFFFF' },
-  { label: 'Silly', backgroundColor: '#FFFFFF' },
+  { label: 'Happy', image: happyImg, backgroundColor: '#FFFFFF' },
+  { label: 'Excited', image: excitedImg, backgroundColor: '#FFFFFF' },
+  { label: 'Loved', image: lovedImg, backgroundColor: '#FFFFFF' },
+  { label: 'Calm', image: calmImg, backgroundColor: '#FFFFFF' },
+  { label: 'Proud', image: proudImg, backgroundColor: '#FFFFFF' },
+  { label: 'Silly', image: sillyImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 const badFeelings = [
-  { label: 'Sad', backgroundColor: '#FFFFFF' },
-  { label: 'Bored', backgroundColor: '#FFFFFF' },
-  { label: 'Scared', backgroundColor: '#FFFFFF' },
-  { label: 'Worried', backgroundColor: '#FFFFFF' },
-  { label: 'Embarrassed', backgroundColor: '#FFFFFF' },
-  { label: 'Angry', backgroundColor: '#FFFFFF' },
+  { label: 'Sad', image: sadImg, backgroundColor: '#FFFFFF' },
+  { label: 'Bored', image: boredImg, backgroundColor: '#FFFFFF' },
+  { label: 'Scared', image: scaredImg, backgroundColor: '#FFFFFF' },
+  { label: 'Worried', image: worriedImg, backgroundColor: '#FFFFFF' },
+  { label: 'Embarrassed', image: embarrassedImg, backgroundColor: '#FFFFFF' },
+  { label: 'Angry', image: angryImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 const badBody = [
-  { label: 'Cold', backgroundColor: '#FFFFFF' },
-  { label: 'Hurt', backgroundColor: '#FFFFFF' },
-  { label: 'Sick', backgroundColor: '#FFFFFF' },
-  { label: 'Tired', backgroundColor: '#FFFFFF' },
-  { label: 'Dizzy', backgroundColor: '#FFFFFF' },
-  { label: 'Itchy', backgroundColor: '#FFFFFF' },
+  { label: 'Cold', image: coldImg, backgroundColor: '#FFFFFF' },
+  { label: 'Hurt', image: hurtImg, backgroundColor: '#FFFFFF' },
+  { label: 'Sick', image: sickImg, backgroundColor: '#FFFFFF' },
+  { label: 'Tired', image: tiredImg, backgroundColor: '#FFFFFF' },
+  { label: 'Dizzy', image: dizzyImg, backgroundColor: '#FFFFFF' },
+  { label: 'Itchy', image: itchyImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 // Static category mapping to prevent recreation
@@ -146,7 +146,6 @@ const Feelings = () => {
   const { isConnected } = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryKey>('goodBody');
@@ -178,7 +177,7 @@ const Feelings = () => {
       gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4, // Back to 4 columns
       gridImageHeight: isTablet ? height * 0.25 : height * 0.16, // Slight height increase
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? width * 0.08 : width * 0.12,
+      labelGridFontSize: isTablet ? 16 : 14,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.05 : height * 0.03,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -302,7 +301,7 @@ const Feelings = () => {
           <Image
             source={
               connectionState
-                ? require('../assets/michrophone.gif')
+                ? require('../assets/micstatic.png')
                 : require('../assets/noMic.png')
             }
             style={responsiveValues.iconSize}
@@ -564,18 +563,30 @@ const Feelings = () => {
                 onPress={() => handleFeelingPress(feeling.label)}>
                 <View
                   style={[
-                    styles.gridTextContainer,
+                    styles.gridImageContainer,
                     {
                       backgroundColor: feeling.backgroundColor,
                       height: responsiveValues.gridImageHeight,
-                      borderRadius: responsiveValues.borderRadius,
-                      justifyContent: 'center',
-                      alignItems: 'center',
+                      borderTopLeftRadius: 16,
+                      borderTopRightRadius: 16,
+                    },
+                  ]}>
+                  <Image
+                    source={feeling.image}
+                    style={styles.imageGrid}
+                    resizeMode="contain"
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.gridLabelContainer,
+                    {
+                      paddingVertical: responsiveValues.gridLabelPadding,
+                      borderBottomLeftRadius: responsiveValues.borderRadius,
+                      borderBottomRightRadius: responsiveValues.borderRadius,
                     },
                   ]}>
                   <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit={true}
                     style={[
                       styles.labelGrid,
                       { fontSize: responsiveValues.labelGridFontSize },
@@ -708,20 +719,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  gridTextContainer: {
+  gridImageContainer: {
     width: '100%',
-    // height, borderRadius are now handled dynamically
+    // height, borderTopLeftRadius, borderTopRightRadius are now handled dynamically
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  gridLabelContainer: {
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    // paddingVertical, borderBottomLeftRadius, borderBottomRightRadius are now handled dynamically
+  },
+  imageGrid: {
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   labelGrid: {
     fontWeight: 'bold',
     // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
-    width: '80%',
-    alignSelf: 'center',
   },
   iconSize: {
     width: 60,

@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
-import { views } from '../utils/constants';
 import TTSService from '../utils/TTSService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
@@ -25,20 +24,55 @@ import {
 import { useConnection } from '../utils/connection';
 
 // General assets
-import micImg from '../assets/microphone.png';
-import boyImg from '../assets/boy.png';
 import matalkImg from '../assets/matalk.png';
-import dogImg from '../assets/welcome.png';
 
-// Image imports removed - displaying text instead
-import { Mixpanel } from 'mixpanel-react-native';
+// Attention category images
+import hiImg from '../assets/shortCuts/attention/hi.jpg';
+import lookImg from '../assets/shortCuts/attention/look.jpg';
+import listenImg from '../assets/shortCuts/attention/listen.jpg';
+import myturnImg from '../assets/shortCuts/attention/myturn.jpg';
+import questionImg from '../assets/shortCuts/attention/question.jpg';
+import stopImg from '../assets/shortCuts/attention/stop.jpg';
 
+// Want/Need category images
+import eatImg from '../assets/shortCuts/wantNeed/eat.jpg';
+import drinkImg from '../assets/shortCuts/wantNeed/drink.jpg';
+import bathroomImg from '../assets/shortCuts/wantNeed/bathroom.jpg';
+import sleepImg from '../assets/shortCuts/wantNeed/sleep.jpg';
+import helpImg from '../assets/shortCuts/wantNeed/help.jpg';
+import moreImg from '../assets/shortCuts/wantNeed/more.jpg';
+import allDoneImg from '../assets/shortCuts/wantNeed/alldone.jpg';
+
+// Fun category images
+import playImg from '../assets/shortCuts/fun/play.jpg';
+import outsideImg from '../assets/shortCuts/fun/outside.jpg';
+import mineImg from '../assets/shortCuts/fun/mine.jpg';
+import goImg from '../assets/shortCuts/fun/go.png';
+import gameImg from '../assets/shortCuts/fun/game.jpg';
+import bookImg from '../assets/shortCuts/fun/book.jpg';
+
+// Positions category images
+import upImg from '../assets/shortCuts/positions/up.jpg';
+import downImg from '../assets/shortCuts/positions/down.jpg';
+import inImg from '../assets/shortCuts/positions/in.jpg';
+import outImg from '../assets/shortCuts/positions/out.jpg';
+import onImg from '../assets/shortCuts/positions/on.jpg';
+import underImg from '../assets/shortCuts/positions/under.jpg';
+
+// Actions category images
+import openImg from '../assets/shortCuts/actions/open.png';
+import closeImg from '../assets/shortCuts/actions/close.png';
+import turnOnImg from '../assets/shortCuts/actions/turnOn.png';
+import turnOffImg from '../assets/shortCuts/actions/turnOff.png';
+import giveImg from '../assets/shortCuts/actions/give.png';
+import takeImg from '../assets/shortCuts/actions/take.png';
+import mixpanel from '../utils/mixpanelInstance';
 const { width, height } = Dimensions.get('window');
-const attentionImg = require('../assets/shortCuts/attention.png');
-const iWantNeedImg = require('../assets/shortCuts/IwantNeed.png');
-const actionsImg = require('../assets/shortCuts/actions.png');
-const funImg = require('../assets/shortCuts/fun.png');
-const positionsImg = require('../assets/shortCuts/positions.png');
+const attentionImg = require('../assets/shortCuts/attention.jpg');
+const iWantNeedImg = require('../assets/shortCuts/IwantNeed.jpg');
+const actionsImg = require('../assets/shortCuts/actions.jpg');
+const funImg = require('../assets/shortCuts/fun.jpg');
+const positionsImg = require('../assets/shortCuts/positions.jpg');
 
 // Static data extracted outside component to prevent recreation on every render
 const topCategories = [
@@ -76,50 +110,50 @@ const topCategories = [
 
 // Shortcut grid data - static arrays extracted outside component
 const attention = [
-  { label: 'Hi', backgroundColor: '#FFFFFF' },
-  { label: 'Look', backgroundColor: '#FFFFFF' },
-  { label: 'Listen', backgroundColor: '#FFFFFF' },
-  { label: 'Come', backgroundColor: '#FFFFFF' },
-  { label: 'My Turn', backgroundColor: '#FFFFFF' },
-  { label: 'Stop', backgroundColor: '#FFFFFF' },
-  { label: 'I have a question', backgroundColor: '#FFFFFF' },
+  { label: 'Hi', image: hiImg, backgroundColor: '#FFFFFF' },
+  { label: 'Look', image: lookImg, backgroundColor: '#FFFFFF' },
+  { label: 'Listen', image: listenImg, backgroundColor: '#FFFFFF' },
+  { label: 'Come', image: myturnImg, backgroundColor: '#FFFFFF' },
+  { label: 'My Turn', image: myturnImg, backgroundColor: '#FFFFFF' },
+  { label: 'Stop', image: stopImg, backgroundColor: '#FFFFFF' },
+  { label: 'I have a question', image: questionImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 const iWantNeed = [
-  { label: 'Eat', backgroundColor: '#FFFFFF' },
-  { label: 'Drink', backgroundColor: '#FFFFFF' },
-  { label: 'Bathroom', backgroundColor: '#FFFFFF' },
-  { label: 'Sleep', backgroundColor: '#FFFFFF' },
-  { label: 'Help', backgroundColor: '#FFFFFF' },
-  { label: 'More', backgroundColor: '#FFFFFF' },
-  { label: 'All done', backgroundColor: '#FFFFFF' },
+  { label: 'Eat', image: eatImg, backgroundColor: '#FFFFFF' },
+  { label: 'Drink', image: drinkImg, backgroundColor: '#FFFFFF' },
+  { label: 'Bathroom', image: bathroomImg, backgroundColor: '#FFFFFF' },
+  { label: 'Sleep', image: sleepImg, backgroundColor: '#FFFFFF' },
+  { label: 'Help', image: helpImg, backgroundColor: '#FFFFFF' },
+  { label: 'More', image: moreImg, backgroundColor: '#FFFFFF' },
+  { label: 'All done', image: allDoneImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 const fun = [
-  { label: 'Play', backgroundColor: '#FFFFFF' },
-  { label: 'Outside', backgroundColor: '#FFFFFF' },
-  { label: 'Mine', backgroundColor: '#FFFFFF' },
-  { label: 'Go', backgroundColor: '#FFFFFF' },
-  { label: 'Game', backgroundColor: '#FFFFFF' },
-  { label: 'Book', backgroundColor: '#FFFFFF' },
+  { label: 'Play', image: playImg, backgroundColor: '#FFFFFF' },
+  { label: 'Outside', image: outsideImg, backgroundColor: '#FFFFFF' },
+  { label: 'Mine', image: mineImg, backgroundColor: '#FFFFFF' },
+  { label: 'Go', image: goImg, backgroundColor: '#FFFFFF' },
+  { label: 'Game', image: gameImg, backgroundColor: '#FFFFFF' },
+  { label: 'Book', image: bookImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 const actions = [
-  { label: 'Open', backgroundColor: '#FFFFFF' },
-  { label: 'Close', backgroundColor: '#FFFFFF' },
-  { label: 'Turn On', backgroundColor: '#FFFFFF' },
-  { label: 'Turn Off', backgroundColor: '#FFFFFF' },
-  { label: 'Give', backgroundColor: '#FFFFFF' },
-  { label: 'Take', backgroundColor: '#FFFFFF' },
+  { label: 'Open', image: openImg, backgroundColor: '#FFFFFF' },
+  { label: 'Close', image: closeImg, backgroundColor: '#FFFFFF' },
+  { label: 'Turn On', image: turnOnImg, backgroundColor: '#FFFFFF' },
+  { label: 'Turn Off', image: turnOffImg, backgroundColor: '#FFFFFF' },
+  { label: 'Give', image: giveImg, backgroundColor: '#FFFFFF' },
+  { label: 'Take', image: takeImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 const positions = [
-  { label: 'Up', backgroundColor: '#FFFFFF' },
-  { label: 'Down', backgroundColor: '#FFFFFF' },
-  { label: 'In', backgroundColor: '#FFFFFF' },
-  { label: 'Out', backgroundColor: '#FFFFFF' },
-  { label: 'On', backgroundColor: '#FFFFFF' },
-  { label: 'Under', backgroundColor: '#FFFFFF' },
+  { label: 'Up', image: upImg, backgroundColor: '#FFFFFF' },
+  { label: 'Down', image: downImg, backgroundColor: '#FFFFFF' },
+  { label: 'In', image: inImg, backgroundColor: '#FFFFFF' },
+  { label: 'Out', image: outImg, backgroundColor: '#FFFFFF' },
+  { label: 'On', image: onImg, backgroundColor: '#FFFFFF' },
+  { label: 'Under', image: underImg, backgroundColor: '#FFFFFF' },
 ] as const;
 
 // Static category mapping to prevent recreation
@@ -140,7 +174,6 @@ const ShortCuts = () => {
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
 
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
     | 'attention'
     | 'iWantNeed'
@@ -180,7 +213,7 @@ const ShortCuts = () => {
       gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
       gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? width * 0.08 : width * 0.12,
+      labelGridFontSize: isTablet ? 16 : 14,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.01 : height * 0.005,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -324,7 +357,7 @@ const ShortCuts = () => {
           <FastImage
             source={
               connectionState
-                ? require('../assets/michrophone.gif')
+                ? require('../assets/micstatic.png')
                 : require('../assets/noMic.png')
             }
             style={responsiveValues.iconSize}
@@ -681,18 +714,31 @@ const ShortCuts = () => {
                     onPress={() => handleFeelingPress(feeling.label)}>
                     <View
                       style={[
-                        styles.gridTextContainer,
+                        styles.gridImageContainer,
                         {
                           backgroundColor: feeling.backgroundColor,
                           height: responsiveValues.gridImageHeight,
-                          borderRadius: responsiveValues.borderRadius,
-                          justifyContent: 'center',
-                          alignItems: 'center',
+                          borderTopLeftRadius: 16,
+                          borderTopRightRadius: 16,
+                        },
+                      ]}>
+                      <Image
+                        source={feeling.image}
+                        style={styles.imageGrid}
+                        resizeMode={isTablet ? 'cover' : 'contain'}
+                      />
+                    </View>
+                    <View
+                      style={[
+                        styles.gridLabelContainer,
+                        {
+                          paddingVertical: responsiveValues.gridLabelPadding,
+                          borderBottomLeftRadius: responsiveValues.borderRadius,
+                          borderBottomRightRadius:
+                            responsiveValues.borderRadius,
                         },
                       ]}>
                       <Text
-                        numberOfLines={1}
-                        adjustsFontSizeToFit={true}
                         style={[
                           styles.labelGrid,
                           { fontSize: responsiveValues.labelGridFontSize },
@@ -838,20 +884,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  gridTextContainer: {
+  gridImageContainer: {
     width: '100%',
-    // height, borderRadius are now handled dynamically
+    // height, borderTopLeftRadius, borderTopRightRadius are now handled dynamically
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  gridLabelContainer: {
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    // paddingVertical, borderBottomLeftRadius, borderBottomRightRadius are now handled dynamically
+  },
+  imageGrid: {
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   labelGrid: {
     fontWeight: 'bold',
     // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
-    width: '80%',
-    alignSelf: 'center',
   },
   iconSize: {
     width: 60,

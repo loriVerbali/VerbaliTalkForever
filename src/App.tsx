@@ -12,90 +12,52 @@ import RootControllerView from './Navigation/RootControllerView';
 import { AppSettingsProvider } from './utils/persistance';
 import { AdminProvider } from './contexts/adminContext';
 import { ChatContextProvider } from './contexts/ChatContextProvider';
-import { SoundProvider } from './contexts/soundContext';
 import { ConnectionProvider } from './utils/connection';
 import { ToastProvider } from './contexts/ToastContext';
 import { DatabaseProvider } from './contexts/DatabaseContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { sessionManager } from './utils/sessionManager';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from './utils/mixpanelInstance';
 import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
 import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
+import { useState } from 'react';
 
 const App = () => {
   const appState = useRef(AppState.currentState);
+  const [bootstrapStatus, setBootstrapStatus] = useState<'loading' | 'ok' | 'revoked' | 'inactive'>('loading');
 
-  // Lock to landscape orientation as early as possible
-  // Orientation.lockToLandscapeLeft();
 
-  const trackAutomaticEvents = false;
-  const mixpanelToken = '48186fefd3c06e4f4b0c4ad87d1555d2';
-
-  const mixpanel = new Mixpanel(mixpanelToken, trackAutomaticEvents);
-  mixpanel.init();
-  mixpanel.reset(); // anonymizes session, clears device_id and user_id
-  mixpanel.clearSuperProperties();
-
-  // Initialize device ID for Mixpanel tracking
+  // Initialize Mixpanel and device tracking (once on mount)
   useEffect(() => {
-    const initializeDeviceTracking = async () => {
+    const initializeMixpanel = async () => {
       try {
+        // Initialize SDK first — must complete before any other calls
+        await mixpanel.init();
+
         // Get the actual device ID
         const deviceId = await DeviceInfo.getUniqueId();
 
         // Identify the user with the device ID in Mixpanel
         mixpanel.identify(deviceId);
 
-        // Also set it as a super property for easier querying
+        // Set device_id as a super property for easier querying
         mixpanel.registerSuperProperties({
           device_id: deviceId,
         });
       } catch (error) {
-        console.error('Error setting device ID in Mixpanel:', error);
-        // Fallback: generate a GUID if device ID retrieval fails
-        const fallbackId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-          /[xy]/g,
-          function (c) {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-          },
-        );
-        mixpanel.identify(fallbackId);
-        mixpanel.registerSuperProperties({
-          device_id: fallbackId,
-        });
+        console.error('Error initializing Mixpanel:', error);
       }
     };
 
-    initializeDeviceTracking();
+    initializeMixpanel();
   }, []);
 
-  // Refresh session when app becomes active
-  useEffect(() => {
-    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
-        try {
-          await sessionManager.ensureValidSession();
-        } catch (error) { }
-      }
-      appState.current = nextAppState;
-    };
-
-    const subscription = AppState.addEventListener(
-      'change',
-      handleAppStateChange,
-    );
-    return () => subscription?.remove();
-  }, []);
-
-  // Initialize voice and TTS services at app level for better performance
+  // Unified AppState listener + TTS/WakeWord service initialization
+  // Merged two separate useEffect hooks to avoid duplicate AppState listeners
+  // and the race condition where both mutated appState.current
   useEffect(() => {
     const initServices = async () => {
       // Initialize TTS service when the app starts
@@ -110,7 +72,7 @@ const App = () => {
 
     initServices();
 
-    // Handle app state changes for wake word and resource management
+    // Single unified handler for all app state changes
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       const wakeWordService = WakeWordService.getInstance();
 
@@ -127,7 +89,10 @@ const App = () => {
         nextAppState === 'active' &&
         appState.current === 'background'
       ) {
-        // App is coming back to foreground - send wakeup call to backend
+        // App is coming back to foreground — refresh session + wakeup + restart wakeword
+        try {
+          await sessionManager.ensureValidSession();
+        } catch (error) { }
 
         try {
           await fetchHelper('wakeup', {}, {});
@@ -138,11 +103,11 @@ const App = () => {
           try {
             await wakeWordService.startListening();
           } catch (error) { }
-        } else {
         }
       } else if (nextAppState === 'active' && appState.current === 'inactive') {
         // App is being opened for the first time or from inactive state
         try {
+          await sessionManager.ensureValidSession();
           await fetchHelper('wakeup', {}, {});
         } catch (error) { }
         // Don't start wakeword here - let Open.tsx handle it after onboarding
@@ -165,6 +130,8 @@ const App = () => {
     };
   }, []);
 
+  // Removed blocking DeviceStatusScreen - unified modal handled in Open.tsx
+
   return (
     <>
       {/* Hide status bar for immersive experience - handled by Android native code */}
@@ -176,9 +143,7 @@ const App = () => {
               <DatabaseProvider>
                 <AdminProvider>
                   <ChatContextProvider>
-                    <SoundProvider>
-                      <RootControllerView />
-                    </SoundProvider>
+                    <RootControllerView />
                   </ChatContextProvider>
                 </AdminProvider>
               </DatabaseProvider>

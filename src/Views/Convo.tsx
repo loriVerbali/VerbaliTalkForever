@@ -2,14 +2,12 @@ import React, { useState, useRef, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import SentenceBuilderGrid from '../Components/SentenceBuilder/SentenceBuilderGrid';
 import { useDatabase } from '../contexts/DatabaseContext';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { GridConfigKey } from '../types/sentenceBuilder';
 
 const Convo = () => {
   const { addClassicEntry } = useDatabase();
-  const mixpanel = useRef(
-    new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true),
-  );
+
   const [sentenceStartTime, setSentenceStartTime] = useState<number | null>(
     null,
   );
@@ -60,7 +58,7 @@ const Convo = () => {
       if (sentenceStartTime === null) return;
 
       // Track play button tap
-      mixpanel.current.track('Convo Play Tapped');
+      mixpanel.track('Convo Play Tapped');
 
       try {
         // Calculate time taken
@@ -89,6 +87,7 @@ const Convo = () => {
           timetobuild: timeToBuild,
         });
       } catch (error) {
+
         // Don't show error to user - fail silently as requested
       } finally {
         // Reset timer and counters
@@ -115,22 +114,22 @@ const Convo = () => {
 
   // Track breadcrumb tap
   const handleBreadcrumbTapped = useCallback((index: number) => {
-    mixpanel.current.track('Convo Breadcrumb Tapped', { index });
+    mixpanel.track('Convo Breadcrumb Tapped', { index });
   }, []);
 
   // Track grid size change
   const handleGridSizeChanged = useCallback((size: GridConfigKey) => {
-    mixpanel.current.track('Convo Grid Size Changed', { size });
+    mixpanel.track('Convo Grid Size Changed', { size });
   }, []);
 
   // Track grid size value
   const handleGridSizeLoaded = useCallback((size: GridConfigKey) => {
-    mixpanel.current.track('Convo Grid Size', { size });
+    mixpanel.track('Convo Grid Size', { size });
   }, []);
 
   // Track reset DB tap
   const handleResetDbPressed = useCallback(() => {
-    mixpanel.current.track('Convo Reset DB Tapped');
+    mixpanel.track('Convo Reset DB Tapped');
   }, []);
 
   return (

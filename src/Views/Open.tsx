@@ -19,12 +19,11 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import FastImage from 'react-native-fast-image';
 import { views } from '../utils/constants';
-import LinearGradient from 'react-native-linear-gradient';
 import { useAppSettings } from '../utils/persistance';
 import AppConfig from '../utils/config';
 import { useConnection } from '../utils/connection';
 import ShowAndTell from '../Components/ShowAndTell';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import WakeWordService from '../utils/wakewordService';
 import AudioSessionManager from '../utils/AudioSessionManager';
 import { useAdmin } from '../contexts/adminContext';
@@ -34,9 +33,11 @@ import {
   parseMy8Words,
   My8WordsData,
   getDefaultMy8Words,
+  My8WordsCard,
 } from '../utils/my8wordsUtils';
 import { getImageSource } from '../utils/imageDownloader';
 
+// Function to get avatar image based on selected gender
 // Function to get avatar image based on selected gender
 const getAvatarImage = (gender: string) => {
   switch (gender) {
@@ -89,6 +90,16 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const { height, width } = Dimensions.get('window');
 
+const isPepeCard = (card: My8WordsCard): boolean => {
+  if (card.isPepe !== undefined) {
+    return card.isPepe;
+  }
+  if (card.id.startsWith('default_') || card.imageUrl.startsWith('../assets/') || card.imageUrl.startsWith('http')) {
+    return false;
+  }
+  return true;
+};
+
 const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
@@ -98,6 +109,20 @@ const OpenScreen: React.FC = () => {
   const [adminCodeInput, setAdminCodeInput] = useState('');
   const [isError, setIsError] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
+  const [showAdminCode, setShowAdminCode] = useState(false);
+  // Set New Password flow state
+  const [isSettingNewPassword, setIsSettingNewPassword] = useState(false);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [newPinDigits, setNewPinDigits] = useState(['', '', '', '']);
+  const [newPinError, setNewPinError] = useState('');
+  const pinInputRef = useRef<TextInput | null>(null);
+  const newPinInputRef = useRef<TextInput | null>(null);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotPinInput, setForgotPinInput] = useState('');
+  const [forgotPinDigits, setForgotPinDigits] = useState(['', '', '', '', '']);
+  const [forgotPinError, setForgotPinError] = useState('');
+  const forgotPinInputRef = useRef<TextInput | null>(null);
   const [showRecognitionStatus, setShowRecognitionStatus] = useState(false);
   const [startupModalVisible, setStartupModalVisible] = useState(false);
   const { isConnected } = useConnection();
@@ -109,9 +134,6 @@ const OpenScreen: React.FC = () => {
   const [showAndTellModalShown, setShowAndTellModalShown] = useState(false);
   const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
-  const mixpanel = useRef(
-    new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true),
-  ).current;
   const wakeWordService = WakeWordService.getInstance();
   const handScaleAnim = useRef(new Animated.Value(1)).current;
   const bubbleScaleAnim = useRef(new Animated.Value(1)).current;
@@ -129,6 +151,15 @@ const OpenScreen: React.FC = () => {
     typeof setInterval
   > | null>(null);
   const isDebouncing = useRef(false);
+  const isMounted = useRef(true);
+
+  // Track component mount status
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Track connection state changes
   useEffect(() => {
@@ -219,15 +250,19 @@ const OpenScreen: React.FC = () => {
     let animationTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const startPulseAnimation = () => {
-      // Check if both have been tapped before starting next animation
-      if (microphoneTappedOnce && settingsTappedOnce) {
-        return; // Stop animation if both have been tapped
+      // Check mount status and tap status before starting
+      if (!isMounted.current || (microphoneTappedOnce && settingsTappedOnce)) {
+        return;
       }
 
-      createPulseAnimation().start(() => {
-        // Only restart if at least one pointing element should still be visible
-        if (!microphoneTappedOnce || !settingsTappedOnce) {
-          animationTimeout = setTimeout(startPulseAnimation, 0);
+      createPulseAnimation().start((result) => {
+        // CRITICAL: Only recurse if the animation reached its natural conclusion.
+        // If result.finished is false, it means stopAnimation() was called,
+        // and we should NOT start a new loop.
+        if (isMounted.current && result.finished) {
+          if (!microphoneTappedOnce || !settingsTappedOnce) {
+            animationTimeout = setTimeout(startPulseAnimation, 0);
+          }
         }
       });
     };
@@ -253,8 +288,6 @@ const OpenScreen: React.FC = () => {
     microphoneTappedOnce,
     settingsTappedOnce,
   ]);
-
-  // askForAdultHelp removed - paid app always has access
 
   useEffect(() => {
     mixpanel.track('MainScreen', {
@@ -282,7 +315,9 @@ const OpenScreen: React.FC = () => {
 
         // Set 5 second max timeout
         loadingModalTimeoutRef.current = setTimeout(() => {
-          setShowLoadingModal(false);
+          if (isMounted.current) {
+            setShowLoadingModal(false);
+          }
           if (loadingModalCheckIntervalRef.current) {
             clearInterval(loadingModalCheckIntervalRef.current);
             loadingModalCheckIntervalRef.current = null;
@@ -291,6 +326,14 @@ const OpenScreen: React.FC = () => {
 
         // Poll for wake word readiness
         loadingModalCheckIntervalRef.current = setInterval(() => {
+          if (!isMounted.current) {
+            if (loadingModalCheckIntervalRef.current) {
+              clearInterval(loadingModalCheckIntervalRef.current);
+              loadingModalCheckIntervalRef.current = null;
+            }
+            return;
+          }
+
           if (wakeWordService.isCurrentlyListening()) {
             setShowLoadingModal(false);
             if (loadingModalTimeoutRef.current) {
@@ -311,6 +354,7 @@ const OpenScreen: React.FC = () => {
     // Initialize wake word service with proper cleanup and restart
     // NOTE: LoggedNavigation also initializes wake word, so check if already initialized first
     const initializeWakeWord = async () => {
+
       // First check if onboarding is complete - don't start wakeword during onboarding
       const wasOnboarded = await getItem('wasOnboarded');
       if (wasOnboarded !== '1') {
@@ -508,6 +552,8 @@ const OpenScreen: React.FC = () => {
   );
 
   const startListening = async () => {
+
+
     // Mark microphone as tapped once
     if (!microphoneTappedOnce) {
       setMicrophoneTappedOnce(true);
@@ -617,14 +663,24 @@ const OpenScreen: React.FC = () => {
     setModalVisible(false);
     setAdminCodeInput('');
     setIsError(false);
+    setPinDigits(['', '', '', '']);
+    // Reset new password flow state
+    setIsSettingNewPassword(false);
+    setNewPinInput('');
+    setNewPinDigits(['', '', '', '']);
+    setNewPinError('');
+    // Reset forgot password state
+    setIsForgotPassword(false);
+    setForgotPinInput('');
+    setForgotPinDigits(['', '', '', '', '']);
+    setForgotPinError('');
   };
 
-  const handleAdminCodeSubmit = async () => {
+  const handleAdminCodeSubmit = async (overrideCode?: string) => {
+    const codeToSubmit = overrideCode || adminCodeInput;
     const storedAdminCode = await getItem('adminCode');
-    if (
-      adminCodeInput === storedAdminCode ||
-      adminCodeInput === AppConfig.masterAdminCode
-    ) {
+
+    if (codeToSubmit === storedAdminCode) {
       closeModal();
       navigation.navigate(views.SETTINGS as never);
     } else {
@@ -635,6 +691,37 @@ const OpenScreen: React.FC = () => {
       }
       errorTimeoutRef.current = setTimeout(closeModal, 1000);
     }
+  };
+
+  const handleForgotCodeSubmit = async (overrideCode?: string) => {
+    const codeToSubmit = overrideCode || forgotPinInput;
+
+    if (codeToSubmit === AppConfig.masterAdminCode) {
+      setIsForgotPassword(false);
+      setForgotPinInput('');
+      setForgotPinDigits(['', '', '', '', '']);
+      setForgotPinError('');
+
+      setIsSettingNewPassword(true);
+      setNewPinInput('');
+      setNewPinDigits(['', '', '', '']);
+      setNewPinError('');
+      // Focus the new pin input after state update
+      setTimeout(() => newPinInputRef.current?.focus(), 200);
+    } else {
+      setForgotPinError('Incorrect master code.');
+      // Clear error after 2 seconds
+      setTimeout(() => setForgotPinError(''), 2000);
+    }
+  };
+
+  const handleNewPinSave = async () => {
+    if (newPinInput.length !== 4) {
+      setNewPinError('Please enter a 4-digit code.');
+      return;
+    }
+    await setItem('adminCode', newPinInput);
+    closeModal();
   };
 
   const closeStartupModal = async () => {
@@ -649,9 +736,8 @@ const OpenScreen: React.FC = () => {
   return (
     <>
       <Animated.View style={[{ flex: 1, opacity: fadeAnim }]}>
-        <LinearGradient
-          colors={['#FFF8E7', '#FFFFFF']}
-          style={styles.container}>
+        <View
+          style={[styles.container, { backgroundColor: '#FFF8E7' }]}>
           <View style={styles.headerContainer}>
             <Text style={styles.headerText}>Hi {heroName ? heroName : ''}</Text>
             <TouchableOpacity
@@ -686,7 +772,7 @@ const OpenScreen: React.FC = () => {
             <FastImage
               source={
                 connectionState
-                  ? require('../assets/michrophone.gif')
+                  ? require('../assets/micstatic.png')
                   : require('../assets/noMic.png')
               }
               style={[styles.iconSize, isListening.current && { opacity: 0.5 }]}
@@ -838,6 +924,7 @@ const OpenScreen: React.FC = () => {
                     onPress={async () => {
                       // Get current values from storage to ensure we have the latest
 
+
                       mixpanel.track('Feelings Pressed');
                       Animated.timing(fadeAnim, {
                         toValue: 0,
@@ -903,61 +990,87 @@ const OpenScreen: React.FC = () => {
                 <View style={styles.yesNoColumn}>
                   {(my8WordsData || getDefaultMy8Words()).cards
                     .slice(0, 4)
-                    .map((card, index) => (
-                      <TouchableOpacity
-                        key={`left-${index}`}
-                        style={styles.yesNoCard}
-                        onPress={async () => {
-                          if (isDebouncing.current) return;
-                          isDebouncing.current = true;
-                          setTimeout(() => {
-                            isDebouncing.current = false;
-                          }, 1000);
-                          mixpanel.track('8 Words Pressed');
-                          // Prepare audio session for TTS to ensure consistent volume
-                          await AudioSessionManager.prepareForTTS();
-                          TTSService.speak(card.word, true);
-                        }}
-                        activeOpacity={0.7}>
-                        <LinearGradient
-                          colors={['#E3F2FD', '#BBDEFB']}
-                          style={styles.yesNoCard}>
-                          <Text style={styles.yesNoText}>{card.word}</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    ))}
+                    .map((card, index) => {
+                      const isPepe = isPepeCard(card);
+                      return (
+                        <TouchableOpacity
+                          key={`left-${index}`}
+                          style={[styles.yesNoCard, !isPepe && styles.verbaliCardBg]}
+                          onPress={async () => {
+                            if (isDebouncing.current) return;
+                            isDebouncing.current = true;
+                            setTimeout(() => {
+                              isDebouncing.current = false;
+                            }, 1000);
+                            mixpanel.track('8 Words Pressed');
+                            // Prepare audio session for TTS to ensure consistent volume
+                            await AudioSessionManager.prepareForTTS();
+                            TTSService.speak(card.word, true);
+                          }}
+                          activeOpacity={0.7}>
+                          {isPepe ? (
+                            <>
+                              <View style={styles.cardImageContainer}>
+                                <FastImage
+                                  source={getImageSource(card)}
+                                  style={styles.cardImage}
+                                  resizeMode={FastImage.resizeMode.cover}
+                                  onError={() => { }}
+                                />
+                              </View>
+                              <Text style={styles.yesNoTextSmall}>{card.word}</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.verbaliCardTextOpen}>{card.word}</Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                 </View>
                 <View style={styles.yesNoColumn}>
                   {(my8WordsData || getDefaultMy8Words()).cards
                     .slice(4, 8)
-                    .map((card, index) => (
-                      <TouchableOpacity
-                        key={`right-${index}`}
-                        style={styles.yesNoCard}
-                        onPress={async () => {
-                          if (isDebouncing.current) return;
-                          isDebouncing.current = true;
-                          setTimeout(() => {
-                            isDebouncing.current = false;
-                          }, 1000);
-                          mixpanel.track('8 Words Pressed');
-                          // Prepare audio session for TTS to ensure consistent volume
-                          await AudioSessionManager.prepareForTTS();
-                          TTSService.speak(card.word, true);
-                        }}
-                        activeOpacity={0.7}>
-                        <LinearGradient
-                          colors={['#E3F2FD', '#BBDEFB']}
-                          style={styles.yesNoCard}>
-                          <Text style={styles.yesNoText}>{card.word}</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    ))}
+                    .map((card, index) => {
+                      const isPepe = isPepeCard(card);
+                      return (
+                        <TouchableOpacity
+                          key={`right-${index}`}
+                          style={[styles.yesNoCard, !isPepe && styles.verbaliCardBg]}
+                          onPress={async () => {
+                            if (isDebouncing.current) return;
+                            isDebouncing.current = true;
+                            setTimeout(() => {
+                              isDebouncing.current = false;
+                            }, 1000);
+                            mixpanel.track('8 Words Pressed');
+                            // Prepare audio session for TTS to ensure consistent volume
+                            await AudioSessionManager.prepareForTTS();
+                            TTSService.speak(card.word, true);
+                          }}
+                          activeOpacity={0.7}>
+                          {isPepe ? (
+                            <>
+                              <View style={styles.cardImageContainer}>
+                                <FastImage
+                                  source={getImageSource(card)}
+                                  style={styles.cardImage}
+                                  resizeMode={FastImage.resizeMode.cover}
+                                  onError={() => { }}
+                                />
+                              </View>
+                              <Text style={styles.yesNoTextSmall}>{card.word}</Text>
+                            </>
+                          ) : (
+                            <Text style={styles.verbaliCardTextOpen}>{card.word}</Text>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                 </View>
               </View>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </Animated.View>
 
       <Modal
@@ -970,58 +1083,315 @@ const OpenScreen: React.FC = () => {
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
               <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>Enter Admin Code</Text>
-                <TextInput
-                  style={[styles.codeInput, isError && styles.errorInput]}
-                  value={adminCodeInput}
-                  onChangeText={text => {
-                    const numericText = text.replace(/[^0-9]/g, '');
-                    if (numericText.length <= 4) {
-                      setAdminCodeInput(numericText);
-                    }
-                  }}
-                  keyboardType="numeric"
-                  maxLength={4}
-                  secureTextEntry={true}
-                  autoFocus={true}
-                  returnKeyType="done"
-                  onSubmitEditing={() => {
-                    if (adminCodeInput.length === 4) {
-                      handleAdminCodeSubmit();
-                    }
-                  }}
-                  onBlur={() => {
-                    // Auto-cancel when user dismisses keyboard by tapping away
-                    // Clear any existing timeout
-                    if (blurTimeoutRef.current) {
-                      clearTimeout(blurTimeoutRef.current);
-                    }
-                    blurTimeoutRef.current = setTimeout(() => {
-                      // Small delay to allow for done button press if that was the intent
-                      if (modalVisible && adminCodeInput.length !== 4) {
-                        closeModal();
-                      }
-                    }, 100);
-                  }}
-                  blurOnSubmit={true}
-                />
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={closeModal}>
-                    <Text style={styles.buttonText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton,
-                      styles.submitButton,
-                      adminCodeInput.length !== 4 && styles.disabledButton,
-                    ]}
-                    onPress={handleAdminCodeSubmit}
-                    disabled={adminCodeInput.length !== 4}>
-                    <Text style={styles.buttonText}>Submit</Text>
-                  </TouchableOpacity>
-                </View>
+                {!isSettingNewPassword && !isForgotPassword ? (
+                  <>
+
+                    {/* PIN Input Row */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => {
+                        if (pinInputRef.current) {
+                          pinInputRef.current.blur();
+                          setTimeout(() => {
+                            pinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
+                      <TextInput
+                        ref={pinInputRef}
+                        value={adminCodeInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setAdminCodeInput(numericText);
+                            const newDigits = ['', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              newDigits[i] = numericText[i];
+                            }
+                            setPinDigits(newDigits);
+                            setIsError(false);
+
+                            // Auto-submit when all 4 digits entered
+                            if (numericText.length === 4) {
+                              setTimeout(() => {
+                                handleAdminCodeSubmit(numericText);
+                              }, 100);
+                            }
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {pinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.12, 80);
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                              isError && styles.pinBoxError,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                {
+                                  fontSize: showAdminCode ? 24 : 36,
+                                  lineHeight: pinBoxSize,
+                                },
+                              ]}>
+                              {showAdminCode ? digit : (digit ? '●' : '')}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={closeModal}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          adminCodeInput.length !== 4 && styles.disabledButton,
+                        ]}
+                        onPress={() => handleAdminCodeSubmit()}
+                        disabled={adminCodeInput.length !== 4}>
+                        <Text style={styles.buttonText}>Submit</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {/* Forgot Password */}
+                    <TouchableOpacity
+                      onPress={() => {
+                        setIsForgotPassword(true);
+                        setAdminCodeInput('');
+                        setPinDigits(['', '', '', '']);
+                        setIsError(false);
+                        setTimeout(() => forgotPinInputRef.current?.focus(), 200);
+                      }}>
+                      <Text style={styles.forgotCodeText}>
+                        <Text style={styles.forgotCodeLabel}>Forgot password?</Text>
+                      </Text>
+                      <Text style={[styles.forgotCodeText, { marginTop: 4 }]}>
+                        Open a browser and go to <Text style={{ fontWeight: 'bold' }}>verbali.io/forgotadminpassword</Text>
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : isForgotPassword ? (
+                  <>
+                    <Text style={styles.modalTitle}>Master Override</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter your 5-digit master override code to reset your admin PIN.
+                    </Text>
+                    <Text style={[styles.modalDescription, { fontSize: 13, color: '#888', fontStyle: 'italic', marginBottom: 15 }]}>
+                      you need to go to https://www.verbali.io/forgotadminpassword to get the code
+                    </Text>
+
+                    {/* 5-Digit PIN Input Row */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => {
+                        if (forgotPinInputRef.current) {
+                          forgotPinInputRef.current.blur();
+                          setTimeout(() => {
+                            forgotPinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
+                      <TextInput
+                        ref={forgotPinInputRef}
+                        value={forgotPinInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 5) {
+                            setForgotPinInput(numericText);
+                            const newDigits = ['', '', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              newDigits[i] = numericText[i];
+                            }
+                            setForgotPinDigits(newDigits);
+                            setForgotPinError('');
+
+                            // Auto-submit when all 5 digits entered
+                            if (numericText.length === 5) {
+                              setTimeout(() => {
+                                handleForgotCodeSubmit(numericText);
+                              }, 100);
+                            }
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {forgotPinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.1, 70);
+                        return (
+                          <View
+                            key={index}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                              forgotPinError !== '' && styles.pinBoxError,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                {
+                                  fontSize: 36,
+                                  lineHeight: pinBoxSize,
+                                },
+                              ]}>
+                              {digit ? '●' : ''}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    {/* Error message */}
+                    {forgotPinError !== '' && (
+                      <Text style={{ color: '#E54848', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                        {forgotPinError}
+                      </Text>
+                    )}
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={() => {
+                          setIsForgotPassword(false);
+                          setForgotPinInput('');
+                          setForgotPinDigits(['', '', '', '', '']);
+                          setForgotPinError('');
+                          setTimeout(() => pinInputRef.current?.focus(), 200);
+                        }}>
+                        <Text style={styles.buttonText}>I remember my code</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          forgotPinInput.length !== 5 && styles.disabledButton,
+                        ]}
+                        onPress={() => handleForgotCodeSubmit()}
+                        disabled={forgotPinInput.length !== 5}>
+                        <Text style={styles.buttonText}>Submit</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalTitle}>Set New Password</Text>
+                    <Text style={styles.modalDescription}>
+                      Enter a new 4-digit admin code.
+                    </Text>
+
+                    {/* New PIN Entry */}
+                    <Pressable
+                      style={styles.pinRow}
+                      onPress={() => {
+                        if (newPinInputRef.current) {
+                          newPinInputRef.current.blur();
+                          setTimeout(() => {
+                            newPinInputRef.current?.focus();
+                          }, 100);
+                        }
+                      }}>
+                      <TextInput
+                        ref={newPinInputRef}
+                        value={newPinInput}
+                        onChangeText={text => {
+                          const numericText = text.replace(/[^0-9]/g, '');
+                          if (numericText.length <= 4) {
+                            setNewPinInput(numericText);
+                            const digits = ['', '', '', ''];
+                            for (let i = 0; i < numericText.length; i++) {
+                              digits[i] = numericText[i];
+                            }
+                            setNewPinDigits(digits);
+                            setNewPinError('');
+                          }
+                        }}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+                        autoFocus={true}
+                        caretHidden={true}
+                      />
+                      {newPinDigits.map((digit, index) => {
+                        const pinBoxSize = Math.min(width * 0.12, 80);
+                        return (
+                          <View
+                            key={`new-${index}`}
+                            style={[
+                              styles.pinBox,
+                              {
+                                width: pinBoxSize,
+                                height: pinBoxSize,
+                                borderRadius: pinBoxSize * 0.18,
+                                marginHorizontal: 6,
+                              },
+                              digit !== '' && styles.pinBoxFilled,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.pinInput,
+                                { fontSize: 36, lineHeight: pinBoxSize },
+                              ]}>
+                              {digit ? '●' : ''}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </Pressable>
+
+                    {/* Error message */}
+                    {newPinError !== '' && (
+                      <Text style={{ color: '#E54848', fontSize: 14, marginTop: 8, textAlign: 'center' }}>
+                        {newPinError}
+                      </Text>
+                    )}
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.cancelButton]}
+                        onPress={closeModal}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.modalButton,
+                          styles.submitButton,
+                          newPinInput.length !== 4 && styles.disabledButton,
+                        ]}
+                        onPress={handleNewPinSave}
+                        disabled={newPinInput.length !== 4}>
+                        <Text style={styles.buttonText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1038,9 +1408,7 @@ const OpenScreen: React.FC = () => {
         <View style={styles.startupModalOverlay}>
           <View style={styles.startupModalContent}>
             <View style={styles.showAndTellHeader}>
-              <Text style={styles.showAndTellTitle}>
-                Welcome to VerbaliTalk Forever!
-              </Text>
+              <Text style={styles.showAndTellTitle}>Welcome to Matalk!</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={closeStartupModal}>
@@ -1147,6 +1515,7 @@ const styles = StyleSheet.create({
   image: {
     width: '85%',
     height: '85%',
+    borderRadius: 12,
   },
   rowContent: {
     width: '48%',
@@ -1188,12 +1557,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 16,
-    shadowColor: 'rgba(0, 0, 0, 0.50)',
-    shadowOpacity: 8,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
     backgroundColor: 'white',
+  },
+  verbaliCardBg: {
+    backgroundColor: '#D4E7FD',
+    borderColor: '#B9D5F6',
+    borderWidth: 1,
   },
   yesNoText: {
     fontSize: height * 0.04,
@@ -1205,6 +1579,18 @@ const styles = StyleSheet.create({
     fontSize: height * 0.025,
     fontWeight: 'bold',
     color: '#333',
+    textAlign: 'center',
+  },
+  pepeCardImageOpen: {
+    width: '80%',
+    height: '80%',
+    borderRadius: 8,
+  },
+  verbaliCardTextOpen: {
+    width: '80%',
+    fontSize: height * 0.035,
+    fontWeight: 'bold',
+    color: '#000000',
     textAlign: 'center',
   },
   cardImageContainer: {
@@ -1308,41 +1694,81 @@ const styles = StyleSheet.create({
     paddingTop: height * 0.1,
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: '#f5f0e8',
     borderRadius: 20,
     padding: width * 0.05,
     width: '80%',
+    maxWidth: 450,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  },
+  lockIcon: {
+    fontSize: 32,
+    marginBottom: 8,
   },
   modalTitle: {
     fontSize: height * 0.03,
     fontWeight: 'bold',
-    marginBottom: height * 0.02,
+    marginBottom: 4,
     color: '#333',
   },
-  codeInput: {
-    width: '100%',
-    height: height * 0.08,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    paddingHorizontal: width * 0.05,
-    fontSize: height * 0.03,
+  modalDescription: {
+    fontSize: height * 0.018,
+    color: '#666',
     textAlign: 'center',
     marginBottom: height * 0.02,
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
-  errorInput: {
+  pinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: height * 0.025,
+    width: '100%',
+  },
+  pinBox: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#ddd',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pinBoxFilled: {
+    borderColor: '#007bff',
+  },
+  pinBoxError: {
     borderColor: '#ff3b30',
     backgroundColor: '#fff0f0',
+  },
+  pinInput: {
+    width: '100%',
+    height: '100%',
+    textAlign: 'center',
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  eyeButton: {
+    padding: 8,
+    marginLeft: 4,
+  },
+  eyeIcon: {
+    fontSize: 22,
+  },
+  forgotCodeText: {
+    fontSize: height * 0.016,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: height * 0.015,
+    lineHeight: height * 0.022,
+    paddingHorizontal: 16,
+    fontStyle: 'italic',
+  },
+  forgotCodeLabel: {
+    fontWeight: 'bold',
+    color: '#007bff',
   },
   modalButtons: {
     flexDirection: 'row',

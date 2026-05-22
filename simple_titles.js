@@ -24,4 +24,3 @@ const outputPath = path.join(__dirname, 'all_820_titles.txt');
 const quotedTitles = titles.map(title => `'${title.toLowerCase()}',`);
 fs.writeFileSync(outputPath, quotedTitles.join('\n'));
 
-console.log(`All 820 titles saved to: ${outputPath}`);

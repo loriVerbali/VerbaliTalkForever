@@ -34,7 +34,6 @@ export const ProfileExportService = {
         let zipPath = '';
 
         try {
-            console.log('Starting profile export...');
 
             // 1. Cleanup & Setup Staging
             await this._cleanup(stagingPath);
@@ -60,7 +59,6 @@ export const ProfileExportService = {
             zipPath = `${RNFS.DocumentDirectoryPath}/${zipFileName}`;
 
             await zip(exportPath, zipPath);
-            console.log(`Zip created at: ${zipPath}`);
 
             // 7. Share
             await this._shareBackup(zipPath);
@@ -117,6 +115,10 @@ export const ProfileExportService = {
                 // specific logic: if value is null/undefined, do we default to initial?
                 // The requirement says "Export all key-value persistence for the active profile".
                 prefsToExport[key] = value ?? (initialPreferences as any)[key];
+
+                if (key === 'tellUsMore') {
+                    console.log(`[Export] Including tellUsMore context (${(prefsToExport[key] || '').length} chars)`);
+                }
             } catch (e) {
                 console.warn(`Failed to get preference for ${key}`, e);
                 prefsToExport[key] = (initialPreferences as any)[key];
@@ -135,7 +137,6 @@ export const ProfileExportService = {
                                 // Extract just the filename from the full path
                                 const filename = item.imageUri.replace('file://', '').split('/').pop();
                                 if (filename) {
-                                    console.log(`[Export] Rewriting pepes imageUri: ${item.name} → ${filename}`);
                                     item.imageUri = filename;
                                 }
                             }
@@ -178,11 +179,9 @@ export const ProfileExportService = {
 
             for (const dir of possibleDirs) {
                 const fullPath = `${dir}/${dbName}`;
-                console.log(`[Export] Checking for ${dbName} at: ${fullPath}`);
 
                 if (await RNFS.exists(fullPath)) {
                     await RNFS.copyFile(fullPath, `${destPath}/${dbName}`);
-                    console.log(`[Export] ✅ Exported ${dbName} from: ${fullPath}`);
                     found = true;
                     break;
                 }
@@ -196,7 +195,6 @@ export const ProfileExportService = {
                         if (await RNFS.exists(dir)) {
                             const files = await RNFS.readDir(dir);
                             const dbFiles = files.filter(f => f.name.endsWith('.db') || f.name.endsWith('.sqlite'));
-                            console.log(`[Export] Contents of ${dir}: ${dbFiles.map(f => f.name).join(', ') || '(no .db files)'}`);
                         }
                     } catch (e) {
                         // ignore
@@ -242,7 +240,6 @@ export const ProfileExportService = {
                                     }
                                     const filename = sourcePath.split('/').pop()!;
                                     await RNFS.copyFile(sourcePath, `${pepesImagesDir}/${filename}`);
-                                    console.log(`[Export] ✅ Copied pepes image: ${item.name} (${filename})`);
                                     copiedCount++;
                                 } else {
                                     console.warn(`[Export] ⚠️ Pepes image not found: ${sourcePath} (${item.name})`);
@@ -251,9 +248,7 @@ export const ProfileExportService = {
                         }
                     }
                 }
-                if (copiedCount > 0) {
-                    console.log(`[Export] Exported ${copiedCount} pepes images`);
-                }
+
             }
         } catch (e) {
             console.warn('[Export] Error exporting pepes images:', e);

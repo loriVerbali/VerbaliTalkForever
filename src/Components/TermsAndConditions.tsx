@@ -1,4 +1,4 @@
-import React, {useState, useRef} from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,16 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import {useAdmin} from '../contexts/adminContext';
+import { useAdmin } from '../contexts/adminContext';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface TermsAndConditionsProps {
   onAgree: (agreed: boolean) => void;
 }
 
-const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
-  const {isTablet} = useAdmin();
+const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
+  const { isTablet } = useAdmin();
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [isAgreed, setIsAgreed] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -75,7 +75,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
   };
 
   const handleScroll = (event: any) => {
-    const {contentOffset, contentSize, layoutMeasurement} = event.nativeEvent;
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const isScrolledToBottom =
       contentOffset.y + layoutMeasurement.height >= contentSize.height - 20;
 
@@ -93,7 +93,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
   };
 
   return (
-    <View style={[styles.container, {maxHeight: responsiveValues.maxHeight}]}>
+    <View style={[styles.container, { maxHeight: responsiveValues.maxHeight }]}>
       {!hasScrolledToBottom && (
         <Text
           style={[
@@ -133,7 +133,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.titleMarginBottom,
             },
           ]}>
-          VerbaliTalk – Privacy Policy v1.0
+          VerbaliTalk– Privacy Policy v1.1
         </Text>
 
         <Text
@@ -144,7 +144,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.effectiveDateMarginBottom,
             },
           ]}>
-          Effective Date: July 9, 2025
+          Effective Date: February 26, 2026
         </Text>
 
         <Text
@@ -156,10 +156,10 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          Thank you for using VerbaliTalk, an app by Verbali Inc. ("Verbali,"
+          Thank you for using MaTalk AI, an app by Verbali Inc. ("Verbali,"
           "we," "our," or "us"). This Privacy Policy describes how we collect,
-          use, and protect your personal information when you use the
-          VerbaliTalk mobile application ("App") and related services.
+          use, and protect your personal information when you use the MaTalk AI
+          mobile application ("App") and related services.
         </Text>
 
         <Text
@@ -171,7 +171,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          By using VerbaliTalk, you agree to this policy. If you do not agree,
+          By using MaTalk AI, you agree to this policy. If you do not agree,
           please do not use the App.
         </Text>
 
@@ -209,7 +209,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
             },
           ]}>
           We collect only the minimum data needed to provide and improve the
-          VerbaliTalk experience.
+          VerbaliTalkexperience.
         </Text>
 
         <Text
@@ -376,9 +376,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          We process ambient speech by streaming it securely to a third-party
-          speech-to-text provider (e.g., OpenAI). Audio is not stored, and we do
-          not retain voice recordings.
+          We process speech locally on your device using on-device models. Audio is not streamed to the cloud for transcription, and we do not store or retain voice recordings.
         </Text>
 
         <Text
@@ -463,7 +461,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.bulletPointMarginLeft,
             },
           ]}>
-          • Process text, image, and speech input via third-party AI tools
+          • Process text and image input via third-party AI tools (such as Google Gemini and Pollinations AI)
           solely to deliver in-app content. These providers are contractually
           forbidden from using your data to train their models.
         </Text>
@@ -539,7 +537,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.bulletPointMarginLeft,
             },
           ]}>
-          • Names of the people, pets, places, etc.
+          • Names
         </Text>
         <Text
           style={[
@@ -551,7 +549,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.bulletPointMarginLeft,
             },
           ]}>
-          • Child's age group
+          • Child's gender. This is optional and can be skipped and changed later in the settings.
         </Text>
         <Text
           style={[
@@ -575,21 +573,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.bulletPointMarginLeft,
             },
           ]}>
-          • Uploaded images or text tied to a person, pet, place, etc.Although
-          all images are stored locally on your device and are never uploaded to
-          our servers or shared with third parties.
-        </Text>
-        <Text
-          style={[
-            styles.bulletPoint,
-            {
-              fontSize: responsiveValues.bulletPointFontSize,
-              lineHeight: responsiveValues.bulletPointLineHeight,
-              marginBottom: responsiveValues.bulletPointMarginBottom,
-              marginLeft: responsiveValues.bulletPointMarginLeft,
-            },
-          ]}>
-          • Transcribed speech tied to user profiles
+          • Transcribed speech is never tied to any deviceid
         </Text>
 
         <Text
@@ -614,7 +598,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.sectionTitleMarginBottom,
             },
           ]}>
-          4. Payments & Refunds
+          4. Subscriptions & Payments
         </Text>
         <Text
           style={[
@@ -625,9 +609,10 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          VerbaliTalk Forever is a paid app. Payment is processed by Apple,
-          Google, or Amazon; we never store your credit card data. Refunds
-          follow the policies of the store where you purchased the app.
+          VerbaliTalk is a one time license fee. Payment is processed by Apple,
+          Google; we never store your credit card data. Refunds
+          follow the policies of the store where you purchased your
+          license.
         </Text>
 
         <Text
@@ -650,10 +635,22 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          VerbaliTalk is designed to support communication for children above
-          the age of 13, but it is intended to be used under adult supervision.
+          VerbaliTalkis designed to support communication for children under 13,
+          but it is intended to be used under adult supervision.
         </Text>
-
+        <Text
+          style={[
+            styles.bulletPoint,
+            {
+              fontSize: responsiveValues.bulletPointFontSize,
+              lineHeight: responsiveValues.bulletPointLineHeight,
+              marginBottom: responsiveValues.bulletPointMarginBottom,
+              marginLeft: responsiveValues.bulletPointMarginLeft,
+            },
+          ]}>
+          • We obtain verifiable parental consent through a combination of
+          required payment and adult account creation.
+        </Text>
         <Text
           style={[
             styles.bulletPoint,
@@ -756,7 +753,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.bulletPointMarginLeft,
             },
           ]}>
-          • Speech and image processing
+          • Speech processing
         </Text>
         <Text
           style={[
@@ -801,6 +798,17 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
 
         <Text
           style={[
+            styles.sectionTitle,
+            {
+              fontSize: responsiveValues.sectionTitleFontSize,
+              marginTop: responsiveValues.sectionTitleMarginTop,
+              marginBottom: responsiveValues.sectionTitleMarginBottom,
+            },
+          ]}>
+          6b. AI Processing & Prompt Retention
+        </Text>
+        <Text
+          style={[
             styles.paragraph,
             {
               fontSize: responsiveValues.paragraphFontSize,
@@ -808,13 +816,89 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          <Text style={styles.bold}>
-            💬 Why we don't name specific vendors:
-          </Text>{' '}
-          We work with a small set of reputable providers, but reserve the right
-          to change partners to improve service quality and security. If we make
-          a material change in how your data is handled, we'll notify you in
-          advance.
+          VerbaliTalk uses the following third-party AI services to generate
+          answers and images:
+        </Text>
+        <Text
+          style={[
+            styles.bulletPoint,
+            {
+              fontSize: responsiveValues.bulletPointFontSize,
+              lineHeight: responsiveValues.bulletPointLineHeight,
+              marginBottom: responsiveValues.bulletPointMarginBottom,
+              marginLeft: responsiveValues.bulletPointMarginLeft,
+            },
+          ]}>
+          • <Text style={styles.bold}>Google Gemini</Text> – processes text prompts to generate contextual answers
+        </Text>
+        <Text
+          style={[
+            styles.bulletPoint,
+            {
+              fontSize: responsiveValues.bulletPointFontSize,
+              lineHeight: responsiveValues.bulletPointLineHeight,
+              marginBottom: responsiveValues.bulletPointMarginBottom,
+              marginLeft: responsiveValues.bulletPointMarginLeft,
+            },
+          ]}>
+          • <Text style={styles.bold}>Pollinations AI</Text> – generates images from text descriptions
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          <Text style={styles.bold}>What is sent:</Text> Text prompts derived
+          from your speech (e.g., the transcribed sentence and conversation
+          context) are sent to these services to generate answers and images.
+          These prompts are also stored on our backend servers for service
+          quality and improvement purposes.
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          <Text style={styles.bold}>What is NOT sent or stored:</Text> Audio
+          recordings are never uploaded to our servers or any third party.
+          Speech is transcribed entirely on your device using an on-device
+          model. Prompts stored on our servers do not include device
+          identifiers, session IDs, or IP addresses.
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          <Text style={styles.bold}>Wake word:</Text> The "Hey Verbi" wake word
+          detection runs only while the app is open and in the foreground. It
+          does not listen in the background.
+        </Text>
+        <Text
+          style={[
+            styles.paragraph,
+            {
+              fontSize: responsiveValues.paragraphFontSize,
+              lineHeight: responsiveValues.paragraphLineHeight,
+              marginBottom: responsiveValues.paragraphMarginBottom,
+            },
+          ]}>
+          <Text style={styles.bold}>Analytics:</Text> We use Mixpanel for
+          product analytics. Mixpanel receives event names and device
+          identifiers for analytics purposes only. Mixpanel does not receive
+          prompt text, transcriptions, or audio data.
         </Text>
 
         <Text
@@ -887,7 +971,19 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginLeft: responsiveValues.tableRowMarginLeft,
             },
           ]}>
-          Transcription results | Temporary (not stored) | Not retained
+          Text prompts | Stored on backend servers | Are not tied to any form of identification directly and indirectly
+        </Text>
+        <Text
+          style={[
+            styles.tableRow,
+            {
+              fontSize: responsiveValues.tableRowFontSize,
+              lineHeight: responsiveValues.tableRowLineHeight,
+              marginBottom: responsiveValues.tableRowMarginBottom,
+              marginLeft: responsiveValues.tableRowMarginLeft,
+            },
+          ]}>
+          Audio recordings | Never uploaded | Not retained
         </Text>
 
         <Text
@@ -1199,7 +1295,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          VerbaliTalk is operated from the United States. If you access the app
+          VerbaliTalkis operated from the United States. If you access the app
           from outside the U.S. or Canada, your data may be transferred to
           servers in the U.S., where it is subject to U.S. law.
         </Text>
@@ -1261,10 +1357,10 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          Verbali will provide support for AI features for a period of three (3)
-          years from the date of purchase. Following this three-year period, AI
-          support will cease, and the user will need to purchase a new AI
-          package to continue accessing these features.
+          Verbali will provide support for AI features for a period of three (3) years
+          from the date of purchase. Following this three-year period, AI support will
+          cease, and the user will need to purchase a new AI package to continue
+          accessing these features.
         </Text>
 
         <Text
@@ -1287,10 +1383,10 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          Verbali will provide version upgrades and maintenance for a period of
-          three (3) years. Following this three-year period, we will stop
-          providing upgrades, and the user will need to purchase a new
-          maintenance package to receive further updates.
+          Verbali will provide version upgrades and maintenance for a period of three
+          (3) years. Following this three-year period, we will stop providing
+          upgrades, and the user will need to purchase a new maintenance package to
+          receive further updates.
         </Text>
 
         <Text
@@ -1313,10 +1409,9 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
               marginBottom: responsiveValues.paragraphMarginBottom,
             },
           ]}>
-          We will attempt to support all hardware devices within reason.
-          However, we reserve the right to discontinue support for older models
-          or specific iOS or Android versions that are no longer viable to
-          maintain.
+          We will attempt to support all hardware devices within reason. However, we
+          reserve the right to discontinue support for older models or specific iOS
+          or Android versions that are no longer viable to maintain.
         </Text>
 
         <Text
@@ -1360,7 +1455,7 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
         <TouchableOpacity
           style={[
             styles.checkboxContainer,
-            {paddingVertical: responsiveValues.checkboxContainerPadding},
+            { paddingVertical: responsiveValues.checkboxContainerPadding },
             !hasScrolledToBottom && styles.disabledCheckbox,
           ]}
           onPress={handleCheckboxPress}
@@ -1391,10 +1486,10 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({onAgree}) => {
           <Text
             style={[
               styles.agreementText,
-              {fontSize: responsiveValues.agreementTextFontSize},
+              { fontSize: responsiveValues.agreementTextFontSize },
               !hasScrolledToBottom && styles.disabledText,
             ]}>
-            I agree to the Privacy Policy
+            I agree to the Privacy Policy. I understand that VerbaliTalkrequires AI processing via Google Gemini and Pollinations AI to function. Text prompts are stored on Verbali servers. Audio recordings and images are never uploaded to our servers or any third party.
           </Text>
         </TouchableOpacity>
       </View>

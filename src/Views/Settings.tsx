@@ -15,28 +15,25 @@ import {
   Alert,
   Keyboard,
   ActivityIndicator
-
 } from 'react-native';
 import Video from 'react-native-video';
 import {
   useNavigation,
-  CommonActions,
   useFocusEffect,
   useRoute,
 } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
-import LinearGradient from 'react-native-linear-gradient';
 import { useAppSettings } from '../utils/persistance';
 import { sessionManager } from '../utils/sessionManager';
 import { useAdmin } from '../contexts/adminContext';
-import { stacks, views } from '../utils/constants';
+import { views } from '../utils/constants';
 import Slider from '@react-native-community/slider';
-import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
-import SpecialPlaces from '../Components/SpecialPlaces';
+import { FamilyMember } from '../Components/FamilyPics';
 import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import fetchHelper from '../utils/fetcher';
+
 import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
@@ -82,7 +79,7 @@ const InfoModal = ({
   title: string;
   description: string;
 }) => {
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+
   return (
     <Modal
       animationType="fade"
@@ -121,7 +118,6 @@ const MessagesSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -183,7 +179,6 @@ const RangeSlider = ({
   const [showInfo, setShowInfo] = useState(false);
   const [localValue, setLocalValue] = useState(value);
   const { width: windowWidth } = useWindowDimensions();
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
   const sliderWidth = windowWidth * 0.42 - 40; // 42% of screen width minus padding
 
@@ -243,9 +238,9 @@ const SettingsScreen: React.FC = () => {
   const [topicsCount, setTopicsCount] = useState(4);
   const [actionsCount, setActionsCount] = useState(4);
   const [objectsCount, setObjectsCount] = useState(4);
+  // Removed local answersCount state - using preferences.answersCount
   const [showOnboardingEnabled, setShowOnboardingEnabled] = useState(true);
 
-  const [showAdminCodeModal, setShowAdminCodeModal] = useState(false);
   const [adminCode, setAdminCode] = useState('');
   const [isEditingAdminCode, setIsEditingAdminCode] = useState(false);
   const [newAdminCode, setNewAdminCode] = useState('');
@@ -275,7 +270,6 @@ const SettingsScreen: React.FC = () => {
   const [showWhisperInfo, setShowWhisperInfo] = useState(false);
   const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
 
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
@@ -298,21 +292,23 @@ const SettingsScreen: React.FC = () => {
     'boardCustomize',
   ];
 
-  const genderWrapperStyle = [
-    styles.genderImageWrapper,
-    { transform: [{ scale: 0.7 }] },
-  ];
+
 
   // Helper function to get avatar source based on gender
   const getAvatarSource = (gender: string) => {
     switch (gender) {
       case 'white boy':
-      case 'boy':
         return require('../assets/gender/wboy.jpg');
       case 'black boy':
         return require('../assets/gender/bboy.jpg');
       case 'asian boy':
         return require('../assets/gender/aboy.jpg');
+      case 'white girl':
+        return require('../assets/gender/wwoman.jpg');
+      case 'black girl':
+        return require('../assets/gender/bwoman.jpg');
+      case 'asian girl':
+        return require('../assets/gender/awoman.jpg');
       case 'white man':
         return require('../assets/gender/wman.jpg');
       case 'white woman':
@@ -332,7 +328,8 @@ const SettingsScreen: React.FC = () => {
       case 'asian old woman':
         return require('../assets/gender/aowoman.jpg');
       default:
-        return require('../assets/gender/wboy.jpg'); // fallback
+        // Default to hand icon if no gender is selected
+        return require('../assets/hand.png');
     }
   };
 
@@ -373,10 +370,14 @@ const SettingsScreen: React.FC = () => {
         const savedHandshakeMessage = await getItem('handshakeMessage');
         const savedUseLocalWhisper = await getItem('useLocalWhisper');
 
+
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
         setActionsCount(parseInt(savedActionsCount) || 4);
         setObjectsCount(parseInt(savedObjectsCount) || 4);
+
+        // Removed local answersCount loading - now using reactive preferences
+
         setShowOnboardingEnabled(wasOnboarded !== '1');
         setAdminCode(savedAdminCode || '');
         setGobackAfterSelection(savedGobackAfterSelection === '1');
@@ -485,6 +486,11 @@ const SettingsScreen: React.FC = () => {
     const newValue = Math.round(value);
     setObjectsCount(newValue);
     setItem('objectsCount', newValue.toString());
+  };
+
+  const handleAnswersCountChange = (count: number) => {
+    mixpanel.track('Settings Answers Count Changed', { count });
+    setItem('answersCount', count.toString());
   };
 
   const handleOnboardingToggle = async (value: boolean) => {
@@ -942,8 +948,9 @@ const SettingsScreen: React.FC = () => {
     );
   };
 
+
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
       <View style={styles.header}>
         <Pressable
           style={styles.backButton}
@@ -966,6 +973,7 @@ const SettingsScreen: React.FC = () => {
           <>
             <View style={[styles.section, styles.sectionAccountSettings]}>
               <Text style={styles.sectionTitle}>Account Settings</Text>
+
 
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Hero Name</Text>
@@ -1130,6 +1138,83 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
               </View> */}
+
+              {/* ── Number of Answers Switch Case ── */}
+              <View
+                style={{
+                  marginTop: 16,
+                  marginBottom: 8,
+                  paddingHorizontal: 4,
+                }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}>
+                  <Text
+                    style={[
+                      styles.settingLabel,
+                      { flex: 1, fontSize: 15, fontWeight: '600', color: '#333' },
+                    ]}>
+                    Number of Answers
+                  </Text>
+                </View>
+
+                {/* 3-Button Switch Case Control */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    backgroundColor: '#F3E5F5',
+                    borderRadius: 12,
+                    padding: 4,
+                    borderWidth: 1,
+                    borderColor: '#E1BEE7',
+                  }}>
+                  {[5, 7, 11].map(val => {
+                    const currentVal = parseInt(preferences.answersCount) || 5;
+                    const isSelected = currentVal === val;
+                    return (
+                      <TouchableOpacity
+                        key={val}
+                        activeOpacity={0.8}
+                        style={{
+                          flex: 1,
+                          backgroundColor: isSelected ? '#8E24AA' : 'transparent',
+                          borderRadius: 8,
+                          paddingVertical: 10,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          shadowColor: isSelected ? '#000' : 'transparent',
+                          shadowOpacity: isSelected ? 0.15 : 0,
+                          shadowRadius: 3,
+                          shadowOffset: { width: 0, height: 2 },
+                          elevation: isSelected ? 3 : 0,
+                        }}
+                        onPress={() => handleAnswersCountChange(val)}>
+                        <Text
+                          style={{
+                            color: isSelected ? '#fff' : '#8E24AA',
+                            fontWeight: '700',
+                            fontSize: 16,
+                          }}>
+                          {val}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: '#888',
+                    marginTop: 8,
+                    fontStyle: 'italic',
+                  }}>
+                  Choose how many answer cards appear after each question. Default is 5.
+                </Text>
+              </View>
             </View>
 
             <View style={[styles.section, styles.sectionReports]}>
@@ -1271,282 +1356,282 @@ const SettingsScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
             </View>
+            {isConnected && (
+              <View style={[styles.section, styles.sectionHelpCenter]}>
+                <Text style={styles.sectionTitle}>Help and Learn Center</Text>
+                <Text style={styles.aboutDescription}>
+                  Your help and learn center for getting started with MaTalk AI.
+                </Text>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Help and Learn Center</Text>
-              <Text style={styles.aboutDescription}>
-                Your help and learn center for getting started with VerbaliTalk
-                Forever.
-              </Text>
-
-              {/* Checklist Cards Grid - Single Row Layout */}
-              <View style={styles.checklistGrid}>
-                <View
-                  style={[
-                    styles.checklistRow,
-                    isTablet && styles.checklistRowTablet,
-                  ]}>
-                  <TouchableOpacity
+                {/* Checklist Cards Grid - Single Row Layout */}
+                <View style={styles.checklistGrid}>
+                  <View
                     style={[
-                      styles.checklistCard,
-                      isTablet && styles.checklistCardTablet,
-                    ]}
-                    onPress={() => handleVideoCardPress('homescreen')}>
-                    <View style={styles.videoContainer}>
-                      <Video
-                        disableAudioSessionManagement={true}
-                        source={getVideoUrl('homescreen')}
-                        style={styles.video}
-                        resizeMode="cover"
-                        paused={true}
-                        muted={true}
-                        repeat={false}
-                        controls={false}
-                      />
-                      {watchedVideos.has(0) && (
-                        <View
-                          style={[
-                            styles.videoHeartOverlay,
-                            isTablet && styles.videoHeartOverlayTablet,
-                          ]}>
-                          <Text
-                            style={[
-                              styles.videoHeartIcon,
-                              isTablet && styles.videoHeartIconTablet,
-                            ]}>
-                            ♥
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
+                      styles.checklistRow,
+                      isTablet && styles.checklistRowTablet,
+                    ]}>
+                    <TouchableOpacity
                       style={[
-                        styles.checklistCardTitle,
-                        isTablet && styles.checklistCardTitleTablet,
-                      ]}>
-                      Home Screen
-                    </Text>
-                  </TouchableOpacity>
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('homescreen')}>
+                      <View style={styles.videoContainer}>
+                        <Video
+                          disableAudioSessionManagement={true}
+                          source={getVideoUrl('homescreen')}
+                          style={styles.video}
+                          resizeMode="cover"
+                          paused={true}
+                          muted={true}
+                          repeat={false}
+                          controls={false}
+                        />
+                        {watchedVideos.has(0) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Home Screen
+                      </Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.checklistCard,
-                      isTablet && styles.checklistCardTablet,
-                    ]}
-                    onPress={() => handleVideoCardPress('question')}>
-                    <View style={styles.videoContainer}>
-                      <Video
-                        disableAudioSessionManagement={true}
-                        source={getVideoUrl('question')}
-                        style={styles.video}
-                        resizeMode="cover"
-                        paused={true}
-                        muted={true}
-                        repeat={false}
-                        controls={false}
-                      />
-                      {watchedVideos.has(1) && (
-                        <View
-                          style={[
-                            styles.videoHeartOverlay,
-                            isTablet && styles.videoHeartOverlayTablet,
-                          ]}>
-                          <Text
-                            style={[
-                              styles.videoHeartIcon,
-                              isTablet && styles.videoHeartIconTablet,
-                            ]}>
-                            ♥
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.checklistCardTitle,
-                        isTablet && styles.checklistCardTitleTablet,
-                      ]}>
-                      Responding to a question
-                    </Text>
-                  </TouchableOpacity>
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('question')}>
+                      <View style={styles.videoContainer}>
+                        <Video
+                          disableAudioSessionManagement={true}
+                          source={getVideoUrl('question')}
+                          style={styles.video}
+                          resizeMode="cover"
+                          paused={true}
+                          muted={true}
+                          repeat={false}
+                          controls={false}
+                        />
+                        {watchedVideos.has(1) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Responding to a question
+                      </Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.checklistCard,
-                      isTablet && styles.checklistCardTablet,
-                    ]}
-                    onPress={() => handleVideoCardPress('convo')}>
-                    <View style={styles.videoContainer}>
-                      <Video
-                        disableAudioSessionManagement={true}
-                        source={getVideoUrl('convo')}
-                        style={styles.video}
-                        resizeMode="cover"
-                        paused={true}
-                        muted={true}
-                        repeat={false}
-                        controls={false}
-                      />
-                      {watchedVideos.has(2) && (
-                        <View
-                          style={[
-                            styles.videoHeartOverlay,
-                            isTablet && styles.videoHeartOverlayTablet,
-                          ]}>
-                          <Text
-                            style={[
-                              styles.videoHeartIcon,
-                              isTablet && styles.videoHeartIconTablet,
-                            ]}>
-                            ♥
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.checklistCardTitle,
-                        isTablet && styles.checklistCardTitleTablet,
-                      ]}>
-                      Start a conversation
-                    </Text>
-                  </TouchableOpacity>
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('convo')}>
+                      <View style={styles.videoContainer}>
+                        <Video
+                          disableAudioSessionManagement={true}
+                          source={getVideoUrl('convo')}
+                          style={styles.video}
+                          resizeMode="cover"
+                          paused={true}
+                          muted={true}
+                          repeat={false}
+                          controls={false}
+                        />
+                        {watchedVideos.has(2) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Start a conversation
+                      </Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.checklistCard,
-                      isTablet && styles.checklistCardTablet,
-                    ]}
-                    onPress={() => handleVideoCardPress('reports')}>
-                    <View style={styles.videoContainer}>
-                      <Video
-                        disableAudioSessionManagement={true}
-                        source={getVideoUrl('reports')}
-                        style={styles.video}
-                        resizeMode="cover"
-                        paused={true}
-                        muted={true}
-                        repeat={false}
-                        controls={false}
-                      />
-                      {watchedVideos.has(3) && (
-                        <View
-                          style={[
-                            styles.videoHeartOverlay,
-                            isTablet && styles.videoHeartOverlayTablet,
-                          ]}>
-                          <Text
-                            style={[
-                              styles.videoHeartIcon,
-                              isTablet && styles.videoHeartIconTablet,
-                            ]}>
-                            ♥
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.checklistCardTitle,
-                        isTablet && styles.checklistCardTitleTablet,
-                      ]}>
-                      Reports
-                    </Text>
-                  </TouchableOpacity>
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('reports')}>
+                      <View style={styles.videoContainer}>
+                        <Video
+                          disableAudioSessionManagement={true}
+                          source={getVideoUrl('reports')}
+                          style={styles.video}
+                          resizeMode="cover"
+                          paused={true}
+                          muted={true}
+                          repeat={false}
+                          controls={false}
+                        />
+                        {watchedVideos.has(3) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Reports
+                      </Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.checklistCard,
-                      isTablet && styles.checklistCardTablet,
-                    ]}
-                    onPress={() => handleVideoCardPress('personalization')}>
-                    <View style={styles.videoContainer}>
-                      <Video
-                        disableAudioSessionManagement={true}
-                        source={getVideoUrl('personalization')}
-                        style={styles.video}
-                        resizeMode="cover"
-                        paused={true}
-                        muted={true}
-                        repeat={false}
-                        controls={false}
-                      />
-                      {watchedVideos.has(4) && (
-                        <View
-                          style={[
-                            styles.videoHeartOverlay,
-                            isTablet && styles.videoHeartOverlayTablet,
-                          ]}>
-                          <Text
-                            style={[
-                              styles.videoHeartIcon,
-                              isTablet && styles.videoHeartIconTablet,
-                            ]}>
-                            ♥
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.checklistCardTitle,
-                        isTablet && styles.checklistCardTitleTablet,
-                      ]}>
-                      Personalize Your Experience
-                    </Text>
-                  </TouchableOpacity>
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('personalization')}>
+                      <View style={styles.videoContainer}>
+                        <Video
+                          disableAudioSessionManagement={true}
+                          source={getVideoUrl('personalization')}
+                          style={styles.video}
+                          resizeMode="cover"
+                          paused={true}
+                          muted={true}
+                          repeat={false}
+                          controls={false}
+                        />
+                        {watchedVideos.has(4) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Personalize Your Experience
+                      </Text>
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.checklistCard,
-                      isTablet && styles.checklistCardTablet,
-                    ]}
-                    onPress={() => handleVideoCardPress('boardCustomize')}>
-                    <View style={styles.videoContainer}>
-                      <Video
-                        disableAudioSessionManagement={true}
-                        source={getVideoUrl('boardCustomize')}
-                        style={styles.video}
-                        resizeMode="cover"
-                        paused={true}
-                        muted={true}
-                        repeat={false}
-                        controls={false}
-                      />
-                      {watchedVideos.has(5) && (
-                        <View
-                          style={[
-                            styles.videoHeartOverlay,
-                            isTablet && styles.videoHeartOverlayTablet,
-                          ]}>
-                          <Text
-                            style={[
-                              styles.videoHeartIcon,
-                              isTablet && styles.videoHeartIconTablet,
-                            ]}>
-                            ♥
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text
+                    <TouchableOpacity
                       style={[
-                        styles.checklistCardTitle,
-                        isTablet && styles.checklistCardTitleTablet,
-                      ]}>
-                      Board Customize
-                    </Text>
-                  </TouchableOpacity>
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('boardCustomize')}>
+                      <View style={styles.videoContainer}>
+                        <Video
+                          disableAudioSessionManagement={true}
+                          source={getVideoUrl('boardCustomize')}
+                          style={styles.video}
+                          resizeMode="cover"
+                          paused={true}
+                          muted={true}
+                          repeat={false}
+                          controls={false}
+                        />
+                        {watchedVideos.has(5) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Board Customize
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
 
             <View style={[styles.section, styles.sectionPersonalize]}>
               <Text style={styles.sectionTitle}>
                 Personalize Your Experience
               </Text>
               <Text style={styles.aboutDescription}>
-                Personalize your experience with VerbaliTalk.
+                Personalize your experience with MaTalk AI.
               </Text>
 
               <View style={styles.myPepesSection}>
@@ -1555,9 +1640,9 @@ const SettingsScreen: React.FC = () => {
                 </Text>
                 <Text style={styles.myPepesDescription}>
                   Your people, stuff, food, drinks, places, and tv shows with
-                  images, names, and aliases for better conversation context.
+                  images, names, and aliases for better conversation context.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    All Images are kept on your device only.
+                    All images are kept on your device only.
                   </Text>
                 </Text>
                 <MyPepesAndStuff resetSessionTrigger={sessionResetTrigger} />
@@ -1570,9 +1655,9 @@ const SettingsScreen: React.FC = () => {
                 <Text style={styles.my8WordsDescription}>
                   Customize the 8 words that appear on your main screen cards.
                   Search for words and their images to personalize your
-                  experience.
+                  experience.{' '}
                   <Text style={{ fontWeight: '800', color: '#666' }}>
-                    Images are downloaded and stored on your device only.
+                    images are downloaded and stored on your device only.
                   </Text>
                 </Text>
                 <My8WordsCustomizer isTablet={isTablet} />
@@ -2126,7 +2211,7 @@ const SettingsScreen: React.FC = () => {
               )}
             </View>
 
-            <View style={[styles.section, styles.sectionData]}>
+            <View style={[styles.section]}>
               <Text style={styles.sectionTitle}>Data Management</Text>
               <Text style={styles.aboutDescription}>
                 Export your profile data to keep a backup or transfer to another device.
@@ -2152,6 +2237,7 @@ const SettingsScreen: React.FC = () => {
                 )}
               </TouchableOpacity>
             </View>
+
 
             <View style={[styles.section, styles.sectionReset]}>
               <Text style={styles.sectionTitle}>Reset Installation</Text>
@@ -2210,6 +2296,7 @@ const SettingsScreen: React.FC = () => {
           </Pressable>
         </View>
 
+
         <View style={[styles.section, styles.sectionAbout]}>
           <Text style={styles.sectionTitle}>About</Text>
           <TouchableOpacity
@@ -2226,19 +2313,18 @@ const SettingsScreen: React.FC = () => {
                 return next;
               });
             }}>
-            <Text style={styles.aboutText}>VerbaliTalk Forever v2.0</Text>
+            <Text style={styles.aboutText}>MaTalk AI v1.8</Text>
           </TouchableOpacity>
 
+
           <Text style={styles.aboutDescription}>
-            VerbaliTalk Forever is a communication tool designed to help users
-            interact more effectively.
+            MaTalk AI is a communication tool designed to help users interact
+            more effectively.
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            © 2025 Verbali Inc. VerbaliTalk Forever
-          </Text>
+          <Text style={styles.footerText}>© 2025 Verbali Inc. MaTalk AI</Text>
         </View>
 
         <InfoModal
@@ -2318,7 +2404,7 @@ const SettingsScreen: React.FC = () => {
           onDismiss={handleRatingModalDismiss}
         />
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 };
 
@@ -2375,6 +2461,9 @@ const styles = StyleSheet.create({
   },
   sectionReset: {
     backgroundColor: '#fce8e8',
+  },
+  sectionAccountStatus: {
+    backgroundColor: '#fffbe6',
   },
   sectionLegal: {
     backgroundColor: '#f0f0f2',

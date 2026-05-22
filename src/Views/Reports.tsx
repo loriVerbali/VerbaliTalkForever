@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,14 +9,13 @@ import {
   ScrollView,
   Modal,
 } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {views} from '../utils/constants';
-import {useDatabase} from '../contexts/DatabaseContext';
-import {useAppSettings} from '../utils/persistance';
-import {Mixpanel} from 'mixpanel-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { views } from '../utils/constants';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { useAppSettings } from '../utils/persistance';
+import mixpanel from '../utils/mixpanelInstance';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
 
 const InfoModal = ({
@@ -50,8 +49,7 @@ const InfoModal = ({
 
 const ReportsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const {preferences} = useAppSettings();
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
+  const { preferences } = useAppSettings();
 
   const {
     isInitialized,
@@ -72,26 +70,23 @@ const ReportsScreen: React.FC = () => {
     },
     metric2: {
       title: 'Overview of answering questions using AI',
-      subtitle: `Last 30 days: This view shows how ${
-        preferences.heroName || 'your child'
-      } uses AI to answer questions`,
+      subtitle: `Last 30 days: This view shows how ${preferences.heroName || 'your child'
+        } uses AI to answer questions`,
       median: '0s',
       average: '0s',
       observations: 0,
     },
     metric3: {
       title: 'Average time to create a sentence (Classic Board)',
-      subtitle: `The average time it took ${
-        preferences.heroName || 'your child'
-      } to build a sentence in the last 30 days. (Timing starts at first word tap until Play button is tapped; Max 5 minutes.)`,
+      subtitle: `The average time it took ${preferences.heroName || 'your child'
+        } to build a sentence in the last 30 days. (Timing starts at first word tap until Play button is tapped; Max 5 minutes.)`,
       median: '0s',
       recentSentences: [],
     },
     metric4: {
       title: 'Overview of questions answered using AI',
-      subtitle: `Last 30 days : This view shows the questions ${
-        preferences.heroName || 'your child'
-      } was asked using AI and how many rounds it took to find an answer.`,
+      subtitle: `Last 30 days : This view shows the questions ${preferences.heroName || 'your child'
+        } was asked using AI and how many rounds it took to find an answer.`,
       resolvedRound1: 0,
       recentQuestions: [],
     },
@@ -119,7 +114,7 @@ const ReportsScreen: React.FC = () => {
       endDate.setHours(23, 59, 59, 999);
 
       try {
-        const data = await getWordCountData({startDate, endDate});
+        const data = await getWordCountData({ startDate, endDate });
         if (!data || data.length === 0) {
           setSnapshots((prev: any) => ({
             ...prev,
@@ -167,7 +162,7 @@ const ReportsScreen: React.FC = () => {
       endDate.setHours(23, 59, 59, 999);
 
       try {
-        const data = await getClassicData({startDate, endDate});
+        const data = await getClassicData({ startDate, endDate });
         if (!data || data.length === 0) {
           setSnapshots((prev: any) => ({
             ...prev,
@@ -231,7 +226,7 @@ const ReportsScreen: React.FC = () => {
       endDate.setHours(23, 59, 59, 999);
 
       try {
-        const data = await getAIResponseTimeData({startDate, endDate});
+        const data = await getAIResponseTimeData({ startDate, endDate });
         if (!data || data.length === 0) {
           setSnapshots((prev: any) => ({
             ...prev,
@@ -288,6 +283,7 @@ const ReportsScreen: React.FC = () => {
         }));
       } catch (e) {
         // On error, keep empty snapshot
+
       }
     };
 
@@ -307,7 +303,7 @@ const ReportsScreen: React.FC = () => {
       endDate.setHours(23, 59, 59, 999);
 
       try {
-        const data = await getAIResolvedData({startDate, endDate});
+        const data = await getAIResolvedData({ startDate, endDate });
         if (!data || data.length === 0) {
           setSnapshots((prev: any) => ({
             ...prev,
@@ -347,6 +343,7 @@ const ReportsScreen: React.FC = () => {
         }));
       } catch (e) {
         // On error, keep empty snapshot
+
       }
     };
 
@@ -354,10 +351,10 @@ const ReportsScreen: React.FC = () => {
   }, [isInitialized, isLoading, getAIResolvedData]);
 
   const metrics: any[] = [
-    {key: 'metric1', ...snapshots.metric1}, // Total utterances
-    {key: 'metric3', ...snapshots.metric3}, // Classic Board
-    {key: 'metric2', ...snapshots.metric2}, // AI Response Time
-    {key: 'metric4', ...snapshots.metric4}, // AI Resolved
+    { key: 'metric1', ...snapshots.metric1 }, // Total utterances
+    { key: 'metric3', ...snapshots.metric3 }, // Classic Board
+    { key: 'metric2', ...snapshots.metric2 }, // AI Response Time
+    { key: 'metric4', ...snapshots.metric4 }, // AI Resolved
   ];
 
   const handleViewDetails = (metricKey: string, title: string) => {
@@ -537,12 +534,12 @@ const ReportsScreen: React.FC = () => {
   };
 
   return (
-    <LinearGradient colors={['#ffffff', '#f8f9fe']} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() =>
-            navigation.navigate(views.SETTINGS, {fromReports: true} as any)
+            navigation.navigate(views.SETTINGS, { fromReports: true } as any)
           }>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
@@ -645,14 +642,14 @@ const ReportsScreen: React.FC = () => {
                   case 'metric4':
                     return () => setShowAIResolvedInfo(true);
                   default:
-                    return () => {};
+                    return () => { };
                 }
               };
 
               return (
                 <View key={metric.key} style={[styles.quickAccessCardWrapper]}>
                   <TouchableOpacity
-                    style={[styles.quickAccessCard, {borderColor: borderColor}]}
+                    style={[styles.quickAccessCard, { borderColor: borderColor }]}
                     onPress={() => handleViewDetails(metric.key, metric.title)}>
                     {renderCardContent()}
                   </TouchableOpacity>
@@ -675,7 +672,7 @@ const ReportsScreen: React.FC = () => {
           return (
             <View
               key={metric.key}
-              style={[styles.snapshotCard, {borderColor: borderColor}]}>
+              style={[styles.snapshotCard, { borderColor: borderColor }]}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardHeaderLeft}>
                   <Text style={styles.cardTitle}>{metric.title}</Text>
@@ -833,18 +830,16 @@ const ReportsScreen: React.FC = () => {
         visible={showMedianInfo}
         onClose={() => setShowMedianInfo(false)}
         title="Median time to answer"
-        description={`The median time it took ${
-          preferences.heroName || 'your child'
-        } to answer questions using AI.`}
+        description={`The median time it took ${preferences.heroName || 'your child'
+          } to answer questions using AI.`}
       />
 
       <InfoModal
         visible={showInsightsInfo}
         onClose={() => setShowInsightsInfo(false)}
         title="Insights"
-        description={`In the last 30 days, 90% of questions were answered in under ${
-          snapshots.metric2.p90 || 'N/A'
-        } using AI.`}
+        description={`In the last 30 days, 90% of questions were answered in under ${snapshots.metric2.p90 || 'N/A'
+          } using AI.`}
       />
 
       {/* Dashboard Snapshot Info Modals */}
@@ -866,20 +861,18 @@ const ReportsScreen: React.FC = () => {
         visible={showAIResponseTimeInfo}
         onClose={() => setShowAIResponseTimeInfo(false)}
         title="AI Response Time"
-        description={`The average time it takes ${
-          preferences.heroName || 'your child'
-        } to answer a question using AI.`}
+        description={`The average time it takes ${preferences.heroName || 'your child'
+          } to answer a question using AI.`}
       />
 
       <InfoModal
         visible={showAIResolvedInfo}
         onClose={() => setShowAIResolvedInfo(false)}
         title="AI Resolved"
-        description={`How many questions ${
-          preferences.heroName || 'your child'
-        } answered using AI.`}
+        description={`How many questions ${preferences.heroName || 'your child'
+          } answered using AI.`}
       />
-    </LinearGradient>
+    </View>
   );
 };
 
@@ -923,7 +916,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     elevation: 4,
     borderWidth: 2,
     borderColor: '#E1BEE7',
@@ -956,7 +949,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     elevation: 4,
     borderWidth: 2,
     minHeight: height * 0.14,
@@ -1005,7 +998,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     elevation: 4,
     borderWidth: 2,
   },

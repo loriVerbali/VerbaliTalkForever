@@ -5,7 +5,6 @@ import LoggedNavigation from '../Navigation/LoggedNavigation';
 import InitNavigation from '../Navigation/InitNavigation';
 import { useAppSettings } from '../utils/persistance';
 import { stacks } from '../utils/constants';
-import { useConnection } from '../utils/connection';
 import { View, Text, Dimensions, StatusBar } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import NoInternetConnection from '../Components/NoInternetConnection';
@@ -34,8 +33,6 @@ const RootStackScreen: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       if (isLoading) {
-        // initializePreferences is now handled by AppSettingsProvider
-        // await initializePreferences();
         const wasOnboarded = await getItem('wasOnboarded');
         setShowOnboarding(wasOnboarded !== '1');
         setIsLoading(false);
