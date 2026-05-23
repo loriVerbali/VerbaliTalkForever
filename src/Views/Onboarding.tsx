@@ -236,9 +236,6 @@ const OnboardingScreen: React.FC = () => {
       if (selectedGender) {
         await setItem('gender', selectedGender);
       }
-      if (permissionsDenied || permissionsPermanentlyDenied) {
-        setCurrentStep(currentStep + 1);
-      }
 
       // Use the context to complete onboarding
       completeOnboarding();
@@ -723,28 +720,20 @@ const OnboardingScreen: React.FC = () => {
                         styles.permissionsExplanation,
                         { fontSize: 24, fontWeight: '900', color: '#FF6B6B' },
                       ]}>
-                      Manual Permission Required
+                      Speech Recognition Disabled
                     </Text>
                     <Text
                       style={[
                         styles.permissionsExplanation,
                         { color: '#FF6B6B' },
                       ]}>
-                      Please enable microphone manually in your device settings
-                      to continue using MaTalk AI fully or tap next and do this
-                      via the settings later
+                      Without microphone and speech recognition, voice commands and features won't be available.
+                      {"\n\n"}
+                      You can still use MaTalk AI to communicate by tapping on cards.
+                      {"\n\n"}
+                      If you change your mind later, you can enable these permissions in your device settings.
                     </Text>
-                    <TouchableOpacity
-                      style={styles.settingsButton}
-                      onPress={openSettings}>
-                      <Text
-                        style={[
-                          styles.buttonText,
-                          { fontSize: nextButtonTextFontSize },
-                        ]}>
-                        Open Settings
-                      </Text>
-                    </TouchableOpacity>
+
                   </>
                 )}
 
@@ -753,30 +742,16 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { color: '#FF6B6B', fontWeight: 'bold', marginTop: 20 },
+                        { color: '#8E24AA', fontWeight: 'bold', marginTop: 20 },
                       ]}>
-                      Are you sure?
+                      Speech Recognition is Limited
                     </Text>
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { color: '#FF6B6B' },
+                        { color: '#666' },
                       ]}>
-                      Without these permissions, MaTalk won't be able to:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        { color: '#FF6B6B', marginBottom: 10 },
-                      ]}>
-                      • Listen for your voice commands
-                    </Text>
-                    <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        { color: '#FF6B6B', marginBottom: 20 },
-                      ]}>
-                      • Provide the full MaTalk experience
+                      Without permission, you won't be able to use voice features like "Hey Verbi". You can still use the app by tapping on the screen.
                     </Text>
                   </>
                 )}
