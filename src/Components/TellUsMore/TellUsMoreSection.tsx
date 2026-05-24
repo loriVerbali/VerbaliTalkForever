@@ -20,6 +20,7 @@ import { AI_PLACEHOLDER_IMAGE_URI } from '../../utils/imageSourceResolver';
 import MagicBuildModal from './MagicBuildModal';
 import ContextModal from './ContextModal';
 import PreviewModal from './PreviewModal';
+import IntakeChatModal from './IntakeChatModal';
 
 // Mapping from AITilesMap keys to PepesData keys
 const CATEGORY_MAP: Record<keyof AITilesMap, string> = {
@@ -45,7 +46,8 @@ type ActiveModal =
   | 'context_edit'
   | 'context_add'
   | 'context_view'
-  | 'preview';
+  | 'preview'
+  | 'intake_chat';
 
 /**
  * TellUsMoreSection
@@ -162,6 +164,31 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
     setActiveModal('preview');
   };
 
+  const handleIntakeChatComplete = async (transcript: string) => {
+    try {
+      const req = {
+        transcriptOrInput: transcript,
+        currentFreeText: savedContext || '',
+        locale: 'en',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      };
+
+      const response: MagicPreviewResponse = await fetchHelper(
+        'magicBuild',
+        {},
+        req,
+      );
+
+      setPendingPreview(response);
+      setActiveModal('preview');
+    } catch (err: any) {
+      Alert.alert(
+        'Error',
+        'Could not generate the profile from the conversation. Please try again.'
+      );
+    }
+  };
+
   const handleMagicBuildSaveRaw = async (text: string) => {
     // Append to any existing context
     const current = savedContext.trim();
@@ -245,6 +272,20 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
         {hasContext && (
           <View style={styles.actionRow}>
             <TouchableOpacity
+              style={[styles.iconBtn, styles.iconBtnMagic]}
+              accessibilityLabel="Magic Build"
+              onPress={() => setActiveModal('magicBuild')}>
+              <Text style={styles.iconBtnMagicText}>✨</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconBtn}
+              accessibilityLabel="Guided Intake Session"
+              onPress={() => setActiveModal('intake_chat')}>
+              <Text style={styles.iconBtnText}>💬</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.iconBtn}
               accessibilityLabel="Edit Tell Us More"
               onPress={() => setActiveModal('context_edit')}>
@@ -275,6 +316,13 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
             onPress={() => setActiveModal('magicBuild')}
             accessibilityLabel="Start with Magic Build">
             <Text style={styles.magicBuildCtaText}>✨ Start with Magic Build</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.intakeChatCta}
+            onPress={() => setActiveModal('intake_chat')}
+            accessibilityLabel="Start Guided Intake Session">
+            <Text style={styles.intakeChatCtaText}>💬 Start Guided Intake Session</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -338,6 +386,13 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
         onAccept={handleAcceptPreview}
         onBack={() => setActiveModal('magicBuild')}
         onCancel={handlePreviewCancel}
+      />
+
+      <IntakeChatModal
+        visible={activeModal === 'intake_chat'}
+        childName={heroName}
+        onCancel={close}
+        onComplete={handleIntakeChatComplete}
       />
     </View>
   );
@@ -422,6 +477,20 @@ const styles = StyleSheet.create({
   },
   magicBuildCtaText: {
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  intakeChatCta: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#8E24AA',
+  },
+  intakeChatCtaText: {
+    color: '#8E24AA',
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,

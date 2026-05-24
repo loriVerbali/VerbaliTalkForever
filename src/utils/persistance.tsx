@@ -71,6 +71,8 @@ interface Preferences {
   deviceRevoked: string;
   answersCount: string;
   tellUsMore: string;
+  intakeActiveStepIndex: string;
+  intakeStepStatuses: string;
 }
 
 const initEnum = {
@@ -144,6 +146,8 @@ export const initialPreferences: Preferences = {
   deviceRevoked: initEnum.false,
   answersCount: '5',
   tellUsMore: '',
+  intakeActiveStepIndex: '0',
+  intakeStepStatuses: '[]',
 };
 
 interface AppSettingsContextProps {

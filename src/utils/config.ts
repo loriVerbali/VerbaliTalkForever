@@ -24,8 +24,8 @@ export interface ConfigType {
 }
 
 const AppConfig: ConfigType = {
-  baseUrl: 'https://matalkapi-production.up.railway.app',
-  //baseUrl: 'http://192.168.1.175:3000',
+  //baseUrl: 'https://matalkapi-production.up.railway.app',
+  baseUrl: 'http://192.168.1.175:3000',
   //baseUrl: 'http://localhost:3000',
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: Config.GEMINI_API_KEY || '',
@@ -317,6 +317,18 @@ const AppConfig: ConfigType = {
       sendDeviceKey: false,
       jsonMethod: true,
       suffixUrl: '/api/context/finalize-preview',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    intakeChat: {
+      description: 'intakeChat',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/api/context/intake-chat',
       mustStringify: true,
       isFlatResponse: false,
       isPicsUrl: false,
