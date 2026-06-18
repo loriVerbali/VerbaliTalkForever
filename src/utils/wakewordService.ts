@@ -6,8 +6,6 @@ import {
 } from 'react-native-wakeword';
 import Config from 'react-native-config';
 import DeviceInfo from 'react-native-device-info';
-import { Platform } from 'react-native';
-import AudioSessionManager from './AudioSessionManager';
 import mixpanel from './mixpanelInstance';
 
 interface InstanceConfig {
@@ -44,9 +42,11 @@ class WakeWordService {
   private isInitialized: boolean = false;
 
   private isListening: boolean = false;
+  private isDetectionPaused: boolean = false;
   private license: string = Config.WAKEWORD_LICENSE || '';
   private initializingPromise: Promise<void> | null = null; // Track ongoing initialization
   private startingPromise: Promise<void> | null = null; // Track ongoing startListening
+  private cleanupPromise: Promise<void> | null = null;
   private deviceModel: string | null = null;
   private iosVersion: string | null = null;
   private statusCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -274,8 +274,9 @@ class WakeWordService {
         // Track Hey Verbi detection
         mixpanel.track('Hey Verbi Detected');
 
-        // Stop detection when keyword is detected
-        await this.stopListening();
+        // Keep the initialized detector available for the upcoming STT/TTS
+        // handoff while releasing its microphone.
+        await this.pauseDetection(true);
 
         // Format the phrase
         const formattedPhrase = this.formatWakeWord(instanceConfigs[0].id);
@@ -322,6 +323,10 @@ class WakeWordService {
 
   // Start listening for wake words
   public async startListening(): Promise<void> {
+    if (this.cleanupPromise) {
+      await this.cleanupPromise;
+    }
+
     // If startListening is already in progress, wait for it instead of starting a new one
     if (this.startingPromise) {
       await this.startingPromise;
@@ -332,6 +337,10 @@ class WakeWordService {
     this.startingPromise = (async () => {
       try {
         if (this.isListening) {
+          if (this.isDetectionPaused && this.keywordInstance) {
+            await this.keywordInstance.unPauseDetection();
+            this.isDetectionPaused = false;
+          }
           return;
         }
 
@@ -351,21 +360,13 @@ class WakeWordService {
           await this.setupCallback();
         }
 
-        // Prepare audio session for wakeword before starting
-        if (Platform.OS === 'ios') {
-          await AudioSessionManager.prepareForWakeword();
-        }
-
-        // Add a small delay to ensure audio session is ready
-        await new Promise<void>(resolve => setTimeout(resolve, 100));
-
         try {
-          const detectionResult =
-            await this.keywordInstance.startKeywordDetection(
-              instanceConfigs[0].threshold,
-            );
+          await this.keywordInstance.startKeywordDetection(
+            instanceConfigs[0].threshold,
+          );
 
           this.isListening = true;
+          this.isDetectionPaused = false;
 
           // Set up a periodic check to verify service is still active (for debugging)
           if (this.statusCheckInterval) {
@@ -452,11 +453,13 @@ class WakeWordService {
       // Stop detection
       await this.keywordInstance.stopKeywordDetection();
       this.isListening = false;
+      this.isDetectionPaused = false;
       // Clear startingPromise after successful stop
       this.startingPromise = null;
     } catch (error) {
       console.error('Error stopping wake word detection:', error);
       this.isListening = false;
+      this.isDetectionPaused = false;
       // Clear startingPromise even on error
       this.startingPromise = null;
       throw error;
@@ -465,27 +468,80 @@ class WakeWordService {
 
   // Check if currently listening
   public isCurrentlyListening(): boolean {
-    return this.isListening;
+    return this.isListening && !this.isDetectionPaused;
+  }
+
+  public async pauseDetection(stopMic: boolean = true): Promise<void> {
+    if (this.startingPromise) {
+      await this.startingPromise;
+    }
+
+    if (
+      !this.isListening ||
+      this.isDetectionPaused ||
+      !this.keywordInstance
+    ) {
+      return;
+    }
+
+    await this.keywordInstance.pauseDetection(stopMic);
+    this.isDetectionPaused = true;
+  }
+
+  public async resumeDetection(): Promise<void> {
+    await this.startListening();
   }
 
   // Clean up resources
   public async cleanup(): Promise<void> {
-    try {
-      if (this.restartTimeout) {
-        clearTimeout(this.restartTimeout);
-        this.restartTimeout = null;
-      }
-
-      await this.stopListening();
-      this.removeEventListener();
-      this.keywordInstance = null;
-      this.isInitialized = false;
-      this.wakeWordCallback = null;
-      this.initializingPromise = null;
-      this.startingPromise = null;
-    } catch (error) {
-      console.error('Error during cleanup:', error);
+    if (this.cleanupPromise) {
+      await this.cleanupPromise;
+      return;
     }
+
+    this.cleanupPromise = (async () => {
+      try {
+        if (this.restartTimeout) {
+          clearTimeout(this.restartTimeout);
+          this.restartTimeout = null;
+        }
+
+        if (this.initializingPromise) {
+          try {
+            await this.initializingPromise;
+          } catch {
+            // Initialization failure still needs the local state reset below.
+          }
+        }
+
+        await this.stopListening();
+        this.removeEventListener();
+
+        if (this.keywordInstance) {
+          try {
+            await this.keywordInstance.destroyInstance();
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            if (!message.includes('InstanceNotFound')) {
+              throw error;
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error during cleanup:', error);
+      } finally {
+        this.keywordInstance = null;
+        this.isInitialized = false;
+        this.isDetectionPaused = false;
+        this.wakeWordCallback = null;
+        this.initializingPromise = null;
+        this.startingPromise = null;
+        this.cleanupPromise = null;
+      }
+    })();
+
+    await this.cleanupPromise;
   }
 
   // Restart listening (useful after detection)
@@ -515,6 +571,7 @@ class WakeWordService {
     return {
       isInitialized: this.isInitialized,
       isListening: this.isListening,
+      isDetectionPaused: this.isDetectionPaused,
       hasInstance: !!this.keywordInstance,
       hasEventListener: !!this.eventListener,
       hasCallback: !!this.wakeWordCallback,

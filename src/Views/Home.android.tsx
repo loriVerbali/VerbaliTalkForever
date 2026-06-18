@@ -33,7 +33,7 @@ import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
 import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
-import Voice from '@dev-amirzubair/react-native-voice';
+import Voice, { subscribeToSpeechEvents } from '../utils/STTService';
 import { useDatabase } from '../contexts/DatabaseContext';
 
 const { width, height } = Dimensions.get('window');
@@ -328,73 +328,51 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       );
     } catch (error) { }
 
-    Voice.onSpeechStart = () => {
-      console.log('Voice: onSpeechStart');
-    };
-
-    // Set up speech end handler
-    Voice.onSpeechEnd = () => {
-      console.log('Voice: onSpeechEnd');
-    };
-
-    Voice.onSpeechError = (e: any) => {
-      // Log detailed error info - error codes:
-      // 1=NETWORK_TIMEOUT, 2=NETWORK, 3=AUDIO, 4=SERVER, 5=CLIENT,
-      // 6=SPEECH_TIMEOUT, 7=NO_MATCH, 8=RECOGNIZER_BUSY, 9=INSUFFICIENT_PERMISSIONS
-      console.error('Speech error:', JSON.stringify(e));
-      console.error('Speech error code:', e?.error?.code);
-      console.error('Speech error message:', e?.error?.message);
-      setIsRecording(false);
-      isRecordingRef.current = false;
-    };
-    // Set up final results handler
-    // Note: event.value is an array of recognized text strings
-    Voice.onSpeechResults = (event: any) => {
-      if (event.value && event.value.length > 0) {
-        // event.value is already an array of results
-        setVoiceResults(event.value[0]);
-        voiceResultsRef.current = event.value;
-      }
-    };
-
-    // Set up partial results handler for streaming text
-    Voice.onSpeechPartialResults = (event: any) => {
-      let partialText = '';
-
-      // event.value is an array of partial results
-      if (event.value && event.value.length > 0) {
-        partialText = event.value[0];
-      }
-
-      if (partialText) {
-        // Update state for UI
-        setPartialResult(partialText);
-        // Update ref for sync access in processVoiceResults
-        partialResultRef.current = partialText;
-
-        // Update input field with partial result (streaming to input like iOS)
-        if (inputsRef.current) {
-          inputsRef.current.setInput(partialText);
+    const unsubscribe = subscribeToSpeechEvents({
+      onSpeechStart: () => {
+        console.log('Voice: onSpeechStart');
+      },
+      onSpeechEnd: () => {
+        console.log('Voice: onSpeechEnd');
+      },
+      onSpeechError: (e: any) => {
+        console.error('Speech error:', JSON.stringify(e));
+        console.error('Speech error code:', e?.error?.code);
+        console.error('Speech error message:', e?.error?.message);
+        setIsRecording(false);
+        isRecordingRef.current = false;
+      },
+      onSpeechResults: (event: any) => {
+        if (event.value && event.value.length > 0) {
+          setVoiceResults(event.value[0]);
+          voiceResultsRef.current = event.value;
+        }
+      },
+      onSpeechPartialResults: (event: any) => {
+        let partialText = '';
+        if (event.value && event.value.length > 0) {
+          partialText = event.value[0];
         }
 
-        // Reset silence timer - we got new input
-        lastPartialUpdateTimeRef.current = Date.now();
-
-        // Clear existing silence timer
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-
-        // Set new silence timer - if no new partial results for 2 seconds, stop recording
-        silenceTimerRef.current = setTimeout(async () => {
-          // Only stop if we have some text and are still recording
-          if (partialResultRef.current.trim().length > 0) {
-            await stopRecording();
+        if (partialText) {
+          setPartialResult(partialText);
+          partialResultRef.current = partialText;
+          if (inputsRef.current) {
+            inputsRef.current.setInput(partialText);
           }
-        }, SILENCE_TIMEOUT);
-      }
-    };
+          lastPartialUpdateTimeRef.current = Date.now();
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+          silenceTimerRef.current = setTimeout(async () => {
+            if (partialResultRef.current.trim().length > 0) {
+              await stopRecording();
+            }
+          }, SILENCE_TIMEOUT);
+        }
+      },
+    });
 
     const loadGobackAfterSelectionSetting = async () => {
       try {
@@ -426,6 +404,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Cleanup function
     return () => {
+      unsubscribe();
       Voice.destroy();
     };
   }, [stateof]);

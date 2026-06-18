@@ -88,10 +88,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
 
     if (sentenceText.trim()) {
       const TTSService = require('../../utils/TTSService').default;
-      const AudioSessionManager =
-        require('../../utils/AudioSessionManager').default;
 
-      await AudioSessionManager.prepareForTTS();
       TTSService.speak(sentenceText, true);
       onPlayPress();
     }

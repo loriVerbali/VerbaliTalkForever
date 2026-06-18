@@ -24,7 +24,6 @@ import { useAppSettings } from '../../utils/persistance';
 import { sentenceBuilderSqlite } from '../../utils/sentenceBuilderSqlite';
 import AppConfig from '../../utils/config';
 import TTSService from '../../utils/TTSService';
-import AudioSessionManager from '../../utils/AudioSessionManager';
 import {
   Node,
   FolderStackItem,
@@ -498,11 +497,7 @@ const SentenceBuilderGrid: React.FC<SentenceBuilderGridProps> = ({
 
         // Speak the word using TTS (always speak, even if it's a consecutive duplicate)
         const textToSpeak = node.ttsText || node.title;
-        const onPlaybackComplete = async () => {
-          AudioSessionManager.setTTSActive(false);
-        };
-        await AudioSessionManager.prepareForTTS();
-        await TTSService.speak(textToSpeak, true, onPlaybackComplete);
+        await TTSService.speak(textToSpeak, true);
 
         // Logic for adding to sentence: block consecutive duplicates
         const isConsecutiveDuplicate =

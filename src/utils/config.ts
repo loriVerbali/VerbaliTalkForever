@@ -20,18 +20,20 @@ export interface ConfigType {
   picGeneration: string;
   assemblyAIURL: string;
   masterAdminCode: string;
+  davoiceLicense: string;
   methods: Record<string, MethodObject>;
 }
 
 const AppConfig: ConfigType = {
   //baseUrl: 'https://matalkapi-production.up.railway.app',
-  baseUrl: 'http://192.168.1.175:3000',
+  baseUrl: 'http://192.168.1.7:3000',
   //baseUrl: 'http://localhost:3000',
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: Config.GEMINI_API_KEY || '',
   picGeneration: 'polli',
   assemblyAIURL: 'https://api.assemblyai.com/v2',
   masterAdminCode: '78567',
+  davoiceLicense: Config.DAVOICE_LICENSE || '',
 
   methods: {
     registerUser: {

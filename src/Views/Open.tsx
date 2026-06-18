@@ -26,7 +26,6 @@ import { useConnection } from '../utils/connection';
 import ShowAndTell from '../Components/ShowAndTell';
 import mixpanel from '../utils/mixpanelInstance';
 import WakeWordService from '../utils/wakewordService';
-import AudioSessionManager from '../utils/AudioSessionManager';
 import { useAdmin } from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
 import { check, PERMISSIONS, RESULTS } from 'react-native-permissions';
@@ -261,8 +260,6 @@ const OpenScreen: React.FC = () => {
   ]);
 
   const askForAdultHelp = async () => {
-    // Prepare audio session for TTS to ensure consistent volume
-    await AudioSessionManager.prepareForTTS();
     TTSService.speak(
       'There seems to be a problem , please ask an adult for help',
     );
@@ -500,15 +497,6 @@ const OpenScreen: React.FC = () => {
           return;
         }
 
-        // CRITICAL: Always prepare audio session for wakeword when screen comes into focus
-        // This ensures the audio session is properly configured even if it was changed
-        // by other screens (e.g., Settings video playback)
-        if (Platform.OS === 'ios') {
-          await AudioSessionManager.prepareForWakeword();
-          // Small delay to ensure audio session is ready
-          await new Promise<void>(resolve => setTimeout(resolve, 100));
-        }
-
         const MAX_RETRIES = 2;
         const INITIAL_DELAY_MS = 300;
 
@@ -688,17 +676,9 @@ const OpenScreen: React.FC = () => {
     setIsHandshakeSpeaking(true);
     handshakeTappedRef.current = true; // Set flag to prevent navigation on wake word
 
-    // Prepare audio session for TTS (after stopping wakeword)
-    await AudioSessionManager.prepareForTTS();
-
     // Speak the introduction message with completion callback
     const message = `${preferences?.handshakeMessage}`;
     await TTSService.speak(message, true, async () => {
-      // Always clear the flag after playback completes
-      AudioSessionManager.setTTSActive(false);
-      // Prepare audio session for wakeword (after TTS ends)
-      await AudioSessionManager.prepareForWakeword();
-
       // Restart wakeword when TTS finishes (only if not already listening)
       try {
         const wasOnboarded = await getItem('wasOnboarded');
@@ -1086,8 +1066,6 @@ const OpenScreen: React.FC = () => {
                             isDebouncing.current = false;
                           }, 1000);
                           mixpanel.track('8 Words Pressed');
-                          // Prepare audio session for TTS to ensure consistent volume
-                          await AudioSessionManager.prepareForTTS();
                           TTSService.speak(card.word, true);
                         }}
                         activeOpacity={0.7}>
@@ -1117,8 +1095,6 @@ const OpenScreen: React.FC = () => {
                             isDebouncing.current = false;
                           }, 1000);
                           mixpanel.track('8 Words Pressed');
-                          // Prepare audio session for TTS to ensure consistent volume
-                          await AudioSessionManager.prepareForTTS();
                           TTSService.speak(card.word, true);
                         }}
                         activeOpacity={0.7}>

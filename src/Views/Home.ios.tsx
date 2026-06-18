@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,14 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, RouteProp } from '@react-navigation/native';
-import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useNavigation, RouteProp} from '@react-navigation/native';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
-import Inputs, { InputsRef } from '../Components/Inputs';
+import Inputs, {InputsRef} from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
-import { useAssistant } from '../contexts/AssistantContext';
+import {useAssistant} from '../contexts/AssistantContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -24,19 +24,23 @@ import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
 import mixpanel from '../utils/mixpanelInstance';
-import { logConversation } from '../utils/conversationLogger';
-import { useAdmin } from '../contexts/adminContext';
-import { views } from '../utils/constants';
-import { useAppSettings } from '../utils/persistance';
+import {logConversation} from '../utils/conversationLogger';
+import {useAdmin} from '../contexts/adminContext';
+import {views} from '../utils/constants';
+import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
-import AudioSessionManager from '../utils/AudioSessionManager';
-import WhisperService from '../utils/WhisperService';
-import { useDatabase } from '../contexts/DatabaseContext';
+import Voice, {
+  logSpeechDiagnostics,
+  startSpeechRecognition,
+  stopSpeechRecognition,
+  subscribeToSpeechEvents,
+} from '../utils/STTService';
+import {useDatabase} from '../contexts/DatabaseContext';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: { stateof?: 'Attention' | 'Keyboard' | string };
+  Home: {stateof?: 'Attention' | 'Keyboard' | string};
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -45,22 +49,35 @@ interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
 const DEBUGWITHOUTTRANSCRIPTION = false;
+const STT_DEBUG = false;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was your practice today?';
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
+const sttTrace = (...args: unknown[]) => {
+  if (STT_DEBUG) {
+    console.log(...args);
+  }
+};
+
+const sttWarn = (...args: unknown[]) => {
+  if (STT_DEBUG) {
+    console.warn(...args);
+  }
+};
+
+const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {
     generateAnswers,
     conversationHistory,
     addToConversationHistory,
     updateLastAssistantMessage,
   } = useAssistant();
-  const { weather, location } = useChatContext();
-  const { isTablet } = useAdmin();
+  const {weather, location} = useChatContext();
+  const {isTablet} = useAdmin();
   const insets = useSafeAreaInsets();
-  const { getItem, preferences } = useAppSettings();
-  const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
+  const {getItem, preferences} = useAppSettings();
+  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
   const stateof = route?.params?.stateof ?? '';
   const [isRecording, setIsRecording] = useState(false);
 
@@ -95,7 +112,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           }
         }
       }
-    } catch (error) { }
+    } catch (error) {}
 
     return fallbackUrl || '';
   };
@@ -113,14 +130,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
-    Array<{ word: string; imageUrl?: string }>
+    Array<{word: string; imageUrl?: string}>
   >([]);
   const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
 
@@ -140,12 +156,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const responsiveValues = {
     // Icon sizes
     microphoneSize: isTablet
-      ? { width: 45, height: 45 }
-      : { width: 35, height: 35 },
+      ? {width: 45, height: 45}
+      : {width: 35, height: 35},
     fetchingSize: isTablet
-      ? { width: 200, height: 200 }
-      : { width: 150, height: 150 },
-    matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
+      ? {width: 200, height: 200}
+      : {width: 150, height: 150},
+    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
 
     // Layout dimensions
     inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
@@ -159,11 +175,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
-      ? { width: width * 0.3, height: width * 0.3 }
-      : { width: width * 0.25, height: width * 0.25 },
+      ? {width: width * 0.3, height: width * 0.3}
+      : {width: width * 0.25, height: width * 0.25},
     recordingIconSize: isTablet
-      ? { width: width * 0.4, height: width * 0.4 }
-      : { width: width * 0.35, height: width * 0.2 },
+      ? {width: width * 0.4, height: width * 0.4}
+      : {width: width * 0.35, height: width * 0.2},
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -175,8 +191,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Button dimensions
     keyboardButtonPadding: isTablet
-      ? { vertical: 14, horizontal: 35 }
-      : { vertical: 12, horizontal: 30 },
+      ? {vertical: 14, horizontal: 35}
+      : {vertical: 12, horizontal: 30},
     keyboardButtonMinWidth: isTablet ? 120 : 100,
     keyboardButtonBorderRadius: isTablet ? 28 : 25,
 
@@ -193,16 +209,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     navigationCardBorderRadius: isTablet ? 15 : 12,
     navigationCardPadding: isTablet ? 18 : 15,
     navigationCardImageSize: isTablet
-      ? { width: 70, height: 70 }
-      : { width: 60, height: 60 },
+      ? {width: 70, height: 70}
+      : {width: 60, height: 60},
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? { width: 50, height: 50 }
-      : { width: 40, height: 40 },
+      ? {width: 50, height: 50}
+      : {width: 40, height: 40},
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? { width: 0, height: 3 } : { width: 0, height: 2 },
+    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
     elevation: isTablet ? 6 : 4,
 
     // Waiting for next conversation
@@ -239,15 +255,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const lastSoundTimeRef = useRef<number>(Date.now());
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
-  const lastPartialUpdateTime = useRef<number | null>(null);
-  const lastPartialResult = useRef<string>('');
-  const recordingStartTime = useRef<number | null>(null);
-  const silenceDetectionTimer = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const [voiceResults, setVoiceResults] = useState<string[]>([]);
+  const [partialResult, setPartialResult] = useState<string>('');
+  const voiceResultsRef = useRef<string[]>([]);
+  const partialResultRef = useRef<string>('');
+  const lastPartialUpdateTimeRef = useRef<number>(Date.now());
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const SILENCE_TIMEOUT = 3500;
+  const isRecordingRef = useRef(false);
   const [showImages, setShowImages] = useState(false);
   const [finishedTranscribing, setFinishedTranscribing] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
@@ -256,6 +271,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [isUsingLocalWhisper, setIsUsingLocalWhisper] = useState(false);
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
+
+  useEffect(() => {
+    sttTrace(
+      `[STT TRACE][Home state] isRecording=${isRecording} isTranscribing=${isTranscribing} finished=${finishedTranscribing} partial="${partialResult}" transcribed="${transcribedText}"`,
+    );
+  }, [
+    finishedTranscribing,
+    isRecording,
+    isTranscribing,
+    partialResult,
+    transcribedText,
+  ]);
 
   let currentRecordingURI: string | null = null;
 
@@ -285,7 +312,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) { }
+        } catch (error) {}
       }
 
       setResponseTimerStart(null);
@@ -305,7 +332,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) { }
+      } catch (error) {}
     };
 
     // Load the setting
@@ -316,14 +343,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       Opened: 'Conversation',
     });
     if (stateof === 'Attention') {
-      console.log(
+      sttTrace(
         `[Home] Entering Attention state. Current answersCount: ${preferences.answersCount}`,
       );
       // wakeWord.stopListening();
       mixpanel.track('Recording Restarted', {
         source: 'attention_state',
       });
-      playSound();
+      const startRecordingTimer = setTimeout(() => {
+        playSound();
+      }, 0);
+      return () => clearTimeout(startRecordingTimer);
     }
     if (stateof === 'Keyboard') {
       const wakeWordService = WakeWordService.getInstance();
@@ -331,7 +361,128 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   }, [stateof]); // Dependency on stateof ensures this runs when coming from Open.tsx
 
-  // Cleanup useEffect for wake word service and Whisper
+  useEffect(() => {
+    sttTrace('[STT TRACE][Home] subscribing to speech events');
+    const unsubscribe = subscribeToSpeechEvents(
+      {
+        onSpeechStart: (event: any) => {
+        sttTrace(
+          '[STT TRACE][Home] onSpeechStart',
+          JSON.stringify(event),
+          `isRecordingRef=${isRecordingRef.current}`,
+        );
+        },
+        onSpeechEnd: (event: any) => {
+        sttTrace(
+          '[STT TRACE][Home] onSpeechEnd',
+          JSON.stringify(event),
+          `partialRef="${partialResultRef.current}"`,
+          `resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
+        );
+        },
+        onSpeechError: (e: any) => {
+        if (e?.error?.code === 'already_started' && isRecordingRef.current) {
+          sttTrace(
+            '[STT TRACE][Home] already_started ignored while recording',
+          );
+          return;
+        }
+        console.error(
+          '[STT TRACE][Home] onSpeechError',
+          JSON.stringify(e),
+          `isRecordingRef=${isRecordingRef.current}`,
+        );
+        setIsRecording(false);
+        isRecordingRef.current = false;
+        },
+        onSpeechResults: (event: any) => {
+        sttTrace(
+          '[STT TRACE][Home] onSpeechResults raw=',
+          JSON.stringify(event),
+          `isRecordingRef=${isRecordingRef.current}`,
+        );
+        if (!isRecordingRef.current) {
+          sttTrace('[STT TRACE][Home] final result ignored: not recording');
+          return;
+        }
+        if (event.value && event.value.length > 0) {
+          setVoiceResults(event.value[0]);
+          voiceResultsRef.current = event.value;
+          sttTrace(
+            '[STT TRACE][Home] final results stored',
+            JSON.stringify(voiceResultsRef.current),
+          );
+        } else {
+          sttWarn('[STT TRACE][Home] final result event had no value');
+        }
+        },
+        onSpeechPartialResults: (event: any) => {
+        sttTrace(
+          '[STT TRACE][Home] onSpeechPartialResults raw=',
+          JSON.stringify(event),
+          `isRecordingRef=${isRecordingRef.current}`,
+        );
+        if (!isRecordingRef.current) {
+          sttTrace('[STT TRACE][Home] partial ignored: not recording');
+          return;
+        }
+        let partialText = '';
+        if (event.value && event.value.length > 0) {
+          partialText = event.value[0];
+        }
+        if (partialText) {
+          sttTrace(
+            `[STT TRACE][Home] partial extracted="${partialText}" inputRef=${!!inputsRef.current}`,
+          );
+          setPartialResult(partialText);
+          partialResultRef.current = partialText;
+          sttTrace(
+            `[STT TRACE][Home] partial stored ref="${partialResultRef.current}"`,
+          );
+          if (inputsRef.current) {
+            inputsRef.current.setInput(partialText);
+            sttTrace('[STT TRACE][Home] partial pushed to Inputs ref');
+          } else {
+            sttWarn('[STT TRACE][Home] Inputs ref unavailable');
+          }
+          lastPartialUpdateTimeRef.current = Date.now();
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+          silenceTimerRef.current = setTimeout(async () => {
+            sttTrace(
+              `[STT TRACE][Home] silence timer fired partialRef="${partialResultRef.current}"`,
+            );
+            if (partialResultRef.current.trim().length > 0) {
+              await stopRecording();
+            }
+          }, SILENCE_TIMEOUT);
+          sttTrace(
+            `[STT TRACE][Home] silence timer armed ms=${SILENCE_TIMEOUT}`,
+          );
+        } else {
+          sttWarn('[STT TRACE][Home] partial event contained empty text');
+        }
+        },
+        onSpeechVolumeChanged: (event: any) => {
+        const value = Number(event?.value);
+        if (Number.isFinite(value)) {
+          metering.current = value;
+        }
+        },
+      },
+      {key: 'Home.ios'},
+    );
+
+    return () => {
+      sttTrace('[STT TRACE][Home] unsubscribing from speech events');
+      unsubscribe();
+      stopSpeechRecognition().catch(() => {});
+    };
+  }, []);
+
+  // Cleanup useEffect for wake word service and Voice timers
   useEffect(() => {
     return () => {
       // Always cleanup wake word service
@@ -340,7 +491,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
       // Only cleanup Whisper service when component actually unmounts
       // Don't destroy it when just waiting for next conversation
-      WhisperService.destroy().catch(error => { });
 
       // Cleanup response timer
       if (responseTimerRef.current) {
@@ -348,16 +498,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         responseTimerRef.current = null;
       }
 
-      // Cleanup partial results timer
-      if (partialResultsTimer.current) {
-        clearInterval(partialResultsTimer.current);
-        partialResultsTimer.current = null;
-      }
-
-      // Cleanup silence detection timer
-      if (silenceDetectionTimer.current) {
-        clearTimeout(silenceDetectionTimer.current);
-        silenceDetectionTimer.current = null;
+      // Cleanup silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
 
       // Cleanup recording timer
@@ -371,485 +515,281 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const playSound = async () => {
     // COMMENTED OUT FOR TESTING
     // playAttention();
+    sttTrace('[STT TRACE][Home] playSound -> handleRecord');
     handleRecord();
   };
   // put this near your module top:
 
   const handleRecord = async () => {
-    if (isRecording) return;
+    sttTrace(
+      `[STT TRACE][Home] handleRecord called isRecordingRef=${isRecordingRef.current}`,
+    );
+    if (isRecordingRef.current) {
+      sttWarn('[STT TRACE][Home] handleRecord ignored: already recording');
+      return;
+    }
+    isRecordingRef.current = true;
+    sttTrace('[STT TRACE][Home] recording lock acquired');
 
-    // Track microphone press
     mixpanel.track('Microphone Pressed');
 
     try {
-      // Check and request microphone permission
       const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
-
+      sttTrace(`[STT TRACE][Home] microphone permission=${micPermission}`);
       if (micPermission === RESULTS.DENIED) {
         const result = await request(PERMISSIONS.IOS.MICROPHONE);
+        sttTrace(
+          `[STT PERMISSIONS][Home] microphone request result=${result}`,
+        );
         if (result !== RESULTS.GRANTED) {
-          mixpanel.track('Error', {
-            error_type: 'microphone_permission_denied',
-            error_message: 'Microphone permission denied by user',
-          });
           setFinishedTranscribing(true);
           setTranscribedText('Microphone permission is required');
           TTSService.speak('Please allow microphone access in Settings', true);
+          isRecordingRef.current = false;
           return;
         }
       } else if (micPermission === RESULTS.BLOCKED) {
-        mixpanel.track('Error', {
-          error_type: 'microphone_permission_blocked',
-          error_message: 'Microphone permission blocked',
-        });
         setFinishedTranscribing(true);
         setTranscribedText('Microphone permission is blocked');
         TTSService.speak('Please enable microphone access in Settings', true);
+        isRecordingRef.current = false;
         return;
       }
 
-      // Kill any audio that might hold the session
-      try {
-        await TTSService.stop?.();
-      } catch { }
+      const hasSpeechPermission =
+        await Voice.hasIOSSpeechRecognitionPermissions();
+      sttTrace(
+        `[STT TRACE][Home] speech permission existing=${hasSpeechPermission}`,
+      );
+      const speechGranted = hasSpeechPermission
+        ? true
+        : await Voice.requestIOSSpeechRecognitionPermissions(10000);
+      sttTrace(
+        `[STT PERMISSIONS][Home] DaVoice speech recognition granted=${String(
+          speechGranted,
+        )}`,
+      );
+      if (!speechGranted) {
+        setFinishedTranscribing(true);
+        setTranscribedText('Speech recognition permission is required');
+        TTSService.speak(
+          'Please allow speech recognition access in Settings',
+          true,
+        );
+        isRecordingRef.current = false;
+        return;
+      }
+      await logSpeechDiagnostics('home-permissions-complete');
+
       try {
         const w = WakeWordService.getInstance();
-        w.stopListening();
-      } catch { }
-
-      // Prepare audio session for Whisper (after stopping wakeword)
-      await AudioSessionManager.prepareForWhisper();
-
-      // Add a small delay to ensure audio session is released
-      await new Promise<void>(resolve => setTimeout(resolve, 200));
-
-      // Start real-time transcription with WhisperService
-
-      const started = await WhisperService.startRealTimeTranscription();
-
-      if (!started) {
-        mixpanel.track('Error', {
-          error_type: 'whisper_start_failed',
-          error_message:
-            'WhisperService.startRealTimeTranscription returned false',
-        });
-        setFinishedTranscribing(true);
-        setTranscribedText(ISSUEMESSAGE);
-        setIsRecording(false);
-        TTSService.speak('I am having an issue, Tap Home to retry', true);
-        return;
+        sttTrace(
+          `[STT TRACE][Home] wakeword cleanup begin listening=${w.isCurrentlyListening()}`,
+        );
+        await w.cleanup();
+        sttTrace('[STT TRACE][Home] wakeword cleanup complete');
+        await new Promise<void>(resolve => setTimeout(resolve, 800));
+        sttTrace('[STT TRACE][Home] wakeword handoff delay complete');
+      } catch (error) {
+        sttWarn('[STT TRACE][Home] wakeword cleanup failed:', error);
+        await new Promise<void>(resolve => setTimeout(resolve, 800));
       }
 
+      lastSoundTimeRef.current = 0;
+      metering.current = -100;
+
+      setVoiceResults([]);
+      setPartialResult('');
+      voiceResultsRef.current = [];
+      partialResultRef.current = '';
+      sttTrace('[STT TRACE][Home] transcript state and refs cleared');
+      lastPartialUpdateTimeRef.current = Date.now();
+
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      sttTrace('[STT TRACE][Home] STT session start requested');
       setIsRecording(true);
-      setIsUsingLocalWhisper(true); // Real-time transcription uses local Whisper
+      setIsUsingLocalWhisper(true);
+      await startSpeechRecognition('en-US');
+      sttTrace('[STT TRACE][Home] STT session start resolved');
 
-      // Reset silence detection
-      recordingStartTime.current = Date.now();
-      lastPartialUpdateTime.current = Date.now();
-      lastPartialResult.current = '';
-      if (silenceDetectionTimer.current) {
-        clearTimeout(silenceDetectionTimer.current);
-        silenceDetectionTimer.current = null;
-      }
+      sttTrace(
+        `[STT TRACE][Home] recording UI enabled isRecordingRef=${isRecordingRef.current}`,
+      );
 
-      // Start polling for partial results to display in input
-      partialResultsTimer.current = setInterval(() => {
-        const partialResult = WhisperService.getRealTimeResult();
-        if (partialResult && partialResult.trim().length > 0) {
-          // Update input field with partial result
-          if (inputsRef.current) {
-            inputsRef.current.setInput(partialResult);
-          }
-
-          // If the result changed, update the timestamp and reset silence timer
-          if (partialResult !== lastPartialResult.current) {
-            lastPartialUpdateTime.current = Date.now();
-            lastPartialResult.current = partialResult;
-
-            // Clear any existing silence detection timer
-            if (silenceDetectionTimer.current) {
-              clearTimeout(silenceDetectionTimer.current);
-              silenceDetectionTimer.current = null;
-            }
-
-            // Set a new timer: if no update for 2 seconds, auto-stop
-            silenceDetectionTimer.current = setTimeout(() => {
-              // Double-check: if still no change after 2 seconds, stop recording
-              const currentResult = WhisperService.getRealTimeResult();
-              const timeSinceRecordingStart = recordingStartTime.current
-                ? Date.now() - recordingStartTime.current
-                : 0;
-
-              // Only auto-stop if:
-              // 1. We have text
-              // 2. The text hasn't changed (still silence)
-              // 3. We've been recording for at least 1 second (safety check)
-              if (
-                currentResult === lastPartialResult.current &&
-                currentResult.trim().length > 0 &&
-                timeSinceRecordingStart >= 1000
-              ) {
-                stopRecording();
-              }
-            }, 2000);
-          }
-        } else if (lastPartialResult.current.trim().length > 0) {
-          // If we had text before but now it's empty, still track silence
-          // This handles edge cases where transcription might clear temporarily
-          if (!silenceDetectionTimer.current) {
-            silenceDetectionTimer.current = setTimeout(() => {
-              const currentResult = WhisperService.getRealTimeResult();
-              const timeSinceRecordingStart = recordingStartTime.current
-                ? Date.now() - recordingStartTime.current
-                : 0;
-
-              if (
-                currentResult.trim().length > 0 &&
-                timeSinceRecordingStart >= 1000
-              ) {
-                stopRecording();
-              }
-            }, 2000);
-          }
-        }
-      }, 500); // Poll every 500ms for smooth updates
-
-      // Auto-stop after 8 seconds (real-time will handle up to 300 seconds based on config)
-      recordingTimer.current = setTimeout(stopRecording, 8000);
+      recordingTimer.current = setTimeout(async () => {
+        sttTrace('[STT TRACE][Home] 20s recording timer fired');
+        await stopRecording();
+      }, 20000);
+      sttTrace('[STT TRACE][Home] 20s recording timer armed');
     } catch (error) {
-      // Clear partial results polling timer on error
-      if (partialResultsTimer.current) {
-        clearInterval(partialResultsTimer.current);
-        partialResultsTimer.current = null;
-      }
-
-      mixpanel.track('Error', {
-        error_type: 'handle_record_error',
-        error_message: error instanceof Error ? error.message : String(error),
-      });
+      console.error('[STT TRACE][Home] handleRecord failed:', error);
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
-      setIsRecording(false);
       TTSService.speak('I am having an issue, Tap Home to retry', true);
+      setIsRecording(false);
+      isRecordingRef.current = false;
     }
   };
 
   const stopRecording = async () => {
+    sttTrace(
+      `[STT TRACE][Home] stopRecording called partialRef="${
+        partialResultRef.current
+      }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
+    );
     try {
       if (recordingTimer.current) {
         clearTimeout(recordingTimer.current);
         recordingTimer.current = null;
       }
-
-      // Clear silence detection timer
-      if (silenceDetectionTimer.current) {
-        clearTimeout(silenceDetectionTimer.current);
-        silenceDetectionTimer.current = null;
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
 
-      // Clear partial results polling timer
-      if (partialResultsTimer.current) {
-        clearInterval(partialResultsTimer.current);
-        partialResultsTimer.current = null;
-      }
-
-      // Reset recording start time
-      recordingStartTime.current = null;
-
+      sttTrace('[STT TRACE][Home] stopSpeechRecognition begin');
+      await stopSpeechRecognition();
+      sttTrace('[STT TRACE][Home] stopSpeechRecognition resolved');
       setIsRecording(false);
-      setIsTranscribing(true);
+      isRecordingRef.current = false;
 
-      // Stop real-time transcription and get the result
-      const transcribedText = await WhisperService.stopRealTimeTranscription();
-
-      if (!transcribedText || transcribedText.trim().length === 0) {
-        mixpanel.track('Error', {
-          error_type: 'empty_transcription',
-          error_message: 'No transcription result from WhisperService',
-        });
-        setFinishedTranscribing(true);
-        setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-        setIsTranscribing(false);
-        // Prepare for TTS before speaking
-        await AudioSessionManager.prepareForTTS();
-        TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-        return;
-      }
-
-      // Prepare audio session for TTS (after stopping Whisper)
-      await AudioSessionManager.prepareForTTS();
-
-      // Process the transcription result directly
-      await processTranscriptionResult(transcribedText.trim());
-    } catch (e) {
-      mixpanel.track('Error', {
-        error_type: 'stop_recording_error',
-        error_message: e instanceof Error ? e.message : String(e),
-      });
+      setTimeout(() => {
+        sttTrace('[STT TRACE][Home] processVoiceResults timer fired');
+        processVoiceResults();
+      }, 300);
+    } catch (error) {
+      console.error('[STT TRACE][Home] stopRecording failed:', error);
       setIsRecording(false);
+      isRecordingRef.current = false;
       setIsTranscribing(false);
-      setTranscribedText(ISSUEMESSAGE);
       setFinishedTranscribing(true);
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
+      setTranscribedText(ISSUEMESSAGE);
     }
   };
 
-  // Process transcription result (extracted from transcribeAudio for reuse)
-  const processTranscriptionResult = async (transcribedText: string) => {
+  const processVoiceResults = async () => {
+    sttTrace(
+      `[STT TRACE][Home] processVoiceResults begin partialRef="${
+        partialResultRef.current
+      }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
+    );
     try {
-      // Filter out common false positives from Whisper
-      const falsePositives = [
-        'Thank you for watching!',
-        'Thank you for watching.',
-        'Thanks for watching!',
-        'Thanks for watching.',
-        'Thank you.',
-        '. .',
-        '.',
-      ];
+      const currentVoiceResults = voiceResultsRef.current;
+      const currentPartialResult = partialResultRef.current;
+
+      let transcribedText = '';
+      if (currentVoiceResults.length > 0) {
+        transcribedText = currentVoiceResults[0].trim();
+        sttTrace(
+          `[STT TRACE][Home] selected final result="${transcribedText}"`,
+        );
+      } else if (currentPartialResult.trim().length > 0) {
+        transcribedText = currentPartialResult.trim();
+        sttTrace(
+          `[STT TRACE][Home] selected partial fallback="${transcribedText}"`,
+        );
+      } else {
+        sttWarn('[STT TRACE][Home] no final or partial text available');
+      }
 
       if (
         transcribedText.length === 0 ||
-        falsePositives.includes(transcribedText)
+        transcribedText === 'Thank you for watching!' ||
+        transcribedText === 'Thank you for watching.' ||
+        transcribedText === 'Thanks for watching!' ||
+        transcribedText === 'Thanks for watching.' ||
+        transcribedText === '. .' ||
+        transcribedText === '.'
       ) {
-        mixpanel.track('Error', {
-          error_type: 'invalid_transcription',
-          error_message: 'Empty transcription or false positive detected',
-        });
         setFinishedTranscribing(true);
         setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-        setIsTranscribing(false);
         TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+        setIsTranscribing(false);
         return;
       }
 
-      // Valid transcription - process it
-      mixpanel.track('Question Asked');
-      setFinishedTranscribing(true);
-      setTranscribedText(transcribedText);
-      setIsProcessingAnswer(true);
-      setIsTranscribing(false);
-
-      // Set the transcribed text in the top input
-      if (inputsRef.current) {
-        inputsRef.current.setInput(transcribedText);
-      }
-
-      // Get cached context info
-      const contextInfo = getCachedContextInfo();
-      const corePrompt = `User asked: "${transcribedText}"`;
-      const contextPrompt = `Context: ${contextInfo}`;
-      const messageWithContext = `${corePrompt}. ${contextPrompt}`;
-
-      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
-      console.log(
-        `[Home] Requesting AI answers. Count: ${currentAnswersCount} (from preference: "${preferences.answersCount}")`,
-      );
-      const answers = await generateAnswers(transcribedText, {
-        mode: 'generate_answers',
-        metadata: {
-          contextInfo: contextInfo, // Weather, time, and location context
-        },
-        number: currentAnswersCount,
-        countMin: currentAnswersCount,
-        countMax: currentAnswersCount,
-      });
-
-      if (answers && answers.length > 0) {
-        // Process answers to resolve pepes images
-        const processedAnswers = await Promise.all(
-          answers.map(async answer => {
-            const pepesImageUrl = await resolvePepesImage(
-              answer.word,
-              answer.imageUrl,
-            );
-            return {
-              ...answer,
-              imageUrl: pepesImageUrl || answer.imageUrl,
-            };
-          }),
+      if (transcribedText.length > 0) {
+        sttTrace(
+          `[STT TRACE][Home] committing transcribedText to UI="${transcribedText}"`,
         );
-
-        setDirectAnswers(processedAnswers);
-        const answerWords = processedAnswers.map(answer => answer.word);
-        setAccumulatedPriors(answerWords);
-        setIsProcessingAnswer(false);
-        setShowImages(true);
-        startResponseTimer();
-
-        // Initialize AI Resolved record for Round 1
-        setCurrentAIRecord({
-          question: transcribedText,
-          round1Answers: answerWords,
-          currentRound: 1,
-        });
-
-        // Add to conversation history with "Suggested" prefix
-        const assistantResponse = `Suggested: ${processedAnswers
-          .map(answer => answer.word)
-          .join(', ')}`;
-        addToConversationHistory(transcribedText, assistantResponse);
-      } else {
-        mixpanel.track('Error', {
-          error_type: 'no_answers_generated',
-          error_message: 'generateAnswers returned empty array',
-        });
-        setIsProcessingAnswer(false);
-        TTSService.speak('I am having an issue, Tap Home to retry', true);
-      }
-    } catch (error) {
-      mixpanel.track('Error', {
-        error_type: 'process_transcription_error',
-        error_message: error instanceof Error ? error.message : String(error),
-      });
-      setIsProcessingAnswer(false);
-      setIsTranscribing(false);
-      TTSService.speak(
-        'Failed to process your request. Please try again.',
-        true,
-      );
-    }
-  };
-
-  // Local Whisper transcription - no fallback to cloud
-  const transcribeAudioWithWhisper = async (audioPath: string) => {
-    const audioUri = audioPath.replace('file://', '');
-
-    try {
-      setIsUsingLocalWhisper(true);
-      const whisperResult = await WhisperService.transcribeAudio(audioUri);
-
-      if (whisperResult.success && whisperResult.text.trim().length > 0) {
-        return { text: whisperResult.text.trim(), isLocal: true };
-      } else {
-        // No fallback to cloud - throw error if local fails
-        setIsUsingLocalWhisper(false);
-        throw new Error(
-          whisperResult.error || 'Local Whisper transcription failed',
-        );
-      }
-    } catch (error) {
-      setIsUsingLocalWhisper(false);
-      throw error;
-    }
-  };
-  // Cloud-based transcription (original method)
-  const transcribeAudioCloud = async (audioPath: string) => {
-    if (!audioPath) {
-      setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
-      setIsRecording(false);
-      return;
-    }
-
-    const formData = new FormData();
-    // Fix the file URI handling - ensure proper format for React Native FormData
-    let audioUri = audioPath;
-
-    // For Android, ensure the URI starts with 'file://' for FormData
-    if (Platform.OS === 'android') {
-      // Add file:// prefix for Android FormData
-      audioUri = `file://${audioPath}`;
-    } else {
-      // For iOS, the path should be used as-is from the recorder
-      audioUri = audioPath.replace('file://', '');
-    }
-
-    const fileObj =
-      Platform.OS === 'android'
-        ? {
-          uri: audioUri,
-          type: 'audio/mp3',
-          name: 'sound.mp3',
-          filename: 'sound.mp3', // Add filename for Android
-        }
-        : {
-          uri: audioUri,
-          type: 'audio/x-m4a',
-          name: 'recording.m4a',
-        };
-
-    formData.append('file', fileObj);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'en');
-
-    try {
-      const response = await fetchHelper(
-        'transcribeAudio',
-        {},
-        formData,
-      );
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const transcribeAudio = async (audioPath: string) => {
-    setIsTranscribing(true);
-    // Always use local Whisper - cloud disabled
-    setIsUsingLocalWhisper(true);
-
-    if (!audioPath) {
-      setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-      // Reset audio recording state
-
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
-      setIsRecording(false);
-      setIsTranscribing(false);
-      return;
-    }
-
-    try {
-      let transcribeResponse: any;
-      if (!DEBUGWITHOUTTRANSCRIPTION) {
-        try {
-          // Always use local Whisper - no cloud fallback
-          transcribeResponse = await transcribeAudioWithWhisper(audioPath);
-        } catch (whisperError) {
-          mixpanel.track('Error', {
-            error_type: 'whisper_transcription_error',
-            error_message:
-              whisperError instanceof Error
-                ? whisperError.message
-                : String(whisperError),
-          });
-          setFinishedTranscribing(true);
-          setTranscribedText(ISSUEMESSAGE);
-          TTSService.speak('I am having an issue, Tap Home to retry', true);
-          setIsRecording(false);
-          setIsTranscribing(false);
-          return;
-        }
-      } else {
-        transcribeResponse = { text: DEBUGTRANSCRIPTION };
-      }
-
-      if (transcribeResponse?.text) {
-        const transcribedText = transcribeResponse.text.trim();
-
-        // Use the new processTranscriptionResult function
-        await processTranscriptionResult(transcribedText);
-        setIsRecording(false);
-      } else {
         setFinishedTranscribing(true);
-        setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-        TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-        setIsRecording(false);
+        setTranscribedText(transcribedText);
         setIsTranscribing(false);
+        setIsProcessingAnswer(true);
+
+        if (inputsRef.current) {
+          inputsRef.current.setInput(transcribedText);
+        }
+
+        const contextInfo = getCachedContextInfo();
+        const corePrompt = `User asked: "${transcribedText}"`;
+        const contextPrompt = `Context: ${contextInfo}`;
+        const messageWithContext = `${corePrompt}. ${contextPrompt}`;
+
+        try {
+          const currentAnswersCount =
+            parseInt(preferences.answersCount as string) || 5;
+          const answers = await generateAnswers(transcribedText, {
+            mode: 'generate_answers',
+            metadata: {contextInfo: contextInfo},
+            number: currentAnswersCount,
+            countMin: currentAnswersCount,
+            countMax: currentAnswersCount,
+          });
+
+          if (answers && answers.length > 0) {
+            const processedAnswers = await Promise.all(
+              answers.map(async (answer: any) => {
+                const pepesImageUrl = await resolvePepesImage(
+                  answer.word,
+                  answer.imageUrl,
+                );
+                return {...answer, imageUrl: pepesImageUrl || answer.imageUrl};
+              }),
+            );
+
+            setDirectAnswers(processedAnswers);
+            const answerWords = processedAnswers.map(
+              (answer: any) => answer.word,
+            );
+            setAccumulatedPriors(answerWords);
+            setIsProcessingAnswer(false);
+            setShowImages(true);
+            startResponseTimer();
+
+            setCurrentAIRecord({
+              question: transcribedText,
+              round1Answers: answerWords,
+              currentRound: 1,
+            });
+
+            const assistantResponse = `Suggested: ${processedAnswers
+              .map((a: any) => a.word)
+              .join(', ')}`;
+            addToConversationHistory(transcribedText, assistantResponse);
+          } else {
+            setIsProcessingAnswer(false);
+            TTSService.speak('I am having an issue, Tap Home to retry', true);
+          }
+        } catch (error) {
+          setIsProcessingAnswer(false);
+          TTSService.speak(
+            'Failed to process your request. Please try again.',
+            true,
+          );
+        }
       }
+
+      setIsTranscribing(false);
     } catch (error) {
-      mixpanel.track('Error', {
-        error_type: 'transcribe_audio_error',
-        error_message: error instanceof Error ? error.message : String(error),
-      });
+      console.error('[STT TRACE][Home] processVoiceResults failed:', error);
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
       TTSService.speak('I am having an issue, Tap Home to retry', true);
-      setIsRecording(false);
       setIsTranscribing(false);
     }
   };
@@ -876,6 +816,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setDirectAnswers([]); // Reset direct answers
     setAccumulatedPriors([]); // Reset accumulated priors
     setCurrentAIRecord(null); // Clear AI Resolved record
+    setPartialResult('');
+    voiceResultsRef.current = [];
+    partialResultRef.current = '';
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
 
     // Clear the input in the Inputs component
     if (inputsRef.current) {
@@ -1049,7 +997,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Update AI Resolved record with the selected answer
     if (currentAIRecord) {
-      const updatedRecord = { ...currentAIRecord };
+      const updatedRecord = {...currentAIRecord};
 
       if (currentAIRecord.currentRound === 1) {
         updatedRecord.round1Picked = selectedAnswer;
@@ -1076,7 +1024,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) { }
+        } catch (error) {}
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1169,8 +1117,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       <View
         style={[
           styles.container,
-          Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
-          { backgroundColor: '#FFF8E7' }
+          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
+          {backgroundColor: '#FFF8E7'},
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1219,21 +1167,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           style={[
             styles.inputNavigationContainer,
             stateof === 'Keyboard'
-              ? { height: 0, opacity: 0 }
+              ? {height: 0, opacity: 0}
               : {
-                height: responsiveValues.inputNavigationHeight,
-                marginTop: Math.max(insets.top, 10)
-              },
+                  height: responsiveValues.inputNavigationHeight,
+                  marginTop: Math.max(insets.top, 10),
+                },
           ]}>
-          {stateof !== 'Keyboard' && (
-            <Inputs
-              ref={inputsRef}
-              mode={stateof}
-            />
-          )}
+          {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
         </View>
 
-        <View style={{ flex: 1, width: '100%' }}>
+        <View style={{flex: 1, width: '100%'}}>
           <View
             style={[
               styles.contentContainer,
@@ -1244,7 +1187,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, { zIndex: 10 }]}
+              style={[styles.imageCardContainer, {zIndex: 10}]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1262,7 +1205,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       try {
                         // Handle direct answers format
                         return {
-                          url: { url: item.imageUrl || '' },
+                          url: {url: item.imageUrl || ''},
                           prompt: item.word || '',
                         };
                       } catch (err) {
@@ -1270,7 +1213,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       }
                     })
                     .filter(
-                      (item): item is { url: { url: string }; prompt: string } =>
+                      (item): item is {url: {url: string}; prompt: string} =>
                         item !== null,
                     );
 
@@ -1280,7 +1223,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         <Text
                           style={[
                             styles.errorText,
-                            { fontSize: responsiveValues.errorFontSize },
+                            {fontSize: responsiveValues.errorFontSize},
                           ]}>
                           We have an issue. Please be patient.
                         </Text>
@@ -1332,7 +1275,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                { fontSize: responsiveValues.cardTextFontSize },
+                                {fontSize: responsiveValues.cardTextFontSize},
                               ]}>
                               ShortCuts
                             </Text>
@@ -1382,7 +1325,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                { fontSize: responsiveValues.cardTextFontSize },
+                                {fontSize: responsiveValues.cardTextFontSize},
                               ]}>
                               Feelings
                             </Text>
@@ -1423,7 +1366,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       <View
                         style={[
                           styles.waitingForNextContainer,
-                          { padding: responsiveValues.waitingContainerPadding },
+                          {padding: responsiveValues.waitingContainerPadding},
                         ]}>
                         <Text
                           style={[
@@ -1435,7 +1378,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             },
                           ]}>
                           Say{' '}
-                          <Text style={{ fontWeight: 'bold', color: 'blue' }}>
+                          <Text style={{fontWeight: 'bold', color: 'blue'}}>
                             Hey Verbi
                           </Text>{' '}
                           to continue the conversation or tap below
@@ -1471,10 +1414,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           />
                         </TouchableOpacity>
                       </View>
-                    ) : stateof === 'Keyboard' ? (
-                      null // Keyboard mode handled by KeyboardHome view
-                    ) : isTranscribing ? (
-                      <View style={{ alignItems: 'center' }}>
+                    ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
+                      <View style={{alignItems: 'center'}}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
                           style={[
@@ -1494,7 +1435,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         </Text>
                       </View>
                     ) : isRecording ? (
-                      <View style={{ alignItems: 'center' }}>
+                      <View style={{alignItems: 'center'}}>
                         <FastImage
                           source={require('../assets/movie/recording.gif')}
                           style={responsiveValues.recordingIconSize}
@@ -1522,7 +1463,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                        <View style={{alignItems: 'center', marginBottom: 20}}>
                           <Text
                             style={{
                               fontSize: responsiveValues.transcriptionFontSize,
@@ -1539,23 +1480,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                                 color: isUsingLocalWhisper
                                   ? '#4CAF50'
                                   : modelNotAvailable
-                                    ? '#FF9800'
-                                    : '#2196F3',
+                                  ? '#FF9800'
+                                  : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
                               {isUsingLocalWhisper
                                 ? '🔒 Local Whisper'
                                 : modelNotAvailable
-                                  ? '☁️ Cloud (Model not downloaded)'
-                                  : '☁️ Cloud'}
+                                ? '☁️ Cloud (Model not downloaded)'
+                                : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
 
                         {/* Show different loading states based on processing phase */}
                         {isRetrying ? (
-                          <View style={{ alignItems: 'center' }}>
+                          <View style={{alignItems: 'center'}}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1577,7 +1518,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             </Text>
                           </View>
                         ) : isProcessingAnswer ? (
-                          <View style={{ alignItems: 'center' }}>
+                          <View style={{alignItems: 'center'}}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1608,8 +1549,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           />
                         ) : null}
                         {finishedTranscribing &&
-                          (transcribedText.length === 0 ||
-                            transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                        (transcribedText.length === 0 ||
+                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
                           <HomeButton
                             navigation={navigation}
                             onReset={resetLocalStates}

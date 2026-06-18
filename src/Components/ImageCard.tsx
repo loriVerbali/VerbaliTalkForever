@@ -15,7 +15,6 @@ import { useNavigation } from '@react-navigation/native';
 import { views } from '../utils/constants';
 import { useAdmin } from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
-import AudioSessionManager from '../utils/AudioSessionManager';
 
 // Add interface for error event
 interface ImageErrorEvent {
@@ -88,36 +87,16 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   const sayAnswer = async (prompt: string) => {
-
-    // Put the session in playback mode with speaker override
-    await AudioSessionManager.prepareForTTS();
-
-    // We pass the session restoration as a callback to ensure it only runs 
-    // AFTER the audio has finished playing.
-    // NOTE: speak(..., true) returns immediately, so we cannot use await + finally here.
-    const onPlaybackComplete = async () => {
-
-      // Always clear the flag after playback completes
-      // If your native module exposes endTTS() (we added it), prefer that:
-      // await AudioSessionManagerModule.endTTS();
-      AudioSessionManager.setTTSActive(false);
-
-      await AudioSessionManager.prepareForWakeword();
-    };
-
-    // Calling speak with immediate=true and our completion callback
-    await ttsService.speak(prompt, true, onPlaybackComplete);
+    await ttsService.speak(prompt, true);
   };
 
   const handleRefresh = async () => {
     if (retryCount >= maxRetries) {
       // Navigate to shortcuts view when max retries reached
-      await AudioSessionManager.prepareForTTS();
       ttsService.speak('Let me show you some shortcuts instead', true);
       navigation.navigate(views.SHORTCUTS as never);
     } else if (onRefresh) {
       // Provide audio feedback to the user
-      await AudioSessionManager.prepareForTTS();
       ttsService.speak('Getting more answers for you', true);
       onRefresh();
     }

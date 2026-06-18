@@ -280,9 +280,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         const timeoutId = setTimeout(async () => {
           try {
             const purchaseValid = await validateReceiptOnLaunch();
-            if (!purchaseValid) {
+            if (purchaseValid === false) {
               await setItem('isIOSActive', '0');
-            } else {
+            } else if (purchaseValid === true) {
               await setItem('isIOSActive', '1');
             }
           } catch (error) {
