@@ -33,8 +33,19 @@ let lastSpeechErrorAt = 0;
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 let licenseActivated = false;
+let speechRecognitionNeedsPause = false;
 
-const ttsModel = require('../../ios/models/model_ex_ariana_fast_davoice_phoneme.dm');
+// Lazy-load the model to avoid synchronous asset URL resolution on the
+// main thread at module load time. In dev mode Metro serves .dm files over
+// HTTP; evaluating require() eagerly triggers a synchronous network fetch
+// before the JS thread yields, producing the main-thread warning.
+let _ttsModel: any = null;
+const getTtsModel = () => {
+  if (!_ttsModel) {
+    _ttsModel = require('../../ios/models/model_ex_ariana_fast_davoice_phoneme.dm');
+  }
+  return _ttsModel;
+};
 
 const tracePayload = (event: any) => {
   try {
@@ -42,6 +53,10 @@ const tracePayload = (event: any) => {
   } catch {
     return String(event);
   }
+};
+
+const getSpeechErrorCode = (error: any): string => {
+  return String(error?.code ?? error?.error?.code ?? '');
 };
 
 const sleep = (ms: number): Promise<void> =>
@@ -68,7 +83,7 @@ const dispatch = (eventName: SpeechEventName, event: any) => {
     lastSpeechStartAt = now;
   }
   if (eventName === 'onSpeechError') {
-    lastSpeechErrorCode = String(event?.error?.code ?? '');
+    lastSpeechErrorCode = getSpeechErrorCode(event);
     lastSpeechErrorAt = now;
     if (STT_DEBUG || lastSpeechErrorCode !== 'already_started') {
       console.error('[STT PACKAGE ERROR][event]', tracePayload(event));
@@ -225,9 +240,27 @@ const activateLicense = async () => {
 };
 
 const pauseSpeechRecognitionNow = async () => {
-  trace('[STT TRACE][service] stop speech recognition begin');
-  await DaVoice.stop();
-  trace('[STT TRACE][service] stop speech recognition resolved');
+  trace('[STT TRACE][service] pause speech recognition begin');
+  if (Platform.OS === 'ios' && !speechRecognitionNeedsPause) {
+    trace('[STT TRACE][service] pause skipped: speech recognition already parked');
+    await logSpeechDiagnostics('after-pause-skip');
+    return;
+  }
+
+  if (Platform.OS === 'ios' && typeof DaVoice.pauseSpeechRecognition === 'function') {
+    try {
+      await DaVoice.pauseSpeechRecognition();
+    } finally {
+      speechRecognitionNeedsPause = false;
+    }
+  } else {
+    try {
+      await DaVoice.stop();
+    } finally {
+      speechRecognitionNeedsPause = false;
+    }
+  }
+  trace('[STT TRACE][service] pause speech recognition resolved');
   await logSpeechDiagnostics('after-stop');
 };
 
@@ -247,21 +280,16 @@ const initializeSpeechRecognition = async (
     trace('[STT TRACE][service] init begin');
     await activateLicense();
 
-    try {
-      trace('[STT TRACE][service] calling initWithoutModel');
-      await DaVoice.initWithoutModel();
-    } catch (error) {
-      trace(
-        '[STT TRACE][service] initWithoutModel unavailable, calling initAll',
-        describeError(error),
-      );
-      await DaVoice.initAll({
-        locale,
-        model: ttsModel,
-      });
-    }
+    // Always use the on-device model for low-latency partials.
+    // initWithoutModel falls back to Apple cloud STT which has slow network round-trips.
+    trace('[STT TRACE][service] calling initAll with on-device model');
+    await DaVoice.initAll({
+      locale,
+      model: getTtsModel(),
+    });
 
     initialized = true;
+    speechRecognitionNeedsPause = true;
     await pauseSpeechRecognitionNow();
     trace('[STT TRACE][service] init complete and paused');
   })();
@@ -273,8 +301,9 @@ const initializeSpeechRecognition = async (
   }
 };
 
-const resetIOSSpeechEngine = async (): Promise<void> => {
-  traceWarn('[STT TRACE][service] resetting iOS STT engine');
+const resetIOSSpeechRecognition = async (): Promise<void> => {
+  traceWarn('[STT TRACE][service] resetting stale iOS STT session');
+
   try {
     await DaVoice.cancel();
   } catch (error) {
@@ -283,19 +312,26 @@ const resetIOSSpeechEngine = async (): Promise<void> => {
       describeError(error),
     );
   }
-  await sleep(300);
 
   try {
-    await DaVoice.destroyWithoutModel();
+    await DaVoice.stop();
   } catch (error) {
     traceWarn(
-      '[STT TRACE][service] destroyWithoutModel during reset failed',
+      '[STT TRACE][service] stop before reset failed',
       describeError(error),
     );
+  } finally {
+    speechRecognitionNeedsPause = false;
   }
-  await sleep(300);
 
+  await sleep(300);
+  await DaVoice.destroyWithoutModel();
+  initialized = false;
+  await sleep(300);
   await DaVoice.initWithoutModel();
+  initialized = true;
+  speechRecognitionNeedsPause = true;
+  await pauseSpeechRecognitionNow();
   await sleep(300);
 };
 
@@ -306,6 +342,9 @@ export const prepareSpeechRecognitionAfterFullInit = (): Promise<void> =>
   enqueueTransition(async () => {
     initialized = true;
     licenseActivated = true;
+    // initAll starts the warm recognizer. Mark it active so the initial pause
+    // is not mistaken for an already-parked session and skipped.
+    speechRecognitionNeedsPause = true;
     await pauseSpeechRecognitionNow();
   });
 
@@ -332,47 +371,62 @@ export const startSpeechRecognition = (
       lastSpeechErrorCode = '';
       lastSpeechErrorAt = 0;
 
-      trace('[STT TRACE][service] clearing any stale STT session before start');
-      await DaVoice.cancel();
-      await sleep(300);
       try {
-        await DaVoice.start(locale, options);
+        if (typeof DaVoice.unPauseSpeechRecognition === 'function') {
+          trace('[STT TRACE][service] unpausing warm STT session');
+          await DaVoice.unPauseSpeechRecognition(1);
+          speechRecognitionNeedsPause = true;
+        } else {
+          trace('[STT TRACE][service] unPause unavailable, falling back to start');
+          await DaVoice.start(locale, options);
+          speechRecognitionNeedsPause = true;
+        }
       } catch (startError) {
-        const nativeError = startError as Error & { code?: string };
+        const nativeErrorCode = getSpeechErrorCode(startError);
         const alreadyStartedDuringStart =
           lastSpeechErrorCode === 'already_started' &&
           lastSpeechErrorAt >= startRequestedAt;
         if (
-          nativeError.code === 'stt_start_timeout' &&
-          alreadyStartedDuringStart
+          alreadyStartedDuringStart ||
+          nativeErrorCode === 'already_started' ||
+          nativeErrorCode === 'stt_start_timeout'
         ) {
           traceWarn(
-            '[STT TRACE][service] DaVoice start timed out after already_started; resetting STT engine and retrying',
+            '[STT TRACE][service] DaVoice start found stale STT; resetting and retrying',
           );
-          await resetIOSSpeechEngine();
+          await resetIOSSpeechRecognition();
           lastVolumeEventAt = 0;
           lastSpeechStartAt = 0;
           lastSpeechErrorCode = '';
           lastSpeechErrorAt = 0;
-          await DaVoice.start(locale, options);
+          if (typeof DaVoice.unPauseSpeechRecognition === 'function') {
+            await DaVoice.unPauseSpeechRecognition(1);
+            speechRecognitionNeedsPause = true;
+          } else {
+            await DaVoice.start(locale, options);
+            speechRecognitionNeedsPause = true;
+          }
         } else {
           throw startError;
         }
       }
 
       trace('[STT TRACE][service] DaVoice start resolved');
-      await sleep(IOS_START_ACTIVITY_GRACE_MS);
-      const recognizing = await getIOSRecognizing();
-      await logSpeechDiagnostics('after-start');
 
-      if (
-        !recognizing &&
-        lastSpeechStartAt < startRequestedAt
-      ) {
-        throw new Error(
-          'DaVoice.start resolved but iOS speech recognition did not become active.',
-        );
-      }
+      // Run the post-start activity check asynchronously so it does NOT
+      // hold the enqueueTransition lock for 700ms after every start.
+      // The 3s watchdog below already covers detecting a silent failure.
+      const capturedStartAt = startRequestedAt;
+      (async () => {
+        await sleep(IOS_START_ACTIVITY_GRACE_MS);
+        const recognizing = await getIOSRecognizing();
+        await logSpeechDiagnostics('after-start');
+        if (!recognizing && lastSpeechStartAt < capturedStartAt) {
+          traceWarn(
+            '[STT TRACE][service] DaVoice.start resolved but iOS speech recognition did not become active.',
+          );
+        }
+      })().catch(() => { });
 
       setTimeout(() => {
         if (lastSpeechStartAt < startRequestedAt) {

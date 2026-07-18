@@ -31,11 +31,11 @@ import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import Subscription from '../Components/Subscription';
 import ShowAndTell from '../Components/ShowAndTell';
-import WhisperDownload from '../Components/WhisperDownload';
 import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
-import WhisperModelManager from '../utils/WhisperModelManager';
+import WakeWordService from '../utils/wakewordService';
+import TTSService from '../utils/TTSService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -82,12 +82,6 @@ const onboardingSteps = [
     buttonText: 'Next',
   },
   {
-    id: 'on-device-whisper',
-    question: 'Give us a minute to setup the magic in your app',
-    additionalComponents: 'on-device-whisper',
-    buttonText: 'Next',
-  },
-  {
     id: 'Permissions',
     question: 'Permissions',
     additionalComponents: 'permissions',
@@ -130,8 +124,6 @@ const OnboardingScreen: React.FC = () => {
   );
   // Removed isLoggedIn state - guest sessions are always "authenticated"
   const [gotSubscription, setGotSubscription] = useState(false);
-  const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
-  const [whisperModelInvoked, setWhisperModelInvoked] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
@@ -260,6 +252,13 @@ const OnboardingScreen: React.FC = () => {
         await setItem('gender', selectedGender);
       }
 
+      try {
+        const wakeWordService = WakeWordService.getInstance();
+        await wakeWordService.initializeAndPause();
+        await wakeWordService.resumeDetection();
+      } catch (error) {
+        console.warn('[Onboarding] WakeWord activation failed:', error);
+      }
 
       // Use the context to complete onboarding
       completeOnboarding();
@@ -898,47 +897,6 @@ const OnboardingScreen: React.FC = () => {
             )}
           </View>
         );
-      case 'on-device-whisper':
-        return (
-          <View style={{ width: '100%', flex: 1 }}>
-            <WhisperDownload
-              isModelInvoked={whisperModelInvoked}
-              onComplete={async (modelName?: string) => {
-                // Track which whisper model was given to the user
-                if (modelName) {
-                  mixpanel.track('Onboarding Whisper Model Assigned', {
-                    screen_label: 'on-device-whisper',
-                    whisper_model: modelName,
-                  });
-                }
-
-                // Check if model is available after download and adjust settings accordingly
-                try {
-                  await WhisperModelManager.checkModelAvailabilityAndAdjustSettings(
-                    setItem,
-                    getItem,
-                  );
-                } catch (error) { }
-
-                // CRITICAL: Do NOT initialize WhisperService during onboarding
-                // Whisper initialization will happen in LoggedNavigation AFTER wake word is initialized
-                // This ensures wake word gets access to ONNX Runtime/CoreML resources first
-                try {
-                  await setItem('useLocalWhisper', '1');
-                  // Mark model as downloaded (but not initialized yet)
-                  setWhisperModelInvoked(true);
-                  // Wait a moment to show "magic ready" message
-                  setTimeout(() => {
-                    setWhisperDownloadComplete(true);
-                  }, 1500);
-                } catch (error) {
-                  // Still mark as complete even if there was an error
-                  setWhisperDownloadComplete(true);
-                }
-              }}
-            />
-          </View>
-        );
       default:
         return null;
     }
@@ -967,6 +925,14 @@ const OnboardingScreen: React.FC = () => {
 
   const currentStepData = onboardingSteps[currentStep];
 
+  const initializeSpeechServices = async () => {
+    try {
+      await TTSService.initialize();
+    } catch (error) {
+      console.warn('[Onboarding] TTS/STT initialization failed:', error);
+    }
+  };
+
   const requestPermission = async () => {
     setPermissionsAttempted(true);
     if (Platform.OS === 'android') {
@@ -992,6 +958,7 @@ const OnboardingScreen: React.FC = () => {
             screen_label: 'Permissions',
             permission_granted: 'yes',
           });
+          await initializeSpeechServices();
           return true;
         }
 
@@ -1013,6 +980,9 @@ const OnboardingScreen: React.FC = () => {
           screen_label: 'Permissions',
           permission_granted: granted ? 'yes' : 'no',
         });
+        if (granted) {
+          await initializeSpeechServices();
+        }
         return granted;
       } catch (err) {
         setPermissionsGranted(false);
@@ -1039,6 +1009,7 @@ const OnboardingScreen: React.FC = () => {
           screen_label: 'Permissions',
           permission_granted: 'yes',
         });
+        await initializeSpeechServices();
         return true;
       }
 
@@ -1055,6 +1026,9 @@ const OnboardingScreen: React.FC = () => {
         screen_label: 'Permissions',
         permission_granted: granted ? 'yes' : 'no',
       });
+      if (granted) {
+        await initializeSpeechServices();
+      }
       return { mic, speech };
     }
 
@@ -1065,6 +1039,7 @@ const OnboardingScreen: React.FC = () => {
       screen_label: 'Permissions',
       permission_granted: 'yes',
     });
+    await initializeSpeechServices();
     return true;
   };
 
@@ -1245,9 +1220,7 @@ const OnboardingScreen: React.FC = () => {
                     !gotSubscription &&
                     !SUBSCRIPTIONSKIP) ||
                   (currentStepData.id === 'Optional Permissions' &&
-                    !locationPermissionAttempted) ||
-                  (currentStepData.id === 'on-device-whisper' &&
-                    !whisperDownloadComplete)) &&
+                    !locationPermissionAttempted)) &&
                 styles.hiddenButton,
               ]}
               onPress={() => {
@@ -1257,17 +1230,11 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
                 (currentStepData.id === 'admin-code' &&
-                  adminCode.length !== 4) ||
-                (currentStepData.id === 'on-device-whisper' &&
-                  !whisperDownloadComplete)
+                  adminCode.length !== 4)
               }>
               <Text
                 style={[styles.buttonText, { fontSize: nextButtonTextFontSize }]}>
-                {currentStepData.id === 'on-device-whisper'
-                  ? whisperDownloadComplete
-                    ? 'Continue'
-                    : 'Getting Magic Ready'
-                  : currentStepData.buttonText}
+                {currentStepData.buttonText}
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal,
   View,
@@ -11,9 +11,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 import fetchHelper from '../../utils/fetcher';
 import { MagicPreviewResponse, MagicBuildRequest } from '../../types/HeroContext';
+import { useAdmin } from '../../contexts/adminContext';
 
 interface MagicBuildModalProps {
   visible: boolean;
@@ -44,9 +46,26 @@ const MagicBuildModal: React.FC<MagicBuildModalProps> = ({
   const [input, setInput] = useState('');
   const [phase, setPhase] = useState<ModalPhase>('input');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const { isTablet } = useAdmin();
 
   const heroDisplay = heroName || 'your child';
+  const hideHeader = isKeyboardVisible && !isTablet;
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const reset = () => {
     setInput('');
@@ -129,24 +148,26 @@ const MagicBuildModal: React.FC<MagicBuildModalProps> = ({
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             {/* Header */}
-            <View style={styles.header}>
-              <View>
-                <Text style={styles.title}>
-                  Tell us about {heroDisplay}
-                </Text>
-                <Text style={styles.subtitle}>
-                  Information is saved locally on this device
-                </Text>
+            {!hideHeader && (
+              <View style={styles.header}>
+                <View>
+                  <Text style={styles.title}>
+                    Tell us about {heroDisplay}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    Information is saved locally on this device
+                  </Text>
+                </View>
+                {phase !== 'loading' && (
+                  <TouchableOpacity
+                    onPress={handleCancel}
+                    style={styles.closeBtn}
+                    accessibilityLabel="Close">
+                    <Text style={styles.closeBtnText}>✕</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              {phase !== 'loading' && (
-                <TouchableOpacity
-                  onPress={handleCancel}
-                  style={styles.closeBtn}
-                  accessibilityLabel="Close">
-                  <Text style={styles.closeBtnText}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
 
             {/* Body */}
             <ScrollView
@@ -172,9 +193,11 @@ const MagicBuildModal: React.FC<MagicBuildModalProps> = ({
                     </View>
                   )}
 
-                  <Text style={styles.helperText}>
-                    The more context you share, the better the AI suggestions become.
-                  </Text>
+                  {!hideHeader && (
+                    <Text style={styles.helperText}>
+                      The more context you share, the better the AI suggestions become.
+                    </Text>
+                  )}
 
                   <TextInput
                     ref={inputRef}

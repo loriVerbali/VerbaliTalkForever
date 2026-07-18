@@ -86,8 +86,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
     questionMarkLeft: isTablet ? width * 0.045 : width * 0.037,
   };
 
-  const sayAnswer = async (prompt: string) => {
-    await ttsService.speak(prompt, true);
+  const sayAnswer = async (prompt: string, onComplete?: () => void) => {
+    await ttsService.speak(prompt, true, onComplete);
   };
 
   const handleRefresh = async () => {
@@ -219,9 +219,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 isDebouncing.current = false;
               }, 1000);
 
-              sayAnswer(image.prompt);
-              // Call the callback to log the conversation
-              onAnswerSelected?.(image.prompt);
+              sayAnswer(image.prompt, () => {
+                // Run the selection flow after TTS releases the audio session.
+                onAnswerSelected?.(image.prompt);
+              });
             }}>
             <View style={{ flexDirection: 'column', alignItems: 'center' }}>
               {/* Check if the URL is a placeholder */}

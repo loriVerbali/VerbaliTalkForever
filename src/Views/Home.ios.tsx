@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,17 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  Animated,
+  useWindowDimensions,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {useNavigation, RouteProp} from '@react-navigation/native';
-import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, RouteProp } from '@react-navigation/native';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
-import Inputs, {InputsRef} from '../Components/Inputs';
+import Inputs, { InputsRef } from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
-import {useAssistant} from '../contexts/AssistantContext';
+import { useAssistant } from '../contexts/AssistantContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -24,10 +26,10 @@ import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
 import mixpanel from '../utils/mixpanelInstance';
-import {logConversation} from '../utils/conversationLogger';
-import {useAdmin} from '../contexts/adminContext';
-import {views} from '../utils/constants';
-import {useAppSettings} from '../utils/persistance';
+import { logConversation } from '../utils/conversationLogger';
+import { useAdmin } from '../contexts/adminContext';
+import { views } from '../utils/constants';
+import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice, {
   logSpeechDiagnostics,
@@ -35,12 +37,16 @@ import Voice, {
   stopSpeechRecognition,
   subscribeToSpeechEvents,
 } from '../utils/STTService';
-import {useDatabase} from '../contexts/DatabaseContext';
+import { useDatabase } from '../contexts/DatabaseContext';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: {stateof?: 'Attention' | 'Keyboard' | string};
+  Home: {
+    stateof?: 'Attention' | 'Keyboard' | string;
+    wakewordPaused?: boolean;
+    recordingPermissionsReady?: boolean;
+  };
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -66,20 +72,32 @@ const sttWarn = (...args: unknown[]) => {
   }
 };
 
-const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
+  const { width: viewportWidth, height: viewportHeight } =
+    useWindowDimensions();
   const {
     generateAnswers,
     conversationHistory,
     addToConversationHistory,
     updateLastAssistantMessage,
   } = useAssistant();
-  const {weather, location} = useChatContext();
-  const {isTablet} = useAdmin();
+  const { weather, location } = useChatContext();
+  const { isTablet } = useAdmin();
+  const shortSide = Math.min(viewportWidth, viewportHeight);
+  const recordingContainerSize = Math.min(
+    shortSide * (isTablet ? 0.5 : 0.72),
+    isTablet ? 420 : 280,
+  );
   const insets = useSafeAreaInsets();
-  const {getItem, preferences} = useAppSettings();
-  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
+  const { getItem, preferences } = useAppSettings();
+  const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
   const stateof = route?.params?.stateof ?? '';
+  const wakewordPaused = route?.params?.wakewordPaused === true;
+  const recordingPermissionsReady =
+    route?.params?.recordingPermissionsReady === true;
   const [isRecording, setIsRecording] = useState(false);
+  const recordingGlowAnim = useRef(new Animated.Value(0)).current;
+  const recordingGlowLoop = useRef<Animated.CompositeAnimation | null>(null);
 
   // Function to resolve pepes images for answer words
   const resolvePepesImage = async (word: string, fallbackUrl: string = '') => {
@@ -112,7 +130,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           }
         }
       }
-    } catch (error) {}
+    } catch (error) { }
 
     return fallbackUrl || '';
   };
@@ -136,7 +154,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
-    Array<{word: string; imageUrl?: string}>
+    Array<{ word: string; imageUrl?: string }>
   >([]);
   const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
 
@@ -156,12 +174,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const responsiveValues = {
     // Icon sizes
     microphoneSize: isTablet
-      ? {width: 45, height: 45}
-      : {width: 35, height: 35},
+      ? { width: 45, height: 45 }
+      : { width: 35, height: 35 },
     fetchingSize: isTablet
-      ? {width: 200, height: 200}
-      : {width: 150, height: 150},
-    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
+      ? { width: 200, height: 200 }
+      : {
+        width: Math.min(shortSide * 0.32, 120),
+        height: Math.min(shortSide * 0.32, 120),
+      },
+    matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
 
     // Layout dimensions
     inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
@@ -175,11 +196,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
-      ? {width: width * 0.3, height: width * 0.3}
-      : {width: width * 0.25, height: width * 0.25},
+      ? { width: width * 0.3, height: width * 0.3 }
+      : { width: width * 0.25, height: width * 0.25 },
     recordingIconSize: isTablet
-      ? {width: width * 0.4, height: width * 0.4}
-      : {width: width * 0.35, height: width * 0.2},
+      ? { width: shortSide * 0.4, height: shortSide * 0.4 }
+      : {
+        width: Math.min(shortSide * 0.46, 170),
+        height: Math.min(shortSide * 0.28, 104),
+      },
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -191,8 +215,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Button dimensions
     keyboardButtonPadding: isTablet
-      ? {vertical: 14, horizontal: 35}
-      : {vertical: 12, horizontal: 30},
+      ? { vertical: 14, horizontal: 35 }
+      : { vertical: 12, horizontal: 30 },
     keyboardButtonMinWidth: isTablet ? 120 : 100,
     keyboardButtonBorderRadius: isTablet ? 28 : 25,
 
@@ -209,16 +233,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     navigationCardBorderRadius: isTablet ? 15 : 12,
     navigationCardPadding: isTablet ? 18 : 15,
     navigationCardImageSize: isTablet
-      ? {width: 70, height: 70}
-      : {width: 60, height: 60},
+      ? { width: 70, height: 70 }
+      : { width: 60, height: 60 },
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? {width: 50, height: 50}
-      : {width: 40, height: 40},
+      ? { width: 50, height: 50 }
+      : { width: 40, height: 40 },
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
+    shadowOffset: isTablet ? { width: 0, height: 3 } : { width: 0, height: 2 },
     elevation: isTablet ? 6 : 4,
 
     // Waiting for next conversation
@@ -261,8 +285,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const partialResultRef = useRef<string>('');
   const lastPartialUpdateTimeRef = useRef<number>(Date.now());
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const SILENCE_TIMEOUT = 3500;
+  const SILENCE_TIMEOUT = 1500;
+  // Timestamp (ms) when the current STT recording session started.
+  // Used to drop wakeword-echo partials that arrive in the first ~400 ms.
+  const sessionStartTimeRef = useRef<number>(0);
+  const WAKEWORD_ECHO_GRACE_MS = 400; // drop early partials that are only the wakeword
+  const WAKEWORD_PHRASES = ['hey verbi,', 'hey verby,', 'hey verbose,', 'hey baby,', 'hey verbi', 'hey verby', 'hey verbose', 'hey baby', 'more baby', 'more baby,']; // normalised variants
   const isRecordingRef = useRef(false);
+  const isNavigatingToOpenRef = useRef(false);
+  // Separate guard that is true from the moment handleRecord is called until
+  // startSpeechRecognition either resolves or throws.  Prevents the
+  // onSpeechError handler from treating startup-phase errors (e.g. the
+  // DaVoice.cancel() call inside startSpeechRecognition) as live-session
+  // errors and resetting isRecordingRef prematurely.
+  const isStartingRef = useRef(false);
   const [showImages, setShowImages] = useState(false);
   const [finishedTranscribing, setFinishedTranscribing] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
@@ -284,8 +320,54 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     transcribedText,
   ]);
 
+  const startRecordingGlow = useCallback(() => {
+    recordingGlowLoop.current?.stop();
+    recordingGlowAnim.setValue(0);
+    recordingGlowLoop.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(recordingGlowAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(recordingGlowAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    recordingGlowLoop.current.start();
+  }, [recordingGlowAnim]);
+
+  const stopRecordingGlow = useCallback(() => {
+    recordingGlowLoop.current?.stop();
+    recordingGlowLoop.current = null;
+    Animated.timing(recordingGlowAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [recordingGlowAnim]);
+
+  useEffect(() => {
+    if (isRecording) {
+      startRecordingGlow();
+    } else {
+      stopRecordingGlow();
+    }
+
+    return () => {
+      recordingGlowLoop.current?.stop();
+    };
+  }, [isRecording, startRecordingGlow, stopRecordingGlow]);
+
   let currentRecordingURI: string | null = null;
 
+  const recordingGlowOpacity = recordingGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
     null,
@@ -312,7 +394,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) {}
+        } catch (error) { }
       }
 
       setResponseTimerStart(null);
@@ -332,7 +414,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) {}
+      } catch (error) { }
     };
 
     // Load the setting
@@ -351,143 +433,187 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         source: 'attention_state',
       });
       const startRecordingTimer = setTimeout(() => {
-        playSound();
+        playSound(wakewordPaused);
       }, 0);
       return () => clearTimeout(startRecordingTimer);
     }
     if (stateof === 'Keyboard') {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      wakeWordService.pauseDetection(false).catch(() => { });
     }
-  }, [stateof]); // Dependency on stateof ensures this runs when coming from Open.tsx
+  }, [stateof, wakewordPaused, recordingPermissionsReady]); // Dependency on stateof ensures this runs when coming from Open.tsx
 
   useEffect(() => {
+    // Clear any previous wakeword callback to prevent accidental triggers from Open.tsx
+    try {
+      const wakeWordService = WakeWordService.getInstance();
+      wakeWordService.setCallback(() => { });
+    } catch (error) {
+      sttWarn('[Home] Error clearing wakeword callback on mount:', error);
+    }
+
     sttTrace('[STT TRACE][Home] subscribing to speech events');
     const unsubscribe = subscribeToSpeechEvents(
       {
         onSpeechStart: (event: any) => {
-        sttTrace(
-          '[STT TRACE][Home] onSpeechStart',
-          JSON.stringify(event),
-          `isRecordingRef=${isRecordingRef.current}`,
-        );
+          sttTrace(
+            '[STT TRACE][Home] onSpeechStart',
+            JSON.stringify(event),
+            `isRecordingRef=${isRecordingRef.current}`,
+          );
         },
         onSpeechEnd: (event: any) => {
-        sttTrace(
-          '[STT TRACE][Home] onSpeechEnd',
-          JSON.stringify(event),
-          `partialRef="${partialResultRef.current}"`,
-          `resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
-        );
+          sttTrace(
+            '[STT TRACE][Home] onSpeechEnd',
+            JSON.stringify(event),
+            `partialRef="${partialResultRef.current}"`,
+            `resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
+          );
         },
         onSpeechError: (e: any) => {
-        if (e?.error?.code === 'already_started' && isRecordingRef.current) {
-          sttTrace(
-            '[STT TRACE][Home] already_started ignored while recording',
+          // Suppress 'already_started' noise while a session is live.
+          if (e?.error?.code === 'already_started' && isRecordingRef.current) {
+            sttTrace(
+              '[STT TRACE][Home] already_started ignored while recording',
+            );
+            return;
+          }
+          // Suppress ALL errors that fire during the startup phase (e.g. the
+          // DaVoice.cancel() call inside startSpeechRecognition that clears any
+          // stale session).  Treating those as live-recording errors would reset
+          // isRecordingRef before the session is open, silently dropping every
+          // subsequent speech event.
+          if (isStartingRef.current) {
+            console.warn(
+              '[STT TRACE][Home] onSpeechError during startup phase – suppressed',
+              JSON.stringify(e),
+            );
+            return;
+          }
+          console.error(
+            '[STT TRACE][Home] onSpeechError',
+            JSON.stringify(e),
+            `isRecordingRef=${isRecordingRef.current}`,
           );
-          return;
-        }
-        console.error(
-          '[STT TRACE][Home] onSpeechError',
-          JSON.stringify(e),
-          `isRecordingRef=${isRecordingRef.current}`,
-        );
-        setIsRecording(false);
-        isRecordingRef.current = false;
+          setIsRecording(false);
+          isRecordingRef.current = false;
         },
         onSpeechResults: (event: any) => {
-        sttTrace(
-          '[STT TRACE][Home] onSpeechResults raw=',
-          JSON.stringify(event),
-          `isRecordingRef=${isRecordingRef.current}`,
-        );
-        if (!isRecordingRef.current) {
-          sttTrace('[STT TRACE][Home] final result ignored: not recording');
-          return;
-        }
-        if (event.value && event.value.length > 0) {
-          setVoiceResults(event.value[0]);
-          voiceResultsRef.current = event.value;
           sttTrace(
-            '[STT TRACE][Home] final results stored',
-            JSON.stringify(voiceResultsRef.current),
+            '[STT TRACE][Home] onSpeechResults raw=',
+            JSON.stringify(event),
+            `isRecordingRef=${isRecordingRef.current}`,
           );
-        } else {
-          sttWarn('[STT TRACE][Home] final result event had no value');
-        }
+          if (!isRecordingRef.current) {
+            sttTrace('[STT TRACE][Home] final result ignored: not recording');
+            return;
+          }
+          if (event.value && event.value.length > 0) {
+            setVoiceResults(event.value); // store full array, not just first string
+            voiceResultsRef.current = event.value;
+            sttTrace(
+              '[STT TRACE][Home] final results stored',
+              JSON.stringify(voiceResultsRef.current),
+            );
+          } else {
+            sttWarn('[STT TRACE][Home] final result event had no value');
+          }
         },
         onSpeechPartialResults: (event: any) => {
-        sttTrace(
-          '[STT TRACE][Home] onSpeechPartialResults raw=',
-          JSON.stringify(event),
-          `isRecordingRef=${isRecordingRef.current}`,
-        );
-        if (!isRecordingRef.current) {
-          sttTrace('[STT TRACE][Home] partial ignored: not recording');
-          return;
-        }
-        let partialText = '';
-        if (event.value && event.value.length > 0) {
-          partialText = event.value[0];
-        }
-        if (partialText) {
           sttTrace(
-            `[STT TRACE][Home] partial extracted="${partialText}" inputRef=${!!inputsRef.current}`,
+            '[STT TRACE][Home] onSpeechPartialResults raw=',
+            JSON.stringify(event),
+            `isRecordingRef=${isRecordingRef.current}`,
           );
-          setPartialResult(partialText);
-          partialResultRef.current = partialText;
-          sttTrace(
-            `[STT TRACE][Home] partial stored ref="${partialResultRef.current}"`,
-          );
-          if (inputsRef.current) {
-            inputsRef.current.setInput(partialText);
-            sttTrace('[STT TRACE][Home] partial pushed to Inputs ref');
-          } else {
-            sttWarn('[STT TRACE][Home] Inputs ref unavailable');
+          if (!isRecordingRef.current) {
+            sttTrace('[STT TRACE][Home] partial ignored: not recording');
+            return;
           }
-          lastPartialUpdateTimeRef.current = Date.now();
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = null;
+          let partialText = '';
+          if (event.value && event.value.length > 0) {
+            partialText = event.value[0];
           }
-          silenceTimerRef.current = setTimeout(async () => {
-            sttTrace(
-              `[STT TRACE][Home] silence timer fired partialRef="${partialResultRef.current}"`,
-            );
-            if (partialResultRef.current.trim().length > 0) {
-              await stopRecording();
+          if (partialText) {
+            // Drop wakeword-echo partials: if we are within the startup grace
+            // window and the partial is solely the wakeword phrase, it is
+            // audio-buffer bleed-through from the trigger utterance — not real
+            // user speech. Discard it so the input box stays empty.
+            const msSinceStart = Date.now() - sessionStartTimeRef.current;
+            const normalised = partialText.trim().toLowerCase();
+            const isWakewordEcho =
+              msSinceStart < WAKEWORD_ECHO_GRACE_MS &&
+              WAKEWORD_PHRASES.some(ww => {
+                const wwLower = ww.toLowerCase();
+                return (
+                  normalised === wwLower ||
+                  normalised.startsWith(wwLower + ' ') ||
+                  normalised.endsWith(' ' + wwLower)
+                );
+              });
+            if (isWakewordEcho) {
+              sttTrace(
+                `[STT TRACE][Home] partial dropped (wakeword echo, ${msSinceStart}ms into session): "${partialText}"`,
+              );
+              return;
             }
-          }, SILENCE_TIMEOUT);
-          sttTrace(
-            `[STT TRACE][Home] silence timer armed ms=${SILENCE_TIMEOUT}`,
-          );
-        } else {
-          sttWarn('[STT TRACE][Home] partial event contained empty text');
-        }
+            sttTrace(
+              `[STT TRACE][Home] partial extracted="${partialText}" inputRef=${!!inputsRef.current}`,
+            );
+            setPartialResult(partialText);
+            partialResultRef.current = partialText;
+            sttTrace(
+              `[STT TRACE][Home] partial stored ref="${partialResultRef.current}"`,
+            );
+            if (inputsRef.current) {
+              inputsRef.current.setInput(partialText);
+              sttTrace('[STT TRACE][Home] partial pushed to Inputs ref');
+            } else {
+              sttWarn('[STT TRACE][Home] Inputs ref unavailable');
+            }
+            lastPartialUpdateTimeRef.current = Date.now();
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = null;
+            }
+            silenceTimerRef.current = setTimeout(async () => {
+              sttTrace(
+                `[STT TRACE][Home] silence timer fired partialRef="${partialResultRef.current}"`,
+              );
+              if (partialResultRef.current.trim().length > 0) {
+                await stopRecording();
+              }
+            }, SILENCE_TIMEOUT);
+            sttTrace(
+              `[STT TRACE][Home] silence timer armed ms=${SILENCE_TIMEOUT}`,
+            );
+          } else {
+            sttWarn('[STT TRACE][Home] partial event contained empty text');
+          }
         },
         onSpeechVolumeChanged: (event: any) => {
-        const value = Number(event?.value);
-        if (Number.isFinite(value)) {
-          metering.current = value;
-        }
+          const value = Number(event?.value);
+          if (Number.isFinite(value)) {
+            metering.current = value;
+          }
         },
       },
-      {key: 'Home.ios'},
+      { key: 'Home.ios' },
     );
 
     return () => {
       sttTrace('[STT TRACE][Home] unsubscribing from speech events');
       unsubscribe();
-      stopSpeechRecognition().catch(() => {});
+      stopSpeechRecognition().catch(() => { });
     };
   }, []);
 
   // Cleanup useEffect for wake word service and Voice timers
   useEffect(() => {
     return () => {
-      // Always cleanup wake word service
-      const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      if (!isNavigatingToOpenRef.current) {
+        const wakeWordService = WakeWordService.getInstance();
+        wakeWordService.pauseDetection(false).catch(() => { });
+      }
 
       // Only cleanup Whisper service when component actually unmounts
       // Don't destroy it when just waiting for next conversation
@@ -512,87 +638,99 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     };
   }, []);
 
-  const playSound = async () => {
+  const playSound = async (skipWakewordPause: boolean = false) => {
     // COMMENTED OUT FOR TESTING
     // playAttention();
     sttTrace('[STT TRACE][Home] playSound -> handleRecord');
-    handleRecord();
+    handleRecord(skipWakewordPause);
   };
   // put this near your module top:
 
-  const handleRecord = async () => {
+  const handleRecord = async (skipWakewordPause: boolean = false) => {
     sttTrace(
-      `[STT TRACE][Home] handleRecord called isRecordingRef=${isRecordingRef.current}`,
+      `[STT TRACE][Home] handleRecord called isRecordingRef=${isRecordingRef.current} isStartingRef=${isStartingRef.current}`,
     );
-    if (isRecordingRef.current) {
-      sttWarn('[STT TRACE][Home] handleRecord ignored: already recording');
+    // Use isStartingRef as the re-entry guard during the async startup phase
+    // so that onSpeechError can safely reset isRecordingRef without
+    // accidentally blocking a future handleRecord call.
+    if (isRecordingRef.current || isStartingRef.current) {
+      sttWarn(
+        '[STT TRACE][Home] handleRecord ignored: already recording or starting',
+      );
       return;
     }
-    isRecordingRef.current = true;
-    sttTrace('[STT TRACE][Home] recording lock acquired');
+    isStartingRef.current = true; // ← startup-phase guard only
+    sttTrace('[STT TRACE][Home] startup lock acquired');
 
     mixpanel.track('Microphone Pressed');
 
     try {
-      const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
-      sttTrace(`[STT TRACE][Home] microphone permission=${micPermission}`);
-      if (micPermission === RESULTS.DENIED) {
-        const result = await request(PERMISSIONS.IOS.MICROPHONE);
-        sttTrace(
-          `[STT PERMISSIONS][Home] microphone request result=${result}`,
-        );
-        if (result !== RESULTS.GRANTED) {
+      if (!recordingPermissionsReady) {
+        const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
+        sttTrace(`[STT TRACE][Home] microphone permission=${micPermission}`);
+        if (micPermission === RESULTS.DENIED) {
+          const result = await request(PERMISSIONS.IOS.MICROPHONE);
+          sttTrace(
+            `[STT PERMISSIONS][Home] microphone request result=${result}`,
+          );
+          if (result !== RESULTS.GRANTED) {
+            setFinishedTranscribing(true);
+            setTranscribedText('Microphone permission is required');
+            TTSService.speak(
+              'Please allow microphone access in Settings',
+              true,
+            );
+            isRecordingRef.current = false;
+            isStartingRef.current = false;
+            return;
+          }
+        } else if (micPermission === RESULTS.BLOCKED) {
           setFinishedTranscribing(true);
-          setTranscribedText('Microphone permission is required');
-          TTSService.speak('Please allow microphone access in Settings', true);
+          setTranscribedText('Microphone permission is blocked');
+          TTSService.speak('Please enable microphone access in Settings', true);
           isRecordingRef.current = false;
+          isStartingRef.current = false;
           return;
         }
-      } else if (micPermission === RESULTS.BLOCKED) {
-        setFinishedTranscribing(true);
-        setTranscribedText('Microphone permission is blocked');
-        TTSService.speak('Please enable microphone access in Settings', true);
-        isRecordingRef.current = false;
-        return;
-      }
 
-      const hasSpeechPermission =
-        await Voice.hasIOSSpeechRecognitionPermissions();
-      sttTrace(
-        `[STT TRACE][Home] speech permission existing=${hasSpeechPermission}`,
-      );
-      const speechGranted = hasSpeechPermission
-        ? true
-        : await Voice.requestIOSSpeechRecognitionPermissions(10000);
-      sttTrace(
-        `[STT PERMISSIONS][Home] DaVoice speech recognition granted=${String(
-          speechGranted,
-        )}`,
-      );
-      if (!speechGranted) {
-        setFinishedTranscribing(true);
-        setTranscribedText('Speech recognition permission is required');
-        TTSService.speak(
-          'Please allow speech recognition access in Settings',
-          true,
-        );
-        isRecordingRef.current = false;
-        return;
-      }
-      await logSpeechDiagnostics('home-permissions-complete');
-
-      try {
-        const w = WakeWordService.getInstance();
+        const hasSpeechPermission =
+          await Voice.hasIOSSpeechRecognitionPermissions();
         sttTrace(
-          `[STT TRACE][Home] wakeword cleanup begin listening=${w.isCurrentlyListening()}`,
+          `[STT TRACE][Home] speech permission existing=${hasSpeechPermission}`,
         );
-        await w.cleanup();
-        sttTrace('[STT TRACE][Home] wakeword cleanup complete');
-        await new Promise<void>(resolve => setTimeout(resolve, 800));
-        sttTrace('[STT TRACE][Home] wakeword handoff delay complete');
-      } catch (error) {
-        sttWarn('[STT TRACE][Home] wakeword cleanup failed:', error);
-        await new Promise<void>(resolve => setTimeout(resolve, 800));
+        const speechGranted = hasSpeechPermission
+          ? true
+          : await Voice.requestIOSSpeechRecognitionPermissions(10000);
+        sttTrace(
+          `[STT PERMISSIONS][Home] DaVoice speech recognition granted=${String(
+            speechGranted,
+          )}`,
+        );
+        if (!speechGranted) {
+          setFinishedTranscribing(true);
+          setTranscribedText('Speech recognition permission is required');
+          TTSService.speak(
+            'Please allow speech recognition access in Settings',
+            true,
+          );
+          isRecordingRef.current = false;
+          isStartingRef.current = false;
+          return;
+        }
+        await logSpeechDiagnostics('home-permissions-complete');
+      }
+
+      if (!skipWakewordPause) {
+        try {
+          const w = WakeWordService.getInstance();
+          sttTrace('[STT TRACE][Home] wakeword pause begin');
+          // pauseDetection releases the mic but keeps the native instance alive —
+          // no re-init cost when WakeWord resumes on return to Open.tsx.
+          await w.pauseDetection(false);
+          sttTrace('[STT TRACE][Home] wakeword paused (mic released)');
+        } catch (error) {
+          sttWarn('[STT TRACE][Home] wakeword pause failed:', error);
+        }
       }
 
       lastSoundTimeRef.current = 0;
@@ -604,6 +742,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       partialResultRef.current = '';
       sttTrace('[STT TRACE][Home] transcript state and refs cleared');
       lastPartialUpdateTimeRef.current = Date.now();
+      sessionStartTimeRef.current = Date.now(); // mark session start for wakeword-echo filter
 
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
@@ -611,11 +750,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       }
 
       sttTrace('[STT TRACE][Home] STT session start requested');
-      setIsRecording(true);
       setIsUsingLocalWhisper(true);
       await startSpeechRecognition('en-US');
+      // startSpeechRecognition resolved — the native session is now live.
+      // Only NOW arm isRecordingRef so the event handlers accept incoming
+      // speech events, and clear the startup guard.
+      isRecordingRef.current = true;
+      isStartingRef.current = false;
       sttTrace('[STT TRACE][Home] STT session start resolved');
-
+      setIsRecording(true);
       sttTrace(
         `[STT TRACE][Home] recording UI enabled isRecordingRef=${isRecordingRef.current}`,
       );
@@ -632,13 +775,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       TTSService.speak('I am having an issue, Tap Home to retry', true);
       setIsRecording(false);
       isRecordingRef.current = false;
+      isStartingRef.current = false; // always clear startup guard on failure
     }
   };
 
   const stopRecording = async () => {
     sttTrace(
-      `[STT TRACE][Home] stopRecording called partialRef="${
-        partialResultRef.current
+      `[STT TRACE][Home] stopRecording called partialRef="${partialResultRef.current
       }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
     );
     try {
@@ -673,8 +816,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   const processVoiceResults = async () => {
     sttTrace(
-      `[STT TRACE][Home] processVoiceResults begin partialRef="${
-        partialResultRef.current
+      `[STT TRACE][Home] processVoiceResults begin partialRef="${partialResultRef.current
       }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
     );
     try {
@@ -694,6 +836,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         );
       } else {
         sttWarn('[STT TRACE][Home] no final or partial text available');
+      }
+
+      // Strip a leading wakeword if the entire transcription is just the
+      // wakeword echo (audio bleed-through from the trigger utterance).
+      // Only strip when the result is *solely* the wakeword, so we don't
+      // accidentally remove a wakeword intentionally spoken as content.
+      const normalisedResult = transcribedText.toLowerCase();
+      const isJustWakeword = WAKEWORD_PHRASES.some(
+        ww => normalisedResult === ww.toLowerCase(),
+      );
+      if (isJustWakeword) {
+        sttTrace(
+          `[STT TRACE][Home] final result is only wakeword echo — treating as empty`,
+        );
+        transcribedText = '';
       }
 
       if (
@@ -735,7 +892,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             parseInt(preferences.answersCount as string) || 5;
           const answers = await generateAnswers(transcribedText, {
             mode: 'generate_answers',
-            metadata: {contextInfo: contextInfo},
+            metadata: { contextInfo: contextInfo },
             number: currentAnswersCount,
             countMin: currentAnswersCount,
             countMax: currentAnswersCount,
@@ -748,7 +905,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                   answer.word,
                   answer.imageUrl,
                 );
-                return {...answer, imageUrl: pepesImageUrl || answer.imageUrl};
+                return { ...answer, imageUrl: pepesImageUrl || answer.imageUrl };
               }),
             );
 
@@ -798,6 +955,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
   // Reset function for local states
   const resetLocalStates = () => {
+    // Signal that we are navigating back to Open.tsx so the cleanup useEffect
+    // does not re-pause the wakeword after Open has already resumed it.
+    isNavigatingToOpenRef.current = true;
+
     // Stop response timer if running
     stopResponseTimer('home');
 
@@ -809,7 +970,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     setIsProcessingAnswer(false); // Reset processing state
     setIsTranscribing(false); // Reset transcription state
     setIsRecording(false); // Reset recording state
-    setIsRecording(false); // Reset recording state
+    isRecordingRef.current = false;
+    isStartingRef.current = false;
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
@@ -839,7 +1001,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     // Clean up wake word service if waiting
     if (waitingForNextConversation) {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      wakeWordService.pauseDetection(false).catch(() => { });
     }
   };
 
@@ -997,7 +1159,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // Update AI Resolved record with the selected answer
     if (currentAIRecord) {
-      const updatedRecord = {...currentAIRecord};
+      const updatedRecord = { ...currentAIRecord };
 
       if (currentAIRecord.currentRound === 1) {
         updatedRecord.round1Picked = selectedAnswer;
@@ -1024,7 +1186,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) {}
+        } catch (error) { }
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1051,6 +1213,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
         setAccumulatedPriors([]);
         if (gobackAfterSelection) {
           // Wait 1 second to allow user to hear the selected answer being spoken
+          isNavigatingToOpenRef.current = true;
           resetLocalStates();
           navigation.navigate(views.OPEN as never);
         } else {
@@ -1117,8 +1280,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       <View
         style={[
           styles.container,
-          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
-          {backgroundColor: '#FFF8E7'},
+          Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
+          { backgroundColor: '#FFF8E7' },
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1135,6 +1298,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               mixpanel.track('Contiuing the conversation Restarted', {
                 source: 'microphone_button_home_screen',
               });
+
+              // Reset states to clear previous images/results and show recording UI
+              setShowImages(false);
+              setFinishedTranscribing(false);
+              setTranscribedText('');
+              setIsRetrying(false);
+              setRetryCount(0);
+              setIsProcessingAnswer(false);
+              setDirectAnswers([]);
+              setAccumulatedPriors([]);
+              setCurrentAIRecord(null);
+              setPartialResult('');
+              voiceResultsRef.current = [];
+              partialResultRef.current = '';
+
               setWaitingForNextConversation(false); // Exit waiting state immediately
               playSound(); // This will trigger handleRecord()
             }}>
@@ -1167,16 +1345,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           style={[
             styles.inputNavigationContainer,
             stateof === 'Keyboard'
-              ? {height: 0, opacity: 0}
+              ? { height: 0, opacity: 0 }
               : {
-                  height: responsiveValues.inputNavigationHeight,
-                  marginTop: Math.max(insets.top, 10),
-                },
+                height: responsiveValues.inputNavigationHeight,
+                marginTop: Math.max(insets.top, 10),
+              },
           ]}>
           {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
         </View>
 
-        <View style={{flex: 1, width: '100%'}}>
+        <View style={{ flex: 1, width: '100%' }}>
           <View
             style={[
               styles.contentContainer,
@@ -1187,7 +1365,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, {zIndex: 10}]}
+              style={[styles.imageCardContainer, { zIndex: 10 }]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1205,7 +1383,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       try {
                         // Handle direct answers format
                         return {
-                          url: {url: item.imageUrl || ''},
+                          url: { url: item.imageUrl || '' },
                           prompt: item.word || '',
                         };
                       } catch (err) {
@@ -1213,7 +1391,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       }
                     })
                     .filter(
-                      (item): item is {url: {url: string}; prompt: string} =>
+                      (item): item is { url: { url: string }; prompt: string } =>
                         item !== null,
                     );
 
@@ -1223,7 +1401,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         <Text
                           style={[
                             styles.errorText,
-                            {fontSize: responsiveValues.errorFontSize},
+                            { fontSize: responsiveValues.errorFontSize },
                           ]}>
                           We have an issue. Please be patient.
                         </Text>
@@ -1275,7 +1453,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
                               ShortCuts
                             </Text>
@@ -1325,7 +1503,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                {fontSize: responsiveValues.cardTextFontSize},
+                                { fontSize: responsiveValues.cardTextFontSize },
                               ]}>
                               Feelings
                             </Text>
@@ -1366,7 +1544,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                       <View
                         style={[
                           styles.waitingForNextContainer,
-                          {padding: responsiveValues.waitingContainerPadding},
+                          { padding: responsiveValues.waitingContainerPadding },
                         ]}>
                         <Text
                           style={[
@@ -1378,7 +1556,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             },
                           ]}>
                           Say{' '}
-                          <Text style={{fontWeight: 'bold', color: 'blue'}}>
+                          <Text style={{ fontWeight: 'bold', color: 'blue' }}>
                             Hey Verbi
                           </Text>{' '}
                           to continue the conversation or tap below
@@ -1415,7 +1593,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </TouchableOpacity>
                       </View>
                     ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
-                      <View style={{alignItems: 'center'}}>
+                      <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
                           style={[
@@ -1435,7 +1613,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                         </Text>
                       </View>
                     ) : isRecording ? (
-                      <View style={{alignItems: 'center'}}>
+                      <View
+                        style={[
+                          styles.recordingContainer,
+                          {
+                            width: recordingContainerSize,
+                            height: recordingContainerSize,
+                            marginTop: Math.min(viewportHeight * 0.08, 48),
+                          },
+                        ]}>
                         <FastImage
                           source={require('../assets/movie/recording.gif')}
                           style={responsiveValues.recordingIconSize}
@@ -1449,8 +1635,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           style={{
                             fontSize: responsiveValues.transcriptionFontSize,
                             fontWeight: 'bold',
-                            color: '#FF0000',
-                            marginTop: 10,
+                            color: '#8A2BE2',
+                            marginTop: 18,
                           }}>
                           Recording...
                         </Text>
@@ -1463,7 +1649,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <View style={{alignItems: 'center', marginBottom: 20}}>
+                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
                           <Text
                             style={{
                               fontSize: responsiveValues.transcriptionFontSize,
@@ -1480,23 +1666,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                 color: isUsingLocalWhisper
                                   ? '#4CAF50'
                                   : modelNotAvailable
-                                  ? '#FF9800'
-                                  : '#2196F3',
+                                    ? '#FF9800'
+                                    : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
                               {isUsingLocalWhisper
                                 ? '🔒 Local Whisper'
                                 : modelNotAvailable
-                                ? '☁️ Cloud (Model not downloaded)'
-                                : '☁️ Cloud'}
+                                  ? '☁️ Cloud (Model not downloaded)'
+                                  : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
 
                         {/* Show different loading states based on processing phase */}
                         {isRetrying ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1518,7 +1704,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                             </Text>
                           </View>
                         ) : isProcessingAnswer ? (
-                          <View style={{alignItems: 'center'}}>
+                          <View style={{ alignItems: 'center' }}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1549,8 +1735,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                           />
                         ) : null}
                         {finishedTranscribing &&
-                        (transcribedText.length === 0 ||
-                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                          (transcribedText.length === 0 ||
+                            transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
                           <HomeButton
                             navigation={navigation}
                             onReset={resetLocalStates}
@@ -1564,6 +1750,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                 </>
               )}
             </View>
+            {isRecording && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.recordingScreenGlow,
+                  {
+                    opacity: recordingGlowOpacity,
+                  },
+                ]}
+              />
+            )}
           </View>
         </View>
       </View>
@@ -1583,17 +1780,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recordingContainer: {
-    width: height * 0.4,
-    height: height * 0.4,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    borderRadius: height * 0.2,
-    backgroundColor: 'rgba(255,0,0,0.1)',
-    borderWidth: 2,
-    borderColor: '#ff0000',
-    marginTop: height * 0.2,
     zIndex: 10,
+  },
+  recordingScreenGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 5,
+    backgroundColor: '#CE93D8',
+    shadowColor: '#8E24AA',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    zIndex: 999,
   },
   playButton: {
     width: 80,

@@ -16,7 +16,6 @@ import {
   Keyboard,
   ActivityIndicator
 } from 'react-native';
-import Video from 'react-native-video';
 import {
   useNavigation,
   useFocusEffect,
@@ -35,29 +34,15 @@ import My8WordsCustomizer from '../Components/My8WordsCustomizer';
 import mixpanel from '../utils/mixpanelInstance';
 import fetchHelper from '../utils/fetcher';
 import Subscription from '../Components/Subscription';
-import WhisperDownload from '../Components/WhisperDownload';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
 import NetInfo from '@react-native-community/netinfo';
 import { ProfileExportService } from '../services/ProfileExportService';
 import { ProfileImportService } from '../services/ProfileImportService';
+import WakeWordService from '../utils/wakewordService';
 
 const { height, width: SCREEN_WIDTH } = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
-
-// Base URL for remote video assets
-const VIDEO_BASE_URL = 'https://pub-478619cacb0f41448d8ea23825356593.r2.dev/';
-
-/**
- * Builds a video URL from a video name
- * @param videoName - The name of the video file (e.g., "homescreen", "reports")
- * @returns Video source object with URI for react-native-video
- */
-const getVideoUrl = (videoName: string): { uri: string } => {
-  return {
-    uri: `${VIDEO_BASE_URL}${videoName}.mp4`,
-  };
-};
 
 type WebViewParams = {
   url: string;
@@ -265,10 +250,6 @@ const SettingsScreen: React.FC = () => {
     useState(false);
   const [newHandshakeMessage, setNewHandshakeMessage] = useState('');
   const [handshakeMessageError, setHandshakeMessageError] = useState('');
-  // Whisper settings state
-  const [useLocalWhisper, setUseLocalWhisper] = useState(true);
-  const [showWhisperInfo, setShowWhisperInfo] = useState(false);
-  const [whisperModelAvailable, setWhisperModelAvailable] = useState(false);
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
 
   // Easter egg: tap version 5 times to show assistant ID
@@ -357,7 +338,6 @@ const SettingsScreen: React.FC = () => {
         const savedGobackAfterSelection = await getItem('gobackAfterSelection');
         const savedHeroName = await getItem('heroName');
         const savedHandshakeMessage = await getItem('handshakeMessage');
-        const savedUseLocalWhisper = await getItem('useLocalWhisper');
 
         setReturnedMessages(parseInt(savedReturnedMessages) || 5);
         setTopicsCount(parseInt(savedTopicsCount) || 4);
@@ -374,8 +354,6 @@ const SettingsScreen: React.FC = () => {
             ? savedHandshakeMessage
             : 'Hello! How can I help you today?',
         );
-        setUseLocalWhisper(savedUseLocalWhisper === '1');
-        setWhisperModelAvailable(preferences.whisperModelAvailable === '1');
       } catch (e) { }
     };
 
@@ -424,6 +402,8 @@ const SettingsScreen: React.FC = () => {
   // Detect navigation from Reports and show rating modal
   useFocusEffect(
     React.useCallback(() => {
+      WakeWordService.getInstance().pauseDetection(false).catch(() => { });
+
       const checkForRatingPrompt = async () => {
         try {
           // Get route params to check if we came from Reports
@@ -521,29 +501,6 @@ const SettingsScreen: React.FC = () => {
     });
     setGobackAfterSelection(value);
     await setItem('gobackAfterSelection', value ? '1' : '0');
-  };
-
-  const handleWhisperDownloadComplete = async () => {
-    try {
-      const WhisperModelManager = await import('../utils/WhisperModelManager');
-      const modelStatus =
-        await WhisperModelManager.default.checkModelAvailabilityAndAdjustSettings(
-          setItem,
-          getItem,
-        );
-      mixpanel.track('Settings Whisper Download Completed', {
-        success: modelStatus.available,
-      });
-      setWhisperModelAvailable(modelStatus.available);
-    } catch (error) {
-      mixpanel.track('Settings Whisper Download Completed', {
-        success: false,
-        error: 'Failed to verify model',
-      });
-      setWhisperModelAvailable(false);
-      await setItem('whisperModelAvailable', '0');
-      await setItem('useLocalWhisper', '0');
-    }
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
@@ -1446,16 +1403,9 @@ const SettingsScreen: React.FC = () => {
                       ]}
                       onPress={() => handleVideoCardPress('homescreen')}>
                       <View style={styles.videoContainer}>
-                        <Video
-                          disableAudioSessionManagement={true}
-                          source={getVideoUrl('homescreen')}
-                          style={styles.video}
-                          resizeMode="cover"
-                          paused={true}
-                          muted={true}
-                          repeat={false}
-                          controls={false}
-                        />
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
                         {watchedVideos.has(0) && (
                           <View
                             style={[
@@ -1488,16 +1438,9 @@ const SettingsScreen: React.FC = () => {
                       ]}
                       onPress={() => handleVideoCardPress('question')}>
                       <View style={styles.videoContainer}>
-                        <Video
-                          disableAudioSessionManagement={true}
-                          source={getVideoUrl('question')}
-                          style={styles.video}
-                          resizeMode="cover"
-                          paused={true}
-                          muted={true}
-                          repeat={false}
-                          controls={false}
-                        />
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
                         {watchedVideos.has(1) && (
                           <View
                             style={[
@@ -1530,16 +1473,9 @@ const SettingsScreen: React.FC = () => {
                       ]}
                       onPress={() => handleVideoCardPress('convo')}>
                       <View style={styles.videoContainer}>
-                        <Video
-                          disableAudioSessionManagement={true}
-                          source={getVideoUrl('convo')}
-                          style={styles.video}
-                          resizeMode="cover"
-                          paused={true}
-                          muted={true}
-                          repeat={false}
-                          controls={false}
-                        />
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
                         {watchedVideos.has(2) && (
                           <View
                             style={[
@@ -1572,16 +1508,9 @@ const SettingsScreen: React.FC = () => {
                       ]}
                       onPress={() => handleVideoCardPress('reports')}>
                       <View style={styles.videoContainer}>
-                        <Video
-                          disableAudioSessionManagement={true}
-                          source={getVideoUrl('reports')}
-                          style={styles.video}
-                          resizeMode="cover"
-                          paused={true}
-                          muted={true}
-                          repeat={false}
-                          controls={false}
-                        />
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
                         {watchedVideos.has(3) && (
                           <View
                             style={[
@@ -1614,16 +1543,9 @@ const SettingsScreen: React.FC = () => {
                       ]}
                       onPress={() => handleVideoCardPress('personalization')}>
                       <View style={styles.videoContainer}>
-                        <Video
-                          disableAudioSessionManagement={true}
-                          source={getVideoUrl('personalization')}
-                          style={styles.video}
-                          resizeMode="cover"
-                          paused={true}
-                          muted={true}
-                          repeat={false}
-                          controls={false}
-                        />
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
                         {watchedVideos.has(4) && (
                           <View
                             style={[
@@ -1656,16 +1578,9 @@ const SettingsScreen: React.FC = () => {
                       ]}
                       onPress={() => handleVideoCardPress('boardCustomize')}>
                       <View style={styles.videoContainer}>
-                        <Video
-                          disableAudioSessionManagement={true}
-                          source={getVideoUrl('boardCustomize')}
-                          style={styles.video}
-                          resizeMode="cover"
-                          paused={true}
-                          muted={true}
-                          repeat={false}
-                          controls={false}
-                        />
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
                         {watchedVideos.has(5) && (
                           <View
                             style={[
@@ -2098,30 +2013,6 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
 
-              {/* Whisper Model Download Section */}
-              {(useLocalWhisper || !whisperModelAvailable) && (
-                <View style={styles.whisperDownloadSection}>
-                  <Text style={styles.settingLabel}>Whisper Model</Text>
-                  {whisperModelAvailable ? (
-                    <View style={styles.whisperStatusContainer}>
-                      <Text style={styles.whisperStatusText}>
-                        ✅ Whisper model is downloaded and ready to use
-                      </Text>
-                    </View>
-                  ) : (
-                    <View style={styles.whisperDownloadContainer}>
-                      <Text style={styles.whisperDownloadText}>
-                        {useLocalWhisper
-                          ? 'Download the Whisper model to enable local voice transcription'
-                          : 'Download the Whisper model to enable local voice transcription (required to use local Whisper)'}
-                      </Text>
-                      <WhisperDownload
-                        onComplete={handleWhisperDownloadComplete}
-                      />
-                    </View>
-                  )}
-                </View>
-              )}
             </View>
 
             <View style={[styles.section]}>
@@ -2260,18 +2151,6 @@ const SettingsScreen: React.FC = () => {
           }}
           title="Gender Selection"
           description="Gender selection is completely optional and is used only for personalization purposes. You don't have to choose a gender if you prefer not to. This setting helps customize your experience but is not required for the app to function."
-        />
-
-        <InfoModal
-          visible={showWhisperInfo}
-          onClose={() => {
-            mixpanel.track('Settings Info Modal Closed', {
-              modalType: 'Local Whisper vs Cloud',
-            });
-            setShowWhisperInfo(false);
-          }}
-          title="Local Whisper vs Cloud"
-          description="When enabled, the app will use the downloaded Whisper model for voice transcription on your device. This provides faster transcription and keeps your audio on your device only. The Whisper model must be downloaded before you can enable local Whisper. If the model is not downloaded, the app will use cloud-based transcription."
         />
 
         {/* Video Modal */}
@@ -2818,32 +2697,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     width: '100%',
   },
-  whisperDownloadSection: {
-    paddingHorizontal: 10,
-    marginBottom: 20,
-
-    paddingBottom: 20,
-  },
-  whisperStatusContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  whisperStatusText: {
-    fontSize: 14,
-    color: '#28a745',
-    fontWeight: '500',
-  },
-  whisperDownloadContainer: {
-    marginTop: 8,
-  },
-  whisperDownloadText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    lineHeight: 20,
-  },
   currentAvatarContainer: {
     paddingVertical: 12,
     paddingHorizontal: 10,
@@ -3008,9 +2861,23 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     backgroundColor: '#f8f9fe',
   },
-  video: {
+  videoThumbnail: {
     width: '100%',
     height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e9eef8',
+  },
+  videoPlayTriangle: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 10,
+    borderBottomWidth: 10,
+    borderLeftWidth: 16,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#4b5f8f',
+    marginLeft: 3,
   },
   checklistCardTitle: {
     fontSize: height * 0.012, // Height-based font size

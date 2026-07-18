@@ -3,8 +3,16 @@ import { Platform, NativeEventEmitter } from 'react-native';
 import Speech from 'react-native-davoice-tts/speech';
 import AppConfig from './config';
 import { prepareSpeechRecognitionAfterFullInit } from './STTService';
+import WakeWordService from './wakewordService';
 
 const STT_DEBUG = false;
+const IOS_TTS_AUDIO_SETTLE_MS = 150;
+
+type SpeechQueueItem = {
+  text: string;
+  onComplete?: () => void;
+  resumeWakeWordOnComplete: boolean;
+};
 
 const trace = (...args: unknown[]) => {
   if (STT_DEBUG) {
@@ -22,16 +30,25 @@ class SpeechServiceClass {
   private static instance: SpeechServiceClass;
   private initialized: boolean = false;
   private isPlaying: boolean = false;
-  private queue: Array<{ text: string; onComplete?: () => void }> = [];
+  private queue: SpeechQueueItem[] = [];
   private processingQueue: boolean = false;
-  private currentItem: { text: string; onComplete?: () => void } | null = null;
+  private currentItem: SpeechQueueItem | null = null;
   private volumeCleanup: (() => void) | null = null;
 
   private speechInstance = Speech;
 
-  // You can switch the voice by commenting/uncommenting the models below
-  private ttsModel = require('../../ios/models/model_ex_ariana_fast_davoice_phoneme.dm');
-  //private ttsModel = require('../../ios/models/model_ex_rich_fast_davoice_phoneme.dm');
+  // Lazy-load the model so it isn't resolved at class construction time.
+  // In dev mode Metro serves .dm assets over HTTP; an eager require() triggers
+  // synchronous URL loading on the main thread and produces a runtime warning.
+  // Switch voice models by changing which line is active below.
+  private _ttsModel: any = null;
+  private getTtsModel() {
+    if (!this._ttsModel) {
+      this._ttsModel = require('../../ios/models/model_ex_ariana_fast_davoice_phoneme.dm');
+      // this._ttsModel = require('../../ios/models/model_ex_rich_fast_davoice_phoneme.dm');
+    }
+    return this._ttsModel;
+  }
 
   private constructor() {
     // Private constructor for singleton
@@ -96,7 +113,7 @@ class SpeechServiceClass {
       trace('[STT TRACE][SpeechService] calling initAll');
       const result = await this.speechInstance.initAll({
         locale: 'en-US',
-        model: this.ttsModel,
+        model: this.getTtsModel(),
       });
       trace(
         `[STT TRACE][SpeechService] initAll resolved result=${String(result)}`,
@@ -128,9 +145,19 @@ class SpeechServiceClass {
       trace(`[STT TRACE][SpeechService] speakText begin text="${text}"`);
       const speakerId = 0; // Piper uses 0 for single‑speaker models
 
-      // Give the audio session a moment to settle after preparation
       if (Platform.OS === 'ios') {
-        await new Promise<void>(resolve => setTimeout(resolve, 100));
+        try {
+          console.log('[SpeechService] speakText: pausing wakeword detection (keepWarm=true) before starting TTS');
+          await WakeWordService.getInstance().pauseDetection(false);
+          console.log('[SpeechService] speakText: pauseDetection completed');
+        } catch (error) {
+          console.warn('[SpeechService] WakeWord pause before TTS failed:', error);
+        }
+
+        // Give the audio session a moment to settle after releasing the mic.
+        await new Promise<void>(resolve =>
+          setTimeout(resolve, IOS_TTS_AUDIO_SETTLE_MS),
+        );
       }
 
       try {
@@ -160,15 +187,33 @@ class SpeechServiceClass {
     this.isPlaying = false;
     this.processingQueue = false;
 
+    const completedItem = this.currentItem;
+    this.currentItem = null;
+
     // Call completion callback if set
-    if (this.currentItem?.onComplete) {
-      this.currentItem.onComplete();
-      this.currentItem = null;
-    }
+    completedItem?.onComplete?.();
 
     // Process next in queue if any
     if (this.queue.length > 0) {
       this.processQueue();
+    } else if (
+      Platform.OS === 'ios' &&
+      completedItem?.resumeWakeWordOnComplete !== false
+    ) {
+      // Queue is drained — the audio session is no longer needed for TTS.
+      // Resume wakeword detection so it can listen again without waiting for
+      // a navigation event (Open.tsx focus or handleAnswerSelected setTimeout)
+      // to do it. Callers that immediately start STT will re-pause via
+      // handleRecord → WakeWordService.pauseDetection before opening the mic.
+      console.log('[SpeechService] handlePlaybackFinished: queue is empty, calling WakeWordService.resumeDetection()');
+      WakeWordService.getInstance()
+        .resumeDetection()
+        .then(() => {
+          console.log('[SpeechService] handlePlaybackFinished: WakeWordService.resumeDetection() resolved successfully');
+        })
+        .catch(err =>
+          console.warn('[SpeechService] WakeWord resume after TTS failed:', err),
+        );
     }
   }
 
@@ -187,6 +232,7 @@ class SpeechServiceClass {
     text: string,
     immediate: boolean = false,
     onComplete?: () => void,
+    resumeWakeWordOnComplete: boolean = true,
   ): Promise<void> {
     trace(
       `[STT TRACE][SpeechService] speak requested immediate=${immediate} initialized=${this.initialized} text="${text}"`,
@@ -208,12 +254,12 @@ class SpeechServiceClass {
         // Wait a bit to ensure previous playback is fully stopped
         const stopDelay = Platform.OS === 'ios' ? 200 : 50;
         setTimeout(() => {
-          this.queue = [{ text, onComplete }];
+          this.queue = [{text, onComplete, resumeWakeWordOnComplete}];
           this.processQueue();
         }, stopDelay);
         return;
       } else {
-        this.queue.push({ text, onComplete });
+        this.queue.push({text, onComplete, resumeWakeWordOnComplete});
       }
 
       if (!this.isPlaying && !this.processingQueue) {
