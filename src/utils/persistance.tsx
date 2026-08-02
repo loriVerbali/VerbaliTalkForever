@@ -70,9 +70,19 @@ interface Preferences {
   ratingPromptDismissed: string;
   deviceRevoked: string;
   answersCount: string;
+  intakeSilenceTimeoutMs: string;
   tellUsMore: string;
   intakeActiveStepIndex: string;
   intakeStepStatuses: string;
+  // Verbi AI suggestion column
+  verbiEnabled: string;
+  verbiMicrophoneEnabled: string;
+  /** How many suggestions Verbi should return per prediction request. */
+  verbiSuggestionLimit: string;
+  // One-time welcome guide on the Communication (Convo) page
+  convoWelcomeGuideShown: string;
+  // One-time welcome guide on the Home (Open) page
+  homeWelcomeGuideShown: string;
 }
 
 const initEnum = {
@@ -145,9 +155,18 @@ export const initialPreferences: Preferences = {
   ratingPromptDismissed: initEnum.false,
   deviceRevoked: initEnum.false,
   answersCount: '5',
+  intakeSilenceTimeoutMs: '3000',
   tellUsMore: '',
   intakeActiveStepIndex: '0',
   intakeStepStatuses: '[]',
+  // Verbi AI suggestion column
+  verbiEnabled: '1',
+  verbiMicrophoneEnabled: '1',
+  verbiSuggestionLimit: '10',
+  // One-time welcome guide on the Communication (Convo) page
+  convoWelcomeGuideShown: initEnum.false,
+  // One-time welcome guide on the Home (Open) page
+  homeWelcomeGuideShown: initEnum.false,
 };
 
 interface AppSettingsContextProps {

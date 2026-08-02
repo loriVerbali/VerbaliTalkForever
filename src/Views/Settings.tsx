@@ -234,6 +234,9 @@ const SettingsScreen: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
+  // Verbi AI suggestions
+  const verbiEnabledPref = preferences.verbiEnabled !== '0';
+  const verbiMicEnabledPref = preferences.verbiMicrophoneEnabled !== '0';
   const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
     useState(false);
   const [showGenderInfo, setShowGenderInfo] = useState(false);
@@ -490,6 +493,13 @@ const SettingsScreen: React.FC = () => {
     setItem('answersCount', count.toString());
   };
 
+  const handleSilenceTimeoutChange = (value: number) => {
+    const rounded = Math.round(value);
+    mixpanel.track('Settings Silence Timeout Changed', { silenceTimeoutMs: rounded * 1000 });
+    setItem('intakeSilenceTimeoutMs', (rounded * 1000).toString());
+  };
+
+
   const handleOnboardingToggle = async (value: boolean) => {
     setShowOnboardingEnabled(value);
     await setItem('wasOnboarded', value ? '0' : '1');
@@ -501,6 +511,16 @@ const SettingsScreen: React.FC = () => {
     });
     setGobackAfterSelection(value);
     await setItem('gobackAfterSelection', value ? '1' : '0');
+  };
+
+  const handleVerbiToggle = async (value: boolean) => {
+    mixpanel.track('verbi_enabled_changed', { enabled: value });
+    await setItem('verbiEnabled', value ? '1' : '0');
+  };
+
+  const handleVerbiMicToggle = async (value: boolean) => {
+    mixpanel.track('verbi_microphone_changed', { enabled: value });
+    await setItem('verbiMicrophoneEnabled', value ? '1' : '0');
   };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
@@ -1241,7 +1261,79 @@ const SettingsScreen: React.FC = () => {
                   Choose how many answer cards appear after each question. Default is 5.
                 </Text>
               </View>
+
+              {/* ── Detect Silence After Slider ── */}
+              <View
+                style={{
+                  marginTop: 16,
+                  marginBottom: 8,
+                  paddingHorizontal: 4,
+                }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 4,
+                  }}>
+                  <Text
+                    style={[
+                      styles.settingLabel,
+                      { flex: 1, fontSize: 15, fontWeight: '600', color: '#333' },
+                    ]}>
+                    Detect silence after
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: '700',
+                      color: '#8E24AA',
+                      minWidth: 52,
+                      textAlign: 'right',
+                    }}>
+                    {Math.round(
+                      parseInt(preferences.intakeSilenceTimeoutMs || '3000') / 1000,
+                    )}{' '}
+                    sec
+                  </Text>
+                </View>
+
+                <Slider
+                  style={{ width: '100%', height: 40 }}
+                  minimumValue={2}
+                  maximumValue={8}
+                  step={1}
+                  value={Math.round(
+                    parseInt(preferences.intakeSilenceTimeoutMs || '3000') / 1000,
+                  )}
+                  onValueChange={handleSilenceTimeoutChange}
+                  minimumTrackTintColor="#8E24AA"
+                  maximumTrackTintColor="#E1BEE7"
+                  thumbTintColor="#8E24AA"
+                />
+
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 2,
+                  }}>
+                  <Text style={{ fontSize: 11, color: '#aaa' }}>2 s</Text>
+                  <Text style={{ fontSize: 11, color: '#aaa' }}>8 s</Text>
+                </View>
+
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: '#888',
+                    marginTop: 6,
+                    fontStyle: 'italic',
+                  }}>
+                  How long to wait after you stop speaking before recording ends.
+                  Increase if it cuts you off too soon. Default is 3 seconds.
+                </Text>
+              </View>
             </View>
+
 
             <View style={[styles.section, styles.sectionReports]}>
               <Text style={styles.sectionTitle}>
@@ -2013,6 +2105,52 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
 
+            </View>
+
+            {/* ─── Verbi AI Suggestions ──────────────────────────────── */}
+            <View style={[styles.section]}>
+              <Text style={styles.sectionTitle}>Verbi Board Predictions</Text>
+
+              {/* Verbi Enabled */}
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.settingLabel}>Verbi AI Suggestions</Text>
+                  <Text style={styles.aboutDescription}>
+                    Shows AI word suggestions while you build sentences.
+                  </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: '#767577', true: '#8E24AA' }}
+                  thumbColor={verbiEnabledPref ? '#fff' : '#f4f3f4'}
+                  ios_backgroundColor="#3e3e3e"
+                  onValueChange={handleVerbiToggle}
+                  value={verbiEnabledPref}
+                />
+              </View>
+
+              {/* Verbi Microphone */}
+              <View
+                style={[
+                  styles.switchRow,
+                  !verbiEnabledPref && { opacity: 0.4 },
+                ]}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.settingLabel}>Microphone for Suggestions</Text>
+                  <Text style={styles.aboutDescription}>
+                    Listens for your conversation partner after your first word.
+                    Listening starts only after you begin a sentence. Raw audio
+                    is never stored.
+                  </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: '#767577', true: '#8E24AA' }}
+                  thumbColor={verbiMicEnabledPref ? '#fff' : '#f4f3f4'}
+                  ios_backgroundColor="#3e3e3e"
+                  onValueChange={handleVerbiMicToggle}
+                  value={verbiMicEnabledPref}
+                  disabled={!verbiEnabledPref}
+                />
+              </View>
             </View>
 
             <View style={[styles.section]}>

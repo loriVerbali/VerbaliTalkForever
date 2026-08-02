@@ -26,6 +26,7 @@ import AppConfig from '../utils/config';
 import {hasAppAccess} from '../utils/trialUtils';
 import {useConnection} from '../utils/connection';
 import ShowAndTell from '../Components/ShowAndTell';
+import HomeWelcomeModal from '../Components/HomeWelcomeModal';
 import mixpanel from '../utils/mixpanelInstance';
 import WakeWordService from '../utils/wakewordService';
 import Voice from '../utils/STTService';
@@ -76,6 +77,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const {height, width} = Dimensions.get('window');
 
+/** Flip to true while developing to show the welcome guide on every visit. */
+const FORCE_SHOW_WELCOME = false;
+
 const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const isListening = useRef(false);
@@ -108,6 +112,7 @@ const OpenScreen: React.FC = () => {
   const [settingsTappedOnce, setSettingsTappedOnce] = useState(false);
   const [microphoneTappedOnce, setMicrophoneTappedOnce] = useState(false);
   const [showAndTellModalShown, setShowAndTellModalShown] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
   const [my8WordsData, setMy8WordsData] = useState<My8WordsData | null>(null);
   const wakeWordService = WakeWordService.getInstance();
@@ -116,6 +121,9 @@ const OpenScreen: React.FC = () => {
   const settingsHandScaleAnim = useRef(new Animated.Value(1)).current;
   const settingsBubbleScaleAnim = useRef(new Animated.Value(1)).current;
   const handshakeTappedRef = useRef(false);
+  // True while the welcome guide is on screen: the wakeword must stay paused
+  // so it does not trigger on the guide's spoken summary.
+  const welcomeVisibleRef = useRef(false);
   const errorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showLoadingModal, setShowLoadingModal] = useState(false);
@@ -168,6 +176,60 @@ const OpenScreen: React.FC = () => {
     };
     loadStatus();
   }, [getItem]);
+
+  // ─── One-time welcome guide ────────────────────────────────────────────────
+  // Read straight from storage so we never flash the guide while the shared
+  // preferences object is still loading its defaults.
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkWelcome = async () => {
+      try {
+        if (!FORCE_SHOW_WELCOME) {
+          const shown = await getItem('homeWelcomeGuideShown');
+          if (cancelled || shown === '1') return;
+          // Persist immediately: the guide belongs to the first visit only, so
+          // it must not return on a later visit even if this one is cut short.
+          await setItem('homeWelcomeGuideShown', '1');
+          if (cancelled) return;
+        }
+        // The guide is spoken aloud — keep the wakeword off the mic until it is
+        // dismissed so it cannot trigger on the guide's own audio.
+        welcomeVisibleRef.current = true;
+        await wakeWordService.pauseDetection(false).catch(() => {});
+        if (cancelled) {
+          welcomeVisibleRef.current = false;
+          return;
+        }
+        setShowWelcome(true);
+        mixpanel.track('Home Welcome Guide Shown');
+      } catch (error) {
+        // Fail silently — the guide is not critical
+      }
+    };
+
+    checkWelcome();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleWelcomeClose = useCallback(async () => {
+    welcomeVisibleRef.current = false;
+    setShowWelcome(false);
+    try {
+      const wasOnboarded = await getItem('wasOnboarded');
+      if (wasOnboarded === '1' && !wakeWordService.isCurrentlyListening()) {
+        await wakeWordService.resumeDetection();
+      }
+    } catch (error) {
+      console.error(
+        '[Open] Error resuming wakeword after welcome guide:',
+        error,
+      );
+    }
+  }, [getItem, wakeWordService]);
 
   // Hand and bubble pulsing animation
   useEffect(() => {
@@ -450,12 +512,15 @@ const OpenScreen: React.FC = () => {
       wakeWordService.setCallback(wakeWordCallback);
       let resumeTimeout: ReturnType<typeof setTimeout> | null = null;
 
-      // Unpause the mic — wakeword is now actively listening
-      wakeWordService
-        .resumeDetection()
-        .catch(err => console.warn('[Open] resumeDetection failed:', err));
+      // Unpause the mic — wakeword is now actively listening. Skipped while the
+      // welcome guide is speaking; handleWelcomeClose resumes it instead.
+      if (!welcomeVisibleRef.current) {
+        wakeWordService
+          .resumeDetection()
+          .catch(err => console.warn('[Open] resumeDetection failed:', err));
+      }
       resumeTimeout = setTimeout(() => {
-        if (!navigation.isFocused()) {
+        if (!navigation.isFocused() || welcomeVisibleRef.current) {
           return;
         }
 
@@ -1501,6 +1566,15 @@ const OpenScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* One-time welcome guide for the Home screen */}
+      <HomeWelcomeModal
+        visible={showWelcome}
+        heroName={heroName || ''}
+        gender={preferences?.gender || ''}
+        onClose={handleWelcomeClose}
+        onOpenSettings={handleSettingsPress}
+      />
     </>
   );
 };

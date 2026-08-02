@@ -60,6 +60,7 @@ const sttTrace = (...args: unknown[]) => {
 interface Message {
   role: 'assistant' | 'user';
   content: string;
+  rationale?: string; // privacy/context note shown below sensitive questions
 }
 
 interface Step {
@@ -293,12 +294,15 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
   );
 
   const getSilenceTimeout = useCallback(
-    (isSkipStopPrompt: boolean) =>
-      isSkipStopPrompt
-        ? SKIP_STOP_SILENCE_TIMEOUT_MS
-        : INTAKE_RESPONSE_SILENCE_TIMEOUT_MS,
-    [],
+    (isSkipStopPrompt: boolean) => {
+      const userTimeout =
+        parseInt(preferences.intakeSilenceTimeoutMs || '3000') ||
+        INTAKE_RESPONSE_SILENCE_TIMEOUT_MS;
+      return isSkipStopPrompt ? SKIP_STOP_SILENCE_TIMEOUT_MS : userTimeout;
+    },
+    [preferences.intakeSilenceTimeoutMs],
   );
+
 
   const getInitialSilenceTimeout = useCallback(
     (isSkipStopPrompt: boolean) =>
@@ -900,10 +904,11 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
         if (result.topic_complete) {
           await setItem('intakeActiveStepIndex', nextIndex.toString());
         }
-        setMessages([
-          ...newTranscript,
-          {role: 'assistant', content: nextMsgContent},
-        ]);
+        const nextMsg: Message = {role: 'assistant', content: nextMsgContent};
+        if (result.question_rationale) {
+          nextMsg.rationale = result.question_rationale;
+        }
+        setMessages([...newTranscript, nextMsg]);
       }
     } catch {
       Alert.alert(
@@ -1173,7 +1178,10 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
 
     const t = setTimeout(() => {
       if (!voiceModeEnabledRef.current || isPausedRef.current) return;
-      speakMessage(lastMsg.content, () => {
+      const spokenText = lastMsg.rationale
+        ? `${lastMsg.content} … ${lastMsg.rationale}`
+        : lastMsg.content;
+      speakMessage(spokenText, () => {
         if (!voiceModeEnabledRef.current || isPausedRef.current) return;
         // Snapshot messages at TTS completion time
         const currentMsgs = messagesRef.current;
@@ -1198,18 +1206,26 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
   const renderMessage = ({item}: {item: Message}) => {
     const isAssistant = item.role === 'assistant';
     return (
-      <View
-        style={[
-          styles.messageBubble,
-          isAssistant ? styles.assistantBubble : styles.userBubble,
-        ]}>
-        <Text
+      <View style={styles.messageWrapper}>
+        <View
           style={[
-            styles.messageText,
-            isAssistant ? styles.assistantText : styles.userText,
+            styles.messageBubble,
+            isAssistant ? styles.assistantBubble : styles.userBubble,
           ]}>
-          {item.content}
-        </Text>
+          <Text
+            style={[
+              styles.messageText,
+              isAssistant ? styles.assistantText : styles.userText,
+            ]}>
+            {item.content}
+          </Text>
+        </View>
+        {isAssistant && item.rationale ? (
+          <View style={styles.rationaleBadge}>
+            <Text style={styles.rationaleIcon}>🔒</Text>
+            <Text style={styles.rationaleText}>{item.rationale}</Text>
+          </View>
+        ) : null}
       </View>
     );
   };
@@ -1735,6 +1751,10 @@ const styles = StyleSheet.create({
   flatList: {
     flex: 1,
   },
+  messageWrapper: {
+    flexDirection: 'column',
+    gap: 4,
+  },
   messageBubble: {
     maxWidth: '85%',
     padding: 14,
@@ -1759,6 +1779,28 @@ const styles = StyleSheet.create({
   },
   userText: {
     color: '#fff',
+  },
+  rationaleBadge: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    alignSelf: 'flex-start',
+    backgroundColor: '#EDE7F6',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    maxWidth: '85%',
+    gap: 6,
+  },
+  rationaleIcon: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  rationaleText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#5E35B1',
+    flex: 1,
+    fontStyle: 'italic',
   },
 
   // Input area

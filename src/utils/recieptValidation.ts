@@ -8,6 +8,9 @@ import {
 } from 'react-native-iap';
 
 const validateSubscription = async (receipt: string) => {
+  if (__DEV__) {
+    return true;
+  }
   if (Platform.OS === 'android') {
     // For Android, validate using Google Play receipt validation
     try {
@@ -51,6 +54,9 @@ const validateSubscription = async (receipt: string) => {
 };
 
 const validateReceiptOnLaunch = async () => {
+  if (__DEV__) {
+    return true;
+  }
   if (Platform.OS === 'android') {
     // For Android, get existing purchases and validate the latest one
     try {

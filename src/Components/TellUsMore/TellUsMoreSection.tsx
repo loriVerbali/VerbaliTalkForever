@@ -315,6 +315,11 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
               </Text>
             </TouchableOpacity>
 
+            {/* -OR- divider */}
+            <View style={styles.orDivider}>
+              <Text style={styles.orDividerText}>-OR-</Text>
+            </View>
+
             {/* Chat with Verbi — outlined */}
             <TouchableOpacity
               style={styles.ctaCardOutlined}
@@ -327,7 +332,7 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
               />
               <Text style={styles.ctaCardOutlinedTitle}>Chat with Verbi</Text>
               <Text style={styles.ctaCardOutlinedDesc}>
-                Verbi will ask a few questions and guide you through setup.
+                Verbi, your AI assistant, does the work. Chat with him and see it organize everything for you.
               </Text>
             </TouchableOpacity>
           </View>
@@ -365,6 +370,11 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
               </Text>
             </TouchableOpacity>
 
+            {/* -OR- divider */}
+            <View style={styles.orDivider}>
+              <Text style={styles.orDividerText}>-OR-</Text>
+            </View>
+
             <TouchableOpacity
               style={styles.ctaCardOutlined}
               onPress={() => setActiveModal('intake_chat')}
@@ -376,7 +386,7 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
               />
               <Text style={styles.ctaCardOutlinedTitle}>Chat with Verbi</Text>
               <Text style={styles.ctaCardOutlinedDesc}>
-                Verbi will ask a few questions and guide you through setup.
+                Verbi, your AI assistant, does the work. Chat with him and see it organize everything for you.
               </Text>
             </TouchableOpacity>
           </View>
@@ -523,17 +533,30 @@ const styles = StyleSheet.create({
   // ── CTA row (two cards side by side) ─────────────────────────────────
   ctaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   ctaRowUpdate: {
     marginTop: 14,
   },
+  orDivider: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orDividerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#aaa',
+    letterSpacing: 0.5,
+  },
 
-  // Solid purple card (Share Free-Form Notes)
+  // Solid purple card (Share Free-Form Notes) — now matches outlined style
   ctaCardSolid: {
     flex: 1,
-    backgroundColor: PURPLE,
+    backgroundColor: PURPLE_LIGHT,
     borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: PURPLE_BORDER,
     paddingVertical: 20,
     paddingHorizontal: 14,
     alignItems: 'center',
@@ -541,20 +564,21 @@ const styles = StyleSheet.create({
   },
   ctaCardSolidIcon: {
     fontSize: 28,
-    color: '#FFD700',
+    color: PURPLE,
   },
   ctaCardSolidTitle: {
-    color: '#fff',
+    color: PURPLE,
     fontSize: 15,
     fontWeight: '700',
     textAlign: 'center',
     lineHeight: 20,
   },
   ctaCardSolidDesc: {
-    color: 'rgba(255,255,255,0.85)',
+    color: PURPLE,
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 17,
+    opacity: 0.8,
   },
 
   // Outlined light-purple card (Chat with Verbi)

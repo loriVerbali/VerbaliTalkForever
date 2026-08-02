@@ -14,6 +14,28 @@ type SpeechQueueItem = {
   resumeWakeWordOnComplete: boolean;
 };
 
+/**
+ * Phonetic substitution map for words the TTS engine mispronounces.
+ * Keys are regex patterns (case-insensitive); values are the spoken replacements.
+ * Keep this lightweight — it runs synchronously on every speak() call.
+ */
+const PHONETIC_SUBSTITUTIONS: Array<[RegExp, string]> = [
+  // "Verbi" → spoken as "Ver bee"
+  [/\bVerbi\b/gi, 'ver be'],
+];
+
+/**
+ * Applies phonetic substitutions to `text` before sending it to the TTS engine.
+ * This has negligible overhead (a handful of regex replacements, no allocations
+ * beyond the final string) and keeps pronunciation fixes isolated here.
+ */
+function normalizeForSpeech(text: string): string {
+  return PHONETIC_SUBSTITUTIONS.reduce(
+    (acc, [pattern, replacement]) => acc.replace(pattern, replacement),
+    text,
+  );
+}
+
 const trace = (...args: unknown[]) => {
   if (STT_DEBUG) {
     console.log(...args);
@@ -34,6 +56,8 @@ class SpeechServiceClass {
   private processingQueue: boolean = false;
   private currentItem: SpeechQueueItem | null = null;
   private volumeCleanup: (() => void) | null = null;
+  private speakStartCallbacks: Set<() => void> = new Set();
+  private speakEndCallbacks: Set<() => void> = new Set();
 
   private speechInstance = Speech;
 
@@ -44,7 +68,7 @@ class SpeechServiceClass {
   private _ttsModel: any = null;
   private getTtsModel() {
     if (!this._ttsModel) {
-      this._ttsModel = require('../../ios/models/model_ex_ariana_fast_davoice_phoneme.dm');
+      this._ttsModel = require('../../ios/models/model_ex_hanna_light_davoice_ph.dm');
       // this._ttsModel = require('../../ios/models/model_ex_rich_fast_davoice_phoneme.dm');
     }
     return this._ttsModel;
@@ -140,6 +164,7 @@ class SpeechServiceClass {
 
   private async speakText(text: string) {
     if (!text) return;
+    text = normalizeForSpeech(text);
 
     try {
       trace(`[STT TRACE][SpeechService] speakText begin text="${text}"`);
@@ -154,6 +179,9 @@ class SpeechServiceClass {
           console.warn('[SpeechService] WakeWord pause before TTS failed:', error);
         }
 
+        // Notify Verbi that TTS is starting (pause partner STT)
+        this.speakStartCallbacks.forEach(cb => { try { cb(); } catch { } });
+
         // Give the audio session a moment to settle after releasing the mic.
         await new Promise<void>(resolve =>
           setTimeout(resolve, IOS_TTS_AUDIO_SETTLE_MS),
@@ -161,7 +189,7 @@ class SpeechServiceClass {
       }
 
       try {
-        await this.speechInstance.speak(text, speakerId);
+        await this.speechInstance.speak(text, speakerId, 0.9);
         trace('[STT TRACE][SpeechService] speak resolved');
       } catch (error) {
         traceWarn(
@@ -170,7 +198,7 @@ class SpeechServiceClass {
         );
         // Wait a bit longer and retry once
         await new Promise<void>(resolve => setTimeout(resolve, 200));
-        await this.speechInstance.speak(text, speakerId);
+        await this.speechInstance.speak(text, speakerId, 0.9);
         trace('[STT TRACE][SpeechService] retry speak resolved');
       }
     } catch (e) {
@@ -192,6 +220,9 @@ class SpeechServiceClass {
 
     // Call completion callback if set
     completedItem?.onComplete?.();
+
+    // Notify Verbi that TTS has ended (resume partner STT if eligible)
+    this.speakEndCallbacks.forEach(cb => { try { cb(); } catch { } });
 
     // Process next in queue if any
     if (this.queue.length > 0) {
@@ -254,12 +285,12 @@ class SpeechServiceClass {
         // Wait a bit to ensure previous playback is fully stopped
         const stopDelay = Platform.OS === 'ios' ? 200 : 50;
         setTimeout(() => {
-          this.queue = [{text, onComplete, resumeWakeWordOnComplete}];
+          this.queue = [{ text, onComplete, resumeWakeWordOnComplete }];
           this.processQueue();
         }, stopDelay);
         return;
       } else {
-        this.queue.push({text, onComplete, resumeWakeWordOnComplete});
+        this.queue.push({ text, onComplete, resumeWakeWordOnComplete });
       }
 
       if (!this.isPlaying && !this.processingQueue) {
@@ -357,6 +388,24 @@ class SpeechServiceClass {
 
   public isAvailable(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * Register a callback that fires when TTS begins speaking.
+   * Returns an unsubscribe function. Used by Verbi to pause partner STT.
+   */
+  public onSpeakStart(cb: () => void): () => void {
+    this.speakStartCallbacks.add(cb);
+    return () => this.speakStartCallbacks.delete(cb);
+  }
+
+  /**
+   * Register a callback that fires when TTS finishes speaking.
+   * Returns an unsubscribe function. Used by Verbi to resume partner STT.
+   */
+  public onSpeakEnd(cb: () => void): () => void {
+    this.speakEndCallbacks.add(cb);
+    return () => this.speakEndCallbacks.delete(cb);
   }
 
   public async waitForInitialization(): Promise<boolean> {

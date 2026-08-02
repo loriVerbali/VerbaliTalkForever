@@ -41,8 +41,9 @@ let speechRecognitionNeedsPause = false;
 // before the JS thread yields, producing the main-thread warning.
 let _ttsModel: any = null;
 const getTtsModel = () => {
+
   if (!_ttsModel) {
-    _ttsModel = require('../../ios/models/model_ex_ariana_fast_davoice_phoneme.dm');
+    _ttsModel = require('../../ios/models/model_ex_hanna_light_davoice_ph.dm');
   }
   return _ttsModel;
 };

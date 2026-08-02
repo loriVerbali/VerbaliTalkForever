@@ -1,5 +1,6 @@
 // Export all Sentence Builder components
 export {default as SentenceBuilderGrid} from './SentenceBuilderGrid';
+export type {SentenceBuilderGridRef} from './SentenceBuilderGrid';
 export {default as WordCard} from './WordCard';
 export {default as FolderCard} from './FolderCard';
 export {default as AddCard} from './AddCard';
