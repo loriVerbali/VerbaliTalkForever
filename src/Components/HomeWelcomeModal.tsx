@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {
   Modal,
   View,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
+import mixpanel from '../utils/mixpanelInstance';
 // import TTSService from '../utils/TTSService';
 
 const {width, height} = Dimensions.get('window');
@@ -233,6 +234,19 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
   const name = (heroName || '').trim();
   const illustrations = getIllustrations(gender);
 
+  // Stamped when the guide appears, so both exit paths can report how long it
+  // was on screen.
+  const openedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    openedAtRef.current = visible ? Date.now() : null;
+  }, [visible]);
+
+  const secondsOpen = () =>
+    openedAtRef.current === null
+      ? 0
+      : Math.round((Date.now() - openedAtRef.current) / 1000);
+
   // Spoken guide disabled for now — the modal is read-only.
   // useEffect(() => {
   //   if (!visible) return;
@@ -243,8 +257,16 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
   //   };
   // }, [visible, name]);
 
+  const handleCancel = () => {
+    mixpanel.track('Home Welcome Guide Cancelled', {secondsOpen: secondsOpen()});
+    onClose();
+  };
+
   // Hands off to the Home settings flow, which runs its own admin-code gate.
   const handleSettingsPress = () => {
+    mixpanel.track('Home Welcome Guide Settings Pressed', {
+      secondsOpen: secondsOpen(),
+    });
     onClose();
     onOpenSettings();
   };
@@ -255,7 +277,7 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
       transparent
       animationType="fade"
       supportedOrientations={['landscape-left', 'landscape-right']}
-      onRequestClose={onClose}>
+      onRequestClose={handleCancel}>
       <View style={styles.overlay}>
         {/* The "Start Talking" tile sits underneath the card, so its callout is
             drawn first and the card paints over whatever would collide. */}
@@ -273,7 +295,7 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={onClose}
+            onPress={handleCancel}
             hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>

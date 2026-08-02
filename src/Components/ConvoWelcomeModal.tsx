@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {
   Modal,
   View,
@@ -10,6 +10,7 @@ import {
   Dimensions,
   Pressable,
 } from 'react-native';
+import mixpanel from '../utils/mixpanelInstance';
 // import TTSService from '../utils/TTSService';
 
 const {width, height} = Dimensions.get('window');
@@ -80,6 +81,19 @@ const ConvoWelcomeModal: React.FC<ConvoWelcomeModalProps> = ({
 }) => {
   const verbiIllustration = getVerbiIllustration(gender);
 
+  // Stamped when the guide appears, so both exit paths can report how long it
+  // was on screen.
+  const openedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    openedAtRef.current = visible ? Date.now() : null;
+  }, [visible]);
+
+  const secondsOpen = () =>
+    openedAtRef.current === null
+      ? 0
+      : Math.round((Date.now() - openedAtRef.current) / 1000);
+
   // Spoken guide disabled for now — the modal is read-only.
   // useEffect(() => {
   //   if (!visible) return;
@@ -90,9 +104,19 @@ const ConvoWelcomeModal: React.FC<ConvoWelcomeModalProps> = ({
   //   };
   // }, [visible]);
 
+  const handleCancel = () => {
+    mixpanel.track('Convo Welcome Guide Cancelled', {
+      secondsOpen: secondsOpen(),
+    });
+    onClose();
+  };
+
   // Hands off to the settings panel on this screen, which runs its own
   // admin-code gate before opening.
   const handleSettingsPress = () => {
+    mixpanel.track('Convo Welcome Guide Settings Pressed', {
+      secondsOpen: secondsOpen(),
+    });
     onClose();
     onOpenSettings();
   };
@@ -103,14 +127,14 @@ const ConvoWelcomeModal: React.FC<ConvoWelcomeModalProps> = ({
       transparent
       animationType="fade"
       supportedOrientations={['landscape-left', 'landscape-right']}
-      onRequestClose={onClose}>
+      onRequestClose={handleCancel}>
       {/* Tapping the dimmed backdrop dismisses the guide; the card below claims
           the touch itself, so taps inside it never reach this handler. */}
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable style={styles.overlay} onPress={handleCancel}>
         <View style={styles.card} onStartShouldSetResponder={() => true}>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={onClose}
+            onPress={handleCancel}
             hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
