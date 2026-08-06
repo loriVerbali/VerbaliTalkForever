@@ -8,6 +8,9 @@ import {
 } from 'react-native-iap';
 
 const validateSubscription = async (receipt: string) => {
+  if (__DEV__) {
+    return true;
+  }
   if (Platform.OS === 'android') {
     // For Android, validate using Google Play receipt validation
     try {
@@ -51,6 +54,9 @@ const validateSubscription = async (receipt: string) => {
 };
 
 const validateReceiptOnLaunch = async () => {
+  if (__DEV__) {
+    return true;
+  }
   if (Platform.OS === 'android') {
     // For Android, get existing purchases and validate the latest one
     try {
@@ -107,9 +113,11 @@ const validateReceiptOnLaunch = async () => {
       return null;
     }
 
-    const receipt = await getReceiptIOS({forceRefresh: true});
+    // Launch validation must not prompt StoreKit to refresh a receipt. A
+    // forced refresh can outlive the app's foreground window and leave
+    // SKReceiptRefreshRequest holding an iOS background task.
+    const receipt = await getReceiptIOS({forceRefresh: false});
     if (!receipt) {
-      
       return null;
     }
     const res = await fetchHelper(

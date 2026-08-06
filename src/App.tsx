@@ -6,111 +6,150 @@
  * @flow strict-local
  */
 import 'react-native-gesture-handler';
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, AppState, AppStateStatus, StatusBar } from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {
+  StyleSheet,
+  AppState,
+  AppStateStatus,
+  StatusBar,
+  View,
+  Dimensions,
+  Text,
+} from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
-import { AppSettingsProvider } from './utils/persistance';
-import { AdminProvider } from './contexts/adminContext';
-import { ChatContextProvider } from './contexts/ChatContextProvider';
-import { ConnectionProvider } from './utils/connection';
-import { ToastProvider } from './contexts/ToastContext';
-import { DatabaseProvider } from './contexts/DatabaseContext';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { sessionManager } from './utils/sessionManager';
+import {AppSettingsProvider} from './utils/persistance';
+import {AdminProvider} from './contexts/adminContext';
+import {ChatContextProvider} from './contexts/ChatContextProvider';
+import {ConnectionProvider} from './utils/connection';
+import {ToastProvider} from './contexts/ToastContext';
+import {DatabaseProvider} from './contexts/DatabaseContext';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {sessionManager} from './utils/sessionManager';
 import mixpanel from './utils/mixpanelInstance';
 import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
 import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
-import { useState } from 'react';
+import FastImage from 'react-native-fast-image';
+
+const {width, height} = Dimensions.get('window');
 
 const App = () => {
   const appState = useRef(AppState.currentState);
-  const [bootstrapStatus, setBootstrapStatus] = useState<'loading' | 'ok' | 'revoked' | 'inactive'>('loading');
+  // Bootstrap tracks whether the init-once startup sequence has completed.
+  // The Navigator (and therefore Open.tsx) is not rendered until this is true,
+  // so Open.tsx always mounts with WakeWord already live.
+  const [bootstrapDone, setBootstrapDone] = useState(false);
+  const bootstrapRanRef = useRef(false);
+  const bootstrapDoneRef = useRef(false);
 
+  useEffect(() => {
+    bootstrapDoneRef.current = bootstrapDone;
+  }, [bootstrapDone]);
 
   // Initialize Mixpanel and device tracking (once on mount)
   useEffect(() => {
     const initializeMixpanel = async () => {
       try {
-        // Initialize SDK first — must complete before any other calls
         await mixpanel.init();
-
-        // Get the actual device ID
         const deviceId = await DeviceInfo.getUniqueId();
-
-        // Identify the user with the device ID in Mixpanel
         mixpanel.identify(deviceId);
-
-        // Set device_id as a super property for easier querying
-        mixpanel.registerSuperProperties({
-          device_id: deviceId,
-        });
+        mixpanel.registerSuperProperties({device_id: deviceId});
       } catch (error) {
         console.error('Error initializing Mixpanel:', error);
       }
     };
-
     initializeMixpanel();
   }, []);
 
-  // Unified AppState listener + TTS/WakeWord service initialization
-  // Merged two separate useEffect hooks to avoid duplicate AppState listeners
-  // and the race condition where both mutated appState.current
+  // ─── ONE-TIME BOOTSTRAP ───────────────────────────────────────────────────
+  // Sequence (in order, never repeated unless the app crashes):
+  //   1. WakeWord  → initializeAndPause()  (existing users only)
+  //   2. TTS/STT   → TTSService.initialize() (existing users only)
+  //   3. WakeWord  → resumeDetection()     (existing users only)
+  // New users activate WakeWord after onboarding grants microphone permission.
+  // Only then do we flip bootstrapDone=true so the Navigator renders.
   useEffect(() => {
-    const initServices = async () => {
-      // Initialize TTS service when the app starts
-      await TTSService.initialize();
+    if (bootstrapRanRef.current) return;
+    bootstrapRanRef.current = true;
 
-      // CRITICAL: Do NOT pre-initialize WhisperService here
-      // Whisper initialization must happen AFTER wake word is initialized
-      // This is handled in LoggedNavigation.tsx to ensure correct initialization order
-      // Pre-initializing here would cause wake word to fail because Whisper takes exclusive control
-      // of ONNX Runtime, CoreML, and audio resources
+    const bootstrap = async () => {
+      const wakeWordService = WakeWordService.getInstance();
+      const wasOnboarded = await DefaultPreference.get('wasOnboarded');
+      const isOnboardingComplete = wasOnboarded === '1';
+
+      if (isOnboardingComplete) {
+        try {
+          // Step 1: init WakeWord, leave it paused
+          await wakeWordService.initializeAndPause();
+        } catch (err) {
+          console.warn('[App] WakeWord initializeAndPause failed:', err);
+        }
+      }
+
+      if (isOnboardingComplete) {
+        try {
+          // Step 2: init TTS + STT (initAll → DaVoice.stop parks it)
+          await TTSService.initialize();
+        } catch (err) {
+          console.warn('[App] TTSService.initialize failed:', err);
+        }
+      }
+
+      if (isOnboardingComplete) {
+        try {
+          // Step 3: open the mic — WakeWord is now live
+          await wakeWordService.resumeDetection();
+        } catch (err) {
+          console.warn('[App] WakeWord resumeDetection failed:', err);
+        }
+      }
+
+      // Navigator renders — Open.tsx mounts with WakeWord already active
+      setBootstrapDone(true);
     };
 
-    initServices();
+    bootstrap();
+  }, []);
 
-    // Single unified handler for all app state changes
+  // ─── APP STATE (background ↔ foreground) ─────────────────────────────────
+  // Use pause/resume — never stop/start — so the instance is never torn down.
+  useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       const wakeWordService = WakeWordService.getInstance();
-
-      // Check if onboarding is complete before starting wakeword service
       const wasOnboarded = await DefaultPreference.get('wasOnboarded');
       const isOnboardingComplete = wasOnboarded === '1';
 
       if (nextAppState === 'background') {
-        // Stop wake word service when app goes to background to save battery and memory
+        // Release mic while backgrounded
         try {
-          await wakeWordService.stopListening();
-        } catch (error) { }
+          await wakeWordService.pauseDetection(false);
+        } catch {}
       } else if (
         nextAppState === 'active' &&
         appState.current === 'background'
       ) {
-        // App is coming back to foreground — refresh session + wakeup + restart wakeword
+        // Coming back to foreground
         try {
           await sessionManager.ensureValidSession();
-        } catch (error) { }
+        } catch {}
 
         try {
           await fetchHelper('wakeup', {}, {});
-        } catch (error) { }
+        } catch {}
 
-        // Restart wake word service when app comes back to foreground (only if onboarding is complete)
-        if (isOnboardingComplete) {
+        // Resume mic (only if onboarding is complete and bootstrap ran)
+        if (isOnboardingComplete && bootstrapDoneRef.current) {
           try {
-            await wakeWordService.startListening();
-          } catch (error) { }
+            await wakeWordService.resumeDetection();
+          } catch {}
         }
       } else if (nextAppState === 'active' && appState.current === 'inactive') {
-        // App is being opened for the first time or from inactive state
         try {
           await sessionManager.ensureValidSession();
           await fetchHelper('wakeup', {}, {});
-        } catch (error) { }
-        // Don't start wakeword here - let Open.tsx handle it after onboarding
+        } catch {}
       }
 
       appState.current = nextAppState;
@@ -121,20 +160,46 @@ const App = () => {
       handleAppStateChange,
     );
 
-    // Clean up resources when app is closed
     return () => {
-      TTSService.shutdown();
-      // Clean up wake word service when app closes
-      WakeWordService.getInstance().cleanup();
       subscription?.remove();
     };
   }, []);
 
-  // Removed blocking DeviceStatusScreen - unified modal handled in Open.tsx
+  // Show splash while bootstrap runs so Open.tsx always mounts ready
+  if (!bootstrapDone) {
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          width,
+          height,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#FFF8E7',
+        }}>
+        <StatusBar hidden animated />
+        <FastImage
+          source={require('./assets/movie/recording.gif')}
+          style={{width: width * 0.3, height: width * 0.3}}
+          resizeMode={FastImage.resizeMode.contain}
+        />
+        <Text
+          style={{
+            fontSize: height * 0.03,
+            fontWeight: 'bold',
+            color: '#8E24AA',
+            marginTop: height * 0.02,
+            textAlign: 'center',
+          }}>
+          loading our magic...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <>
-      {/* Hide status bar for immersive experience - handled by Android native code */}
+      {/* Hide status bar for immersive experience */}
       <StatusBar hidden animated />
       <GestureHandlerRootView style={styles.container}>
         <ToastProvider>

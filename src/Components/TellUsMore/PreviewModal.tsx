@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   Modal,
   View,
@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
 } from 'react-native';
 import {AITile, AITilesMap, MagicPreviewSummary} from '../../types/HeroContext';
 
@@ -21,6 +24,17 @@ interface PreviewModalProps {
   onCancel: () => void;
 }
 
+// All supported category keys in AITilesMap
+const ALL_CATEGORY_KEYS: (keyof AITilesMap)[] = [
+  'people',
+  'toys',
+  'pets',
+  'tv_shows',
+  'food',
+  'drinks',
+  'places',
+];
+
 const CATEGORY_LABELS: Record<keyof AITilesMap, string> = {
   people: 'People',
   toys: 'Toys',
@@ -31,10 +45,24 @@ const CATEGORY_LABELS: Record<keyof AITilesMap, string> = {
   places: 'Places',
 };
 
+/** Alias editing state map: tileId → raw comma-separated string */
+type AliasInputMap = Record<string, string>;
+
+/** Which tile is being reassigned to a new category */
+interface CategoryPickerTarget {
+  tileId: string;
+  currentCategoryKey: keyof AITilesMap;
+}
+
 /**
  * PreviewModal — Renders the Magic Build / Magic Update diff before the
  * caregiver accepts. Tiles are color-coded by _action; free text
  * renders strikethrough for deleted content.
+ *
+ * Caregivers can now:
+ *  • Edit a tile name inline
+ *  • Edit aliases (comma-separated)
+ *  • Reassign a tile to a different category via an overlay selector
  */
 const PreviewModal: React.FC<PreviewModalProps> = ({
   visible,
@@ -50,13 +78,34 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
   const [editedFreeText, setEditedFreeText] = useState(freeText);
   const [localTiles, setLocalTiles] = useState<AITilesMap | null>(tiles);
 
+  // Raw alias strings keyed by tile id — keeps cursor stable while typing
+  const [aliasInputs, setAliasInputs] = useState<AliasInputMap>({});
+
+  // Overlay selector state
+  const [categoryPickerTarget, setCategoryPickerTarget] =
+    useState<CategoryPickerTarget | null>(null);
+
   useEffect(() => {
     if (visible) {
       setEditedFreeText(freeText);
       setLocalTiles(tiles);
       setIsEditingText(false);
+      setCategoryPickerTarget(null);
+
+      // Seed alias inputs from incoming tiles
+      const seed: AliasInputMap = {};
+      if (tiles) {
+        ALL_CATEGORY_KEYS.forEach(cat => {
+          tiles[cat].forEach(t => {
+            seed[t.id] = t.aliases.join(', ');
+          });
+        });
+      }
+      setAliasInputs(seed);
     }
   }, [visible, freeText, tiles]);
+
+  // ─── Tile field updaters ────────────────────────────────────────────────────
 
   const handleUpdateTileName = (
     category: keyof AITilesMap,
@@ -70,6 +119,58 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
     );
     setLocalTiles(updated);
   };
+
+  const handleAliasChange = (
+    category: keyof AITilesMap,
+    id: string,
+    raw: string,
+  ) => {
+    // Keep raw string for display so cursor doesn't jump
+    setAliasInputs(prev => ({...prev, [id]: raw}));
+    // Parse & commit to localTiles
+    const parsed = raw
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    if (!localTiles) return;
+    const updated = {...localTiles};
+    updated[category] = updated[category].map(t =>
+      t.id === id ? {...t, aliases: parsed} : t,
+    );
+    setLocalTiles(updated);
+  };
+
+  /** Move tile from its current category key to a new one. */
+  const handleReassignCategory = (
+    newCategoryKey: keyof AITilesMap,
+  ) => {
+    if (!categoryPickerTarget || !localTiles) {
+      setCategoryPickerTarget(null);
+      return;
+    }
+    const {tileId, currentCategoryKey} = categoryPickerTarget;
+    if (newCategoryKey === currentCategoryKey) {
+      setCategoryPickerTarget(null);
+      return;
+    }
+    const tile = localTiles[currentCategoryKey].find(t => t.id === tileId);
+    if (!tile) {
+      setCategoryPickerTarget(null);
+      return;
+    }
+    const updated: AITilesMap = {...localTiles};
+    // Remove from current category
+    updated[currentCategoryKey] = updated[currentCategoryKey].filter(
+      t => t.id !== tileId,
+    );
+    // Append to target category
+    updated[newCategoryKey] = [...updated[newCategoryKey], tile];
+    setLocalTiles(updated);
+    setCategoryPickerTarget(null);
+  };
+
+  // ─── Display helpers ────────────────────────────────────────────────────────
+
   const actionStyle = (action: string) => {
     switch (action) {
       case 'create':
@@ -101,7 +202,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
     AITile & {categoryLabel: string; categoryKey: keyof AITilesMap}
   > = [];
   if (localTiles) {
-    (Object.keys(localTiles) as (keyof AITilesMap)[]).forEach(cat => {
+    ALL_CATEGORY_KEYS.forEach(cat => {
       localTiles[cat].forEach(tile => {
         if (tile._action !== 'none') {
           changedTiles.push({
@@ -140,146 +241,256 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
       transparent={true}
       supportedOrientations={['portrait', 'landscape-left', 'landscape-right']}
       onRequestClose={onCancel}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Review Changes</Text>
-              <Text style={styles.subtitle}>For {heroName}</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.kav}>
+        <View style={styles.overlay}>
+          <View style={styles.sheet}>
+            {/* Header */}
+            <View style={styles.header}>
+              <View>
+                <Text style={styles.title}>Review Changes</Text>
+                <Text style={styles.subtitle}>For {heroName}</Text>
+              </View>
+              <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
+                <Text style={styles.closeBtnText}>✕</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={onCancel} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
-            </TouchableOpacity>
-          </View>
 
-          {/* Summary bar */}
-          {summary && (
-            <View style={styles.summaryBar}>
-              {summary.createdCount > 0 && (
-                <View style={[styles.summaryChip, styles.summaryCreate]}>
-                  <Text style={styles.summaryChipText}>
-                    +{summary.createdCount} added
-                  </Text>
-                </View>
-              )}
-              {summary.updatedCount > 0 && (
-                <View style={[styles.summaryChip, styles.summaryUpdate]}>
-                  <Text style={styles.summaryChipText}>
-                    ~{summary.updatedCount} updated
-                  </Text>
-                </View>
-              )}
-              {summary.deletedCount > 0 && (
-                <View style={[styles.summaryChip, styles.summaryDelete]}>
-                  <Text style={styles.summaryChipText}>
-                    -{summary.deletedCount} removed
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
+            {/* Summary bar */}
+            {summary && (
+              <View style={styles.summaryBar}>
+                {summary.createdCount > 0 && (
+                  <View style={[styles.summaryChip, styles.summaryCreate]}>
+                    <Text style={styles.summaryChipText}>
+                      +{summary.createdCount} added
+                    </Text>
+                  </View>
+                )}
+                {summary.updatedCount > 0 && (
+                  <View style={[styles.summaryChip, styles.summaryUpdate]}>
+                    <Text style={styles.summaryChipText}>
+                      ~{summary.updatedCount} updated
+                    </Text>
+                  </View>
+                )}
+                {summary.deletedCount > 0 && (
+                  <View style={[styles.summaryChip, styles.summaryDelete]}>
+                    <Text style={styles.summaryChipText}>
+                      -{summary.deletedCount} removed
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
-          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-            {/* Tile changes */}
+            {/* Edit hint */}
             {changedTiles.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Tile Changes</Text>
-                {changedTiles.map(tile => {
-                  const badge = actionBadge(tile._action);
-                  return (
-                    <View
-                      key={tile.id}
-                      style={[styles.tileRow, actionStyle(tile._action)]}>
-                      <View style={styles.tileMeta}>
-                        {tile._action === 'delete' ? (
-                          <Text style={[styles.tileName, styles.tileNameDeleted]}>
-                            {tile.name}
-                          </Text>
-                        ) : (
-                          <TextInput
-                            style={styles.tileNameInput}
-                            value={tile.name}
-                            onChangeText={txt =>
-                              handleUpdateTileName(tile.categoryKey, tile.id, txt)
-                            }
-                            placeholder="Tile name"
-                          />
-                        )}
-                        <Text style={styles.tileCategory}>
-                          {tile.categoryLabel}
-                        </Text>
-                        {tile.aliases.length > 0 && (
-                          <Text style={styles.tileAliases}>
-                            aka {tile.aliases.join(', ')}
-                          </Text>
+              <View style={styles.editHintBar}>
+                <Text style={styles.editHintText}>
+                  ✏️ Tap a name or alias to edit. Tap the category chip to reassign.
+                </Text>
+              </View>
+            )}
+
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.bodyContent}
+              keyboardShouldPersistTaps="handled">
+              {/* Tile changes */}
+              {changedTiles.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Tile Changes</Text>
+                  {changedTiles.map(tile => {
+                    const badge = actionBadge(tile._action);
+                    const isDeleted = tile._action === 'delete';
+                    return (
+                      <View
+                        key={tile.id}
+                        style={[styles.tileRow, actionStyle(tile._action)]}>
+                        {/* Left: name + category chip + aliases */}
+                        <View style={styles.tileMeta}>
+                          {/* Tile Name */}
+                          {isDeleted ? (
+                            <Text
+                              style={[styles.tileName, styles.tileNameDeleted]}>
+                              {tile.name}
+                            </Text>
+                          ) : (
+                            <TextInput
+                              style={styles.tileNameInput}
+                              value={tile.name}
+                              onChangeText={txt =>
+                                handleUpdateTileName(
+                                  tile.categoryKey,
+                                  tile.id,
+                                  txt,
+                                )
+                              }
+                              placeholder="Tile name"
+                              placeholderTextColor="#bbb"
+                              selectTextOnFocus
+                            />
+                          )}
+
+                          {/* Category chip — tappable unless deleting */}
+                          {isDeleted ? (
+                            <Text style={styles.tileCategory}>
+                              {tile.categoryLabel}
+                            </Text>
+                          ) : (
+                            <TouchableOpacity
+                              style={styles.categoryChip}
+                              onPress={() =>
+                                setCategoryPickerTarget({
+                                  tileId: tile.id,
+                                  currentCategoryKey: tile.categoryKey,
+                                })
+                              }
+                              accessibilityLabel={`Change category from ${tile.categoryLabel}`}>
+                              <Text style={styles.categoryChipText}>
+                                🏷️ {tile.categoryLabel} ▾
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {/* Aliases */}
+                          {!isDeleted && (
+                            <TextInput
+                              style={styles.aliasInput}
+                              value={
+                                aliasInputs[tile.id] !== undefined
+                                  ? aliasInputs[tile.id]
+                                  : tile.aliases.join(', ')
+                              }
+                              onChangeText={raw =>
+                                handleAliasChange(tile.categoryKey, tile.id, raw)
+                              }
+                              placeholder="Aliases (comma-separated)"
+                              placeholderTextColor="#bbb"
+                            />
+                          )}
+                          {isDeleted && tile.aliases.length > 0 && (
+                            <Text style={styles.tileAliases}>
+                              aka {tile.aliases.join(', ')}
+                            </Text>
+                          )}
+                        </View>
+
+                        {/* Right: action badge */}
+                        {badge && (
+                          <View style={[styles.badge, badge.style]}>
+                            <Text style={styles.badgeText}>{badge.label}</Text>
+                          </View>
                         )}
                       </View>
-                      {badge && (
-                        <View style={[styles.badge, badge.style]}>
-                          <Text style={styles.badgeText}>{badge.label}</Text>
-                        </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Free text preview */}
+              {freeText ? (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.sectionLabel}>Context Update</Text>
+                    <TouchableOpacity
+                      onPress={() => setIsEditingText(!isEditingText)}
+                      style={styles.editBtn}>
+                      <Text style={styles.editBtnText}>
+                        {isEditingText ? 'Done' : 'Edit'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.freeTextBox}>
+                    {isEditingText ? (
+                      <TextInput
+                        style={styles.freeTextInput}
+                        multiline
+                        value={editedFreeText}
+                        onChangeText={setEditedFreeText}
+                        autoFocus
+                      />
+                    ) : (
+                      renderFreeText(editedFreeText)
+                    )}
+                  </View>
+                </View>
+              ) : null}
+
+              {changedTiles.length === 0 && !freeText && (
+                <Text style={styles.noChanges}>
+                  No changes detected in this build.
+                </Text>
+              )}
+            </ScrollView>
+
+            {/* Actions */}
+            <View style={styles.footer}>
+              <TouchableOpacity style={styles.backBtn} onPress={onBack}>
+                <Text style={styles.backBtnText}>← Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.acceptBtn}
+                onPress={() => onAccept(editedFreeText, localTiles)}>
+                <Text style={styles.acceptBtnText}>✓ Accept &amp; Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── Category Selector Overlay ─────────────────────────────────── */}
+          {categoryPickerTarget && (
+            <Pressable
+              style={styles.selectorBackdrop}
+              onPress={() => setCategoryPickerTarget(null)}>
+              <View style={styles.selectorSheet}>
+                <Text style={styles.selectorTitle}>Move to Category</Text>
+                {ALL_CATEGORY_KEYS.map(key => {
+                  const isCurrentCat =
+                    key === categoryPickerTarget.currentCategoryKey;
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[
+                        styles.selectorOption,
+                        isCurrentCat && styles.selectorOptionActive,
+                      ]}
+                      onPress={() => {
+                        if (!isCurrentCat) {
+                          handleReassignCategory(key);
+                        } else {
+                          setCategoryPickerTarget(null);
+                        }
+                      }}>
+                      <Text
+                        style={[
+                          styles.selectorOptionText,
+                          isCurrentCat && styles.selectorOptionTextActive,
+                        ]}>
+                        {CATEGORY_LABELS[key]}
+                      </Text>
+                      {isCurrentCat && (
+                        <Text style={styles.selectorCheckmark}>✓</Text>
                       )}
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
+                <TouchableOpacity
+                  style={styles.selectorCancelBtn}
+                  onPress={() => setCategoryPickerTarget(null)}>
+                  <Text style={styles.selectorCancelText}>Cancel</Text>
+                </TouchableOpacity>
               </View>
-            )}
-
-            {/* Free text preview */}
-            {freeText ? (
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionLabel}>Context Update</Text>
-                  <TouchableOpacity
-                    onPress={() => setIsEditingText(!isEditingText)}
-                    style={styles.editBtn}>
-                    <Text style={styles.editBtnText}>
-                      {isEditingText ? 'Done' : 'Edit'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.freeTextBox}>
-                  {isEditingText ? (
-                    <TextInput
-                      style={styles.freeTextInput}
-                      multiline
-                      value={editedFreeText}
-                      onChangeText={setEditedFreeText}
-                      autoFocus
-                    />
-                  ) : (
-                    renderFreeText(editedFreeText)
-                  )}
-                </View>
-              </View>
-            ) : null}
-
-            {changedTiles.length === 0 && !freeText && (
-              <Text style={styles.noChanges}>
-                No changes detected in this build.
-              </Text>
-            )}
-          </ScrollView>
-
-          {/* Actions */}
-          <View style={styles.footer}>
-            <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-              <Text style={styles.backBtnText}>← Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.acceptBtn}
-              onPress={() => onAccept(editedFreeText, localTiles)}>
-              <Text style={styles.acceptBtnText}>✓ Accept & Save</Text>
-            </TouchableOpacity>
-          </View>
+            </Pressable>
+          )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  kav: {flex: 1},
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',
@@ -289,7 +500,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '98%',
-    height: '90%', // Fill most of the screen
+    height: '90%',
     backgroundColor: '#fff',
     borderRadius: 16,
     overflow: 'hidden',
@@ -336,7 +547,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     backgroundColor: '#f8f8f8',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -353,6 +564,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#333',
+  },
+  editHintBar: {
+    backgroundColor: '#F3E5F5',
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E1BEE7',
+  },
+  editHintText: {
+    fontSize: 12,
+    color: '#6A1B9A',
+    fontStyle: 'italic',
   },
   body: {
     flex: 1,
@@ -372,14 +595,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 10,
   },
+  // ─── Tile row ───────────────────────────────────────────────────────────────
   tileRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: 12,
-    borderRadius: 10,
-    marginBottom: 8,
+    borderRadius: 12,
+    marginBottom: 10,
     borderWidth: 1,
+    gap: 8,
   },
   tileCreate: {
     backgroundColor: '#F1FFF4',
@@ -399,7 +624,9 @@ const styles = StyleSheet.create({
   },
   tileMeta: {
     flex: 1,
+    gap: 5,
   },
+  // Name display / input
   tileName: {
     fontSize: 15,
     fontWeight: '600',
@@ -408,18 +635,47 @@ const styles = StyleSheet.create({
   tileNameInput: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#222',
-    padding: 0,
-    margin: 0,
+    color: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#c7d5e0',
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+    marginBottom: 2,
   },
   tileNameDeleted: {
     textDecorationLine: 'line-through',
     color: '#999',
   },
+  // Category chip
+  categoryChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EDE7F6',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginVertical: 2,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#5E35B1',
+  },
+  // Fallback read-only category label (for deleted tiles)
   tileCategory: {
     fontSize: 12,
     color: '#8E24AA',
     fontWeight: '500',
+  },
+  // Alias TextInput
+  aliasInput: {
+    fontSize: 12,
+    color: '#555',
+    borderWidth: 1,
+    borderColor: '#dde4ea',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#fafafa',
     marginTop: 2,
   },
   tileAliases: {
@@ -427,11 +683,13 @@ const styles = StyleSheet.create({
     color: '#888',
     marginTop: 2,
   },
+  // Badge
   badge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
-    marginLeft: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
   badgeCreate: {backgroundColor: '#C8E6C9'},
   badgeUpdate: {backgroundColor: '#BBDEFB'},
@@ -441,6 +699,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
   },
+  // Free text section
   freeTextBox: {
     backgroundColor: '#f9f9f9',
     borderRadius: 10,
@@ -460,6 +719,7 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     textAlignVertical: 'top',
+    minHeight: 80,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -488,6 +748,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginTop: 30,
   },
+  // Footer
   footer: {
     flexDirection: 'row',
     gap: 12,
@@ -495,18 +756,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     backgroundColor: '#fafafa',
-  },
-  cancelBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 10,
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-  },
-  cancelBtnText: {
-    fontSize: 16,
-    color: '#555',
-    fontWeight: '600',
   },
   backBtn: {
     flex: 1,
@@ -531,6 +780,74 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     fontWeight: '700',
+  },
+
+  // ─── Category Selector Overlay ─────────────────────────────────────────────
+  selectorBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 99,
+  },
+  selectorSheet: {
+    width: '78%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingTop: 20,
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 8},
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 20,
+  },
+  selectorTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#444',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 20,
+  },
+  selectorOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#eee',
+  },
+  selectorOptionActive: {
+    backgroundColor: '#F3E5F5',
+  },
+  selectorOptionText: {
+    fontSize: 16,
+    color: '#222',
+  },
+  selectorOptionTextActive: {
+    color: '#6A1B9A',
+    fontWeight: '700',
+  },
+  selectorCheckmark: {
+    fontSize: 16,
+    color: '#8E24AA',
+    fontWeight: '700',
+  },
+  selectorCancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#ddd',
+  },
+  selectorCancelText: {
+    fontSize: 15,
+    color: '#888',
+    fontWeight: '600',
   },
 });
 

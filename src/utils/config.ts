@@ -20,18 +20,20 @@ export interface ConfigType {
   picGeneration: string;
   assemblyAIURL: string;
   masterAdminCode: string;
+  davoiceLicense: string;
   methods: Record<string, MethodObject>;
 }
 
 const AppConfig: ConfigType = {
-  //baseUrl: 'https://matalkapi-production.up.railway.app',
-  baseUrl: 'http://192.168.1.175:3000',
+  baseUrl: 'https://matalkapi-copy-nologin.up.railway.app',
+  //baseUrl: 'http://192.168.1.175:3000',
   //baseUrl: 'http://localhost:3000',
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: Config.GEMINI_API_KEY || '',
   picGeneration: 'polli',
   assemblyAIURL: 'https://api.assemblyai.com/v2',
   masterAdminCode: '78567',
+  davoiceLicense: Config.DAVOICE_LICENSE || '',
 
   methods: {
     registerUser: {
@@ -329,6 +331,54 @@ const AppConfig: ConfigType = {
       sendDeviceKey: false,
       jsonMethod: true,
       suffixUrl: '/api/context/intake-chat',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiCreateConversation: {
+      description: 'verbiCreateConversation',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/conversations',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiAppendUtterance: {
+      description: 'verbiAppendUtterance',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/conversations/{conversationId}/utterances',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiPredict: {
+      description: 'verbiPredict',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/predictions',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiCloseConversation: {
+      description: 'verbiCloseConversation',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/conversations/{conversationId}/close',
       mustStringify: true,
       isFlatResponse: false,
       isPicsUrl: false,

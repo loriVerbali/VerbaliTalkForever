@@ -9,6 +9,9 @@ const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days in
  * Check if trial is still active based on installation date
  */
 export const isTrialActive = (installationDate: string): boolean => {
+  if (__DEV__) {
+    return true;
+  }
   if (!installationDate || installationDate === 'init.NotSet') {
     return false;
   }
@@ -81,6 +84,9 @@ export const hasAppAccess = (
   isInTrial: string,
   installationDate: string,
 ): boolean => {
+  if (__DEV__) {
+    return true;
+  }
   const hasPaidSubscription = isIOSActive === '1';
 
   // If user has paid subscription, grant access

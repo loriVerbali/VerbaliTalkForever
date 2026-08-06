@@ -13,7 +13,6 @@ import {
 import FastImage from 'react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
 import TTSService from '../utils/TTSService';
-import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
 import { useAdmin } from '../contexts/adminContext';
 import {
@@ -234,9 +233,6 @@ const ShortCuts = () => {
     });
     TTSService.initialize();
 
-    // Enforce speaker output on mount
-    AudioSessionManager.prepareForTTS();
-
     // Clean up TTS when component unmounts
     return () => {
       TTSService.stop();
@@ -271,9 +267,6 @@ const ShortCuts = () => {
     setTimeout(() => {
       isDebouncing.current = false;
     }, 1000);
-
-    // Prepare audio session for TTS to ensure consistent volume
-    await AudioSessionManager.prepareForTTS();
 
     // Use TTSService to speak the feeling text
     TTSService.speak(feeling, true); // Use immediate=true to prioritize this speech
