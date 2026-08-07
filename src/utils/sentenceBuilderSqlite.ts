@@ -673,6 +673,137 @@ export class SentenceBuilderSqlite {
     await this.saveGridSettings(settings);
   }
 
+  /**
+   * Makes every board (root + each folder — they all share the global grid
+   * size) fit `capacity` cells, treating orderIndex as a literal cell number
+   * in [0, capacity):
+   *  - purges soft-deleted placeholder rows that sit outside the new bounds
+   *    or collide with another row (they hold no user data),
+   *  - relocates active nodes that are out of bounds or collide into free
+   *    cells, preferring truly empty cells over placeholder-held ones.
+   *
+   * A board with more active nodes than `capacity` cannot fit. In 'strict'
+   * mode (grid shrink) the whole repair is abandoned before any write and the
+   * offending board is reported so the caller can block the size change. In
+   * 'lenient' mode (app load) such boards are skipped and the rest repaired.
+   */
+  async repairBoardsForCapacity(
+    capacity: number,
+    mode: 'strict' | 'lenient',
+  ): Promise<{ok: true} | {ok: false; fullBoardTitle: string}> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const [result] = await this.db.executeSql(`
+      SELECT id, parentId, title, orderIndex, deleted FROM nodes
+      ORDER BY parentId, orderIndex
+    `);
+
+    type Row = {
+      id: string;
+      parentId: string | null;
+      title: string;
+      orderIndex: number;
+      deleted: boolean;
+    };
+    const byParent = new Map<string | null, Row[]>();
+    const titleById = new Map<string, string>();
+    for (let i = 0; i < result.rows.length; i++) {
+      const raw = result.rows.item(i);
+      const row: Row = {
+        id: raw.id,
+        parentId: raw.parentId ?? null,
+        title: raw.title,
+        orderIndex: raw.orderIndex,
+        deleted: raw.deleted === 1,
+      };
+      titleById.set(row.id, row.title);
+      const group = byParent.get(row.parentId) || [];
+      group.push(row);
+      byParent.set(row.parentId, group);
+    }
+
+    const idsToPurge: string[] = [];
+    const moves: Array<{id: string; orderIndex: number}> = [];
+
+    for (const [parentId, rows] of byParent) {
+      const actives = rows.filter(r => !r.deleted);
+      if (actives.length > capacity) {
+        if (mode === 'strict') {
+          return {
+            ok: false,
+            fullBoardTitle:
+              parentId === null
+                ? 'Main board'
+                : titleById.get(parentId) || 'a folder',
+          };
+        }
+        continue;
+      }
+
+      // First pass: keep every row already on a valid, unclaimed cell.
+      // Actives claim cells before placeholders so a colliding placeholder
+      // never displaces a real tile.
+      const taken = new Set<number>();
+      const displacedActives: Row[] = [];
+      const placeholderBySlot = new Map<number, Row>();
+      for (const row of actives) {
+        if (row.orderIndex >= 0 && row.orderIndex < capacity && !taken.has(row.orderIndex)) {
+          taken.add(row.orderIndex);
+        } else {
+          displacedActives.push(row);
+        }
+      }
+      for (const row of rows) {
+        if (!row.deleted) continue;
+        if (row.orderIndex >= 0 && row.orderIndex < capacity && !taken.has(row.orderIndex)) {
+          taken.add(row.orderIndex);
+          placeholderBySlot.set(row.orderIndex, row);
+        } else {
+          idsToPurge.push(row.id);
+        }
+      }
+
+      // Second pass: displaced actives go to free cells, reclaiming
+      // placeholder-held cells only once the truly empty ones run out.
+      for (const row of displacedActives) {
+        let slot = -1;
+        for (let s = 0; s < capacity; s++) {
+          if (!taken.has(s)) {
+            slot = s;
+            break;
+          }
+        }
+        if (slot === -1) {
+          for (let s = 0; s < capacity; s++) {
+            const placeholder = placeholderBySlot.get(s);
+            if (placeholder) {
+              idsToPurge.push(placeholder.id);
+              placeholderBySlot.delete(s);
+              taken.delete(s);
+              slot = s;
+              break;
+            }
+          }
+        }
+        // actives.length <= capacity guarantees a slot was found
+        taken.add(slot);
+        moves.push({id: row.id, orderIndex: slot});
+      }
+    }
+
+    for (const id of idsToPurge) {
+      await this.permanentlyDeleteNode(id);
+    }
+    for (const move of moves) {
+      await this.db.executeSql(
+        `UPDATE nodes SET orderIndex = ?, updatedAt = ? WHERE id = ?`,
+        [move.orderIndex, new Date().toISOString(), move.id],
+      );
+    }
+
+    return {ok: true};
+  }
+
   async getSentenceState(): Promise<SentenceState> {
     if (!this.db) throw new Error('Database not initialized');
 
