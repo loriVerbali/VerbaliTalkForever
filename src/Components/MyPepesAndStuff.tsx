@@ -29,6 +29,7 @@ import { useAppSettings } from '../utils/persistance';
 import { useAdmin } from '../contexts/adminContext';
 import TellUsMoreSection from './TellUsMore/TellUsMoreSection';
 import { isPlaceholderImage, resolveImageSource } from '../utils/imageSourceResolver';
+import { personalMemoryService } from '../services/PersonalMemoryService';
 
 interface AddressDetails {
   address: string;
@@ -395,6 +396,8 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     try {
       await setItem('pepes', JSON.stringify(data));
       setPepesData(data);
+      // Personal Memory: mirror caregiver tile edits into Personal Knowledge
+      personalMemoryService.seedFromIntake().catch(() => {});
     } catch (error) {
     }
   };

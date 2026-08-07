@@ -61,6 +61,10 @@ import {
   parseVerbiSuggestionLimit,
 } from '../../features/verbi/state/verbiTypes';
 import {useDatabase} from '../../contexts/DatabaseContext';
+import {
+  personalMemoryService,
+  makeMemoryEventId,
+} from '../../services/PersonalMemoryService';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 const {width, height} = Dimensions.get('window');
@@ -610,6 +614,15 @@ const SentenceBuilderGrid = forwardRef<
       } catch (error) {
         // Fail silently as requested
       }
+      // Personal Memory: completed word selection (fire-and-forget)
+      personalMemoryService.recordCompletedCommunication({
+        eventId: makeMemoryEventId(),
+        kind: 'word',
+        text: word.trim(),
+        words: [word.trim()],
+        source: 'Convo',
+        occurredAt: new Date(),
+      });
     };
 
     // Card handlers
@@ -958,6 +971,8 @@ const SentenceBuilderGrid = forwardRef<
                   sentenceTokenIdsRef.current = nextTokens;
                   setSentenceTokenIds(nextTokens);
                   onWordAdded?.(existingNode.id);
+                  // Log word selection to database (analytics/history)
+                  logWordSelection(textToSpeak);
                 })
                 .catch(() => {});
             }
@@ -992,6 +1007,8 @@ const SentenceBuilderGrid = forwardRef<
             sentenceTokenIdsRef.current = nextTokens;
             setSentenceTokenIds(nextTokens);
             onWordAdded?.(syntheticId);
+            // Log word selection to database (analytics/history)
+            logWordSelection(textToSpeak);
           }
         },
       }),

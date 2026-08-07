@@ -58,6 +58,42 @@ export function resolvePepesImageFromParsed(
 }
 
 /**
+ * Appends a tile to a pepes category, returning the new PepesData.
+ * Used by the Personal Memory "Add to People & Stuff" promotion flow.
+ */
+export function addPepesTile(
+  pepesRawOrData: string | PepesData | null | undefined,
+  category: string,
+  item: PepesItem,
+): PepesData {
+  let data: PepesData = {};
+  if (pepesRawOrData) {
+    try {
+      data =
+        typeof pepesRawOrData === 'string'
+          ? JSON.parse(pepesRawOrData)
+          : {...pepesRawOrData};
+    } catch (error) {
+      data = {};
+    }
+  }
+  for (const cat of PEPES_CATEGORIES) {
+    if (!Array.isArray(data[cat])) {
+      data[cat] = [];
+    }
+  }
+  const target = PEPES_CATEGORIES.includes(category) ? category : 'People';
+  const exists = (data[target] || []).some(
+    existing =>
+      existing.name?.trim().toLowerCase() === item.name.trim().toLowerCase(),
+  );
+  if (!exists) {
+    data[target] = [...(data[target] || []), item];
+  }
+  return data;
+}
+
+/**
  * Parses raw pepes JSON string if needed and resolves local Pepes image URI.
  */
 export function resolvePepesImage(

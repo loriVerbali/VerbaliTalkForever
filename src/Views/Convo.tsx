@@ -4,6 +4,10 @@ import SentenceBuilderGrid from '../Components/SentenceBuilder/SentenceBuilderGr
 import type {SentenceBuilderGridRef} from '../Components/SentenceBuilder/SentenceBuilderGrid';
 import ConvoWelcomeModal from '../Components/ConvoWelcomeModal';
 import {useDatabase} from '../contexts/DatabaseContext';
+import {
+  personalMemoryService,
+  makeMemoryEventId,
+} from '../services/PersonalMemoryService';
 import {useAppSettings} from '../utils/persistance';
 import mixpanel from '../utils/mixpanelInstance';
 import {GridConfigKey, Node} from '../types/sentenceBuilder';
@@ -195,6 +199,16 @@ const Convo = () => {
           wordcount: totalWordsAdded, // Include deleted words
           dateof: new Date(),
           timetobuild: timeToBuild,
+        });
+
+        // Personal Memory: completed (played) sentence
+        personalMemoryService.recordCompletedCommunication({
+          eventId: makeMemoryEventId(),
+          kind: 'sentence',
+          text: sentenceText,
+          words: sentenceText.split(/\s+/).filter(Boolean),
+          source: 'Convo',
+          occurredAt: new Date(),
         });
       } catch (error) {
         // Don't show error to user - fail silently as requested

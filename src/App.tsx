@@ -29,6 +29,7 @@ import mixpanel from './utils/mixpanelInstance';
 import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
+import {personalMemoryService} from './services/PersonalMemoryService';
 import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
 import FastImage from 'react-native-fast-image';
@@ -106,6 +107,9 @@ const App = () => {
         }
       }
 
+      // Personal Memory: open the local DB (no-op mode on failure)
+      await personalMemoryService.init().catch(() => {});
+
       // Navigator renders — Open.tsx mounts with WakeWord already active
       setBootstrapDone(true);
     };
@@ -145,6 +149,9 @@ const App = () => {
             await wakeWordService.resumeDetection();
           } catch {}
         }
+
+        // Personal Memory: drain extraction queue + daily drift check
+        personalMemoryService.onAppForeground();
       } else if (nextAppState === 'active' && appState.current === 'inactive') {
         try {
           await sessionManager.ensureValidSession();

@@ -25,8 +25,8 @@ export interface ConfigType {
 }
 
 const AppConfig: ConfigType = {
-  baseUrl: 'https://matalkapi-copy-nologin.up.railway.app',
-  //baseUrl: 'http://192.168.1.175:3000',
+  //baseUrl: 'https://matalkapi-copy-nologin.up.railway.app',
+  baseUrl: 'http://192.168.1.175:3000',
   //baseUrl: 'http://localhost:3000',
   picsUrl: 'https://image.pollinations.ai/prompt',
   geminiAPIKey: Config.GEMINI_API_KEY || '',
@@ -79,6 +79,18 @@ const AppConfig: ConfigType = {
       sendDeviceKey: false,
       jsonMethod: true,
       suffixUrl: '/answers/generate',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    memoryExtract: {
+      description: 'memoryExtract',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/api/memory/extract',
       mustStringify: true,
       isFlatResponse: false,
       isPicsUrl: false,

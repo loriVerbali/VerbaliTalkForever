@@ -7,6 +7,8 @@ import { Platform } from 'react-native';
 import { closeDatabase, initDatabase } from '../utils/database';
 // @ts-ignore
 import { sentenceBuilderSqlite } from '../utils/sentenceBuilderSqlite';
+import { personalMemoryDb } from '../utils/personalMemoryDb';
+import { personalMemoryService } from './PersonalMemoryService';
 
 const IMPORT_FOLDER_NAME = 'matalk-profile-import';
 
@@ -34,7 +36,8 @@ export const ProfileImportService = {
      * Main import function — orchestrates the entire restore flow.
      * Throws on failure with a user-friendly message.
      */
-    async importProfile(): Promise<void> {
+    async importProfile(options?: { preserveMemory?: boolean }): Promise<void> {
+        const preserveMemory = options?.preserveMemory === true;
         const stagingPath = `${RNFS.DocumentDirectoryPath}/${IMPORT_FOLDER_NAME}`;
         let zipCopyPath = '';
 
@@ -61,10 +64,10 @@ export const ProfileImportService = {
             await this._freezeWrites();
 
             // 7. Clear current profile data (preserving subscription keys)
-            await this._clearCurrentData();
+            await this._clearCurrentData(preserveMemory);
 
             // 8. Restore backup data
-            await this._restoreBackupData(backupRoot);
+            await this._restoreBackupData(backupRoot, preserveMemory);
 
             // 9. Reopen databases to verify integrity
             await this._reopenDatabases();
@@ -218,12 +221,19 @@ export const ProfileImportService = {
         } catch (e) {
             console.warn('[Import] Error closing sentence builder DB:', e);
         }
+
+        try {
+            await personalMemoryDb.close();
+            personalMemoryService.onDatabaseClosed();
+        } catch (e) {
+            console.warn('[Import] Error closing personal memory DB:', e);
+        }
     },
 
     /**
      * Clear current profile data while preserving subscription keys.
      */
-    async _clearCurrentData() {
+    async _clearCurrentData(preserveMemory: boolean = false) {
         // 1. Save protected preference values
         const savedProtected: Record<string, string | null> = {};
         for (const key of PROTECTED_KEYS) {
@@ -250,6 +260,9 @@ export const ProfileImportService = {
 
         // 4. Delete current DB files — search all possible locations
         const dbNames = ['matalk_metrics.db', 'sentence_builder.db'];
+        if (!preserveMemory) {
+            dbNames.push('personal_memory.db');
+        }
         const possibleDirs = this._getDbSearchDirs();
 
         for (const dbName of dbNames) {
@@ -310,7 +323,7 @@ export const ProfileImportService = {
      * - Copy image directories
      * - Restore preferences from storage.json (excluding protected keys)
      */
-    async _restoreBackupData(backupRoot: string) {
+    async _restoreBackupData(backupRoot: string, preserveMemory: boolean = false) {
         // 1. Restore DB files
         // First, figure out where DBs should go by creating a temp DB and finding it
         // Use the first possible directory as default, but log alternatives
@@ -324,6 +337,10 @@ export const ProfileImportService = {
 
             for (const file of backupDbFiles) {
                 if (file.isFile()) {
+                    // Keep this device's Personal Memory when requested
+                    if (preserveMemory && file.name === 'personal_memory.db') {
+                        continue;
+                    }
                     // Try to find where this DB was previously located
                     // If not found, use the default directory
                     let targetDir = defaultDbDir;
@@ -429,6 +446,13 @@ export const ProfileImportService = {
                 console.error('[Import] ❌ Failed to reopen sentence builder DB (attempt 2):', retryError);
                 throw new Error('Failed to initialize the sentence builder database after import.');
             }
+        }
+
+        // Reopen personal memory DB (non-fatal — service degrades to no-op)
+        try {
+            await personalMemoryService.reopen();
+        } catch (e) {
+            console.warn('[Import] Failed to reopen personal memory DB:', e);
         }
     },
 
