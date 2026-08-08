@@ -56,6 +56,7 @@ export class SentenceBuilderSqlite {
       await this.createTables();
       await this.migrateDatabase();
       await this.seedData();
+      await this.trimOversizedSeedFolders();
     } catch (error) {
       console.error('[SentenceBuilder] init() failed:', error);
       this.db = null;
@@ -305,6 +306,43 @@ export class SentenceBuilderSqlite {
         node.deleted ? 1 : 0,
       ],
     );
+  }
+
+  /**
+   * One-time cleanup for installs seeded before the pack was trimmed to fit
+   * the 5x6 grid: "Shortcuts" and "Time" shipped 31 entries each, making a
+   * shrink to 5x6 (30 cells) impossible without manual deletions. Removes
+   * each folder's trailing seed entry — the "Sleep" shortcut and the
+   * "Seasons" folder with its season words. "Seasons" is left alone if the
+   * user has added their own cards inside it.
+   */
+  private async trimOversizedSeedFolders(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    const FLAG = 'seedTrim5x6V1';
+    const [flagResult] = await this.db.executeSql(
+      `SELECT value FROM settings WHERE key = ?`,
+      [FLAG],
+    );
+    if (flagResult.rows.length > 0) return;
+
+    await this.db.executeSql(
+      `DELETE FROM nodes WHERE id = 'shortcuts_sleep' AND isSeed = 1`,
+    );
+
+    const [customCards] = await this.db.executeSql(
+      `SELECT COUNT(*) as count FROM nodes WHERE parentId = 'folder_seasons' AND isSeed = 0`,
+    );
+    if (customCards.rows.item(0).count === 0) {
+      await this.db.executeSql(
+        `DELETE FROM nodes WHERE parentId = 'folder_seasons'`,
+      );
+      await this.db.executeSql(
+        `DELETE FROM nodes WHERE id = 'folder_seasons' AND isSeed = 1`,
+      );
+    }
+
+    await this.insertSetting(FLAG, 'done');
   }
 
   private async insertSetting(key: string, value: string): Promise<void> {
@@ -686,11 +724,17 @@ export class SentenceBuilderSqlite {
    * mode (grid shrink) the whole repair is abandoned before any write and the
    * offending board is reported so the caller can block the size change. In
    * 'lenient' mode (app load) such boards are skipped and the rest repaired.
+   *
+   * Boards not reachable from the root through non-deleted folders (children
+   * stranded by a folder soft-delete) are invisible in the app and ignored
+   * entirely — they neither block a shrink nor get repaired.
    */
   async repairBoardsForCapacity(
     capacity: number,
     mode: 'strict' | 'lenient',
-  ): Promise<{ok: true} | {ok: false; fullBoardTitle: string}> {
+  ): Promise<
+    {ok: true} | {ok: false; fullBoardTitle: string; cardCount: number}
+  > {
     if (!this.db) throw new Error('Database not initialized');
 
     const [result] = await this.db.executeSql(`
@@ -722,10 +766,27 @@ export class SentenceBuilderSqlite {
       byParent.set(row.parentId, group);
     }
 
+    // Only boards reachable from the root through non-deleted folders are
+    // visible in the app. Deleting a folder soft-deletes just the folder row,
+    // stranding its children as an invisible board — those must never block
+    // a grid shrink (the user has no way to edit them), so they're skipped.
+    const liveBoards = new Set<string | null>([null]);
+    const bfs: Array<string | null> = [null];
+    while (bfs.length > 0) {
+      const boardId = bfs.shift()!;
+      for (const row of byParent.get(boardId) || []) {
+        if (!row.deleted && !liveBoards.has(row.id)) {
+          liveBoards.add(row.id);
+          bfs.push(row.id);
+        }
+      }
+    }
+
     const idsToPurge: string[] = [];
     const moves: Array<{id: string; orderIndex: number}> = [];
 
     for (const [parentId, rows] of byParent) {
+      if (!liveBoards.has(parentId)) continue;
       const actives = rows.filter(r => !r.deleted);
       if (actives.length > capacity) {
         if (mode === 'strict') {
@@ -735,6 +796,7 @@ export class SentenceBuilderSqlite {
               parentId === null
                 ? 'Main board'
                 : titleById.get(parentId) || 'a folder',
+            cardCount: actives.length,
           };
         }
         continue;

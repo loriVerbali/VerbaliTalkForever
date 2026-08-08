@@ -918,9 +918,11 @@ const SentenceBuilderGrid = forwardRef<
           'strict',
         );
         if (!repair.ok) {
+          const cellCount = config.rows * config.cols;
+          const excess = repair.cardCount - cellCount;
           Alert.alert(
             'Cannot Change Grid Size',
-            `"${repair.fullBoardTitle}" has more cards than fit in a ${newSize} grid. Remove some cards there first.`,
+            `"${repair.fullBoardTitle}" has ${repair.cardCount} cards, but a ${newSize} grid only fits ${cellCount}. Delete at least ${excess} card${excess === 1 ? '' : 's'} from "${repair.fullBoardTitle}", then try again.`,
           );
           return;
         }
