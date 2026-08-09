@@ -1,6 +1,6 @@
 import RNFS from 'react-native-fs';
 import { unzip } from 'react-native-zip-archive';
-import { pick, types } from 'react-native-document-picker';
+import { pick, types, keepLocalCopy, isErrorWithCode, errorCodes } from '@react-native-documents/picker';
 import DefaultPreference from 'react-native-default-preference';
 import { Platform } from 'react-native';
 // @ts-ignore
@@ -111,24 +111,32 @@ export const ProfileImportService = {
      * Copies it into the staging directory and returns the copy path.
      */
     async _pickBackupFile(stagingPath: string): Promise<string> {
-        const result = await pick({
-            type: [types.zip],
-            copyTo: 'cachesDirectory',
-        });
-
-        const picked = result[0];
+        let picked;
+        try {
+            [picked] = await pick({
+                type: [types.zip],
+            });
+        } catch (error: any) {
+            if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) {
+                throw new Error('No file selected — cancel');
+            }
+            throw error;
+        }
         if (!picked) {
             throw new Error('No file selected — cancel');
         }
 
-        // Use the cached copy (copyTo gives us a local path)
-        const sourceUri = picked.fileCopyUri || picked.uri;
-        if (!sourceUri) {
+        // Copy into app storage (replaces the old copyTo/fileCopyUri option)
+        const [copyResult] = await keepLocalCopy({
+            files: [{ uri: picked.uri, fileName: picked.name ?? 'import.zip' }],
+            destination: 'cachesDirectory',
+        });
+        if (copyResult.status !== 'success') {
             throw new Error('Failed to access the selected file.');
         }
 
         // Normalise the URI — remove file:// prefix if present
-        const sourcePath = sourceUri.replace('file://', '');
+        const sourcePath = copyResult.localUri.replace('file://', '');
 
         await RNFS.mkdir(stagingPath);
         const destPath = `${stagingPath}/import.zip`;

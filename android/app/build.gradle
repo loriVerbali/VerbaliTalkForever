@@ -26,7 +26,7 @@ react {
 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
-    nodeExecutableAndArgs = ["/usr/local/bin/node"]
+    nodeExecutableAndArgs = ["/Users/lori/.nvm/versions/node/v22.17.0/bin/node"]
     //
     //   The command to run when bundling. By default is 'bundle'
     // bundleCommand = "ram-bundle"
@@ -86,18 +86,10 @@ android {
         versionName "MatalkV2"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
         missingDimensionStrategy "store", "play"
-        
-        // Support for 16 KB memory page sizes
+
+        // ABIs must match reactNativeArchitectures in gradle.properties
         ndk {
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
-        }
-        
-        // Enable native library support for different memory page sizes
-        externalNativeBuild {
-            cmake {
-                arguments "-DANDROID_STL=c++_shared"
-                cppFlags "-std=c++17"
-            }
+            abiFilters 'armeabi-v7a', 'arm64-v8a'
         }
     }
     signingConfigs {

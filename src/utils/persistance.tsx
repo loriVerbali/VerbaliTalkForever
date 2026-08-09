@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
 import { validateReceiptOnLaunch } from './recieptValidation';
-import WhisperModelManager from './WhisperModelManager';
 import { sessionManager } from './sessionManager';
 
 interface Preferences {
@@ -48,9 +47,6 @@ interface Preferences {
   isInTrial: string;
   trialInstallationDate: string;
   pepes: string;
-  whisperModelAvailable: string;
-  whisperModelLastChecked: string;
-  useLocalWhisper: string;
   watchedVideos: string;
   settingsTappedOnce: string;
   microphoneTappedOnce: string;
@@ -138,9 +134,6 @@ export const initialPreferences: Preferences = {
   isInTrial: initEnum.false,
   trialInstallationDate: initEnum.notSet,
   pepes: '',
-  whisperModelAvailable: initEnum.false,
-  whisperModelLastChecked: '0',
-  useLocalWhisper: initEnum.true,
   watchedVideos: '',
   settingsTappedOnce: initEnum.false,
   microphoneTappedOnce: initEnum.false,

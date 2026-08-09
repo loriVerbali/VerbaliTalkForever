@@ -26,6 +26,7 @@ buildscript {
 allprojects {
     repositories {
         maven { url "${project(":react-native-wakeword").projectDir}/libs" }
+        maven { url "${project(":react-native-davoice-tts").projectDir}/libs" }
         google()
         mavenCentral()
     }

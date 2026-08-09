@@ -1838,7 +1838,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-document-picker (9.3.1):
+  - react-native-document-picker (12.0.2):
     - boost
     - DoubleConversion
     - fast_float
@@ -2753,8 +2753,6 @@ PODS:
     - React-perflogger (= 0.82.0)
     - React-utils (= 0.82.0)
     - SocketRocket
-  - RNAudioPcmStream (1.1.4):
-    - React
   - RNDefaultPreference (1.4.4):
     - React-Core
   - RNDeviceInfo (14.1.1):
@@ -2827,7 +2825,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNReanimated (3.19.5):
+  - RNReanimated (4.3.3):
     - boost
     - DoubleConversion
     - fast_float
@@ -2854,11 +2852,12 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNReanimated/reanimated (= 3.19.5)
-    - RNReanimated/worklets (= 3.19.5)
+    - RNReanimated/apple (= 4.3.3)
+    - RNReanimated/common (= 4.3.3)
+    - RNWorklets
     - SocketRocket
     - Yoga
-  - RNReanimated/reanimated (3.19.5):
+  - RNReanimated/apple (4.3.3):
     - boost
     - DoubleConversion
     - fast_float
@@ -2885,10 +2884,10 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - RNReanimated/reanimated/apple (= 3.19.5)
+    - RNWorklets
     - SocketRocket
     - Yoga
-  - RNReanimated/reanimated/apple (3.19.5):
+  - RNReanimated/common (4.3.3):
     - boost
     - DoubleConversion
     - fast_float
@@ -2915,65 +2914,7 @@ PODS:
     - ReactCodegen
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - SocketRocket
-    - Yoga
-  - RNReanimated/worklets (3.19.5):
-    - boost
-    - DoubleConversion
-    - fast_float
-    - fmt
-    - glog
-    - hermes-engine
-    - RCT-Folly
-    - RCT-Folly/Fabric
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - RNReanimated/worklets/apple (= 3.19.5)
-    - SocketRocket
-    - Yoga
-  - RNReanimated/worklets/apple (3.19.5):
-    - boost
-    - DoubleConversion
-    - fast_float
-    - fmt
-    - glog
-    - hermes-engine
-    - RCT-Folly
-    - RCT-Folly/Fabric
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
+    - RNWorklets
     - SocketRocket
     - Yoga
   - RNShare (12.2.6):
@@ -2992,6 +2933,95 @@ PODS:
     - React-Fabric
     - React-featureflags
     - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - RNWorklets (0.8.3):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - RNWorklets/apple (= 0.8.3)
+    - RNWorklets/common (= 0.8.3)
+    - SocketRocket
+    - Yoga
+  - RNWorklets/apple (0.8.3):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
+  - RNWorklets/common (0.8.3):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
     - React-ImageManager
     - React-jsi
     - React-NativeModulesApple
@@ -3024,36 +3054,6 @@ PODS:
   - TTSRNBridge (1.0.289):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
-  - whisper-rn (0.5.5):
-    - boost
-    - DoubleConversion
-    - fast_float
-    - fmt
-    - glog
-    - hermes-engine
-    - RCT-Folly
-    - RCT-Folly/Fabric
-    - RCTRequired
-    - RCTTypeSafety
-    - React
-    - React-callinvoker
-    - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - SocketRocket
-    - Yoga
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -3101,7 +3101,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-config (from `../node_modules/react-native-config`)
-  - react-native-document-picker (from `../node_modules/react-native-document-picker`)
+  - "react-native-document-picker (from `../node_modules/@react-native-documents/picker`)"
   - "react-native-geolocation (from `../node_modules/@react-native-community/geolocation`)"
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-in-app-review (from `../node_modules/react-native-in-app-review`)
@@ -3144,7 +3144,6 @@ DEPENDENCIES:
   - ReactAppDependencyProvider (from `build/generated/ios`)
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
-  - "RNAudioPcmStream (from `../node_modules/@fugood/react-native-audio-pcm-stream`)"
   - RNDefaultPreference (from `../node_modules/react-native-default-preference`)
   - RNDeviceInfo (from `../node_modules/react-native-device-info`)
   - RNFastImage (from `../node_modules/react-native-fast-image`)
@@ -3154,11 +3153,11 @@ DEPENDENCIES:
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNShare (from `../node_modules/react-native-share`)
+  - RNWorklets (from `../node_modules/react-native-worklets`)
   - RNZipArchive (from `../node_modules/react-native-zip-archive`)
   - SocketRocket (~> 0.7.1)
   - TextToSpeech (from `../node_modules/react-native-tts`)
   - TTSRNBridge (from `../node_modules/react-native-davoice-tts`)
-  - whisper-rn (from `../node_modules/whisper.rn`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -3261,7 +3260,7 @@ EXTERNAL SOURCES:
   react-native-config:
     :path: "../node_modules/react-native-config"
   react-native-document-picker:
-    :path: "../node_modules/react-native-document-picker"
+    :path: "../node_modules/@react-native-documents/picker"
   react-native-geolocation:
     :path: "../node_modules/@react-native-community/geolocation"
   react-native-image-picker:
@@ -3346,8 +3345,6 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
-  RNAudioPcmStream:
-    :path: "../node_modules/@fugood/react-native-audio-pcm-stream"
   RNDefaultPreference:
     :path: "../node_modules/react-native-default-preference"
   RNDeviceInfo:
@@ -3366,14 +3363,14 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-reanimated"
   RNShare:
     :path: "../node_modules/react-native-share"
+  RNWorklets:
+    :path: "../node_modules/react-native-worklets"
   RNZipArchive:
     :path: "../node_modules/react-native-zip-archive"
   TextToSpeech:
     :path: "../node_modules/react-native-tts"
   TTSRNBridge:
     :path: "../node_modules/react-native-davoice-tts"
-  whisper-rn:
-    :path: "../node_modules/whisper.rn"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -3425,7 +3422,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 499069c3dcd4b438a70fcc2a65e8a4185ea9170b
   React-microtasksnativemodule: f0238469cb9894fd18c419137d312665b8fc05b3
   react-native-config: 2249b7e68644c86ea68358f5a0d746d1c648f900
-  react-native-document-picker: dcf5e57f3bcae61bf8384a1c6f90896f81e17941
+  react-native-document-picker: 3fa6cf293370de0bb5cb93917bcd2189e54032d5
   react-native-geolocation: 95e48fe2687e5a8280103085372fa62c2297c5d6
   react-native-image-picker: 0314366753615115fa55c3cc937ac44cb7e75702
   react-native-in-app-review: 1516ba69d60d58053b7eb3aaaf8d2a5a74af8b57
@@ -3468,7 +3465,6 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: c5c4f5280e4ae0f9f4a739c64c4260fe0b3edaf1
   ReactCodegen: 374f1c9242fbdd673b460d358b33860c0cc9d926
   ReactCommon: 25c7f94aee74ddd93a8287756a8ac0830a309544
-  RNAudioPcmStream: 7f54645cfad8a18daebdc45111ebc7be99b4c2a3
   RNDefaultPreference: ee13d69e6693d193cd223d10e15e5b3c012d31ba
   RNDeviceInfo: bcce8752b5043a623fe3c26789679b473f705d3c
   RNFastImage: 462a183c4b0b6b26fdfd639e1ed6ba37536c3b87
@@ -3476,8 +3472,9 @@ SPEC CHECKSUMS:
   RNGestureHandler: f97d19585553412302394c42495cdaf499589d34
   RNIap: d73cedfb73b396cad75f90f4ed7d64352d6381cf
   RNPermissions: 5736d280b1cdffdb4c34aeb6da434f74a72814ee
-  RNReanimated: 4cca349f1a3636b94d152796707c34237bfbd197
+  RNReanimated: c594ca818a777f46cf619caf077bf4cf6142039d
   RNShare: 51d221e8ac06263e91168c604b94274fdcc4784f
+  RNWorklets: f9f986eb14713b081c6a8a33b762750ccd414492
   RNZipArchive: 4304f5100eab004eeb7349adc51997b3a28deb76
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
@@ -3485,7 +3482,6 @@ SPEC CHECKSUMS:
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
   TextToSpeech: 89b239221ec378d213af422d14789a729705360b
   TTSRNBridge: f008e79a3a4a45f7e000b026d682b129c2edbd1e
-  whisper-rn: 7566faf9b7d78e39ab9fc634cb90fdee81177793
   Yoga: edeb9900b9e5bb5b27b9a6a2d5914e4fe4033c1b
 
 PODFILE CHECKSUM: 2c0e5693d6159ad253e40c9d700eb89fd59e47f2
