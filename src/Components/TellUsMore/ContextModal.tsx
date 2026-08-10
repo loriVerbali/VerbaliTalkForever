@@ -147,12 +147,10 @@ const ContextModal: React.FC<ContextModalProps> = ({
         {},
         req,
       );
-      debugger;
       setPhase('input');
       onPreviewReady(response);
     } catch (err: any) {
-      console.log("Error in handleMagicUpdate: ", err);
-      debugger;
+      console.error("Error in handleMagicUpdate: ", err);
       const isOffline =
         err?.message?.toLowerCase().includes('network') ||
         err?.message?.toLowerCase().includes('offline') ||

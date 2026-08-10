@@ -42,7 +42,20 @@ if [ -f "$F" ] && grep -q "val activity = currentActivity" "$F"; then
   echo "postinstall-fixes: patched currentActivity in react-native-iap for RN 0.82"
 fi
 
-# --- Fix 3: jcenter() removed in Gradle 9 -------------------------------------
+# --- Fix 3: DaVoice TTS 1.5 s completion margin -------------------------------
+# The DaVoice Android engine defaults completionSafetyMarginMs to 1500 ms:
+# stopSpeaking() force-sleeps that long on the RN native-modules thread, and
+# onFinishedSpeaking fires that long after audio ends — together adding ~1.5 s
+# to every tap-to-speech cycle. Set a 250 ms margin (still covers the device
+# audio tail) right after the interface is constructed.
+F="node_modules/react-native-davoice-tts/android/src/main/java/com/davoice/tts/rn/DaVoiceTTSBridge.java"
+if [ -f "$F" ] && grep -q "new DaVoiceTTSInterface(context);" "$F" \
+   && ! grep -q "setCompletionSafetyMarginMs" "$F"; then
+  perl -pi -e 's/\Q        this.tts = new DaVoiceTTSInterface(context);\E/        this.tts = new DaVoiceTTSInterface(context);\n        \/\/ Engine defaults completionSafetyMarginMs to 1500 ms; see postinstall-fixes.sh.\n        this.tts.setCompletionSafetyMarginMs(250);/' "$F"
+  echo "postinstall-fixes: set DaVoice TTS completion margin to 250 ms"
+fi
+
+# --- Fix 4: jcenter() removed in Gradle 9 -------------------------------------
 # These packages still reference the defunct jcenter() repository, which is no
 # longer a valid method in Gradle 9. Replace with mavenCentral().
 for f in \
@@ -53,3 +66,35 @@ for f in \
     echo "postinstall-fixes: replaced jcenter() with mavenCentral() in $f"
   fi
 done
+
+# --- Fix 5: DaVoice TTS debug logging -----------------------------------------
+# The TTS package ships with verbose debug logging enabled: speech/index.ts has
+# VERBOSE=true plus ~24 ungated console.logs, the JS bridges log at module load,
+# and DaVoiceTTSBridge.java emits Log.d/Log.i on every playWav call. Silence
+# everything except error/warn logging.
+F="node_modules/react-native-davoice-tts/speech/index.ts"
+if [ -f "$F" ] && grep -q 'const VERBOSE = true;' "$F"; then
+  perl -pi -e 's/\Qconst VERBOSE = true;\E/const VERBOSE = false;/' "$F"
+  # dbgErr() is real error reporting: route it to console.error before gating.
+  perl -pi -e "s/console\\.log\\(ts\\(\\), PFX, '❌', \\.\\.\\.args\\);/console.error(ts(), PFX, '❌', ...args);/" "$F"
+  # Gate every remaining ungated console.log behind the VERBOSE flag.
+  perl -pi -e 's/(?<!&& )console\.log\(/VERBOSE && console.log(/g' "$F"
+  echo "postinstall-fixes: silenced DaVoice speech JS debug logging"
+fi
+
+F="node_modules/react-native-davoice-tts/stt/index.ts"
+if [ -f "$F" ]; then
+  perl -ni -e "print unless /console\\.log\\('STTNative loaded:/" "$F"
+fi
+F="node_modules/react-native-davoice-tts/tts/DaVoiceTTSBridge.js"
+if [ -f "$F" ]; then
+  perl -ni -e "print unless /console\\.log\\('DaVoiceTTSBridge is loaded:/" "$F"
+fi
+
+# Comment out single-line Log.d/Log.i calls in the Android bridge (Log.w/Log.e
+# stay). All active debug Log calls in this file are single-line statements.
+F="node_modules/react-native-davoice-tts/android/src/main/java/com/davoice/tts/rn/DaVoiceTTSBridge.java"
+if [ -f "$F" ] && grep -qE '^\s*Log\.[di]\(' "$F"; then
+  perl -pi -e 's{^(\s*)Log\.([di])\(}{$1// Log.$2(}' "$F"
+  echo "postinstall-fixes: silenced Log.d/Log.i in DaVoice TTS Android bridge"
+fi

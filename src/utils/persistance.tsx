@@ -279,12 +279,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
           value === initEnum.notSet;
 
         loaded[key] = isMissing ? fallbackValue : value;
-
-        if (key === 'answersCount') {
-          console.log(
-            `[Persistence] Loaded answersCount: "${loaded[key]}" (original: "${value}", fallback: "${fallbackValue}")`,
-          );
-        }
       }
       setPreferences(
         prevPreferences => ({ ...prevPreferences, ...loaded } as Preferences),

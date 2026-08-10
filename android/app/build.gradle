@@ -20,10 +20,10 @@ react {
 
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
-    //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
+    //   skip the bundling of the JS bundle and the assets. Default is "debug", "debugOptimized".
     //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
-    // debuggableVariants = ["liteDebug", "prodDebug"]
-
+    // debuggableVariants = ["liteDebug", "liteDebugOptimized", "prodDebug", "prodDebugOptimized"]
+ 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
     nodeExecutableAndArgs = ["/Users/lori/.nvm/versions/node/v22.17.0/bin/node"]
@@ -82,7 +82,7 @@ android {
         applicationId "com.verbali.matalkai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 27
+        versionCode 29
         versionName "MatalkV2"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
         missingDimensionStrategy "store", "play"
@@ -99,15 +99,31 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            // Credentials live in ~/.gradle/gradle.properties (never committed):
+            //   MATALK_UPLOAD_STORE_FILE, MATALK_UPLOAD_KEY_ALIAS,
+            //   MATALK_UPLOAD_STORE_PASSWORD, MATALK_UPLOAD_KEY_PASSWORD
+            if (project.hasProperty('MATALK_UPLOAD_STORE_FILE')) {
+                storeFile file(MATALK_UPLOAD_STORE_FILE)
+                storePassword MATALK_UPLOAD_STORE_PASSWORD
+                keyAlias MATALK_UPLOAD_KEY_ALIAS
+                keyPassword MATALK_UPLOAD_KEY_PASSWORD
+            }
+        }
     }
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            // Sign debug builds with the upload key when available so Google Play
+            // Billing works on-device during development (Play only answers billing
+            // calls from builds whose signature it recognizes).
+            signingConfig project.hasProperty('MATALK_UPLOAD_STORE_FILE')
+                ? signingConfigs.release
+                : signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig project.hasProperty('MATALK_UPLOAD_STORE_FILE')
+                ? signingConfigs.release
+                : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

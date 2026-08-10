@@ -3,9 +3,29 @@ import _ from 'lodash';
 import fetchHelper from './fetcher';
 import {
   initConnection,
-  getReceiptIOS,
+  getReceiptDataIOS,
   getAvailablePurchases,
 } from 'react-native-iap';
+
+// The backend JSON.parses receiptData and reads purchaseToken/productId from
+// it. dataAndroid (Play's originalJson) already has that shape, but it can be
+// null on some purchase events — a raw purchaseToken string would fail the
+// backend parse, so build the JSON explicitly as fallback.
+const buildAndroidReceipt = (purchase: any): string => {
+  if (purchase?.dataAndroid) {
+    return purchase.dataAndroid;
+  }
+  const purchaseToken =
+    purchase?.purchaseToken ?? purchase?.purchaseTokenAndroid;
+  if (!purchaseToken) {
+    return '';
+  }
+  return JSON.stringify({
+    purchaseToken,
+    productId: purchase?.productId ?? purchase?.ids?.[0],
+    packageName: purchase?.packageNameAndroid,
+  });
+};
 
 const validateSubscription = async (receipt: string) => {
   if (__DEV__) {
@@ -79,8 +99,8 @@ const validateReceiptOnLaunch = async () => {
           parseInt(String(a.transactionDate)),
       );
 
-      const latestPurchase = sorted[0];
-      const latestReceipt = latestPurchase.transactionReceipt;
+      const latestPurchase = sorted[0] as any;
+      const latestReceipt = buildAndroidReceipt(latestPurchase);
 
       if (!latestReceipt) {
         
@@ -116,7 +136,9 @@ const validateReceiptOnLaunch = async () => {
     // Launch validation must not prompt StoreKit to refresh a receipt. A
     // forced refresh can outlive the app's foreground window and leave
     // SKReceiptRefreshRequest holding an iOS background task.
-    const receipt = await getReceiptIOS({forceRefresh: false});
+    // getReceiptDataIOS never forces a refresh (that is a separate
+    // requestReceiptRefreshIOS call), so this stays refresh-free.
+    const receipt = await getReceiptDataIOS();
     if (!receipt) {
       return null;
     }
@@ -138,4 +160,4 @@ const validateReceiptOnLaunch = async () => {
   }
 };
 
-export {validateSubscription, validateReceiptOnLaunch};
+export {validateSubscription, validateReceiptOnLaunch, buildAndroidReceipt};

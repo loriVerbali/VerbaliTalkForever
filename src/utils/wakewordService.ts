@@ -34,6 +34,13 @@ const MAX_INIT_RETRIES = 3;
 const INIT_RETRY_DELAY_MS = 1000; // Base delay in milliseconds
 const IOS_MIC_RELEASE_SETTLE_MS = 250;
 
+const WW_DEBUG = false;
+const wwTrace = (...args: unknown[]) => {
+  if (WW_DEBUG) {
+    console.log(...args);
+  }
+};
+
 export type WakeWordCallback = (phrase: string) => void;
 
 class WakeWordService {
@@ -204,7 +211,7 @@ class WakeWordService {
                 },
               };
               await setWakewordAudioRoutingConfig(routingConfig);
-              console.log('[WakeWord] iOS Audio Session routing config applied successfully.');
+              wwTrace('[WakeWord] iOS Audio Session routing config applied successfully.');
             } catch (configErr) {
               console.warn('[WakeWord] Failed to set audio routing config:', configErr);
             }
@@ -414,20 +421,20 @@ class WakeWordService {
 
   // Start listening for wake words
   public async startListening(): Promise<void> {
-    console.log('[WakeWordService] startListening() called');
+    wwTrace('[WakeWordService] startListening() called');
     if (this.cleanupPromise) {
-      console.log('[WakeWordService] startListening: waiting for cleanupPromise');
+      wwTrace('[WakeWordService] startListening: waiting for cleanupPromise');
       await this.cleanupPromise;
     }
 
     if (this.pausingPromise) {
-      console.log('[WakeWordService] startListening: waiting for pausingPromise');
+      wwTrace('[WakeWordService] startListening: waiting for pausingPromise');
       await this.pausingPromise;
     }
 
     // If startListening is already in progress, wait for it instead of starting a new one
     if (this.startingPromise) {
-      console.log('[WakeWordService] startListening: startingPromise already exists, waiting for it');
+      wwTrace('[WakeWordService] startListening: startingPromise already exists, waiting for it');
       await this.startingPromise;
       return;
     }
@@ -436,19 +443,19 @@ class WakeWordService {
     const promise = (async () => {
       if (this.isListening) {
         if (this.isDetectionPaused && this.keywordInstance) {
-          console.log('[WakeWordService] startListening: isListening is true, isDetectionPaused is true, calling unPauseDetection()');
+          wwTrace('[WakeWordService] startListening: isListening is true, isDetectionPaused is true, calling unPauseDetection()');
           await this.keywordInstance.unPauseDetection();
           this.isDetectionPaused = false;
-          console.log('[WakeWordService] startListening: unPauseDetection() completed successfully');
+          wwTrace('[WakeWordService] startListening: unPauseDetection() completed successfully');
         } else {
-          console.log(`[WakeWordService] startListening: isListening is true, isDetectionPaused=${this.isDetectionPaused}, no action needed`);
+          wwTrace(`[WakeWordService] startListening: isListening is true, isDetectionPaused=${this.isDetectionPaused}, no action needed`);
         }
         return;
       }
 
       // Initialize if not already done
       if (!this.isInitialized) {
-        console.log('[WakeWordService] startListening: isInitialized is false, calling initialize()');
+        wwTrace('[WakeWordService] startListening: isInitialized is false, calling initialize()');
         await this.initialize();
       }
 
@@ -460,19 +467,19 @@ class WakeWordService {
 
       // Set up callback if not already done
       if (!this.eventListener) {
-        console.log('[WakeWordService] startListening: eventListener is null, calling setupCallback()');
+        wwTrace('[WakeWordService] startListening: eventListener is null, calling setupCallback()');
         await this.setupCallback();
       }
 
       try {
-        console.log('[WakeWordService] startListening: calling startKeywordDetection()');
+        wwTrace('[WakeWordService] startListening: calling startKeywordDetection()');
         await this.keywordInstance.startKeywordDetection(
           instanceConfigs[0].threshold,
         );
 
         this.isListening = true;
         this.isDetectionPaused = false;
-        console.log('[WakeWordService] startListening: startKeywordDetection() completed successfully');
+        wwTrace('[WakeWordService] startListening: startKeywordDetection() completed successfully');
 
         // Set up a periodic check to verify service is still active (for debugging)
         if (this.statusCheckInterval) {
@@ -580,17 +587,30 @@ class WakeWordService {
     return this.isListening && !this.isDetectionPaused;
   }
 
+  /**
+   * True when the mic is live OR a startListening() is still in flight.
+   * Callers that need the mic released before playing audio (TTS) must pause
+   * in both cases; when this is false the mic is already off and pausing —
+   * with its settle delays — can be skipped entirely.
+   */
+  public isActiveOrStarting(): boolean {
+    return (
+      (this.isListening && !this.isDetectionPaused) ||
+      this.startingPromise !== null
+    );
+  }
+
   public async pauseDetection(stopMic: boolean = true): Promise<void> {
-    console.log(`[WakeWordService] pauseDetection(stopMic=${stopMic}) called`);
+    wwTrace(`[WakeWordService] pauseDetection(stopMic=${stopMic}) called`);
     if (this.pausingPromise) {
-      console.log('[WakeWordService] pauseDetection: pausingPromise already exists, waiting for it');
+      wwTrace('[WakeWordService] pauseDetection: pausingPromise already exists, waiting for it');
       await this.pausingPromise;
       return;
     }
 
     const promise = (async () => {
       if (this.startingPromise) {
-        console.log('[WakeWordService] pauseDetection: waiting for startingPromise');
+        wwTrace('[WakeWordService] pauseDetection: waiting for startingPromise');
         await this.startingPromise;
       }
 
@@ -599,14 +619,14 @@ class WakeWordService {
         this.isDetectionPaused ||
         !this.keywordInstance
       ) {
-        console.log(`[WakeWordService] pauseDetection early return: isListening=${this.isListening}, isDetectionPaused=${this.isDetectionPaused}, hasInstance=${!!this.keywordInstance}`);
+        wwTrace(`[WakeWordService] pauseDetection early return: isListening=${this.isListening}, isDetectionPaused=${this.isDetectionPaused}, hasInstance=${!!this.keywordInstance}`);
         return;
       }
 
-      console.log('[WakeWordService] pauseDetection: calling keywordInstance.pauseDetection()');
+      wwTrace('[WakeWordService] pauseDetection: calling keywordInstance.pauseDetection()');
       await this.keywordInstance.pauseDetection(stopMic);
       this.isDetectionPaused = true;
-      console.log('[WakeWordService] pauseDetection: paused successfully');
+      wwTrace('[WakeWordService] pauseDetection: paused successfully');
 
       if (stopMic && Platform.OS === 'ios') {
         await this.delay(IOS_MIC_RELEASE_SETTLE_MS);
@@ -625,7 +645,7 @@ class WakeWordService {
   }
 
   public async resumeDetection(): Promise<void> {
-    console.log('[WakeWordService] resumeDetection() called, calling startListening()');
+    wwTrace('[WakeWordService] resumeDetection() called, calling startListening()');
     await this.startListening();
   }
 
