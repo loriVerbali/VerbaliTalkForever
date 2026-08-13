@@ -23,7 +23,6 @@ import {
 } from '@react-navigation/native';
 import FastImage from 'react-native-fast-image';
 import { useAppSettings } from '../utils/persistance';
-import { getSubscriptionStatus } from '../utils/trialUtils';
 import { sessionManager } from '../utils/sessionManager';
 import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
@@ -33,7 +32,6 @@ import MyPepesAndStuff from '../Components/MyPepesAndStuff';
 import My8WordsCustomizer from '../Components/My8WordsCustomizer';
 import mixpanel from '../utils/mixpanelInstance';
 import fetchHelper from '../utils/fetcher';
-import Subscription from '../Components/Subscription';
 import ShowAndTell from '../Components/ShowAndTell';
 import AppRatingModal from '../Components/AppRatingModal';
 import NetInfo from '@react-native-community/netinfo';
@@ -258,14 +256,8 @@ const SettingsScreen: React.FC = () => {
   // Easter egg: tap version 5 times to show assistant ID
   const [aboutTapCount, setAboutTapCount] = useState(0);
   const [showAssistantId, setShowAssistantId] = useState(false);
-  const [showSubscription, setShowSubscription] = useState(false);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<
-    'active' | 'needs_attention'
-  >('needs_attention');
-  const [subscriptionStatusText, setSubscriptionStatusText] = useState('');
-  const [subscriptionStatusColor, setSubscriptionStatusColor] =
-    useState('#f44336');
-  const [showAccountSettings, setShowAccountSettings] = useState(false);
+  // Removed subscription state - this is a paid app
+  const [showAccountSettings, setShowAccountSettings] = useState(true);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -362,45 +354,15 @@ const SettingsScreen: React.FC = () => {
 
     loadSettings();
     loadWatchedVideos();
-    // Set subscription status based on preferences.isIOSActive
-    if (preferences.isIOSActive === '1') {
-      setSubscriptionStatus('active');
-    } else {
-      setSubscriptionStatus('needs_attention');
-    }
-
-    // Compute subscription status text and color
-    const status = getSubscriptionStatus(
-      preferences.isIOSActive,
-      preferences.isInTrial,
-      preferences.trialInstallationDate,
-    );
-    setSubscriptionStatusText(status.text);
-
-    // Set color based on status
-    if (status.status === 'active') {
-      setSubscriptionStatusColor('#34c759');
-    } else if (status.status === 'trial') {
-      setSubscriptionStatusColor('#FF9500');
-    } else {
-      setSubscriptionStatusColor('#f44336');
-    }
-
-    // Set whether to show account settings
-    setShowAccountSettings(
-      status.status === 'active' || status.status === 'trial',
-    );
+    // Removed subscription status - this is a paid app
+    setShowAccountSettings(true);
 
     // Reset tap count and assistant id visibility on unmount
     return () => {
       setAboutTapCount(0);
       setShowAssistantId(false);
     };
-  }, [
-    preferences.isIOSActive,
-    preferences.isInTrial,
-    preferences.trialInstallationDate,
-  ]);
+  }, []);
 
   // Detect navigation from Reports and show rating modal
   useFocusEffect(
@@ -959,60 +921,7 @@ const SettingsScreen: React.FC = () => {
       <ScrollView style={styles.scrollContainer}>
         <View style={[styles.section, styles.sectionAccount]}>
           <Text style={styles.sectionTitle}>Account</Text>
-
-          {/* Subscription Status */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 10,
-            }}>
-            <Text
-              style={{
-                fontSize: 16,
-                color: '#333',
-                fontWeight: '500',
-                marginRight: 10,
-              }}>
-              Subscription Status:
-            </Text>
-            <Text
-              style={{
-                fontSize: 16,
-                color: subscriptionStatusColor,
-                fontWeight: 'bold',
-              }}>
-              {subscriptionStatusText}
-            </Text>
-          </View>
-          {preferences.isIOSActive !== '1' && (
-            <View
-              style={{ backgroundColor: '#fff', padding: 10, marginBottom: 10 }}
-              onLayout={() => {
-                mixpanel.track('Settings Subscription Section Viewed', {
-                  context: 'settings',
-                });
-              }}>
-              <Subscription
-                setGotSubscription={(gotSubscription: boolean) => {
-                  if (gotSubscription) {
-                    mixpanel.track('Settings:Subscription is active', {
-                      context: 'settings',
-                    });
-                    // Force update subscription status UI
-                    setSubscriptionStatus('active');
-                    setSubscriptionStatusText('Subscription Active');
-                    setSubscriptionStatusColor('#34c759');
-                    setShowAccountSettings(true);
-                    // Ensure the preference is set (defensive measure)
-                    setItem('isIOSActive', '1');
-                  }
-                  setShowSubscription(gotSubscription);
-                }}
-                context="settings"
-              />
-            </View>
-          )}
+          {/* Removed subscription section - this is a paid app */}
           {/* Removed logout button - guest sessions don't need logout */}
         </View>
 

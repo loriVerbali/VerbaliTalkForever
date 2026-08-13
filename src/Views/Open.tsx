@@ -23,7 +23,6 @@ import FastImage from 'react-native-fast-image';
 import {views} from '../utils/constants';
 import {useAppSettings} from '../utils/persistance';
 import AppConfig from '../utils/config';
-import {hasAppAccess} from '../utils/trialUtils';
 import {useConnection} from '../utils/connection';
 import ShowAndTell from '../Components/ShowAndTell';
 import HomeWelcomeModal from '../Components/HomeWelcomeModal';
@@ -329,13 +328,6 @@ const OpenScreen: React.FC = () => {
     settingsTappedOnce,
   ]);
 
-  const askForAdultHelp = async () => {
-    TTSService.speak(
-      'There seems to be a problem , please ask an adult for help',
-    );
-    handleSettingsPress();
-  };
-
   const ensureRecordingPermissions = useCallback(
     async (announceFailure: boolean = false): Promise<boolean> => {
       if (recordingPermissionsReadyRef.current) {
@@ -431,47 +423,28 @@ const OpenScreen: React.FC = () => {
         return;
       }
 
-      const [
-        currentIsIOSActive,
-        currentIsInTrial,
-        currentTrialInstallationDate,
-      ] = await Promise.all([
-        getItem('isIOSActive'),
-        getItem('isInTrial'),
-        getItem('trialInstallationDate'),
-      ]);
-
-      const haveappAccess = hasAppAccess(
-        currentIsIOSActive || '0',
-        currentIsInTrial || '0',
-        currentTrialInstallationDate || 'init.NotSet',
-      );
-
-      if (!haveappAccess) {
-        askForAdultHelp();
-      } else {
-        const permissionsReady = await ensureRecordingPermissions(true);
-        if (!permissionsReady) {
-          return;
-        }
-
-        // Pause (not stop) — instance stays warm for when we return to Open
-        let wakewordPausedForHandoff = false;
-        try {
-          await wakeWordService.pauseDetection(false);
-          wakewordPausedForHandoff = true;
-        } catch (error) {
-          console.error(
-            '[Open] Error pausing wake word before navigate:',
-            error,
-          );
-        }
-        navigation.navigate('HOME' as any, {
-          stateof: 'Attention',
-          wakewordPaused: wakewordPausedForHandoff,
-          recordingPermissionsReady: true,
-        });
+      // This is a paid app - always allow navigation
+      const permissionsReady = await ensureRecordingPermissions(true);
+      if (!permissionsReady) {
+        return;
       }
+
+      // Pause (not stop) — instance stays warm for when we return to Open
+      let wakewordPausedForHandoff = false;
+      try {
+        await wakeWordService.pauseDetection(false);
+        wakewordPausedForHandoff = true;
+      } catch (error) {
+        console.error(
+          '[Open] Error pausing wake word before navigate:',
+          error,
+        );
+      }
+      navigation.navigate('HOME' as any, {
+        stateof: 'Attention',
+        wakewordPaused: wakewordPausedForHandoff,
+        recordingPermissionsReady: true,
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [ensureRecordingPermissions],
@@ -542,22 +515,7 @@ const OpenScreen: React.FC = () => {
   );
 
   const startListening = async () => {
-    // Get current values from storage to ensure we have the latest
-    const [isIOSActive, isInTrial, trialInstallationDate] = await Promise.all([
-      getItem('isIOSActive'),
-      getItem('isInTrial'),
-      getItem('trialInstallationDate'),
-    ]);
-    const haveappAccess = hasAppAccess(
-      isIOSActive || '0',
-      isInTrial || '0',
-      trialInstallationDate || 'init.NotSet',
-    );
-    if (!haveappAccess) {
-      askForAdultHelp();
-      return;
-    }
-
+    // This is a paid app - always allow navigation
     const permissionsReady = await ensureRecordingPermissions(true);
     if (!permissionsReady) {
       return;
@@ -608,21 +566,7 @@ const OpenScreen: React.FC = () => {
   }, [handleBackPress]);
 
   const handleNavigation = async (state: string) => {
-    // Get current values from storage to ensure we have the latest
-    const [isIOSActive, isInTrial, trialInstallationDate] = await Promise.all([
-      getItem('isIOSActive'),
-      getItem('isInTrial'),
-      getItem('trialInstallationDate'),
-    ]);
-    const haveappAccess = hasAppAccess(
-      isIOSActive || '0',
-      isInTrial || '0',
-      trialInstallationDate || 'init.NotSet',
-    );
-    if (!haveappAccess) {
-      askForAdultHelp();
-      return;
-    }
+    // This is a paid app - always allow navigation
 
     // Start fade out before navigation
     Animated.timing(fadeAnim, {
@@ -639,21 +583,7 @@ const OpenScreen: React.FC = () => {
   };
 
   const handKeyboard = async () => {
-    // Get current values from storage to ensure we have the latest
-    const [isIOSActive, isInTrial, trialInstallationDate] = await Promise.all([
-      getItem('isIOSActive'),
-      getItem('isInTrial'),
-      getItem('trialInstallationDate'),
-    ]);
-    const haveappAccess = hasAppAccess(
-      isIOSActive || '0',
-      isInTrial || '0',
-      trialInstallationDate || 'init.NotSet',
-    );
-    if (!haveappAccess) {
-      askForAdultHelp();
-      return;
-    }
+    // This is a paid app - always allow navigation
     mixpanel.track('Keyboard Pressed');
     navigation.navigate(views.KEYBOARD_HOME as any, {
       stateof: 'Keyboard',
@@ -977,22 +907,7 @@ const OpenScreen: React.FC = () => {
                   <Pressable
                     style={styles.tileWrapper}
                     onPress={async () => {
-                      // Get current values from storage to ensure we have the latest
-                      const [isIOSActive, isInTrial, trialInstallationDate] =
-                        await Promise.all([
-                          getItem('isIOSActive'),
-                          getItem('isInTrial'),
-                          getItem('trialInstallationDate'),
-                        ]);
-                      const haveappAccess = hasAppAccess(
-                        isIOSActive || '0',
-                        isInTrial || '0',
-                        trialInstallationDate || 'init.NotSet',
-                      );
-                      if (!haveappAccess) {
-                        askForAdultHelp();
-                        return;
-                      }
+                      // This is a paid app - always allow navigation
                       mixpanel.track('Feelings Pressed');
                       Animated.timing(fadeAnim, {
                         toValue: 0,
@@ -1022,22 +937,7 @@ const OpenScreen: React.FC = () => {
                   <Pressable
                     style={styles.tileWrapper}
                     onPress={async () => {
-                      // Get current values from storage to ensure we have the latest
-                      const [isIOSActive, isInTrial, trialInstallationDate] =
-                        await Promise.all([
-                          getItem('isIOSActive'),
-                          getItem('isInTrial'),
-                          getItem('trialInstallationDate'),
-                        ]);
-                      const haveappAccess = hasAppAccess(
-                        isIOSActive || '0',
-                        isInTrial || '0',
-                        trialInstallationDate || 'init.NotSet',
-                      );
-                      if (!haveappAccess) {
-                        askForAdultHelp();
-                        return;
-                      }
+                      // This is a paid app - always allow navigation
                       mixpanel.track('Shortcuts Pressed');
                       Animated.timing(fadeAnim, {
                         toValue: 0,

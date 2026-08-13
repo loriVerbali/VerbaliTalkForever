@@ -83,10 +83,6 @@ const fetchHelper = async (
   dynamicUrlData: Record<string, string>,
   bodyData: any = '',
 ): Promise<any> => {
-  if (__DEV__ && (methodName === 'validateReceipt' || methodName === 'validateGoogleReceipt')) {
-    return { active: true, valid: true };
-  }
-
   const methodObject: MethodObject = AppConfig.methods[methodName];
 
   const headers: Record<string, string> = {};
