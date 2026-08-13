@@ -17,14 +17,24 @@ const TAP_QUIET_WINDOW_MS = 2000;
  * Keep surviving suggestions in their current relative order and append
  * newcomers after them. buildVerbiGroups sections by category, so this keeps
  * every card the child has already seen in its slot within its group.
+ *
+ * Newcomers (cards not previously on screen) are ordered by Personal Memory
+ * usage score when available, falling back to server order — surviving cards
+ * never move (stability under the child's finger beats freshness).
  */
-function stableMergeSuggestions(
+export function stableMergeSuggestions(
   oldSuggestions: VerbiClientState['suggestions'],
   newSuggestions: VerbiClientState['suggestions'],
 ): VerbiClientState['suggestions'] {
-  if (oldSuggestions.length === 0) return newSuggestions;
+  const withMemoryOrder = [...newSuggestions].sort((a, b) => {
+    const am = a.memoryScore ?? 0;
+    const bm = b.memoryScore ?? 0;
+    if (am !== bm) return bm - am;
+    return 0; // stable sort keeps server rank order
+  });
+  if (oldSuggestions.length === 0) return withMemoryOrder;
   const oldIndex = new Map(oldSuggestions.map((s, i) => [s.id, i]));
-  return [...newSuggestions].sort((a, b) => {
+  return withMemoryOrder.sort((a, b) => {
     const ai = oldIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
     const bi = oldIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
     return ai - bi;

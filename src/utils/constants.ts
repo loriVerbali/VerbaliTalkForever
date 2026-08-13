@@ -23,6 +23,7 @@ type Views = {
   CONVO: string;
   LOGIN: string;
   KEYBOARD_HOME: string;
+  HERO_PROFILE: string;
 };
 
 type Stacks = {
@@ -65,6 +66,7 @@ export const views: Views = {
   CONVO: 'Convo',
   LOGIN: 'LOGIN',
   KEYBOARD_HOME: 'view.KEYBOARD_HOME',
+  HERO_PROFILE: 'view.HERO_PROFILE',
 };
 
 export const stacks: Stacks = {

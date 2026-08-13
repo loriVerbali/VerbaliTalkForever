@@ -24,6 +24,8 @@ import {
 import { verbiDownloadQueue, DownloadTask } from '../services/verbiDownloadQueue';
 import { useAppSettings } from '../../../utils/persistance';
 import { resolvePepesImage } from '../../../utils/pepesUtils';
+import { getTimeOfDay } from '../../../utils/timeOfDay';
+import { personalMemoryService } from '../../../services/PersonalMemoryService';
 
 const DEBOUNCE_MS = 100;
 
@@ -152,6 +154,18 @@ export function useVerbiPrediction({
             await getItem('verbiSuggestionLimit'),
           );
 
+          // Intake free text + Personal Memory context, both optional
+          let tellUsMore: string | undefined;
+          try {
+            const raw = await getItem('tellUsMore');
+            tellUsMore = raw ? raw.slice(0, 500) : undefined;
+          } catch (e) {
+            tellUsMore = undefined;
+          }
+          const memoryContext = await personalMemoryService.buildMemoryContext({
+            currentText: snapshot.text,
+          });
+
           const response = await verbiApi.predict(
             {
               requestId,
@@ -175,6 +189,8 @@ export function useVerbiPrediction({
                 timeOfDay: getTimeOfDay(),
                 date: new Date().toISOString().split('T')[0],
                 pepes: parsedPepes,
+                ...(tellUsMore ? { tellUsMore } : {}),
+                ...(memoryContext ? { memoryContext } : {}),
               },
               limit,
             },
@@ -247,6 +263,27 @@ export function useVerbiPrediction({
 
           if (generationRef.current !== generation) return;
 
+          // Personal Memory: annotate word suggestions with usage scores so
+          // the reducer can order newcomers within their group (§6.4).
+          try {
+            const labels = mappedSuggestions
+              .filter(sug => sug.type === 'word')
+              .map(sug => sug.label);
+            const scores = await personalMemoryService.getMemoryScores(labels);
+            if (scores.size > 0) {
+              for (const sug of mappedSuggestions) {
+                const score = scores.get(sug.label.trim().toLowerCase());
+                if (score !== undefined) {
+                  sug.memoryScore = score;
+                }
+              }
+            }
+          } catch (e) {
+            // scores are optional — server order stands
+          }
+
+          if (generationRef.current !== generation) return;
+
           dispatch({
             type: 'PREDICTION_SUCCEEDED',
             payload: {
@@ -315,12 +352,4 @@ export function useVerbiPrediction({
   }, []);
 
   return { requestPrediction, cancelPrediction };
-}
-
-function getTimeOfDay(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 17) return 'afternoon';
-  if (hour < 21) return 'evening';
-  return 'night';
 }

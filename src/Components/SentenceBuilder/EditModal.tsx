@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Switch,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -21,7 +20,7 @@ import { searchGoogleImages } from '../../utils/googleImageApi';
 import { Node, WordType, DEFAULT_COLOR_MAP } from '../../types/sentenceBuilder';
 import { downloadSentenceBuilderImage } from '../../utils/sentenceBuilderImageDownloader';
 import { useAppSettings } from '../../utils/persistance';
-import { isPlaceholderImage, AI_PLACEHOLDER_IMAGE_URI } from '../../utils/imageSourceResolver';
+import { isPlaceholderImage, resolveImageSource } from '../../utils/imageSourceResolver';
 import { views } from '../../utils/constants';
 
 const { width, height } = Dimensions.get('window');
@@ -85,9 +84,9 @@ const EditModal: React.FC<EditModalProps> = ({
   const [selectedExistingFolder, setSelectedExistingFolder] =
     useState<Node | null>(null);
   const [folderSearchQuery, setFolderSearchQuery] = useState('');
-  const [googleSearchQuery, setGoogleSearchQuery] = useState('');
   const [googleSearchResults, setGoogleSearchResults] = useState<WordImageResult[]>([]);
   const [isGoogleSearching, setIsGoogleSearching] = useState(false);
+  const lastGoogleQueryRef = useRef('');
 
   // Initialize form when modal opens
   useEffect(() => {
@@ -122,19 +121,23 @@ const EditModal: React.FC<EditModalProps> = ({
       setUseExistingFolder(false);
       setSelectedExistingFolder(null);
       setFolderSearchQuery('');
-      setGoogleSearchQuery('');
       setGoogleSearchResults([]);
       setIsGoogleSearching(false);
+      lastGoogleQueryRef.current = '';
     }
   }, [isVisible, node]);
 
-  // Search for words and folders with debouncing
+  // Search both our library and Google as the user types, with debouncing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchQuery.trim().length >= 2) {
-        performSearch(searchQuery.trim());
-      } else if (searchQuery.trim().length === 0) {
+      const query = searchQuery.trim();
+      if (query.length >= 2) {
+        performSearch(query);
+        performGoogleSearch(query);
+      } else if (query.length === 0) {
         setSearchResults([]);
+        setGoogleSearchResults([]);
+        lastGoogleQueryRef.current = '';
       }
       setSearchError(null);
     }, 300);
@@ -212,22 +215,30 @@ const EditModal: React.FC<EditModalProps> = ({
     try {
       let localImagePath: string | undefined;
 
+      // Only the selection made in the current mode counts — a selection
+      // left over from the other mode (e.g. a word tapped before switching
+      // to Folder) must not override the image chosen afterwards.
+      const selectedImage = isFolder
+        ? useExistingFolder
+          ? null
+          : selectedFolderImage
+        : selectedWordFromApi;
+
       // Download image if one is selected
-      if (selectedWordFromApi || selectedFolderImage) {
-        const imageToDownload = (selectedWordFromApi || selectedFolderImage)!;
-        const filename = `${isFolder ? 'folder' : 'word'}_${imageToDownload.id}`;
+      if (selectedImage) {
+        const filename = `${isFolder ? 'folder' : 'word'}_${selectedImage.id}`;
 
         // Check if it's already a local image (e.g. from local pepes)
         const isLocalImage =
-          imageToDownload.imageUrl.startsWith('file://') ||
-          imageToDownload.imageUrl.startsWith('/');
+          selectedImage.imageUrl.startsWith('file://') ||
+          selectedImage.imageUrl.startsWith('/');
 
         if (isLocalImage) {
-          localImagePath = imageToDownload.imageUrl;
+          localImagePath = selectedImage.imageUrl;
         } else {
           try {
             localImagePath = await downloadSentenceBuilderImage(
-              imageToDownload.imageUrl,
+              selectedImage.imageUrl,
               filename,
             );
           } catch (error) {
@@ -253,13 +264,13 @@ const EditModal: React.FC<EditModalProps> = ({
         // Add local image path if available, otherwise use URL as fallback
         ...(localImagePath && {
           imageUri: localImagePath,
-          imageHash: (selectedWordFromApi || selectedFolderImage!)?.id,
+          imageHash: selectedImage?.id,
         }),
         // Fallback to URL if download failed
         ...(!localImagePath &&
-          (selectedWordFromApi || selectedFolderImage) && {
-          imageUri: (selectedWordFromApi || selectedFolderImage!)!.imageUrl,
-          imageHash: (selectedWordFromApi || selectedFolderImage!)!.id,
+          selectedImage && {
+          imageUri: selectedImage.imageUrl,
+          imageHash: selectedImage.id,
         }),
         // For existing folders, include the source folder ID for copying
         ...(isFolder &&
@@ -322,13 +333,18 @@ const EditModal: React.FC<EditModalProps> = ({
     folder.title.toLowerCase().includes(folderSearchQuery.toLowerCase()),
   );
 
-  const handleGoogleSearch = async () => {
-    if (!googleSearchQuery.trim()) return;
+  const performGoogleSearch = async (query: string) => {
+    if (lastGoogleQueryRef.current === query) return;
+    lastGoogleQueryRef.current = query;
 
     setIsGoogleSearching(true);
     try {
-      const apiResults = await searchGoogleImages(googleSearchQuery.trim(), 5);
-      setGoogleSearchResults(apiResults.results);
+      const apiResults = await searchGoogleImages(query, 5);
+      // Use the searched word as the label/title — Google's own image
+      // titles are arbitrary page titles.
+      setGoogleSearchResults(
+        apiResults.results.map(result => ({ ...result, word: query })),
+      );
     } catch (error) {
       console.error('Google Image search error:', error);
       Alert.alert('Error', 'Failed to search Google Images. Please try again.');
@@ -351,6 +367,40 @@ const EditModal: React.FC<EditModalProps> = ({
     }
     // We don't clear the search results here so the user can see what they selected
   };
+
+  // Colorful New/Existing pill toggle, shown inline with the section title
+  const renderFolderModeToggle = () => (
+    <View style={styles.modeToggle}>
+      <TouchableOpacity
+        style={[
+          styles.modeToggleButton,
+          !useExistingFolder && styles.modeToggleButtonActive,
+        ]}
+        onPress={() => setUseExistingFolder(false)}>
+        <Text
+          style={[
+            styles.modeToggleText,
+            !useExistingFolder && styles.modeToggleTextActive,
+          ]}>
+          New
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.modeToggleButton,
+          useExistingFolder && styles.modeToggleButtonActive,
+        ]}
+        onPress={() => setUseExistingFolder(true)}>
+        <Text
+          style={[
+            styles.modeToggleText,
+            useExistingFolder && styles.modeToggleTextActive,
+          ]}>
+          Existing
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   const renderSearchResult = ({ item }: { item: WordImageResult }) => (
     <TouchableOpacity
@@ -388,9 +438,10 @@ const EditModal: React.FC<EditModalProps> = ({
             <Text style={styles.title}>
               {isNewNode ? 'Add New Item' : 'Edit Item'}
             </Text>
-            <TouchableOpacity onPress={handleSave}>
-              <Text style={styles.saveButton}>Save</Text>
-            </TouchableOpacity>
+            {/* Invisible spacer to keep the title centered */}
+            <Text style={[styles.cancelButton, styles.headerSpacer]}>
+              Cancel
+            </Text>
           </View>
 
           <ScrollView
@@ -401,28 +452,57 @@ const EditModal: React.FC<EditModalProps> = ({
             {/* Type Selection */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Type</Text>
-              <View style={styles.switchContainer}>
-                <Text style={styles.switchLabel}>Word</Text>
-                <Switch
-                  value={isFolder}
-                  onValueChange={setIsFolder}
-                  trackColor={{ false: '#767577', true: '#81b0ff' }}
-                  thumbColor={isFolder ? '#f5dd4b' : '#f4f3f4'}
-                />
-                <Text style={styles.switchLabel}>Folder</Text>
+              <View style={styles.segmentedControl}>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    !isFolder && styles.segmentButtonSelected,
+                  ]}
+                  onPress={() => {
+                    setIsFolder(false);
+                    setSelectedFolderImage(null);
+                  }}>
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      !isFolder && styles.segmentButtonTextSelected,
+                    ]}>
+                    Word
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    isFolder && styles.segmentButtonSelected,
+                  ]}
+                  onPress={() => {
+                    setIsFolder(true);
+                    setSelectedWordFromApi(null);
+                  }}>
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      isFolder && styles.segmentButtonTextSelected,
+                    ]}>
+                    Folder
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
-            {/* Search Section - Only for new folders or words */}
+            {/* Unified Search Section - Only for words or new folders */}
             {(!isFolder || (isFolder && !useExistingFolder)) && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  {isFolder ? 'Search for Folder Image' : 'Search for Word'}
-                </Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>
+                    {isFolder ? 'Search for Folder Image' : 'Search for Word'}
+                  </Text>
+                  {isFolder && renderFolderModeToggle()}
+                </View>
                 <Text style={styles.sectionSubtitle}>
                   {isFolder
-                    ? "Search for an image from the Verbali's library to use for this folder"
-                    : "Search for a word from Verbali's library or from images you added in the settings area named Pepes and Stuff"}
+                    ? 'Search for an image to use for this folder, from our library or Google'
+                    : 'Search for a word from our library (including images you added in Pepes and Stuff) or Google'}
                 </Text>
 
                 <View style={styles.searchInputContainer}>
@@ -436,7 +516,7 @@ const EditModal: React.FC<EditModalProps> = ({
                     placeholderTextColor="#999"
                     returnKeyType="search"
                   />
-                  {isSearching && (
+                  {(isSearching || isGoogleSearching) && (
                     <ActivityIndicator
                       size="small"
                       color="#007bff"
@@ -468,12 +548,12 @@ const EditModal: React.FC<EditModalProps> = ({
 
                 {searchResults.length > 0 && (
                   <View style={styles.searchResultsContainer}>
-                    <Text style={styles.searchResultsTitle}>Search Results:</Text>
+                    <Text style={styles.searchResultsTitle}>Our Library:</Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       style={styles.searchResultsList}>
-                      {searchResults.map((item, index) => (
+                      {searchResults.map(item => (
                         <View key={item.id} style={styles.searchResultWrapper}>
                           {renderSearchResult({ item })}
                         </View>
@@ -481,87 +561,43 @@ const EditModal: React.FC<EditModalProps> = ({
                     </ScrollView>
                   </View>
                 )}
-              </View>
-            )}
 
-            {/* Search Google Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Search Google</Text>
-              <Text style={styles.sectionSubtitle}>
-                Find more images from Google to use for this {isFolder ? 'folder' : 'item'}.
-              </Text>
-              <View style={styles.googleSearchContainer}>
-                <TextInput
-                  style={styles.googleSearchInput}
-                  value={googleSearchQuery}
-                  onChangeText={setGoogleSearchQuery}
-                  placeholder="Search Google..."
-                  placeholderTextColor="#999"
-                  returnKeyType="search"
-                  onSubmitEditing={handleGoogleSearch}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.googleSearchButton,
-                    (!googleSearchQuery.trim() || isGoogleSearching) && styles.googleSearchButtonDisabled,
-                  ]}
-                  onPress={handleGoogleSearch}
-                  disabled={!googleSearchQuery.trim() || isGoogleSearching}>
-                  {isGoogleSearching ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.googleSearchButtonText}>Search</Text>
+                {googleSearchResults.length > 0 && (
+                    <View style={styles.searchResultsContainer}>
+                      <Text style={styles.searchResultsTitle}>
+                        Google:
+                      </Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.searchResultsList}>
+                        {googleSearchResults.map(item => (
+                          <View key={item.id} style={styles.searchResultWrapper}>
+                            <TouchableOpacity
+                              style={[
+                                styles.searchResult,
+                                (isFolder
+                                  ? selectedFolderImage?.id === item.id
+                                  : selectedWordFromApi?.id === item.id) &&
+                                styles.searchResultSelected,
+                              ]}
+                              onPress={() => handleGoogleSearchResultSelect(item)}>
+                              <FastImage
+                                source={{ uri: item.imageUrl }}
+                                style={styles.searchResultImage}
+                                resizeMode={FastImage.resizeMode.cover}
+                              />
+                              <Text
+                                style={styles.searchResultText}
+                                numberOfLines={1}>
+                                {item.word}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ))}
+                      </ScrollView>
+                    </View>
                   )}
-                </TouchableOpacity>
-              </View>
-
-              {googleSearchResults.length > 0 && (
-                <View style={styles.searchResultsContainer}>
-                  <Text style={styles.searchResultsTitle}>Google Results:</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.searchResultsList}>
-                    {googleSearchResults.map((item) => (
-                      <View key={item.id} style={styles.searchResultWrapper}>
-                        <TouchableOpacity
-                          style={[
-                            styles.searchResult,
-                            (isFolder
-                              ? selectedFolderImage?.id === item.id
-                              : selectedWordFromApi?.id === item.id) && styles.searchResultSelected,
-                          ]}
-                          onPress={() => handleGoogleSearchResultSelect(item)}>
-                          <FastImage
-                            source={{ uri: item.imageUrl }}
-                            style={styles.searchResultImage}
-                            resizeMode={FastImage.resizeMode.cover}
-                          />
-                          <Text style={styles.searchResultText} numberOfLines={1}>Google</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-
-            {/* Folder Creation Mode Selection - Only for folders */}
-            {isFolder && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Folder Creation</Text>
-                <View style={styles.switchContainer}>
-                  <Text style={styles.switchLabel}>Create New</Text>
-                  <Switch
-                    value={useExistingFolder}
-                    onValueChange={value => {
-                      setUseExistingFolder(value);
-                    }}
-                    trackColor={{ false: '#767577', true: '#81b0ff' }}
-                    thumbColor={useExistingFolder ? '#f5dd4b' : '#f4f3f4'}
-                  />
-                  <Text style={styles.switchLabel}>Use Existing</Text>
-                </View>
               </View>
             )}
 
@@ -636,7 +672,10 @@ const EditModal: React.FC<EditModalProps> = ({
             {/* Existing Folder Selection - Only for existing folders */}
             {isFolder && useExistingFolder && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Select Existing Folder</Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Select Existing Folder</Text>
+                  {renderFolderModeToggle()}
+                </View>
                 <Text style={styles.sectionSubtitle}>
                   Choose a folder to copy to this location
                 </Text>
@@ -656,9 +695,8 @@ const EditModal: React.FC<EditModalProps> = ({
                   <View style={styles.selectedWordContainer}>
                     <FastImage
                       source={
-                        selectedExistingFolder.imageUri
-                          ? { uri: selectedExistingFolder.imageUri }
-                          : require('../../assets/welcome.png')
+                        resolveImageSource(selectedExistingFolder.imageUri) ||
+                        require('../../assets/welcome.png')
                       }
                       style={styles.selectedWordImage}
                       resizeMode={FastImage.resizeMode.cover}
@@ -694,9 +732,8 @@ const EditModal: React.FC<EditModalProps> = ({
                             onPress={() => handleExistingFolderSelect(folder)}>
                             <FastImage
                               source={
-                                folder.imageUri
-                                  ? { uri: folder.imageUri }
-                                  : require('../../assets/welcome.png')
+                                resolveImageSource(folder.imageUri) ||
+                                require('../../assets/welcome.png')
                               }
                               style={styles.searchResultImage}
                               resizeMode={FastImage.resizeMode.cover}
@@ -740,19 +777,23 @@ const EditModal: React.FC<EditModalProps> = ({
                 ))}
               </View>
             </View>
-
-
-            {/* Delete Button */}
-            {!isNewNode && onDelete && (
-              <View style={styles.section}>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={handleDelete}>
-                  <Text style={styles.deleteButtonText}>Delete Item</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </ScrollView>
+
+          {/* Footer Actions */}
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={[styles.footerButton, styles.saveButtonLarge]}
+              onPress={handleSave}>
+              <Text style={styles.footerButtonText}>Save</Text>
+            </TouchableOpacity>
+            {!isNewNode && onDelete && (
+              <TouchableOpacity
+                style={[styles.footerButton, styles.deleteButton]}
+                onPress={handleDelete}>
+                <Text style={styles.footerButtonText}>Delete</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -786,10 +827,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6c757d',
   },
-  saveButton: {
-    fontSize: 16,
-    color: '#007bff',
-    fontWeight: '600',
+  headerSpacer: {
+    opacity: 0,
   },
   content: {
     flex: 1,
@@ -830,17 +869,63 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
   },
-  switchContainer: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  modeToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#EDE7F6',
+    borderRadius: 20,
+    padding: 3,
+  },
+  modeToggleButton: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 17,
+  },
+  modeToggleButtonActive: {
+    backgroundColor: '#673AB7',
+  },
+  modeToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#673AB7',
+  },
+  modeToggleTextActive: {
+    color: '#fff',
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: '#e9ecef',
+    borderRadius: 12,
+    padding: 4,
     marginBottom: 12,
   },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '500',
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 9,
+  },
+  segmentButtonSelected: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  segmentButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6c757d',
+  },
+  segmentButtonTextSelected: {
     color: '#333',
-    marginHorizontal: 12,
   },
   colorGrid: {
     flexDirection: 'row',
@@ -916,14 +1001,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   searchResultsList: {
-    maxHeight: 120,
+    maxHeight: 160,
   },
   searchResultWrapper: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchResult: {
-    width: 80,
-    height: 80,
+    width: 110,
+    height: 110,
     backgroundColor: '#fff',
     borderRadius: 8,
     padding: 4,
@@ -981,26 +1066,43 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   searchResultImage: {
-    width: '70%',
-    height: '60%',
-    borderRadius: 4,
-    marginBottom: 2,
+    width: '80%',
+    height: '65%',
+    borderRadius: 6,
+    marginBottom: 4,
   },
   searchResultText: {
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '500',
     color: '#333',
     textAlign: 'center',
   },
+  footer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    gap: 12,
+  },
+  footerButton: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonLarge: {
+    backgroundColor: '#28a745',
+  },
   deleteButton: {
     backgroundColor: '#dc3545',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
   },
-  deleteButtonText: {
+  footerButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
   },
   placeholderErrorText: {
@@ -1009,37 +1111,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
     textAlign: 'center',
-  },
-  googleSearchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  googleSearchInput: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#dee2e6',
-    marginRight: 8,
-  },
-  googleSearchButton: {
-    backgroundColor: '#4285F4',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleSearchButtonDisabled: {
-    backgroundColor: '#a4c4f4',
-  },
-  googleSearchButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   searchErrorContainer: {
     backgroundColor: '#fff1f0',

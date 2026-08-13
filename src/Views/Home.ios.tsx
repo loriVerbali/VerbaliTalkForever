@@ -38,6 +38,10 @@ import Voice, {
   subscribeToSpeechEvents,
 } from '../utils/STTService';
 import { useDatabase } from '../contexts/DatabaseContext';
+import {
+  personalMemoryService,
+  makeMemoryEventId,
+} from '../services/PersonalMemoryService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -1155,6 +1159,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       await logWordSelection(selectedAnswer, 'Home');
       // Update history with the user's specific choice
       updateLastAssistantMessage(selectedAnswer);
+      // Personal Memory: completed Q&A answer
+      personalMemoryService.recordCompletedCommunication({
+        eventId: makeMemoryEventId(),
+        kind: 'answer',
+        text: selectedAnswer,
+        words: selectedAnswer.split(/\s+/).filter(Boolean),
+        source: 'Home',
+        occurredAt: new Date(),
+        question: currentAIRecord?.question ?? transcribedText,
+      });
     }
 
     // Update AI Resolved record with the selected answer
@@ -1194,15 +1208,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         // Update the current record for next round
         setCurrentAIRecord(updatedRecord);
       }
-    }
-
-    // Send the selected answer back for learning feedback
-    try {
-      await generateAnswers(transcribedText, {
-        mode: 'learning_feedback',
-      });
-    } catch (error) {
-      // Don't block the user flow if learning feedback fails
     }
 
     // Only navigate back to Open if not currently retrying/getting more answers

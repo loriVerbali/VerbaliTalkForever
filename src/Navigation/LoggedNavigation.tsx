@@ -12,6 +12,7 @@ import WebViewScreen from '../Views/WebViewScreen';
 import ReportsScreen from '../Views/Reports';
 import MetricDetailScreen from '../Views/MetricDetail';
 import KeyboardHomeScreen from '../Views/KeyboardHome';
+import HeroProfileScreen from '../Views/HeroProfile';
 
 const HomeStack = createStackNavigator();
 
@@ -67,6 +68,13 @@ function LoggedNavigation() {
         <HomeStack.Screen
           name={views.METRIC_DETAIL}
           component={MetricDetailScreen}
+          options={{
+            headerShown: false,
+          }}
+        />
+        <HomeStack.Screen
+          name={views.HERO_PROFILE}
+          component={HeroProfileScreen}
           options={{
             headerShown: false,
           }}
