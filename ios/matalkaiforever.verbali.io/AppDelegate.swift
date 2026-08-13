@@ -2,7 +2,6 @@ import UIKit
 import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
-import AVFoundation
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -21,10 +20,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
-
-    // Initialize centralized audio session manager
-    // This ensures one consistent audio session configuration for wakeword, Whisper, and TTS
-    AudioSessionManager.sharedInstance().configureAudioSession()
 
     window = UIWindow(frame: UIScreen.main.bounds)
 

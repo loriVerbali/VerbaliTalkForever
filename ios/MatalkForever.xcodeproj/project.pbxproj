@@ -11,16 +11,10 @@
 		5D669F289B065356B98D707B /* libPods-matalkforever.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B433A4E528A671A012788A0 /* libPods-matalkforever.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
-		8A12DC1D2F19AC5A005BD13B /* AudioSessionManagerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 8A12DC1C2F19AC5A005BD13B /* AudioSessionManagerModule.m */; };
+		8A150549300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm in Resources */ = {isa = PBXBuildFile; fileRef = 8A150548300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm */; };
 		8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */; };
 		8A69E13F2E2035D600B320B9 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A69E13E2E2035D600B320B9 /* StoreKit.framework */; };
-		8A75608F2E3005A300A3CC88 /* espeak-ng-data in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608A2E3005A100A3CC88 /* espeak-ng-data */; };
-		8A7560902E3005A300A3CC88 /* en_US-amy-medium.onnx.json in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */; };
-		8A7560912E3005A300A3CC88 /* en_US-amy-medium.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */; };
-		8A7560922E3005A300A3CC88 /* MODEL_CARD in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608D2E3005A300A3CC88 /* MODEL_CARD */; };
-		8A7560932E3005A300A3CC88 /* tokens.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8A75608E2E3005A300A3CC88 /* tokens.txt */; };
-		8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */; };
-		8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */; };
+		8AA36F192FCC6198000E0409 /* model_ex_rich_fast_davoice_phoneme.dm in Resources */ = {isa = PBXBuildFile; fileRef = 8AA36F172FCC6198000E0409 /* model_ex_rich_fast_davoice_phoneme.dm */; };
 		8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 8A8772E82DC2994E00CD1BDE /* snap.mp3 */; };
 		8D6A173332132F679CB3C6F1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -47,16 +41,10 @@
 		5840EF52C0C9F3EE39BE3F6C /* Pods-matalkforever.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-matalkforever.release.xcconfig"; path = "Target Support Files/Pods-matalkforever/Pods-matalkforever.release.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = matalkaiforever.verbali.io/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = matalkaiforever.verbali.io/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		8A12DC1C2F19AC5A005BD13B /* AudioSessionManagerModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AudioSessionManagerModule.m; sourceTree = "<group>"; };
+		8A150548300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm */ = {isa = PBXFileReference; lastKnownFileType = file; path = model_ex_hanna_light_davoice_ph.dm; sourceTree = "<group>"; };
 		8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = hey_verbi_v1.onnx; sourceTree = "<group>"; };
 		8A69E13E2E2035D600B320B9 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
-		8A75608A2E3005A100A3CC88 /* espeak-ng-data */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "espeak-ng-data"; sourceTree = "<group>"; };
-		8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "en_US-amy-medium.onnx.json"; sourceTree = "<group>"; };
-		8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = "en_US-amy-medium.onnx"; sourceTree = "<group>"; };
-		8A75608D2E3005A300A3CC88 /* MODEL_CARD */ = {isa = PBXFileReference; lastKnownFileType = text; path = MODEL_CARD; sourceTree = "<group>"; };
-		8A75608E2E3005A300A3CC88 /* tokens.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tokens.txt; sourceTree = "<group>"; };
-		8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
-		8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManagerModule.swift; sourceTree = "<group>"; };
+		8AA36F172FCC6198000E0409 /* model_ex_rich_fast_davoice_phoneme.dm */ = {isa = PBXFileReference; lastKnownFileType = file; path = model_ex_rich_fast_davoice_phoneme.dm; sourceTree = "<group>"; };
 		8A77B7342EEBD413002F2F7C /* matalkforever-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "matalkforever-Bridging-Header.h"; sourceTree = "<group>"; };
 		8A8772E82DC2994E00CD1BDE /* snap.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = snap.mp3; sourceTree = "<group>"; };
 		8A8843322E282F99006C8EA5 /* matalkforever.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = matalkforever.entitlements; sourceTree = "<group>"; };
@@ -108,14 +96,6 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
-				8A12DC1C2F19AC5A005BD13B /* AudioSessionManagerModule.m */,
-				8A77B72E2EEBD403002F2F7C /* AudioSessionManager.swift */,
-				8A77B7302EEBD403002F2F7C /* AudioSessionManagerModule.swift */,
-				8A75608C2E3005A300A3CC88 /* en_US-amy-medium.onnx */,
-				8A75608B2E3005A100A3CC88 /* en_US-amy-medium.onnx.json */,
-				8A75608A2E3005A100A3CC88 /* espeak-ng-data */,
-				8A75608D2E3005A300A3CC88 /* MODEL_CARD */,
-				8A75608E2E3005A300A3CC88 /* tokens.txt */,
 				8A8843322E282F99006C8EA5 /* matalkforever.entitlements */,
 				8A69E13C2E1CF2EE00B320B9 /* models */,
 				8A8772E42DC1706600CD1BDE /* Assets */,
@@ -143,6 +123,8 @@
 			isa = PBXGroup;
 			children = (
 				8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */,
+				8A150548300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm */,
+				8AA36F172FCC6198000E0409 /* model_ex_rich_fast_davoice_phoneme.dm */,
 			);
 			path = models;
 			sourceTree = "<group>";
@@ -233,14 +215,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8A75608F2E3005A300A3CC88 /* espeak-ng-data in Resources */,
-				8A7560902E3005A300A3CC88 /* en_US-amy-medium.onnx.json in Resources */,
-				8A7560912E3005A300A3CC88 /* en_US-amy-medium.onnx in Resources */,
-				8A7560922E3005A300A3CC88 /* MODEL_CARD in Resources */,
-				8A7560932E3005A300A3CC88 /* tokens.txt in Resources */,
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				8A8772E92DC2994F00CD1BDE /* snap.mp3 in Resources */,
 				8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */,
+				8A150549300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm in Resources */,
+				8AA36F192FCC6198000E0409 /* model_ex_rich_fast_davoice_phoneme.dm in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				8D6A173332132F679CB3C6F1 /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -337,9 +316,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
-				8A12DC1D2F19AC5A005BD13B /* AudioSessionManagerModule.m in Sources */,
-				8A77B7312EEBD403002F2F7C /* AudioSessionManager.swift in Sources */,
-				8A77B7332EEBD403002F2F7C /* AudioSessionManagerModule.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -366,7 +342,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.9.1;
+				MARKETING_VERSION = 3.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -406,7 +382,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.9.1;
+				MARKETING_VERSION = 3.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
