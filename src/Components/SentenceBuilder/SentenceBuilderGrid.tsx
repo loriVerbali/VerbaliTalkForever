@@ -1100,8 +1100,20 @@ const SentenceBuilderGrid = forwardRef<
     const handleEditModalSave = async (nodeData: Partial<Node>) => {
       try {
         if (editModal.nodeId) {
-          // Update existing node (normal edit mode)
-          await sentenceBuilderSqlite.updateNode(editModal.nodeId, nodeData);
+          if (nodeData.kind === 'folder' && (nodeData as any).sourceFolderId) {
+            // Converting an existing card into a copy of an existing folder:
+            // replace the card outright so the copy brings the folder's
+            // image and children along, instead of just renaming the card.
+            await sentenceBuilderSqlite.permanentlyDeleteNode(editModal.nodeId);
+            await sentenceBuilderSqlite.copyFolder(
+              (nodeData as any).sourceFolderId,
+              editModal.parentId || null,
+              editModal.position || 0,
+            );
+          } else {
+            // Update existing node (normal edit mode)
+            await sentenceBuilderSqlite.updateNode(editModal.nodeId, nodeData);
+          }
         } else {
           // Check if this is copying an existing folder
           if (nodeData.kind === 'folder' && (nodeData as any).sourceFolderId) {
@@ -1306,7 +1318,8 @@ const SentenceBuilderGrid = forwardRef<
                   height: 20,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  zIndex: 10,
+                  // Above the folder strips (zIndex 11/12) so it stays tappable
+                  zIndex: 20,
                 }}
                 onPress={e => {
                   e.stopPropagation();
@@ -1322,6 +1335,7 @@ const SentenceBuilderGrid = forwardRef<
             {/* Top semi-transparent strip for folders */}
             {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
               <View
+                pointerEvents="none"
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -1347,6 +1361,7 @@ const SentenceBuilderGrid = forwardRef<
             {/* Full-width transparent strip for folders */}
             {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
               <View
+                pointerEvents="none"
                 style={{
                   position: 'absolute',
                   top: 0,

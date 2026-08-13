@@ -583,6 +583,11 @@ export class PersonalMemoryDb {
     );
   }
 
+  async clearExtractionQueue(): Promise<void> {
+    const db = this.getDb();
+    await db.executeSql(`DELETE FROM extraction_queue`);
+  }
+
   async deleteExtractionRows(eventIds: string[]): Promise<void> {
     if (eventIds.length === 0) {
       return;

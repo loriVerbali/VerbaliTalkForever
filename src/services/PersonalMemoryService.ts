@@ -156,8 +156,11 @@ class PersonalMemoryService {
         await personalMemoryDb.bumpTimePattern(fullId, bucket);
       }
 
-      // Constituent words (for multi-word sentences/answers).
-      if (kind !== 'word' && words.length > 1) {
+      // Constituent words — for multi-word answers only. Sentence words are
+      // already recorded one-by-one at tap time (logWordSelection), so
+      // expanding a played sentence here would count every word twice;
+      // answers are chosen whole from AI cards and never tap-recorded.
+      if (kind === 'answer' && words.length > 1) {
         for (const word of words) {
           const wordId = await personalMemoryDb.upsertMemoryItem(
             'word',
@@ -184,8 +187,11 @@ class PersonalMemoryService {
       // 4. Session-scoped recents.
       await personalMemoryDb.insertRecentItem(kind, text, occurredAt, source);
 
-      // 5. Extraction eligibility prefilter (PRD §7.4).
-      if (isExtractionEligible(text)) {
+      // 5. Extraction eligibility prefilter (PRD §7.4). The queue exists
+      // solely to be uploaded, so it must also respect the AI-context switch
+      // at enqueue time — otherwise text captured while uploads are off would
+      // be sent retroactively the moment the switch turns on.
+      if (isExtractionEligible(text) && (await this.isAiContextEnabled())) {
         await personalMemoryDb.enqueueExtraction(
           event.eventId,
           text,
@@ -589,7 +595,10 @@ class PersonalMemoryService {
             patch.value = seed.value;
           }
           if (existing.status === 'inactive') {
-            patch.status = 'active'; // tile restored
+            // Tile was removed and has come back — revive the mirror.
+            // Caregiver removals in the hero profile use 'rejected' precisely
+            // so this branch can never resurrect them (AboutTheUser).
+            patch.status = 'active';
           }
           if (Object.keys(patch).length > 0) {
             await personalMemoryDb.updateKnowledgeItem(existing.id, patch);
@@ -788,6 +797,18 @@ class PersonalMemoryService {
       return;
     }
     await personalMemoryDb.clearRecentItems();
+  }
+
+  /** Discard everything queued for upload (AI-context switch turned off). */
+  async clearExtractionQueue(): Promise<void> {
+    if (!this.isReady()) {
+      return;
+    }
+    try {
+      await personalMemoryDb.clearExtractionQueue();
+    } catch (e) {
+      this.debugFailureCount++;
+    }
   }
 
   async resetAll(): Promise<void> {
