@@ -762,7 +762,7 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
         m =>
           `${m.role === 'assistant' ? 'Assistant' : 'Caregiver'}: ${m.content}`,
       )
-      .join('\\n\\n');
+      .join('\n\n');
 
     await setItem(
       'intakeActiveStepIndex',
@@ -790,7 +790,7 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
               m.content
             }`,
         )
-        .join('\\n\\n');
+        .join('\n\n');
       await setItem('intakeActiveStepIndex', '0');
       await setItem('intakeStepStatuses', '[]');
       onComplete(finalTranscript);
@@ -857,7 +857,7 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
                 m.content
               }`,
           )
-          .join('\\n\\n');
+          .join('\n\n');
         if (result.transition_message) {
           setMessages([
             ...newTranscript,
@@ -895,7 +895,7 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
                 m.content
               }`,
           )
-          .join('\\n\\n');
+          .join('\n\n');
         await setItem('intakeActiveStepIndex', '0');
         await setItem('intakeStepStatuses', '[]');
         onComplete(finalTranscript);
@@ -1323,7 +1323,7 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
               <Text style={styles.title}>
                 {chatPhase === 'welcome'
                   ? 'Welcome'
-                  : `${activeStepIndex + 1}/6`}
+                  : `${activeStepIndex + 1}/${INTAKE_STEPS.length}`}
               </Text>
 
               <View style={styles.headerRightActions}>

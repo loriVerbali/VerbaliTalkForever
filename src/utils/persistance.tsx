@@ -83,6 +83,12 @@ interface Preferences {
   convoWelcomeGuideShown: string;
   // One-time welcome guide on the Home (Open) page
   homeWelcomeGuideShown: string;
+  // Personal Memory (on-device learning)
+  memoryEnabled: string;
+  memoryLearningPaused: string;
+  memoryAiContextEnabled: string;
+  memoryExtractionThreshold: string;
+  memorySchemaVersion: string;
 }
 
 const initEnum = {
@@ -167,6 +173,12 @@ export const initialPreferences: Preferences = {
   convoWelcomeGuideShown: initEnum.false,
   // One-time welcome guide on the Home (Open) page
   homeWelcomeGuideShown: initEnum.false,
+  // Personal Memory (on-device learning)
+  memoryEnabled: initEnum.true,
+  memoryLearningPaused: initEnum.false,
+  memoryAiContextEnabled: initEnum.true,
+  memoryExtractionThreshold: '0.85',
+  memorySchemaVersion: '1',
 };
 
 interface AppSettingsContextProps {

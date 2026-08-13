@@ -41,6 +41,8 @@ export type VerbiSuggestion = {
   groupId?: string;
   rank: number;
   source: 'ai' | 'fallback';
+  /** Personal Memory decayed usage score; orders newcomers within a group. */
+  memoryScore?: number;
 };
 
 /**
@@ -183,6 +185,10 @@ export type PredictionRequest = {
     timeOfDay?: string;
     date?: string;
     pepes?: any;
+    /** Intake free text, truncated for the Verbi prompt budget. */
+    tellUsMore?: string;
+    /** Personal Memory context block (see src/types/personalMemory.ts). */
+    memoryContext?: import('../../../types/personalMemory').MemoryContext;
   };
   limit?: number;
 };

@@ -84,6 +84,18 @@ const AppConfig: ConfigType = {
       isPicsUrl: false,
       contentType: 'application/json',
     },
+    memoryExtract: {
+      description: 'memoryExtract',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/api/memory/extract',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
     logconversation: {
       description: 'logconversation',
       isAuthenticated: true,

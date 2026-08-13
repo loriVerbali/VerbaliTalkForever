@@ -22,6 +22,7 @@ import ContextModal from './ContextModal';
 import PreviewModal from './PreviewModal';
 import IntakeChatModal from './IntakeChatModal';
 import FastImage from 'react-native-fast-image';
+import {personalMemoryService} from '../../services/PersonalMemoryService';
 
 // Mapping from AITilesMap keys to PepesData keys
 const CATEGORY_MAP: Record<keyof AITilesMap, string> = {
@@ -242,6 +243,9 @@ const TellUsMoreSection: React.FC<TellUsMoreSectionProps> = ({
     if (finalTiles) {
       await mergeTilesIntoPepes(finalTiles);
     }
+
+    // Personal Memory: mirror the updated tiles into Personal Knowledge
+    personalMemoryService.seedFromIntake().catch(() => {});
 
     setPendingPreview(null);
     close();

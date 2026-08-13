@@ -24,7 +24,10 @@ import {
   Switch,
   Image,
 } from 'react-native';
-import type {LayoutChangeEvent} from 'react-native';
+import type {
+  LayoutChangeEvent,
+  PanResponderGestureState,
+} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 
@@ -61,6 +64,10 @@ import {
   parseVerbiSuggestionLimit,
 } from '../../features/verbi/state/verbiTypes';
 import {useDatabase} from '../../contexts/DatabaseContext';
+import {
+  personalMemoryService,
+  makeMemoryEventId,
+} from '../../services/PersonalMemoryService';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 
 const {width, height} = Dimensions.get('window');
@@ -197,7 +204,17 @@ const SentenceBuilderGrid = forwardRef<
     ]);
     const [forgotPinError, setForgotPinError] = useState('');
     const forgotPinInputRef = useRef<TextInput | null>(null);
-    const [isDragging, setIsDragging] = useState(false);
+    // Manual drag-and-drop state: the tile being dragged, the last finger
+    // position (window coordinates), and the board's measured window rect.
+    const dragSourceRef = useRef<Node | null>(null);
+    const lastDragPosRef = useRef<{x: number; y: number} | null>(null);
+    const boardRectRef = useRef<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>(null);
+    const boardViewRef = useRef<View | null>(null);
     const [showPlaceholderModal, setShowPlaceholderModal] = useState(false);
     const [placeholderWord, setPlaceholderWord] = useState('');
     // Last card tapped, used only to swallow same-card double-taps.
@@ -280,13 +297,21 @@ const SentenceBuilderGrid = forwardRef<
         setIsLoading(true);
         // Initialize the database
         await sentenceBuilderSqlite.init();
-        const [allNodes, sentenceState, gridSettings, allFoldersData] =
-          await Promise.all([
-            sentenceBuilderSqlite.getNodes(),
-            sentenceBuilderSqlite.getSentenceState(),
-            sentenceBuilderSqlite.getGridSettings(),
-            sentenceBuilderSqlite.getAllFolders(),
-          ]);
+
+        // Normalize every board against the current grid size: pulls tiles
+        // orphaned by past grid shrinks back into free cells and resolves
+        // duplicate cell positions. Overfull boards are left as-is.
+        const gridSettings = await sentenceBuilderSqlite.getGridSettings();
+        await sentenceBuilderSqlite.repairBoardsForCapacity(
+          gridSettings.gridRows * gridSettings.gridCols,
+          'lenient',
+        );
+
+        const [allNodes, sentenceState, allFoldersData] = await Promise.all([
+          sentenceBuilderSqlite.getNodes(),
+          sentenceBuilderSqlite.getSentenceState(),
+          sentenceBuilderSqlite.getAllFolders(),
+        ]);
 
         setNodes(allNodes);
         onNodesChanged?.(allNodes);
@@ -485,89 +510,94 @@ const SentenceBuilderGrid = forwardRef<
       return DEFAULT_COLOR_MAP[node.type || 'other'];
     }, []);
 
-    // Generate full grid with empty cells
+    // Generate full grid with empty cells.
+    //
+    // Slot-stable board: orderIndex is a literal cell number in
+    // [0, rows*cols). Every cell renders exactly once — a tile if a node
+    // occupies it, an empty placeholder otherwise — so the layout is
+    // identical in and out of edit mode and a moved tile leaves a gap
+    // behind instead of the board compacting.
+    //
+    // Every cell also gets disabledReSorted: the DraggableGrid must never
+    // re-sort (its insertion-shift semantics moved whole rows of tiles);
+    // the drop outcome is computed manually in handleDragRelease instead.
     const getFullGridData = useCallback(() => {
       const gridConfig = getGridConfig();
       const totalCells = gridConfig.rows * gridConfig.cols;
 
-      // Separate active and deleted nodes
-      const activeNodes = currentNodes.filter(node => !node.deleted);
-      const deletedNodes = currentNodes.filter(node => node.deleted);
+      const makeEmptyCell = (id: string, slot: number): Node => ({
+        id,
+        parentId: null,
+        kind: 'word' as const,
+        title: '',
+        type: 'other' as const,
+        orderIndex: slot,
+        isSeed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        key: id,
+        disabledDrag: true, // an empty cell cannot be picked up
+        disabledReSorted: true,
+      });
 
-      // Process active nodes (disable dragging when not in editing mode)
-      const processedActiveNodes = activeNodes.map(node => ({
-        ...node,
-        disabledDrag: !isEditing || node.disabledDrag,
-        disabledReSorted: !isEditing || node.disabledReSorted,
-      }));
+      const slots: (Node | null)[] = new Array(totalCells).fill(null);
+      const overflow: Node[] = [];
 
-      // Convert deleted nodes to empty cells (always show them, but only tappable in edit mode)
-      const emptyCellsFromDeleted: Node[] = deletedNodes.map((node, index) => {
+      // Active tiles claim their cells before soft-deleted placeholders so
+      // a placeholder colliding with a real tile never displaces it.
+      const sorted = [...currentNodes].sort(
+        (a, b) => a.orderIndex - b.orderIndex,
+      );
+      const placementOrder = [
+        ...sorted.filter(n => !n.deleted),
+        ...sorted.filter(n => n.deleted),
+      ];
+      for (const node of placementOrder) {
+        const idx = node.orderIndex;
+        if (idx >= 0 && idx < totalCells && slots[idx] === null) {
+          slots[idx] = node;
+        } else {
+          // Collision or out-of-range index (rare after load-time repair):
+          // spill to the next free cell, else to the overflow rows.
+          const free = slots.indexOf(null);
+          if (free !== -1) {
+            slots[free] = node;
+          } else if (!node.deleted) {
+            overflow.push(node);
+          }
+        }
+      }
+
+      const cells: Node[] = slots.map((node, slot) => {
+        if (node === null) {
+          return makeEmptyCell(`empty-${slot}`, slot);
+        }
+        if (node.deleted) {
+          // Soft-deleted node: renders as an empty cell holding its slot.
+          return makeEmptyCell(`empty-deleted-${node.id}`, slot);
+        }
         return {
-          id: `empty-deleted-${node.id}`,
-          parentId: node.parentId,
-          kind: 'word' as const,
-          title: '',
-          type: 'other' as const,
-          orderIndex: node.orderIndex, // Keep the same position
-          isSeed: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          key: `empty-deleted-${node.id}`,
-          disabledDrag: !isEditing, // Allow dragging in edit mode so cards can swap with empty spaces
-          disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
+          ...node,
+          orderIndex: slot,
+          disabledDrag: !isEditing || node.disabledDrag,
+          disabledReSorted: true,
         };
       });
 
-      // Calculate additional empty cells needed
-      const filledCells =
-        processedActiveNodes.length + emptyCellsFromDeleted.length;
-      const additionalEmptyCellsNeeded = Math.max(0, totalCells - filledCells);
+      // Overfull board (legacy state): extra rows keep the tiles reachable
+      // in edit mode; they stay static until cells free up and the load-time
+      // repair pulls them onto the board.
+      overflow.forEach((node, index) => {
+        cells.push({
+          ...node,
+          orderIndex: totalCells + index,
+          disabledDrag: true,
+          disabledReSorted: true,
+        });
+      });
 
-      // Only show additional empty cells when in editing mode
-      const additionalEmptyCells: Node[] = isEditing
-        ? Array.from({length: additionalEmptyCellsNeeded}, (_, index) => ({
-            id: `empty-${index}`,
-            parentId: null,
-            kind: 'word' as const,
-            title: '',
-            type: 'other' as const,
-            orderIndex: filledCells + index,
-            isSeed: false,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            key: `empty-${index}`,
-            disabledDrag: false, // Allow dragging in edit mode so cards can swap with empty spaces
-            disabledReSorted: false, // Allow rearranging so cards can be moved into empty spaces
-          }))
-        : [];
-
-      // Combine all nodes and sort by orderIndex
-      const allNodes = [
-        ...processedActiveNodes,
-        ...emptyCellsFromDeleted,
-        ...additionalEmptyCells,
-      ];
-      const sortedNodes = allNodes.sort((a, b) => a.orderIndex - b.orderIndex);
-
-      return sortedNodes;
+      return cells;
     }, [currentNodes, getGridConfig, isEditing]);
-
-    // Generate clean data for drag and drop (only real nodes)
-    const getDragDropData = useCallback(() => {
-      // Only return real nodes for drag and drop operations
-      const activeNodes = currentNodes.filter(node => !node.deleted);
-
-      // Process active nodes (disable dragging when not in editing mode)
-      const processedActiveNodes = activeNodes.map(node => ({
-        ...node,
-        disabledDrag: !isEditing || node.disabledDrag,
-        disabledReSorted: !isEditing || node.disabledReSorted,
-      }));
-
-      // Sort by orderIndex to maintain proper order
-      return processedActiveNodes.sort((a, b) => a.orderIndex - b.orderIndex);
-    }, [currentNodes, isEditing]);
 
     // Split data into multiple grids
     const getGridDataChunks = useCallback(() => {
@@ -610,6 +640,15 @@ const SentenceBuilderGrid = forwardRef<
       } catch (error) {
         // Fail silently as requested
       }
+      // Personal Memory: completed word selection (fire-and-forget)
+      personalMemoryService.recordCompletedCommunication({
+        eventId: makeMemoryEventId(),
+        kind: 'word',
+        text: word.trim(),
+        words: [word.trim()],
+        source: 'Convo',
+        occurredAt: new Date(),
+      });
     };
 
     // Card handlers
@@ -625,7 +664,7 @@ const SentenceBuilderGrid = forwardRef<
 
         // Handle regular empty cells (add new item) - only when in editing mode
         if (node.id.startsWith('empty-') && isEditing) {
-          handleAddCardPress();
+          handleAddCardPress(node.orderIndex);
           return;
         }
 
@@ -746,9 +785,20 @@ const SentenceBuilderGrid = forwardRef<
           ? folderStack[folderStack.length - 1].nodeId
           : null;
 
-      // Use provided position or find the next available position
+      // Use the tapped cell, or the first free cell. Never place beyond the
+      // board's capacity — that is how tiles used to get orphaned.
       const nextPosition =
-        position !== undefined ? position : currentNodes.length;
+        position !== undefined
+          ? position
+          : getFullGridData().find(cell => cell.id.startsWith('empty-'))
+              ?.orderIndex;
+      if (nextPosition === undefined) {
+        Alert.alert(
+          'Board Full',
+          'Every cell is taken. Remove a card first, or switch to a bigger grid size.',
+        );
+        return;
+      }
 
       setEditModal({
         isVisible: true,
@@ -858,8 +908,26 @@ const SentenceBuilderGrid = forwardRef<
     const handleGridSizeChange = async (newSize: GridConfigKey) => {
       onGridSizeChanged?.(newSize);
       try {
-        setSelectedGridSize(newSize);
         const config = GRID_CONFIGS[newSize];
+
+        // Tiles outside the new bounds are moved into free cells of their
+        // board. A board with more tiles than the new size has cells cannot
+        // shrink — repair refuses without writing, and the size stays put.
+        const repair = await sentenceBuilderSqlite.repairBoardsForCapacity(
+          config.rows * config.cols,
+          'strict',
+        );
+        if (!repair.ok) {
+          const cellCount = config.rows * config.cols;
+          const excess = repair.cardCount - cellCount;
+          Alert.alert(
+            'Cannot Change Grid Size',
+            `"${repair.fullBoardTitle}" has ${repair.cardCount} cards, but a ${newSize} grid only fits ${cellCount}. Delete at least ${excess} card${excess === 1 ? '' : 's'} from "${repair.fullBoardTitle}", then try again.`,
+          );
+          return;
+        }
+
+        setSelectedGridSize(newSize);
         await sentenceBuilderSqlite.updateGridSize(config.rows, config.cols);
 
         // Force a complete refresh by incrementing the refresh key
@@ -958,6 +1026,8 @@ const SentenceBuilderGrid = forwardRef<
                   sentenceTokenIdsRef.current = nextTokens;
                   setSentenceTokenIds(nextTokens);
                   onWordAdded?.(existingNode.id);
+                  // Log word selection to database (analytics/history)
+                  logWordSelection(textToSpeak);
                 })
                 .catch(() => {});
             }
@@ -992,6 +1062,8 @@ const SentenceBuilderGrid = forwardRef<
             sentenceTokenIdsRef.current = nextTokens;
             setSentenceTokenIds(nextTokens);
             onWordAdded?.(syntheticId);
+            // Log word selection to database (analytics/history)
+            logWordSelection(textToSpeak);
           }
         },
       }),
@@ -1028,8 +1100,20 @@ const SentenceBuilderGrid = forwardRef<
     const handleEditModalSave = async (nodeData: Partial<Node>) => {
       try {
         if (editModal.nodeId) {
-          // Update existing node (normal edit mode)
-          await sentenceBuilderSqlite.updateNode(editModal.nodeId, nodeData);
+          if (nodeData.kind === 'folder' && (nodeData as any).sourceFolderId) {
+            // Converting an existing card into a copy of an existing folder:
+            // replace the card outright so the copy brings the folder's
+            // image and children along, instead of just renaming the card.
+            await sentenceBuilderSqlite.permanentlyDeleteNode(editModal.nodeId);
+            await sentenceBuilderSqlite.copyFolder(
+              (nodeData as any).sourceFolderId,
+              editModal.parentId || null,
+              editModal.position || 0,
+            );
+          } else {
+            // Update existing node (normal edit mode)
+            await sentenceBuilderSqlite.updateNode(editModal.nodeId, nodeData);
+          }
         } else {
           // Check if this is copying an existing folder
           if (nodeData.kind === 'folder' && (nodeData as any).sourceFolderId) {
@@ -1040,21 +1124,6 @@ const SentenceBuilderGrid = forwardRef<
                 editModal.parentId || null,
                 editModal.position || 0,
               );
-
-              // If we copied to a specific position, check if there's a deleted node at that position
-              // and remove it to avoid having both the new folder and an empty cell
-              if (editModal.position !== undefined) {
-                const deletedNodeAtPosition = currentNodes.find(
-                  node =>
-                    node.deleted && node.orderIndex === editModal.position,
-                );
-
-                if (deletedNodeAtPosition) {
-                  await sentenceBuilderSqlite.permanentlyDeleteNode(
-                    deletedNodeAtPosition.id,
-                  );
-                }
-              }
             } catch (copyError) {
               throw copyError; // Re-throw to be caught by outer try-catch
             }
@@ -1064,6 +1133,21 @@ const SentenceBuilderGrid = forwardRef<
               ...nodeData,
               kind: nodeData.kind || 'word', // Use provided kind, default to word if not specified
             } as any);
+          }
+
+          // If the new card landed on a cell held by a soft-deleted
+          // placeholder, purge the placeholder so the cell isn't claimed by
+          // both rows.
+          if (editModal.position !== undefined) {
+            const deletedNodeAtPosition = currentNodes.find(
+              node => node.deleted && node.orderIndex === editModal.position,
+            );
+
+            if (deletedNodeAtPosition) {
+              await sentenceBuilderSqlite.permanentlyDeleteNode(
+                deletedNodeAtPosition.id,
+              );
+            }
           }
         }
 
@@ -1086,19 +1170,59 @@ const SentenceBuilderGrid = forwardRef<
       }
     };
 
-    // Drag and drop handlers
-    const handleDragStart = () => {
-      setIsDragging(true);
+    // Drag and drop handlers.
+    //
+    // The DraggableGrid is reduced to "long-press + tile follows finger":
+    // every cell carries disabledReSorted, so the library never re-sorts and
+    // always snaps the tile home on release, reporting the unchanged order.
+    // The real outcome — move to an empty cell, or swap with the tile that
+    // is dropped on — is computed here from the finger position and applied
+    // by remounting the board (gridRefreshKey).
+    const handleDragStart = (item: Node) => {
+      dragSourceRef.current = item;
+      lastDragPosRef.current = null;
+      boardRectRef.current = null;
+      boardViewRef.current?.measureInWindow((x, y, w, h) => {
+        boardRectRef.current = {x, y, width: w, height: h};
+      });
     };
 
-    const handleDragEnd = () => {
-      setIsDragging(false);
+    // moveX/moveY are absolute window coordinates; together with the board's
+    // measured window rect they identify the cell under the finger.
+    const handleDragging = (gestureState: PanResponderGestureState) => {
+      lastDragPosRef.current = {x: gestureState.moveX, y: gestureState.moveY};
     };
 
-    // Handle drag and drop reordering
-    const handleDragRelease = async (newSortedData: Node[]) => {
-      // Only allow reordering in editing mode
-      if (!isEditing) {
+    const handleDragRelease = async () => {
+      const source = dragSourceRef.current;
+      const pos = lastDragPosRef.current;
+      const rect = boardRectRef.current;
+      dragSourceRef.current = null;
+
+      // No gesture data (never moved) or no measurement: nothing to do —
+      // the library has already snapped the tile back to its cell.
+      if (!isEditing || !source || !pos || !rect || rect.width <= 0) {
+        return;
+      }
+
+      const gridConfig = getGridConfig();
+      // Same cell geometry the library uses: width / numColumns, itemHeight.
+      const cellWidth = rect.width / gridConfig.cols;
+      const cellHeight = getCardDimensions().height + 4;
+      const col = Math.floor((pos.x - rect.x) / cellWidth);
+      const row = Math.floor((pos.y - rect.y) / cellHeight);
+      if (
+        col < 0 ||
+        col >= gridConfig.cols ||
+        row < 0 ||
+        row >= gridConfig.rows
+      ) {
+        return; // dropped outside the board
+      }
+
+      const targetSlot = row * gridConfig.cols + col;
+      const sourceSlot = source.orderIndex;
+      if (targetSlot === sourceSlot) {
         return;
       }
 
@@ -1108,43 +1232,34 @@ const SentenceBuilderGrid = forwardRef<
             ? folderStack[folderStack.length - 1].nodeId
             : null;
 
-        // Track the actual position in the grid for each node (including empty cells)
-        const nodeUpdates: Array<{id: string; orderIndex: number}> = [];
-
-        newSortedData.forEach((node, index) => {
-          // Check if it's an empty cell from a deleted node FIRST (before checking for 'empty-')
-          if (node.id.startsWith('empty-deleted-')) {
-            // Extract the original node ID
-            const originalNodeId = node.id.replace('empty-deleted-', '');
-            nodeUpdates.push({id: originalNodeId, orderIndex: index});
-          } else if (!node.id.startsWith('empty-')) {
-            // Regular node (not an empty placeholder)
-            nodeUpdates.push({id: node.id, orderIndex: index});
-          }
-        });
-
-        // Update in database - use the new method that accepts {id, orderIndex} pairs
-        const nodeIds = nodeUpdates.map(update => update.id);
-        const orderIndexes = nodeUpdates.map(update => update.orderIndex);
+        const target = getFullGridData()[targetSlot];
+        const ids: string[] = [source.id];
+        const orderIndexes: number[] = [targetSlot];
+        if (target.id.startsWith('empty-deleted-')) {
+          // The target cell is held by a soft-deleted row: swap slots so the
+          // empty cell moves to where the tile came from.
+          ids.push(target.id.replace('empty-deleted-', ''));
+          orderIndexes.push(sourceSlot);
+        } else if (!target.id.startsWith('empty-')) {
+          // Occupied cell: swap the two tiles.
+          ids.push(target.id);
+          orderIndexes.push(sourceSlot);
+        }
+        // Plain empty cell: the tile just moves; its old cell becomes a gap.
 
         await sentenceBuilderSqlite.reorderNodesWithPositions(
           currentParentId,
-          nodeIds,
+          ids,
           orderIndexes,
         );
 
-        // Force a complete refresh by incrementing the refresh key
+        // Remount the board: discards the library's snap-back animation and
+        // renders the final arrangement.
         setGridRefreshKey(prev => prev + 1);
-
-        // Reload data to ensure consistency with database
         await updateCurrentNodes();
       } catch (error) {
-        Alert.alert('Error', 'Failed to reorder items');
-        // Reload data on error to ensure consistency
+        Alert.alert('Error', 'Failed to move the card');
         await initializeAndLoadData();
-      } finally {
-        // Always end dragging state
-        handleDragEnd();
       }
     };
 
@@ -1203,7 +1318,8 @@ const SentenceBuilderGrid = forwardRef<
                   height: 20,
                   justifyContent: 'center',
                   alignItems: 'center',
-                  zIndex: 10,
+                  // Above the folder strips (zIndex 11/12) so it stays tappable
+                  zIndex: 20,
                 }}
                 onPress={e => {
                   e.stopPropagation();
@@ -1219,6 +1335,7 @@ const SentenceBuilderGrid = forwardRef<
             {/* Top semi-transparent strip for folders */}
             {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
               <View
+                pointerEvents="none"
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -1244,6 +1361,7 @@ const SentenceBuilderGrid = forwardRef<
             {/* Full-width transparent strip for folders */}
             {node.kind === 'folder' && !isEmptyCell && !isDeletedCard && (
               <View
+                pointerEvents="none"
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -1280,13 +1398,15 @@ const SentenceBuilderGrid = forwardRef<
                     borderBottomLeftRadius: isMobile ? 8 : 0,
                     borderBottomRightRadius: isMobile ? 8 : 0,
                   }}>
-                  <Text
-                    style={{
-                      fontSize: cardDimensions.width * 0.2,
-                      color: '#757575',
-                    }}>
-                    +
-                  </Text>
+                  {isEditing && (
+                    <Text
+                      style={{
+                        fontSize: cardDimensions.width * 0.2,
+                        color: '#757575',
+                      }}>
+                      +
+                    </Text>
+                  )}
                 </View>
               ) : node.kind === 'word' ? (
                 <>
@@ -1410,6 +1530,14 @@ const SentenceBuilderGrid = forwardRef<
         </View>
       );
     };
+
+    // Wait for the grid area measurement before building the board — the
+    // DraggableGrid captures itemHeight once on mount, so mounting against
+    // the fallback estimate would lock in the wrong row height.
+    const gridChunks = gridAreaHeight > 0 ? getGridDataChunks() : [];
+    // Chunks beyond the first are legacy overflow rows (more tiles than the
+    // grid has cells); they are the only reason the board ever scrolls.
+    const hasOverflowRows = gridChunks.length > 1;
 
     if (isLoading) {
       return (
@@ -1585,19 +1713,14 @@ const SentenceBuilderGrid = forwardRef<
               onLayout={handleGridAreaLayout}
               contentContainerStyle={styles.gridScrollContent}
               showsVerticalScrollIndicator={true}
-              bounces={true} // Enable bouncing for better mobile experience
+              // The board is sized to fill the viewport exactly, so scrolling
+              // only exists to reach legacy overflow rows (a board holding
+              // more tiles than the grid has cells) while editing.
+              bounces={hasOverflowRows}
               scrollEventThrottle={16} // Smooth scrolling
               nestedScrollEnabled={true} // Enable nested scrolling for mobile
-              scrollEnabled={isEditing}>
-              {/*
-              Wait for the grid area measurement before mounting the grid.
-              DraggableGrid captures `itemHeight` once, on its first layout
-              (`assessGridSize` bails out when `hadInitBlockSize` is set), so a
-              grid mounted against the fallback estimate keeps those row slots
-              forever — cards then render taller than their slot and get clipped.
-            */}
-              {gridAreaHeight > 0 &&
-                getGridDataChunks().map((chunk, chunkIndex) => {
+              scrollEnabled={isEditing && hasOverflowRows}>
+              {gridChunks.map((chunk, chunkIndex) => {
                   // Always use full grid data to show empty cells in both editing and non-editing modes
                   const dataToUse = chunk;
                   const itemHeight = getCardDimensions().height + 4; // card height + margin (2px on each side)
@@ -1605,7 +1728,13 @@ const SentenceBuilderGrid = forwardRef<
                   return (
                     <View
                       key={`${chunkIndex}-${gridRefreshKey}`}
-                      style={styles.gridChunk}>
+                      // Chunk 0 is the board proper; its window rect maps the
+                      // finger position to a cell on drag release.
+                      ref={chunkIndex === 0 ? boardViewRef : undefined}
+                      style={[
+                        styles.gridChunk,
+                        chunkIndex > 0 && styles.overflowChunk,
+                      ]}>
                       <DraggableGrid
                         // itemHeight is in the key on purpose: it is read once per
                         // mount, so rotation / edit-mode / grid-size changes need a
@@ -1621,7 +1750,7 @@ const SentenceBuilderGrid = forwardRef<
                         }
                         onItemPress={handleCardPress}
                         onDragStart={isEditing ? handleDragStart : undefined}
-                        onDragging={undefined}
+                        onDragging={isEditing ? handleDragging : undefined}
                         delayLongPress={
                           isEditing ? 300 : LONG_PRESS_DISABLED_MS
                         }
@@ -2295,11 +2424,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gridScrollContent: {
-    paddingBottom: 40, // Increased padding for double-height cards
     flexGrow: 1, // Ensure content can grow
   },
-  gridChunk: {
-    marginBottom: 40, // Increased margin for double-height cards
+  // The board fills its viewport exactly (row height = measured area / rows),
+  // so chunks carry no extra spacing — any padding here would force the
+  // ScrollView to scroll in edit mode.
+  gridChunk: {},
+  overflowChunk: {
+    marginTop: 12,
   },
   emptyState: {
     flex: 1,
