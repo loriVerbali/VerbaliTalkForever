@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,16 @@ import {
   TouchableOpacity,
   Platform,
   PermissionsAndroid,
+  Animated,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  useNavigation,
-  RouteProp,
-} from '@react-navigation/native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useNavigation, RouteProp} from '@react-navigation/native';
 
 // Add imports for the components
-import Inputs, { InputsRef } from '../Components/Inputs';
+import Inputs, {InputsRef} from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
-import { useAssistant } from '../contexts/AssistantContext';
+import {useAssistant} from '../contexts/AssistantContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -28,18 +26,22 @@ import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import fetchHelper from '../utils/fetcher';
 import mixpanel from '../utils/mixpanelInstance';
-import { logConversation } from '../utils/conversationLogger';
-import { useAdmin } from '../contexts/adminContext';
-import { views } from '../utils/constants';
-import { useAppSettings } from '../utils/persistance';
+import {logConversation} from '../utils/conversationLogger';
+import {useAdmin} from '../contexts/adminContext';
+import {views} from '../utils/constants';
+import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
-import Voice from '@dev-amirzubair/react-native-voice';
-import { useDatabase } from '../contexts/DatabaseContext';
+import Voice, {subscribeToSpeechEvents} from '../utils/STTService';
+import {useDatabase} from '../contexts/DatabaseContext';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: { stateof?: 'Attention' | 'Keyboard' | string };
+  Home: {
+    stateof?: 'Attention' | 'Keyboard' | string;
+    wakewordPaused?: boolean;
+    recordingPermissionsReady?: boolean;
+  };
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -52,21 +54,26 @@ const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was school today?';
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {
     generateAnswers,
     conversationHistory,
     addToConversationHistory,
     updateLastAssistantMessage,
   } = useAssistant();
-  const { weather, location } = useChatContext();
-  const { isTablet } = useAdmin();
+  const {weather, location} = useChatContext();
+  const {isTablet} = useAdmin();
   const insets = useSafeAreaInsets();
-  const { getItem, preferences } = useAppSettings();
-  const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
+  const {getItem, preferences} = useAppSettings();
+  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
   const stateof = route?.params?.stateof ?? '';
+  const wakewordPaused = route?.params?.wakewordPaused === true;
+  const recordingPermissionsReady =
+    route?.params?.recordingPermissionsReady === true;
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false); // Ref for sync guard against duplicate starts
+  const recordingGlowAnim = useRef(new Animated.Value(0)).current;
+  const recordingGlowLoop = useRef<Animated.CompositeAnimation | null>(null);
 
   // Function to resolve pepes images for answer words
   const resolvePepesImage = async (word: string, fallbackUrl: string = '') => {
@@ -99,7 +106,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           }
         }
       }
-    } catch (error) { }
+    } catch (error) {}
 
     return fallbackUrl || '';
   };
@@ -117,14 +124,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
-    Array<{ word: string; imageUrl?: string }>
+    Array<{word: string; imageUrl?: string}>
   >([]);
   const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
   // Removed local answersCount state - using preferences.answersCount
@@ -145,12 +151,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const responsiveValues = {
     // Icon sizes
     microphoneSize: isTablet
-      ? { width: 45, height: 45 }
-      : { width: 35, height: 35 },
+      ? {width: 45, height: 45}
+      : {width: 35, height: 35},
     fetchingSize: isTablet
-      ? { width: 200, height: 200 }
-      : { width: 150, height: 150 },
-    matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
+      ? {width: 200, height: 200}
+      : {width: 150, height: 150},
+    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
 
     // Layout dimensions
     inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
@@ -164,11 +170,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
-      ? { width: width * 0.3, height: width * 0.3 }
-      : { width: width * 0.25, height: width * 0.25 },
+      ? {width: width * 0.3, height: width * 0.3}
+      : {width: width * 0.25, height: width * 0.25},
     recordingIconSize: isTablet
-      ? { width: width * 0.4, height: width * 0.4 }
-      : { width: width * 0.35, height: width * 0.2 },
+      ? {width: width * 0.4, height: width * 0.4}
+      : {width: width * 0.35, height: width * 0.2},
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -180,8 +186,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Button dimensions
     keyboardButtonPadding: isTablet
-      ? { vertical: 14, horizontal: 35 }
-      : { vertical: 12, horizontal: 30 },
+      ? {vertical: 14, horizontal: 35}
+      : {vertical: 12, horizontal: 30},
     keyboardButtonMinWidth: isTablet ? 120 : 100,
     keyboardButtonBorderRadius: isTablet ? 28 : 25,
 
@@ -198,16 +204,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     navigationCardBorderRadius: isTablet ? 15 : 12,
     navigationCardPadding: isTablet ? 18 : 15,
     navigationCardImageSize: isTablet
-      ? { width: 70, height: 70 }
-      : { width: 60, height: 60 },
+      ? {width: 70, height: 70}
+      : {width: 60, height: 60},
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? { width: '100%', height: '100%' }
-      : { width: '100%', height: '100%' },
+      ? {width: '100%', height: '100%'}
+      : {width: '100%', height: '100%'},
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? { width: 0, height: 3 } : { width: 0, height: 2 },
+    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
     elevation: isTablet ? 6 : 4,
 
     // Waiting for next conversation
@@ -257,15 +263,64 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const partialResultRef = useRef<string>('');
   const lastPartialUpdateTimeRef = useRef<number>(Date.now());
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const SILENCE_TIMEOUT = 2000; // Stop recording if no new partial results for 2 seconds
+  const SILENCE_TIMEOUT = 1500; // Stop recording if no new partial results for 1.5 seconds
   const MAX_RETRIES = 3;
 
+  const startRecordingGlow = useCallback(() => {
+    recordingGlowLoop.current?.stop();
+    recordingGlowAnim.setValue(0);
+    recordingGlowLoop.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(recordingGlowAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(recordingGlowAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    recordingGlowLoop.current.start();
+  }, [recordingGlowAnim]);
+
+  const stopRecordingGlow = useCallback(() => {
+    recordingGlowLoop.current?.stop();
+    recordingGlowLoop.current = null;
+    Animated.timing(recordingGlowAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [recordingGlowAnim]);
+
+  useEffect(() => {
+    if (isRecording) {
+      startRecordingGlow();
+    } else {
+      stopRecordingGlow();
+    }
+
+    return () => {
+      recordingGlowLoop.current?.stop();
+    };
+  }, [isRecording, startRecordingGlow, stopRecordingGlow]);
 
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
     null,
   );
   const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingGlowOpacity = recordingGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const recordingGlowScale = recordingGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.004],
+  });
 
   // Function to start AI response timer
   const startResponseTimer = () => {
@@ -287,7 +342,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) { }
+        } catch (error) {}
       }
 
       setResponseTimerStart(null);
@@ -315,92 +370,72 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       // Always use Voice recognition
       setCachedUseLocalWhisper('1');
 
-      // Request RECORD_AUDIO permission for Android before initializing Voice
-      const granted = PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {
-          title: 'Microphone Permission',
-          message: 'This app needs access to your microphone to record audio',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-    } catch (error) { }
-
-    Voice.onSpeechStart = () => {
-      console.log('Voice: onSpeechStart');
-    };
-
-    // Set up speech end handler
-    Voice.onSpeechEnd = () => {
-      console.log('Voice: onSpeechEnd');
-    };
-
-    Voice.onSpeechError = (e: any) => {
-      // Log detailed error info - error codes:
-      // 1=NETWORK_TIMEOUT, 2=NETWORK, 3=AUDIO, 4=SERVER, 5=CLIENT,
-      // 6=SPEECH_TIMEOUT, 7=NO_MATCH, 8=RECOGNIZER_BUSY, 9=INSUFFICIENT_PERMISSIONS
-      console.error('Speech error:', JSON.stringify(e));
-      console.error('Speech error code:', e?.error?.code);
-      console.error('Speech error message:', e?.error?.message);
-      setIsRecording(false);
-      isRecordingRef.current = false;
-    };
-    // Set up final results handler
-    // Note: event.value is an array of recognized text strings
-    Voice.onSpeechResults = (event: any) => {
-      if (event.value && event.value.length > 0) {
-        // event.value is already an array of results
-        setVoiceResults(event.value[0]);
-        voiceResultsRef.current = event.value;
+      if (!recordingPermissionsReady) {
+        // Request RECORD_AUDIO permission for direct Home entry fallback.
+        PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: 'Microphone Permission',
+            message: 'This app needs access to your microphone to record audio',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
       }
-    };
+    } catch (error) {}
 
-    // Set up partial results handler for streaming text
-    Voice.onSpeechPartialResults = (event: any) => {
-      let partialText = '';
-
-      // event.value is an array of partial results
-      if (event.value && event.value.length > 0) {
-        partialText = event.value[0];
-      }
-
-      if (partialText) {
-        // Update state for UI
-        setPartialResult(partialText);
-        // Update ref for sync access in processVoiceResults
-        partialResultRef.current = partialText;
-
-        // Update input field with partial result (streaming to input like iOS)
-        if (inputsRef.current) {
-          inputsRef.current.setInput(partialText);
+    const unsubscribe = subscribeToSpeechEvents({
+      onSpeechStart: () => {
+        console.log('Voice: onSpeechStart');
+      },
+      onSpeechEnd: () => {
+        console.log('Voice: onSpeechEnd');
+      },
+      onSpeechError: (e: any) => {
+        console.error('Speech error:', JSON.stringify(e));
+        console.error('Speech error code:', e?.error?.code);
+        console.error('Speech error message:', e?.error?.message);
+        setIsRecording(false);
+        isRecordingRef.current = false;
+      },
+      onSpeechResults: (event: any) => {
+        if (event.value && event.value.length > 0) {
+          setVoiceResults(event.value[0]);
+          voiceResultsRef.current = event.value;
+        }
+      },
+      onSpeechPartialResults: (event: any) => {
+        let partialText = '';
+        if (event.value && event.value.length > 0) {
+          partialText = event.value[0];
         }
 
-        // Reset silence timer - we got new input
-        lastPartialUpdateTimeRef.current = Date.now();
-
-        // Clear existing silence timer
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-
-        // Set new silence timer - if no new partial results for 2 seconds, stop recording
-        silenceTimerRef.current = setTimeout(async () => {
-          // Only stop if we have some text and are still recording
-          if (partialResultRef.current.trim().length > 0) {
-            await stopRecording();
+        if (partialText) {
+          setPartialResult(partialText);
+          partialResultRef.current = partialText;
+          if (inputsRef.current) {
+            inputsRef.current.setInput(partialText);
           }
-        }, SILENCE_TIMEOUT);
-      }
-    };
+          lastPartialUpdateTimeRef.current = Date.now();
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+          silenceTimerRef.current = setTimeout(async () => {
+            if (partialResultRef.current.trim().length > 0) {
+              await stopRecording();
+            }
+          }, SILENCE_TIMEOUT);
+        }
+      },
+    });
 
     const loadGobackAfterSelectionSetting = async () => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) { }
+      } catch (error) {}
     };
 
     // Load the setting
@@ -417,25 +452,34 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         `[Home] Entering Attention state (Android). Current answersCount: ${preferences.answersCount}`,
       );
       // wakeWord.stopListening();
-      handleRecord();
+      handleRecord(wakewordPaused);
     }
     if (stateof === 'Keyboard') {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      wakeWordService.pauseDetection(false).catch(() => {});
     }
 
     // Cleanup function
     return () => {
+      unsubscribe();
       Voice.destroy();
     };
-  }, [stateof]);
+  }, [stateof, wakewordPaused, recordingPermissionsReady]);
 
   // Cleanup useEffect for wake word service and timers
   useEffect(() => {
-    return () => {
-      // Always cleanup wake word service
+    // Clear any previous wakeword callback to prevent accidental triggers from Open.tsx
+    try {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      wakeWordService.setCallback(() => {});
+    } catch (error) {
+      console.error('[Home.android] Error clearing wakeword callback on mount:', error);
+    }
+
+    return () => {
+      // Always pause wake word service
+      const wakeWordService = WakeWordService.getInstance();
+      wakeWordService.pauseDetection(false).catch(() => {});
 
       // Cleanup response timer
       if (responseTimerRef.current) {
@@ -457,11 +501,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     };
   }, []);
 
-  const playSound = async () => {
-    handleRecord();
+  const playSound = async (skipWakewordPause: boolean = false) => {
+    handleRecord(skipWakewordPause);
   };
 
-  const handleRecord = async () => {
+  const handleRecord = async (skipWakewordPause: boolean = false) => {
     // Prevent multiple simultaneous recordings using ref (sync check)
     if (isRecordingRef.current) {
       return;
@@ -470,46 +514,40 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Set ref immediately to prevent race conditions
     isRecordingRef.current = true;
 
-    // CRITICAL: Stop WakeWordService before starting Voice recognition
-    // WakeWordService uses the microphone and must release it for Voice to work
-    // IMPORTANT: On first launch, WakeWordService might be INITIALIZING (not yet listening)
-    // but the native ONNX module could still be grabbing audio resources
-    // cleanup() waits for pending initialization AND releases all resources
-    try {
-      const wakeWordService = WakeWordService.getInstance();
-      const status = wakeWordService.getStatus();
+    if (!skipWakewordPause) {
+      // CRITICAL: Pause WakeWordService before starting Voice recognition
+      // WakeWordService uses the microphone and must release it for Voice to work
+      try {
+        const wakeWordService = WakeWordService.getInstance();
+        await wakeWordService.pauseDetection(false);
 
-      // Use cleanup() which:
-      // 1. Waits for any pending startingPromise
-      // 2. Waits for any pending initializingPromise (CRITICAL for first launch!)
-      // 3. Calls stopListening()
-      // 4. Releases all native resources
-
-      await wakeWordService.cleanup();
-
-      // Longer delay on Android to ensure microphone is fully released
-      // Android audio system can take time to release resources
-      await new Promise<void>(resolve => setTimeout(resolve, 800));
-    } catch (error) {
-      // Even if there's an error, wait longer before trying Voice
-      await new Promise<void>(resolve => setTimeout(resolve, 500));
+        // Longer delay on Android to ensure microphone is fully released
+        // Android audio system can take time to release resources
+        await new Promise<void>(resolve => setTimeout(resolve, 800));
+      } catch (error) {
+        // Even if there's an error, wait longer before trying Voice
+        await new Promise<void>(resolve => setTimeout(resolve, 500));
+      }
     }
 
     // Track microphone press
     mixpanel.track('Microphone Pressed');
 
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      {
-        title: 'Microphone Permission',
-        message: 'This app needs access to your microphone to record audio',
-        buttonNeutral: 'Ask Me Later',
-        buttonNegative: 'Cancel',
-        buttonPositive: 'OK',
-      },
-    );
-    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-      throw new Error('Microphone permission denied');
+    if (!recordingPermissionsReady) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Microphone Permission',
+          message: 'This app needs access to your microphone to record audio',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        isRecordingRef.current = false;
+        throw new Error('Microphone permission denied');
+      }
     }
     lastSoundTimeRef.current = 0;
     metering.current = -100;
@@ -616,7 +654,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         // If we have partial results but no final results, use the partial
         transcribedText = currentPartialResult.trim();
       }
-
 
       if (
         transcribedText.length === 0 ||
@@ -774,10 +811,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       debounceTimer.current = null;
     }
 
-    // Clean up wake word service if waiting
+    // Clean up/pause wake word service if waiting
     if (waitingForNextConversation) {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      wakeWordService.pauseDetection(false).catch(() => {});
     }
   };
 
@@ -914,7 +951,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Update AI Resolved record with the selected answer
     if (currentAIRecord) {
-      const updatedRecord = { ...currentAIRecord };
+      const updatedRecord = {...currentAIRecord};
 
       if (currentAIRecord.currentRound === 1) {
         updatedRecord.round1Picked = selectedAnswer;
@@ -941,7 +978,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) { }
+        } catch (error) {}
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1014,7 +1051,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
             const wakeWordService = WakeWordService.getInstance();
 
-
             // Set callback first
             wakeWordService.setCallback((phrase: string) => {
               // When wake word detected, start new conversation
@@ -1026,7 +1062,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             await wakeWordService.startListening();
 
             const statusAfter = wakeWordService.getStatus();
-
 
             // Verify it's actually listening
             if (!wakeWordService.isCurrentlyListening()) {
@@ -1057,8 +1092,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       <View
         style={[
           styles.container,
-          Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
-          { backgroundColor: '#FFF8E7' }
+          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
+          {backgroundColor: '#FFF8E7'},
         ]}>
         {stateof === 'Keyboard' ? null : (
           <View
@@ -1082,8 +1117,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         {/* Home Button */}
         <HomeButton navigation={navigation} onReset={resetLocalStates} />
 
-
-
         {/* Matalk Icon */}
         <View style={[styles.matalkIcon, responsiveValues.matalkIconSize]}>
           <MatalkIcon />
@@ -1094,21 +1127,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           style={[
             styles.inputNavigationContainer,
             stateof === 'Keyboard'
-              ? { height: 0, opacity: 0 }
+              ? {height: 0, opacity: 0}
               : {
-                height: responsiveValues.inputNavigationHeight,
-                marginTop: Math.max(insets.top, 10)
-              },
+                  height: responsiveValues.inputNavigationHeight,
+                  marginTop: Math.max(insets.top, 10),
+                },
           ]}>
-          {stateof !== 'Keyboard' && (
-            <Inputs
-              ref={inputsRef}
-              mode={stateof}
-            />
-          )}
+          {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
         </View>
 
-        <View style={{ flex: 1, width: '100%' }}>
+        <View style={{flex: 1, width: '100%'}}>
           <View
             style={[
               styles.contentContainer,
@@ -1119,7 +1147,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, { zIndex: 10 }]}
+              style={[styles.imageCardContainer, {zIndex: 10}]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1137,7 +1165,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       try {
                         // Handle direct answers format
                         return {
-                          url: { url: item.imageUrl || '' },
+                          url: {url: item.imageUrl || ''},
                           prompt: item.word || '',
                         };
                       } catch (err) {
@@ -1145,7 +1173,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       }
                     })
                     .filter(
-                      (item): item is { url: { url: string }; prompt: string } =>
+                      (item): item is {url: {url: string}; prompt: string} =>
                         item !== null,
                     );
 
@@ -1155,7 +1183,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         <Text
                           style={[
                             styles.errorText,
-                            { fontSize: responsiveValues.errorFontSize },
+                            {fontSize: responsiveValues.errorFontSize},
                           ]}>
                           We have an issue. Please be patient.
                         </Text>
@@ -1204,7 +1232,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                { fontSize: responsiveValues.cardTextFontSize },
+                                {fontSize: responsiveValues.cardTextFontSize},
                               ]}>
                               ShortCuts
                             </Text>
@@ -1254,7 +1282,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                { fontSize: responsiveValues.cardTextFontSize },
+                                {fontSize: responsiveValues.cardTextFontSize},
                               ]}>
                               Feelings
                             </Text>
@@ -1295,7 +1323,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       <View
                         style={[
                           styles.waitingForNextContainer,
-                          { padding: responsiveValues.waitingContainerPadding },
+                          {padding: responsiveValues.waitingContainerPadding},
                         ]}>
                         <Text
                           style={[
@@ -1307,7 +1335,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             },
                           ]}>
                           Say{' '}
-                          <Text style={{ fontWeight: 'bold', color: 'blue' }}>
+                          <Text style={{fontWeight: 'bold', color: 'blue'}}>
                             Hey Verbi
                           </Text>{' '}
                           to continue the conversation or tap below
@@ -1340,10 +1368,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           />
                         </TouchableOpacity>
                       </View>
-                    ) : stateof === 'Keyboard' ? (
-                      null // Keyboard mode handled by KeyboardHome view
-                    ) : isTranscribing ? (
-                      <View style={{ alignItems: 'center' }}>
+                    ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
+                      <View style={{alignItems: 'center'}}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
                           style={[
@@ -1363,7 +1389,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         </Text>
                       </View>
                     ) : isRecording ? (
-                      <View style={{ alignItems: 'center' }}>
+                      <View style={styles.recordingContainer}>
                         <FastImage
                           source={require('../assets/movie/recording.gif')}
                           style={responsiveValues.recordingIconSize}
@@ -1377,8 +1403,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           style={{
                             fontSize: responsiveValues.transcriptionFontSize,
                             fontWeight: 'bold',
-                            color: '#FF0000',
-                            marginTop: 10,
+                            color: '#8A2BE2',
+                            marginTop: 18,
                           }}>
                           Recording...
                         </Text>
@@ -1391,7 +1417,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                        <View style={{alignItems: 'center', marginBottom: 20}}>
                           <Text
                             style={{
                               fontSize: responsiveValues.transcriptionFontSize,
@@ -1408,23 +1434,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                                 color: isUsingLocalWhisper
                                   ? '#4CAF50'
                                   : modelNotAvailable
-                                    ? '#FF9800'
-                                    : '#2196F3',
+                                  ? '#FF9800'
+                                  : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
                               {isUsingLocalWhisper
                                 ? '🔒 Local Whisper'
                                 : modelNotAvailable
-                                  ? '☁️ Cloud (Model not downloaded)'
-                                  : '☁️ Cloud'}
+                                ? '☁️ Cloud (Model not downloaded)'
+                                : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
 
                         {/* Show different loading states based on processing phase */}
                         {isRetrying ? (
-                          <View style={{ alignItems: 'center' }}>
+                          <View style={{alignItems: 'center'}}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1446,7 +1472,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             </Text>
                           </View>
                         ) : isProcessingAnswer ? (
-                          <View style={{ alignItems: 'center' }}>
+                          <View style={{alignItems: 'center'}}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1478,8 +1504,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         ) : null}
 
                         {finishedTranscribing &&
-                          (transcribedText.length === 0 ||
-                            transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                        (transcribedText.length === 0 ||
+                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
                           <HomeButton
                             navigation={navigation}
                             onReset={resetLocalStates}
@@ -1493,6 +1519,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                 </>
               )}
             </View>
+            {isRecording && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.recordingScreenGlow,
+                  {
+                    opacity: recordingGlowOpacity,
+                    transform: [{scale: recordingGlowScale}],
+                  },
+                ]}
+              />
+            )}
           </View>
         </View>
       </View>
@@ -1517,12 +1555,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    borderRadius: height * 0.2,
-    backgroundColor: 'rgba(255,0,0,0.1)',
-    borderWidth: 2,
-    borderColor: '#ff0000',
     marginTop: height * 0.2,
     zIndex: 10,
+  },
+  recordingScreenGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 5,
+    borderColor: '#CE93D8',
+    shadowColor: '#8E24AA',
+    shadowOffset: {width: 0, height: 0},
+    shadowOpacity: 1,
+    shadowRadius: 28,
+    elevation: 30,
+    zIndex: 999,
   },
   playButton: {
     width: 80,

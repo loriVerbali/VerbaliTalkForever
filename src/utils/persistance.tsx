@@ -59,6 +59,7 @@ interface Preferences {
   handshakeMessage: string;
   // Device-based organization access
   deviceId: string;
+  isEnrolled: string;
   orgName: string;
   // Guest session management
   installationGuid: string;
@@ -67,8 +68,21 @@ interface Preferences {
   // App rating
   ratingPromptShown: string;
   ratingPromptDismissed: string;
+  deviceRevoked: string;
   answersCount: string;
+  intakeSilenceTimeoutMs: string;
   tellUsMore: string;
+  intakeActiveStepIndex: string;
+  intakeStepStatuses: string;
+  // Verbi AI suggestion column
+  verbiEnabled: string;
+  verbiMicrophoneEnabled: string;
+  /** How many suggestions Verbi should return per prediction request. */
+  verbiSuggestionLimit: string;
+  // One-time welcome guide on the Communication (Convo) page
+  convoWelcomeGuideShown: string;
+  // One-time welcome guide on the Home (Open) page
+  homeWelcomeGuideShown: string;
 }
 
 const initEnum = {
@@ -130,6 +144,7 @@ export const initialPreferences: Preferences = {
     'Hi ,this is how I communicate say Hey Verby and it will record the question.',
   // Device-based organization access
   deviceId: initEnum.notSet,
+  isEnrolled: initEnum.false,
   orgName: '',
   // Guest session management
   installationGuid: initEnum.notSet,
@@ -138,8 +153,20 @@ export const initialPreferences: Preferences = {
   // App rating
   ratingPromptShown: initEnum.false,
   ratingPromptDismissed: initEnum.false,
+  deviceRevoked: initEnum.false,
   answersCount: '5',
+  intakeSilenceTimeoutMs: '3000',
   tellUsMore: '',
+  intakeActiveStepIndex: '0',
+  intakeStepStatuses: '[]',
+  // Verbi AI suggestion column
+  verbiEnabled: '1',
+  verbiMicrophoneEnabled: '1',
+  verbiSuggestionLimit: '10',
+  // One-time welcome guide on the Communication (Convo) page
+  convoWelcomeGuideShown: initEnum.false,
+  // One-time welcome guide on the Home (Open) page
+  homeWelcomeGuideShown: initEnum.false,
 };
 
 interface AppSettingsContextProps {
@@ -272,9 +299,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         const timeoutId = setTimeout(async () => {
           try {
             const purchaseValid = await validateReceiptOnLaunch();
-            if (!purchaseValid) {
+            if (purchaseValid === false) {
               await setItem('isIOSActive', '0');
-            } else {
+            } else if (purchaseValid === true) {
               await setItem('isIOSActive', '1');
             }
           } catch (error) {

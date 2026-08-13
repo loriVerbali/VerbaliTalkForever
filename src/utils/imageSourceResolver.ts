@@ -1,4 +1,4 @@
-import {ImageSourcePropType} from 'react-native';
+import { ImageSourcePropType } from 'react-native';
 
 // Static mapping of classic images that Metro can resolve at build time
 const CLASSIC_IMAGES: Record<string, any> = {
@@ -771,12 +771,12 @@ export const resolveImageSource = (
 
   // Handle HTTP URLs
   if (imageUri.startsWith('http')) {
-    return {uri: imageUri};
+    return { uri: imageUri };
   }
 
   // Handle file:// paths
   if (imageUri.startsWith('file://')) {
-    return {uri: imageUri};
+    return { uri: imageUri };
   }
 
   // Handle asset paths - use static mapping for classic images
@@ -815,16 +815,16 @@ export const resolveImageSource = (
   // Handle other asset paths
   if (imageUri.startsWith('../../assets/')) {
     const assetPath = imageUri.replace('../../assets/', '');
-    return {uri: assetPath};
+    return { uri: assetPath };
   }
 
   if (imageUri.startsWith('../assets/')) {
     const assetPath = imageUri.replace('../assets/', '');
-    return {uri: assetPath};
+    return { uri: assetPath };
   }
 
   // Fallback for other local paths
-  return {uri: `file://${imageUri}`};
+  return { uri: `file://${imageUri}` };
 };
 
 /**

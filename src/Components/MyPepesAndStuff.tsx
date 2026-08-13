@@ -388,7 +388,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         setPepesData(completeData);
       }
     } catch (error) {
-
     }
   };
 
@@ -397,7 +396,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem('pepes', JSON.stringify(data));
       setPepesData(data);
     } catch (error) {
-
     }
   };
 
@@ -429,7 +427,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-
       return false;
     }
   };
@@ -457,7 +454,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return res === RESULTS.GRANTED;
       }
     } catch (e) {
-
       return false;
     }
   };
@@ -888,7 +884,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       await setItem(`${sType}Address`, formatted);
       await setItem(`${sType}IsCurrentLocation`, isCurr.toString());
     } catch (e) {
-
     }
   };
 
@@ -1006,7 +1001,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         };
       }
     } catch (err) {
-
     }
     return null;
   };
@@ -1115,7 +1109,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         return requestStatus === RESULTS.GRANTED;
       }
     } catch (e) {
-
       return false;
     }
   };
@@ -1163,7 +1156,6 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
         }
       },
       (error: any) => {
-
         Alert.alert('Location Error', 'Unable to get your location.');
       },
       {
@@ -1449,148 +1441,186 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header with dropdown and add button */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingHorizontal: responsiveValues.headerPaddingHorizontal,
-            paddingVertical: responsiveValues.headerPaddingVertical,
-          },
-        ]}>
-        <View style={styles.dropdownContainer}>
-          <TouchableOpacity
-            style={[
-              styles.dropdown,
-              {
-                paddingHorizontal: responsiveValues.dropdownPaddingHorizontal,
-                paddingVertical: responsiveValues.dropdownPaddingVertical,
-              },
-            ]}
-            onPress={() => setShowDropdown(!showDropdown)}>
-            <Text
-              style={[
-                styles.dropdownText,
-                { fontSize: responsiveValues.dropdownFontSize },
-              ]}>
-              {getCategoryLabel(selectedCategory)}
-            </Text>
-            <Text
-              style={[
-                styles.dropdownArrow,
-                { fontSize: responsiveValues.dropdownArrowFontSize },
-              ]}>
-              ▼
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          style={[
-            styles.addButton,
-            {
-              paddingHorizontal: responsiveValues.addButtonPaddingHorizontal,
-              paddingVertical: responsiveValues.addButtonPaddingVertical,
-            },
-          ]}
-          onPress={handleAddPress}>
-          <Text
-            style={[
-              styles.addButtonText,
-              { fontSize: responsiveValues.addButtonFontSize },
-            ]}>
-            Add
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Dropdown Options */}
-      {showDropdown && (
-        <View
-          style={[
-            styles.dropdownOptions,
-            {
-              marginHorizontal:
-                responsiveValues.dropdownOptionsMarginHorizontal,
-            },
-          ]}>
-          {categories.map(category => (
-            <TouchableOpacity
-              key={category}
-              style={[
-                styles.dropdownOption,
-                {
-                  paddingVertical:
-                    responsiveValues.dropdownOptionPaddingVertical,
-                  paddingHorizontal:
-                    responsiveValues.dropdownOptionPaddingHorizontal,
-                },
-                selectedCategory === category && styles.selectedDropdownOption,
-              ]}
-              onPress={() => handleCategorySelect(category)}>
-              <Text
-                style={[
-                  styles.dropdownOptionText,
-                  { fontSize: responsiveValues.dropdownOptionFontSize },
-                  selectedCategory === category &&
-                  styles.selectedDropdownOptionText,
-                ]}>
-                {getCategoryLabel(category)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Items list */}
+      {/* Single scrollable body */}
       <ScrollView
-        style={[
-          styles.itemsList,
-          { paddingHorizontal: responsiveValues.itemsListPaddingHorizontal },
-        ]}>
-        {!currentItems || currentItems.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text
-              style={[
-                styles.emptyStateText,
-                { fontSize: responsiveValues.emptyStateFontSize },
-              ]}>
-              No{' '}
-              {selectedCategory === 'TVShows'
-                ? 'TV shows'
-                : selectedCategory.toLowerCase()}{' '}
-              added yet
+        style={styles.itemsList}
+        contentContainerStyle={{
+          paddingHorizontal: responsiveValues.itemsListPaddingHorizontal,
+          paddingBottom: 40,
+        }}>
+
+        {/* ── Intro section ── */}
+        <View style={styles.introSection}>
+          <Text style={styles.introTagline}>This is where you can:</Text>
+          <View style={styles.introBullets}>
+            <Text style={styles.introBullet}>
+              {'\u2022  '}Upload personal pictures for your child to use on their communication boards.{' '}
+              <Text style={styles.introBulletBold}>All images are kept on your device only.</Text>
             </Text>
+            <Text style={styles.introBullet}>
+              {'\u2022  '}Add the people, places, foods, activities, and other things in your child{'\u2019'}s world for better conversation context
+            </Text>
+            <Text style={styles.introBullet}>
+              {'\u2022  '}Set everything up with AI, add items manually, or use both
+            </Text>
+          </View>
+        </View>
+
+        {/* Tell Us More / AI-assisted section */}
+        <TellUsMoreSection
+          horizontalPadding={0}
+          onPepesUpdated={handlePepesUpdated}
+        />
+
+        {/* ── MANUAL SETUP section ── */}
+        <View style={styles.manualSection}>
+          {/* MANUAL SETUP badge */}
+          <View style={styles.manualBadgeRow}>
+            <View style={styles.manualBadge}>
+              <Text style={styles.manualBadgeText}>{'\u27A4'} MANUAL SETUP</Text>
+            </View>
+          </View>
+
+          {/* Add Items Yourself heading */}
+          <Text style={styles.manualTitle}>Add Items Yourself</Text>
+          <View style={styles.manualSubtitleBullets}>
+            <Text style={styles.manualSubtitleBullet}>
+              {'\u2022  '}Upload a picture for each item to use on your child{'\u2019'}s communication boards
+            </Text>
+            <Text style={styles.manualSubtitleBullet}>
+              {'\u2022  '}Choose a category and add people, places, foods, activities, and more
+            </Text>
+          </View>
+
+          {/* Dropdown + Add button row */}
+          <View
+            style={[
+              styles.header,
+              {
+                paddingHorizontal: 0,
+                paddingVertical: responsiveValues.headerPaddingVertical,
+              },
+            ]}>
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.dropdown,
+                  {
+                    paddingHorizontal: responsiveValues.dropdownPaddingHorizontal,
+                    paddingVertical: responsiveValues.dropdownPaddingVertical,
+                  },
+                ]}
+                onPress={() => setShowDropdown(!showDropdown)}>
+                <Text
+                  style={[
+                    styles.dropdownText,
+                    { fontSize: responsiveValues.dropdownFontSize },
+                  ]}>
+                  {getCategoryLabel(selectedCategory)}
+                </Text>
+                <Text
+                  style={[
+                    styles.dropdownArrow,
+                    { fontSize: responsiveValues.dropdownArrowFontSize },
+                  ]}>
+                  ▼
+                </Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               style={[
-                styles.emptyAddButton,
+                styles.addButton,
                 {
-                  paddingHorizontal:
-                    responsiveValues.emptyAddButtonPaddingHorizontal,
-                  paddingVertical:
-                    responsiveValues.emptyAddButtonPaddingVertical,
+                  paddingHorizontal: responsiveValues.addButtonPaddingHorizontal,
+                  paddingVertical: responsiveValues.addButtonPaddingVertical,
                 },
               ]}
               onPress={handleAddPress}>
               <Text
                 style={[
-                  styles.emptyAddButtonText,
-                  { fontSize: responsiveValues.emptyAddButtonFontSize },
+                  styles.addButtonText,
+                  { fontSize: responsiveValues.addButtonFontSize },
                 ]}>
                 Add
               </Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.gridContainer}>
-            {currentItems.map(renderItem)}
-          </View>
-        )}
 
-        {/* Tell Us More Section */}
-        <TellUsMoreSection
-          horizontalPadding={responsiveValues.tellUsMorePadding}
-          onPepesUpdated={handlePepesUpdated}
-        />
+          {/* Dropdown Options */}
+          {showDropdown && (
+            <View
+              style={[
+                styles.dropdownOptions,
+                { marginHorizontal: 0 },
+              ]}>
+              {categories.map(category => (
+                <TouchableOpacity
+                  key={category}
+                  style={[
+                    styles.dropdownOption,
+                    {
+                      paddingVertical:
+                        responsiveValues.dropdownOptionPaddingVertical,
+                      paddingHorizontal:
+                        responsiveValues.dropdownOptionPaddingHorizontal,
+                    },
+                    selectedCategory === category && styles.selectedDropdownOption,
+                  ]}
+                  onPress={() => handleCategorySelect(category)}>
+                  <Text
+                    style={[
+                      styles.dropdownOptionText,
+                      { fontSize: responsiveValues.dropdownOptionFontSize },
+                      selectedCategory === category &&
+                      styles.selectedDropdownOptionText,
+                    ]}>
+                    {getCategoryLabel(category)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Items grid or empty state */}
+          {!currentItems || currentItems.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text
+                style={[
+                  styles.emptyStateText,
+                  { fontSize: responsiveValues.emptyStateFontSize },
+                ]}>
+                No{' '}
+                {selectedCategory === 'TVShows'
+                  ? 'TV shows'
+                  : selectedCategory.toLowerCase()}{' '}
+                added yet
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.emptyAddButton,
+                  {
+                    paddingHorizontal:
+                      responsiveValues.emptyAddButtonPaddingHorizontal,
+                    paddingVertical:
+                      responsiveValues.emptyAddButtonPaddingVertical,
+                  },
+                ]}
+                onPress={handleAddPress}>
+                <Text
+                  style={[
+                    styles.emptyAddButtonText,
+                    { fontSize: responsiveValues.emptyAddButtonFontSize },
+                  ]}>
+                  Add
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.gridContainer}>
+              {currentItems.map(renderItem)}
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* Add/Edit Modal */}
@@ -2258,8 +2288,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e1e1e1',
   },
   dropdownContainer: {
     flex: 1,
@@ -2329,7 +2357,69 @@ const styles = StyleSheet.create({
   },
   itemsList: {
     flex: 1,
-    paddingHorizontal: 20,
+  },
+
+  // ── Intro section ─────────────────────────────────────────────────────────
+  introSection: {
+    paddingTop: 16,
+    paddingBottom: 4,
+  },
+  introTagline: {
+    fontSize: 15,
+    color: '#333',
+    marginBottom: 6,
+  },
+  introBullets: {
+    gap: 6,
+  },
+  introBullet: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 20,
+  },
+  introBulletBold: {
+    fontWeight: '700',
+    color: '#1a1a1a',
+  },
+
+  // ── Manual Setup section ──────────────────────────────────────────────────
+  manualSection: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  manualBadgeRow: {
+    marginBottom: 10,
+  },
+  manualBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EDE7F6',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  manualBadgeText: {
+    color: '#7B2FBE',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  manualTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1a1a1a',
+    marginBottom: 8,
+  },
+  manualSubtitleBullets: {
+    gap: 4,
+    marginBottom: 4,
+  },
+  manualSubtitleBullet: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
   },
   gridContainer: {
     flexDirection: 'row',
