@@ -20,11 +20,12 @@ export interface ConfigType {
   picGeneration: string;
   assemblyAIURL: string;
   masterAdminCode: string;
+  davoiceLicense: string;
   methods: Record<string, MethodObject>;
 }
 
 const AppConfig: ConfigType = {
-  baseUrl: 'https://matalkapi-production.up.railway.app',
+  baseUrl: 'https://matalkapi-copy-nologin.up.railway.app',
   //baseUrl: 'http://192.168.1.175:3000',
   //baseUrl: 'http://localhost:3000',
   picsUrl: 'https://image.pollinations.ai/prompt',
@@ -32,6 +33,7 @@ const AppConfig: ConfigType = {
   picGeneration: 'polli',
   assemblyAIURL: 'https://api.assemblyai.com/v2',
   masterAdminCode: '78567',
+  davoiceLicense: Config.DAVOICE_LICENSE || '',
 
   methods: {
     registerUser: {
@@ -77,6 +79,18 @@ const AppConfig: ConfigType = {
       sendDeviceKey: false,
       jsonMethod: true,
       suffixUrl: '/answers/generate',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    memoryExtract: {
+      description: 'memoryExtract',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/api/memory/extract',
       mustStringify: true,
       isFlatResponse: false,
       isPicsUrl: false,
@@ -317,6 +331,66 @@ const AppConfig: ConfigType = {
       sendDeviceKey: false,
       jsonMethod: true,
       suffixUrl: '/api/context/finalize-preview',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    intakeChat: {
+      description: 'intakeChat',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/api/context/intake-chat',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiCreateConversation: {
+      description: 'verbiCreateConversation',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/conversations',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiAppendUtterance: {
+      description: 'verbiAppendUtterance',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/conversations/{conversationId}/utterances',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiPredict: {
+      description: 'verbiPredict',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/predictions',
+      mustStringify: true,
+      isFlatResponse: false,
+      isPicsUrl: false,
+      contentType: 'application/json',
+    },
+    verbiCloseConversation: {
+      description: 'verbiCloseConversation',
+      isAuthenticated: true,
+      verb: 'POST',
+      sendDeviceKey: false,
+      jsonMethod: true,
+      suffixUrl: '/v1/verbi/conversations/{conversationId}/close',
       mustStringify: true,
       isFlatResponse: false,
       isPicsUrl: false,

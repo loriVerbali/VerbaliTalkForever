@@ -21,6 +21,8 @@ interface NavigationBarProps {
   onEditPress: () => void;
   onCancelEditPress: () => void;
   onMicrophonePress: () => void;
+  /** When true, the mic icon animates to show active listening. */
+  isListening?: boolean;
   onTrashPress: () => void;
   onPlayPress: () => void;
   nodes: Node[];
@@ -29,6 +31,8 @@ interface NavigationBarProps {
   folderStack: FolderStackItem[];
   onFolderPress: (index: number) => void;
   onBackPress?: () => void;
+  /** Called just before TTS begins playing the sentence. Used by Verbi to pause partner STT. */
+  onSentenceWillSpeak?: () => void;
 }
 
 const NavigationBar: React.FC<NavigationBarProps> = ({
@@ -36,6 +40,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
   onEditPress,
   onCancelEditPress,
   onMicrophonePress,
+  isListening = false,
   onTrashPress,
   onPlayPress,
   nodes,
@@ -44,6 +49,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
   folderStack,
   onFolderPress,
   onBackPress,
+  onSentenceWillSpeak,
 }) => {
   const navigation = useNavigation();
   const { isTablet } = useAdmin();
@@ -88,10 +94,10 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
 
     if (sentenceText.trim()) {
       const TTSService = require('../../utils/TTSService').default;
-      const AudioSessionManager =
-        require('../../utils/AudioSessionManager').default;
 
-      await AudioSessionManager.prepareForTTS();
+      // Notify Verbi that TTS is about to start (pause partner STT)
+      onSentenceWillSpeak?.();
+
       TTSService.speak(sentenceText, true);
       onPlayPress();
     }
@@ -155,7 +161,11 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       {/* Microphone Button */}
       <TouchableOpacity style={styles.iconButton} onPress={onMicrophonePress}>
         <FastImage
-          source={require('../../assets/micstatic.png')}
+          source={
+            isListening
+              ? require('../../assets/michrophone.gif')
+              : require('../../assets/micstatic.png')
+          }
           style={styles.trashIconSize}
           resizeMode={FastImage.resizeMode.contain}
         />
@@ -176,10 +186,15 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       </TouchableOpacity>
 
       {/* Sentence Building Area with Round Border */}
+      {/* Fixed height, not minHeight: token chips are taller than the empty
+          placeholder text, so a content-driven height makes the bar grow when
+          the first word lands — which reflows the grid below it and remounts
+          the whole board (itemHeight is part of the DraggableGrid key).
+          +8 covers the wrapper's own vertical padding (4 each side). */}
       <View
         style={[
           styles.sentenceAreaWrapper,
-          { minHeight: responsiveValues.tokenTotalHeight },
+          { height: responsiveValues.tokenTotalHeight + 8 },
         ]}>
         <ScrollView
           horizontal

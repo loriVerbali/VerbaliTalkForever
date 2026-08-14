@@ -6,6 +6,8 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, RouteProp } from '@react-navigation/native';
@@ -29,14 +31,26 @@ import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
 import { useAppSettings } from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
-import AudioSessionManager from '../utils/AudioSessionManager';
-import WhisperService from '../utils/WhisperService';
+import Voice, {
+  logSpeechDiagnostics,
+  startSpeechRecognition,
+  stopSpeechRecognition,
+  subscribeToSpeechEvents,
+} from '../utils/STTService';
 import { useDatabase } from '../contexts/DatabaseContext';
+import {
+  personalMemoryService,
+  makeMemoryEventId,
+} from '../services/PersonalMemoryService';
 
 const { width, height } = Dimensions.get('window');
 
 type RootStackParamList = {
-  Home: { stateof?: 'Attention' | 'Keyboard' | string };
+  Home: {
+    stateof?: 'Attention' | 'Keyboard' | string;
+    wakewordPaused?: boolean;
+    recordingPermissionsReady?: boolean;
+  };
 };
 
 type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
@@ -45,11 +59,26 @@ interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
 const DEBUGWITHOUTTRANSCRIPTION = false;
+const STT_DEBUG = false;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
 const DEBUGTRANSCRIPTION = 'How was your practice today?';
 
+const sttTrace = (...args: unknown[]) => {
+  if (STT_DEBUG) {
+    console.log(...args);
+  }
+};
+
+const sttWarn = (...args: unknown[]) => {
+  if (STT_DEBUG) {
+    console.warn(...args);
+  }
+};
+
 const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
+  const { width: viewportWidth, height: viewportHeight } =
+    useWindowDimensions();
   const {
     generateAnswers,
     conversationHistory,
@@ -58,11 +87,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   } = useAssistant();
   const { weather, location } = useChatContext();
   const { isTablet } = useAdmin();
+  const shortSide = Math.min(viewportWidth, viewportHeight);
+  const recordingContainerSize = Math.min(
+    shortSide * (isTablet ? 0.5 : 0.72),
+    isTablet ? 420 : 280,
+  );
   const insets = useSafeAreaInsets();
   const { getItem, preferences } = useAppSettings();
   const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
   const stateof = route?.params?.stateof ?? '';
+  const wakewordPaused = route?.params?.wakewordPaused === true;
+  const recordingPermissionsReady =
+    route?.params?.recordingPermissionsReady === true;
   const [isRecording, setIsRecording] = useState(false);
+  const recordingGlowAnim = useRef(new Animated.Value(0)).current;
+  const recordingGlowLoop = useRef<Animated.CompositeAnimation | null>(null);
 
   // Function to resolve pepes images for answer words
   const resolvePepesImage = async (word: string, fallbackUrl: string = '') => {
@@ -113,7 +152,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
   };
 
-
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [gobackAfterSelection, setGobackAfterSelection] = useState(true);
@@ -144,7 +182,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       : { width: 35, height: 35 },
     fetchingSize: isTablet
       ? { width: 200, height: 200 }
-      : { width: 150, height: 150 },
+      : {
+        width: Math.min(shortSide * 0.32, 120),
+        height: Math.min(shortSide * 0.32, 120),
+      },
     matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
 
     // Layout dimensions
@@ -162,8 +203,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       ? { width: width * 0.3, height: width * 0.3 }
       : { width: width * 0.25, height: width * 0.25 },
     recordingIconSize: isTablet
-      ? { width: width * 0.4, height: width * 0.4 }
-      : { width: width * 0.35, height: width * 0.2 },
+      ? { width: shortSide * 0.4, height: shortSide * 0.4 }
+      : {
+        width: Math.min(shortSide * 0.46, 170),
+        height: Math.min(shortSide * 0.28, 104),
+      },
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -239,15 +283,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const lastSoundTimeRef = useRef<number>(Date.now());
   const navigation = useNavigation();
   const recordingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const partialResultsTimer = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
-  const lastPartialUpdateTime = useRef<number | null>(null);
-  const lastPartialResult = useRef<string>('');
-  const recordingStartTime = useRef<number | null>(null);
-  const silenceDetectionTimer = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const [voiceResults, setVoiceResults] = useState<string[]>([]);
+  const [partialResult, setPartialResult] = useState<string>('');
+  const voiceResultsRef = useRef<string[]>([]);
+  const partialResultRef = useRef<string>('');
+  const lastPartialUpdateTimeRef = useRef<number>(Date.now());
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const SILENCE_TIMEOUT = 1500;
+  // Timestamp (ms) when the current STT recording session started.
+  // Used to drop wakeword-echo partials that arrive in the first ~400 ms.
+  const sessionStartTimeRef = useRef<number>(0);
+  const WAKEWORD_ECHO_GRACE_MS = 400; // drop early partials that are only the wakeword
+  const WAKEWORD_PHRASES = ['hey verbi,', 'hey verby,', 'hey verbose,', 'hey baby,', 'hey verbi', 'hey verby', 'hey verbose', 'hey baby', 'more baby', 'more baby,']; // normalised variants
+  const isRecordingRef = useRef(false);
+  const isNavigatingToOpenRef = useRef(false);
+  // Separate guard that is true from the moment handleRecord is called until
+  // startSpeechRecognition either resolves or throws.  Prevents the
+  // onSpeechError handler from treating startup-phase errors (e.g. the
+  // DaVoice.cancel() call inside startSpeechRecognition) as live-session
+  // errors and resetting isRecordingRef prematurely.
+  const isStartingRef = useRef(false);
   const [showImages, setShowImages] = useState(false);
   const [finishedTranscribing, setFinishedTranscribing] = useState(false);
   const [transcribedText, setTranscribedText] = useState('');
@@ -257,8 +312,66 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [modelNotAvailable, setModelNotAvailable] = useState(false);
   const MAX_RETRIES = 3;
 
+  useEffect(() => {
+    sttTrace(
+      `[STT TRACE][Home state] isRecording=${isRecording} isTranscribing=${isTranscribing} finished=${finishedTranscribing} partial="${partialResult}" transcribed="${transcribedText}"`,
+    );
+  }, [
+    finishedTranscribing,
+    isRecording,
+    isTranscribing,
+    partialResult,
+    transcribedText,
+  ]);
+
+  const startRecordingGlow = useCallback(() => {
+    recordingGlowLoop.current?.stop();
+    recordingGlowAnim.setValue(0);
+    recordingGlowLoop.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(recordingGlowAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(recordingGlowAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    recordingGlowLoop.current.start();
+  }, [recordingGlowAnim]);
+
+  const stopRecordingGlow = useCallback(() => {
+    recordingGlowLoop.current?.stop();
+    recordingGlowLoop.current = null;
+    Animated.timing(recordingGlowAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [recordingGlowAnim]);
+
+  useEffect(() => {
+    if (isRecording) {
+      startRecordingGlow();
+    } else {
+      stopRecordingGlow();
+    }
+
+    return () => {
+      recordingGlowLoop.current?.stop();
+    };
+  }, [isRecording, startRecordingGlow, stopRecordingGlow]);
+
   let currentRecordingURI: string | null = null;
 
+  const recordingGlowOpacity = recordingGlowAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
   // AI response timer state
   const [responseTimerStart, setResponseTimerStart] = useState<number | null>(
     null,
@@ -316,31 +429,198 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       Opened: 'Conversation',
     });
     if (stateof === 'Attention') {
-      console.log(
+      sttTrace(
         `[Home] Entering Attention state. Current answersCount: ${preferences.answersCount}`,
       );
       // wakeWord.stopListening();
       mixpanel.track('Recording Restarted', {
         source: 'attention_state',
       });
-      playSound();
+      const startRecordingTimer = setTimeout(() => {
+        playSound(wakewordPaused);
+      }, 0);
+      return () => clearTimeout(startRecordingTimer);
     }
     if (stateof === 'Keyboard') {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      wakeWordService.pauseDetection(false).catch(() => { });
     }
-  }, [stateof]); // Dependency on stateof ensures this runs when coming from Open.tsx
+  }, [stateof, wakewordPaused, recordingPermissionsReady]); // Dependency on stateof ensures this runs when coming from Open.tsx
 
-  // Cleanup useEffect for wake word service and Whisper
+  useEffect(() => {
+    // Clear any previous wakeword callback to prevent accidental triggers from Open.tsx
+    try {
+      const wakeWordService = WakeWordService.getInstance();
+      wakeWordService.setCallback(() => { });
+    } catch (error) {
+      sttWarn('[Home] Error clearing wakeword callback on mount:', error);
+    }
+
+    sttTrace('[STT TRACE][Home] subscribing to speech events');
+    const unsubscribe = subscribeToSpeechEvents(
+      {
+        onSpeechStart: (event: any) => {
+          sttTrace(
+            '[STT TRACE][Home] onSpeechStart',
+            JSON.stringify(event),
+            `isRecordingRef=${isRecordingRef.current}`,
+          );
+        },
+        onSpeechEnd: (event: any) => {
+          sttTrace(
+            '[STT TRACE][Home] onSpeechEnd',
+            JSON.stringify(event),
+            `partialRef="${partialResultRef.current}"`,
+            `resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
+          );
+        },
+        onSpeechError: (e: any) => {
+          // Suppress 'already_started' noise while a session is live.
+          if (e?.error?.code === 'already_started' && isRecordingRef.current) {
+            sttTrace(
+              '[STT TRACE][Home] already_started ignored while recording',
+            );
+            return;
+          }
+          // Suppress ALL errors that fire during the startup phase (e.g. the
+          // DaVoice.cancel() call inside startSpeechRecognition that clears any
+          // stale session).  Treating those as live-recording errors would reset
+          // isRecordingRef before the session is open, silently dropping every
+          // subsequent speech event.
+          if (isStartingRef.current) {
+            console.warn(
+              '[STT TRACE][Home] onSpeechError during startup phase – suppressed',
+              JSON.stringify(e),
+            );
+            return;
+          }
+          console.error(
+            '[STT TRACE][Home] onSpeechError',
+            JSON.stringify(e),
+            `isRecordingRef=${isRecordingRef.current}`,
+          );
+          setIsRecording(false);
+          isRecordingRef.current = false;
+        },
+        onSpeechResults: (event: any) => {
+          sttTrace(
+            '[STT TRACE][Home] onSpeechResults raw=',
+            JSON.stringify(event),
+            `isRecordingRef=${isRecordingRef.current}`,
+          );
+          if (!isRecordingRef.current) {
+            sttTrace('[STT TRACE][Home] final result ignored: not recording');
+            return;
+          }
+          if (event.value && event.value.length > 0) {
+            setVoiceResults(event.value); // store full array, not just first string
+            voiceResultsRef.current = event.value;
+            sttTrace(
+              '[STT TRACE][Home] final results stored',
+              JSON.stringify(voiceResultsRef.current),
+            );
+          } else {
+            sttWarn('[STT TRACE][Home] final result event had no value');
+          }
+        },
+        onSpeechPartialResults: (event: any) => {
+          sttTrace(
+            '[STT TRACE][Home] onSpeechPartialResults raw=',
+            JSON.stringify(event),
+            `isRecordingRef=${isRecordingRef.current}`,
+          );
+          if (!isRecordingRef.current) {
+            sttTrace('[STT TRACE][Home] partial ignored: not recording');
+            return;
+          }
+          let partialText = '';
+          if (event.value && event.value.length > 0) {
+            partialText = event.value[0];
+          }
+          if (partialText) {
+            // Drop wakeword-echo partials: if we are within the startup grace
+            // window and the partial is solely the wakeword phrase, it is
+            // audio-buffer bleed-through from the trigger utterance — not real
+            // user speech. Discard it so the input box stays empty.
+            const msSinceStart = Date.now() - sessionStartTimeRef.current;
+            const normalised = partialText.trim().toLowerCase();
+            const isWakewordEcho =
+              msSinceStart < WAKEWORD_ECHO_GRACE_MS &&
+              WAKEWORD_PHRASES.some(ww => {
+                const wwLower = ww.toLowerCase();
+                return (
+                  normalised === wwLower ||
+                  normalised.startsWith(wwLower + ' ') ||
+                  normalised.endsWith(' ' + wwLower)
+                );
+              });
+            if (isWakewordEcho) {
+              sttTrace(
+                `[STT TRACE][Home] partial dropped (wakeword echo, ${msSinceStart}ms into session): "${partialText}"`,
+              );
+              return;
+            }
+            sttTrace(
+              `[STT TRACE][Home] partial extracted="${partialText}" inputRef=${!!inputsRef.current}`,
+            );
+            setPartialResult(partialText);
+            partialResultRef.current = partialText;
+            sttTrace(
+              `[STT TRACE][Home] partial stored ref="${partialResultRef.current}"`,
+            );
+            if (inputsRef.current) {
+              inputsRef.current.setInput(partialText);
+              sttTrace('[STT TRACE][Home] partial pushed to Inputs ref');
+            } else {
+              sttWarn('[STT TRACE][Home] Inputs ref unavailable');
+            }
+            lastPartialUpdateTimeRef.current = Date.now();
+            if (silenceTimerRef.current) {
+              clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = null;
+            }
+            silenceTimerRef.current = setTimeout(async () => {
+              sttTrace(
+                `[STT TRACE][Home] silence timer fired partialRef="${partialResultRef.current}"`,
+              );
+              if (partialResultRef.current.trim().length > 0) {
+                await stopRecording();
+              }
+            }, SILENCE_TIMEOUT);
+            sttTrace(
+              `[STT TRACE][Home] silence timer armed ms=${SILENCE_TIMEOUT}`,
+            );
+          } else {
+            sttWarn('[STT TRACE][Home] partial event contained empty text');
+          }
+        },
+        onSpeechVolumeChanged: (event: any) => {
+          const value = Number(event?.value);
+          if (Number.isFinite(value)) {
+            metering.current = value;
+          }
+        },
+      },
+      { key: 'Home.ios' },
+    );
+
+    return () => {
+      sttTrace('[STT TRACE][Home] unsubscribing from speech events');
+      unsubscribe();
+      stopSpeechRecognition().catch(() => { });
+    };
+  }, []);
+
+  // Cleanup useEffect for wake word service and Voice timers
   useEffect(() => {
     return () => {
-      // Always cleanup wake word service
-      const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      if (!isNavigatingToOpenRef.current) {
+        const wakeWordService = WakeWordService.getInstance();
+        wakeWordService.pauseDetection(false).catch(() => { });
+      }
 
       // Only cleanup Whisper service when component actually unmounts
       // Don't destroy it when just waiting for next conversation
-      WhisperService.destroy().catch(error => { });
 
       // Cleanup response timer
       if (responseTimerRef.current) {
@@ -348,16 +628,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         responseTimerRef.current = null;
       }
 
-      // Cleanup partial results timer
-      if (partialResultsTimer.current) {
-        clearInterval(partialResultsTimer.current);
-        partialResultsTimer.current = null;
-      }
-
-      // Cleanup silence detection timer
-      if (silenceDetectionTimer.current) {
-        clearTimeout(silenceDetectionTimer.current);
-        silenceDetectionTimer.current = null;
+      // Cleanup silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
 
       // Cleanup recording timer
@@ -368,488 +642,315 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     };
   }, []);
 
-  const playSound = async () => {
+  const playSound = async (skipWakewordPause: boolean = false) => {
     // COMMENTED OUT FOR TESTING
     // playAttention();
-    handleRecord();
+    sttTrace('[STT TRACE][Home] playSound -> handleRecord');
+    handleRecord(skipWakewordPause);
   };
   // put this near your module top:
 
-  const handleRecord = async () => {
-    if (isRecording) return;
+  const handleRecord = async (skipWakewordPause: boolean = false) => {
+    sttTrace(
+      `[STT TRACE][Home] handleRecord called isRecordingRef=${isRecordingRef.current} isStartingRef=${isStartingRef.current}`,
+    );
+    // Use isStartingRef as the re-entry guard during the async startup phase
+    // so that onSpeechError can safely reset isRecordingRef without
+    // accidentally blocking a future handleRecord call.
+    if (isRecordingRef.current || isStartingRef.current) {
+      sttWarn(
+        '[STT TRACE][Home] handleRecord ignored: already recording or starting',
+      );
+      return;
+    }
+    isStartingRef.current = true; // ← startup-phase guard only
+    sttTrace('[STT TRACE][Home] startup lock acquired');
 
-    // Track microphone press
     mixpanel.track('Microphone Pressed');
 
     try {
-      // Check and request microphone permission
-      const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
-
-      if (micPermission === RESULTS.DENIED) {
-        const result = await request(PERMISSIONS.IOS.MICROPHONE);
-        if (result !== RESULTS.GRANTED) {
-          mixpanel.track('Error', {
-            error_type: 'microphone_permission_denied',
-            error_message: 'Microphone permission denied by user',
-          });
+      if (!recordingPermissionsReady) {
+        const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
+        sttTrace(`[STT TRACE][Home] microphone permission=${micPermission}`);
+        if (micPermission === RESULTS.DENIED) {
+          const result = await request(PERMISSIONS.IOS.MICROPHONE);
+          sttTrace(
+            `[STT PERMISSIONS][Home] microphone request result=${result}`,
+          );
+          if (result !== RESULTS.GRANTED) {
+            setFinishedTranscribing(true);
+            setTranscribedText('Microphone permission is required');
+            TTSService.speak(
+              'Please allow microphone access in Settings',
+              true,
+            );
+            isRecordingRef.current = false;
+            isStartingRef.current = false;
+            return;
+          }
+        } else if (micPermission === RESULTS.BLOCKED) {
           setFinishedTranscribing(true);
-          setTranscribedText('Microphone permission is required');
-          TTSService.speak('Please allow microphone access in Settings', true);
+          setTranscribedText('Microphone permission is blocked');
+          TTSService.speak('Please enable microphone access in Settings', true);
+          isRecordingRef.current = false;
+          isStartingRef.current = false;
           return;
         }
-      } else if (micPermission === RESULTS.BLOCKED) {
-        mixpanel.track('Error', {
-          error_type: 'microphone_permission_blocked',
-          error_message: 'Microphone permission blocked',
-        });
-        setFinishedTranscribing(true);
-        setTranscribedText('Microphone permission is blocked');
-        TTSService.speak('Please enable microphone access in Settings', true);
-        return;
-      }
 
-      // Kill any audio that might hold the session
-      try {
-        await TTSService.stop?.();
-      } catch { }
-      try {
-        const w = WakeWordService.getInstance();
-        w.stopListening();
-      } catch { }
-
-      // Prepare audio session for Whisper (after stopping wakeword)
-      await AudioSessionManager.prepareForWhisper();
-
-      // Add a small delay to ensure audio session is released
-      await new Promise<void>(resolve => setTimeout(resolve, 200));
-
-      // Start real-time transcription with WhisperService
-
-      const started = await WhisperService.startRealTimeTranscription();
-
-      if (!started) {
-        mixpanel.track('Error', {
-          error_type: 'whisper_start_failed',
-          error_message:
-            'WhisperService.startRealTimeTranscription returned false',
-        });
-        setFinishedTranscribing(true);
-        setTranscribedText(ISSUEMESSAGE);
-        setIsRecording(false);
-        TTSService.speak('I am having an issue, Tap Home to retry', true);
-        return;
-      }
-
-      setIsRecording(true);
-      setIsUsingLocalWhisper(true); // Real-time transcription uses local Whisper
-
-      // Reset silence detection
-      recordingStartTime.current = Date.now();
-      lastPartialUpdateTime.current = Date.now();
-      lastPartialResult.current = '';
-      if (silenceDetectionTimer.current) {
-        clearTimeout(silenceDetectionTimer.current);
-        silenceDetectionTimer.current = null;
-      }
-
-      // Start polling for partial results to display in input
-      partialResultsTimer.current = setInterval(() => {
-        const partialResult = WhisperService.getRealTimeResult();
-        if (partialResult && partialResult.trim().length > 0) {
-          // Update input field with partial result
-          if (inputsRef.current) {
-            inputsRef.current.setInput(partialResult);
-          }
-
-          // If the result changed, update the timestamp and reset silence timer
-          if (partialResult !== lastPartialResult.current) {
-            lastPartialUpdateTime.current = Date.now();
-            lastPartialResult.current = partialResult;
-
-            // Clear any existing silence detection timer
-            if (silenceDetectionTimer.current) {
-              clearTimeout(silenceDetectionTimer.current);
-              silenceDetectionTimer.current = null;
-            }
-
-            // Set a new timer: if no update for 2 seconds, auto-stop
-            silenceDetectionTimer.current = setTimeout(() => {
-              // Double-check: if still no change after 2 seconds, stop recording
-              const currentResult = WhisperService.getRealTimeResult();
-              const timeSinceRecordingStart = recordingStartTime.current
-                ? Date.now() - recordingStartTime.current
-                : 0;
-
-              // Only auto-stop if:
-              // 1. We have text
-              // 2. The text hasn't changed (still silence)
-              // 3. We've been recording for at least 1 second (safety check)
-              if (
-                currentResult === lastPartialResult.current &&
-                currentResult.trim().length > 0 &&
-                timeSinceRecordingStart >= 1000
-              ) {
-                stopRecording();
-              }
-            }, 2000);
-          }
-        } else if (lastPartialResult.current.trim().length > 0) {
-          // If we had text before but now it's empty, still track silence
-          // This handles edge cases where transcription might clear temporarily
-          if (!silenceDetectionTimer.current) {
-            silenceDetectionTimer.current = setTimeout(() => {
-              const currentResult = WhisperService.getRealTimeResult();
-              const timeSinceRecordingStart = recordingStartTime.current
-                ? Date.now() - recordingStartTime.current
-                : 0;
-
-              if (
-                currentResult.trim().length > 0 &&
-                timeSinceRecordingStart >= 1000
-              ) {
-                stopRecording();
-              }
-            }, 2000);
-          }
+        const hasSpeechPermission =
+          await Voice.hasIOSSpeechRecognitionPermissions();
+        sttTrace(
+          `[STT TRACE][Home] speech permission existing=${hasSpeechPermission}`,
+        );
+        const speechGranted = hasSpeechPermission
+          ? true
+          : await Voice.requestIOSSpeechRecognitionPermissions(10000);
+        sttTrace(
+          `[STT PERMISSIONS][Home] DaVoice speech recognition granted=${String(
+            speechGranted,
+          )}`,
+        );
+        if (!speechGranted) {
+          setFinishedTranscribing(true);
+          setTranscribedText('Speech recognition permission is required');
+          TTSService.speak(
+            'Please allow speech recognition access in Settings',
+            true,
+          );
+          isRecordingRef.current = false;
+          isStartingRef.current = false;
+          return;
         }
-      }, 500); // Poll every 500ms for smooth updates
-
-      // Auto-stop after 8 seconds (real-time will handle up to 300 seconds based on config)
-      recordingTimer.current = setTimeout(stopRecording, 8000);
-    } catch (error) {
-      // Clear partial results polling timer on error
-      if (partialResultsTimer.current) {
-        clearInterval(partialResultsTimer.current);
-        partialResultsTimer.current = null;
+        await logSpeechDiagnostics('home-permissions-complete');
       }
 
-      mixpanel.track('Error', {
-        error_type: 'handle_record_error',
-        error_message: error instanceof Error ? error.message : String(error),
-      });
+      if (!skipWakewordPause) {
+        try {
+          const w = WakeWordService.getInstance();
+          sttTrace('[STT TRACE][Home] wakeword pause begin');
+          // pauseDetection releases the mic but keeps the native instance alive —
+          // no re-init cost when WakeWord resumes on return to Open.tsx.
+          await w.pauseDetection(false);
+          sttTrace('[STT TRACE][Home] wakeword paused (mic released)');
+        } catch (error) {
+          sttWarn('[STT TRACE][Home] wakeword pause failed:', error);
+        }
+      }
+
+      lastSoundTimeRef.current = 0;
+      metering.current = -100;
+
+      setVoiceResults([]);
+      setPartialResult('');
+      voiceResultsRef.current = [];
+      partialResultRef.current = '';
+      sttTrace('[STT TRACE][Home] transcript state and refs cleared');
+      lastPartialUpdateTimeRef.current = Date.now();
+      sessionStartTimeRef.current = Date.now(); // mark session start for wakeword-echo filter
+
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      sttTrace('[STT TRACE][Home] STT session start requested');
+      setIsUsingLocalWhisper(true);
+      await startSpeechRecognition('en-US');
+      // startSpeechRecognition resolved — the native session is now live.
+      // Only NOW arm isRecordingRef so the event handlers accept incoming
+      // speech events, and clear the startup guard.
+      isRecordingRef.current = true;
+      isStartingRef.current = false;
+      sttTrace('[STT TRACE][Home] STT session start resolved');
+      setIsRecording(true);
+      sttTrace(
+        `[STT TRACE][Home] recording UI enabled isRecordingRef=${isRecordingRef.current}`,
+      );
+
+      recordingTimer.current = setTimeout(async () => {
+        sttTrace('[STT TRACE][Home] 20s recording timer fired');
+        await stopRecording();
+      }, 20000);
+      sttTrace('[STT TRACE][Home] 20s recording timer armed');
+    } catch (error) {
+      console.error('[STT TRACE][Home] handleRecord failed:', error);
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
-      setIsRecording(false);
       TTSService.speak('I am having an issue, Tap Home to retry', true);
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      isStartingRef.current = false; // always clear startup guard on failure
     }
   };
 
   const stopRecording = async () => {
+    sttTrace(
+      `[STT TRACE][Home] stopRecording called partialRef="${partialResultRef.current
+      }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
+    );
     try {
       if (recordingTimer.current) {
         clearTimeout(recordingTimer.current);
         recordingTimer.current = null;
       }
-
-      // Clear silence detection timer
-      if (silenceDetectionTimer.current) {
-        clearTimeout(silenceDetectionTimer.current);
-        silenceDetectionTimer.current = null;
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
 
-      // Clear partial results polling timer
-      if (partialResultsTimer.current) {
-        clearInterval(partialResultsTimer.current);
-        partialResultsTimer.current = null;
-      }
-
-      // Reset recording start time
-      recordingStartTime.current = null;
-
+      sttTrace('[STT TRACE][Home] stopSpeechRecognition begin');
+      await stopSpeechRecognition();
+      sttTrace('[STT TRACE][Home] stopSpeechRecognition resolved');
       setIsRecording(false);
-      setIsTranscribing(true);
+      isRecordingRef.current = false;
 
-      // Stop real-time transcription and get the result
-      const transcribedText = await WhisperService.stopRealTimeTranscription();
-
-      if (!transcribedText || transcribedText.trim().length === 0) {
-        mixpanel.track('Error', {
-          error_type: 'empty_transcription',
-          error_message: 'No transcription result from WhisperService',
-        });
-        setFinishedTranscribing(true);
-        setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-        setIsTranscribing(false);
-        // Prepare for TTS before speaking
-        await AudioSessionManager.prepareForTTS();
-        TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-        return;
-      }
-
-      // Prepare audio session for TTS (after stopping Whisper)
-      await AudioSessionManager.prepareForTTS();
-
-      // Process the transcription result directly
-      await processTranscriptionResult(transcribedText.trim());
-    } catch (e) {
-      mixpanel.track('Error', {
-        error_type: 'stop_recording_error',
-        error_message: e instanceof Error ? e.message : String(e),
-      });
+      setTimeout(() => {
+        sttTrace('[STT TRACE][Home] processVoiceResults timer fired');
+        processVoiceResults();
+      }, 300);
+    } catch (error) {
+      console.error('[STT TRACE][Home] stopRecording failed:', error);
       setIsRecording(false);
+      isRecordingRef.current = false;
       setIsTranscribing(false);
-      setTranscribedText(ISSUEMESSAGE);
       setFinishedTranscribing(true);
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
+      setTranscribedText(ISSUEMESSAGE);
     }
   };
 
-  // Process transcription result (extracted from transcribeAudio for reuse)
-  const processTranscriptionResult = async (transcribedText: string) => {
+  const processVoiceResults = async () => {
+    sttTrace(
+      `[STT TRACE][Home] processVoiceResults begin partialRef="${partialResultRef.current
+      }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
+    );
     try {
-      // Filter out common false positives from Whisper
-      const falsePositives = [
-        'Thank you for watching!',
-        'Thank you for watching.',
-        'Thanks for watching!',
-        'Thanks for watching.',
-        'Thank you.',
-        '. .',
-        '.',
-      ];
+      const currentVoiceResults = voiceResultsRef.current;
+      const currentPartialResult = partialResultRef.current;
+
+      let transcribedText = '';
+      if (currentVoiceResults.length > 0) {
+        transcribedText = currentVoiceResults[0].trim();
+        sttTrace(
+          `[STT TRACE][Home] selected final result="${transcribedText}"`,
+        );
+      } else if (currentPartialResult.trim().length > 0) {
+        transcribedText = currentPartialResult.trim();
+        sttTrace(
+          `[STT TRACE][Home] selected partial fallback="${transcribedText}"`,
+        );
+      } else {
+        sttWarn('[STT TRACE][Home] no final or partial text available');
+      }
+
+      // Strip a leading wakeword if the entire transcription is just the
+      // wakeword echo (audio bleed-through from the trigger utterance).
+      // Only strip when the result is *solely* the wakeword, so we don't
+      // accidentally remove a wakeword intentionally spoken as content.
+      const normalisedResult = transcribedText.toLowerCase();
+      const isJustWakeword = WAKEWORD_PHRASES.some(
+        ww => normalisedResult === ww.toLowerCase(),
+      );
+      if (isJustWakeword) {
+        sttTrace(
+          `[STT TRACE][Home] final result is only wakeword echo — treating as empty`,
+        );
+        transcribedText = '';
+      }
 
       if (
         transcribedText.length === 0 ||
-        falsePositives.includes(transcribedText)
+        transcribedText === 'Thank you for watching!' ||
+        transcribedText === 'Thank you for watching.' ||
+        transcribedText === 'Thanks for watching!' ||
+        transcribedText === 'Thanks for watching.' ||
+        transcribedText === '. .' ||
+        transcribedText === '.'
       ) {
-        mixpanel.track('Error', {
-          error_type: 'invalid_transcription',
-          error_message: 'Empty transcription or false positive detected',
-        });
         setFinishedTranscribing(true);
         setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-        setIsTranscribing(false);
         TTSService.speak("I couldn't hear you. Tap Home to retry", true);
+        setIsTranscribing(false);
         return;
       }
 
-      // Valid transcription - process it
-      mixpanel.track('Question Asked');
-      setFinishedTranscribing(true);
-      setTranscribedText(transcribedText);
-      setIsProcessingAnswer(true);
-      setIsTranscribing(false);
-
-      // Set the transcribed text in the top input
-      if (inputsRef.current) {
-        inputsRef.current.setInput(transcribedText);
-      }
-
-      // Get cached context info
-      const contextInfo = getCachedContextInfo();
-      const corePrompt = `User asked: "${transcribedText}"`;
-      const contextPrompt = `Context: ${contextInfo}`;
-      const messageWithContext = `${corePrompt}. ${contextPrompt}`;
-
-      const currentAnswersCount = parseInt(preferences.answersCount) || 5;
-      console.log(
-        `[Home] Requesting AI answers. Count: ${currentAnswersCount} (from preference: "${preferences.answersCount}")`,
-      );
-      const answers = await generateAnswers(transcribedText, {
-        mode: 'generate_answers',
-        metadata: {
-          contextInfo: contextInfo, // Weather, time, and location context
-        },
-        number: currentAnswersCount,
-        countMin: currentAnswersCount,
-        countMax: currentAnswersCount,
-      });
-
-      if (answers && answers.length > 0) {
-        // Process answers to resolve pepes images
-        const processedAnswers = await Promise.all(
-          answers.map(async answer => {
-            const pepesImageUrl = await resolvePepesImage(
-              answer.word,
-              answer.imageUrl,
-            );
-            return {
-              ...answer,
-              imageUrl: pepesImageUrl || answer.imageUrl,
-            };
-          }),
+      if (transcribedText.length > 0) {
+        sttTrace(
+          `[STT TRACE][Home] committing transcribedText to UI="${transcribedText}"`,
         );
-
-        setDirectAnswers(processedAnswers);
-        const answerWords = processedAnswers.map(answer => answer.word);
-        setAccumulatedPriors(answerWords);
-        setIsProcessingAnswer(false);
-        setShowImages(true);
-        startResponseTimer();
-
-        // Initialize AI Resolved record for Round 1
-        setCurrentAIRecord({
-          question: transcribedText,
-          round1Answers: answerWords,
-          currentRound: 1,
-        });
-
-        // Add to conversation history with "Suggested" prefix
-        const assistantResponse = `Suggested: ${processedAnswers
-          .map(answer => answer.word)
-          .join(', ')}`;
-        addToConversationHistory(transcribedText, assistantResponse);
-      } else {
-        mixpanel.track('Error', {
-          error_type: 'no_answers_generated',
-          error_message: 'generateAnswers returned empty array',
-        });
-        setIsProcessingAnswer(false);
-        TTSService.speak('I am having an issue, Tap Home to retry', true);
-      }
-    } catch (error) {
-      mixpanel.track('Error', {
-        error_type: 'process_transcription_error',
-        error_message: error instanceof Error ? error.message : String(error),
-      });
-      setIsProcessingAnswer(false);
-      setIsTranscribing(false);
-      TTSService.speak(
-        'Failed to process your request. Please try again.',
-        true,
-      );
-    }
-  };
-
-  // Local Whisper transcription - no fallback to cloud
-  const transcribeAudioWithWhisper = async (audioPath: string) => {
-    const audioUri = audioPath.replace('file://', '');
-
-    try {
-      setIsUsingLocalWhisper(true);
-      const whisperResult = await WhisperService.transcribeAudio(audioUri);
-
-      if (whisperResult.success && whisperResult.text.trim().length > 0) {
-        return { text: whisperResult.text.trim(), isLocal: true };
-      } else {
-        // No fallback to cloud - throw error if local fails
-        setIsUsingLocalWhisper(false);
-        throw new Error(
-          whisperResult.error || 'Local Whisper transcription failed',
-        );
-      }
-    } catch (error) {
-      setIsUsingLocalWhisper(false);
-      throw error;
-    }
-  };
-  // Cloud-based transcription (original method)
-  const transcribeAudioCloud = async (audioPath: string) => {
-    if (!audioPath) {
-      setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
-      setIsRecording(false);
-      return;
-    }
-
-    const formData = new FormData();
-    // Fix the file URI handling - ensure proper format for React Native FormData
-    let audioUri = audioPath;
-
-    // For Android, ensure the URI starts with 'file://' for FormData
-    if (Platform.OS === 'android') {
-      // Add file:// prefix for Android FormData
-      audioUri = `file://${audioPath}`;
-    } else {
-      // For iOS, the path should be used as-is from the recorder
-      audioUri = audioPath.replace('file://', '');
-    }
-
-    const fileObj =
-      Platform.OS === 'android'
-        ? {
-          uri: audioUri,
-          type: 'audio/mp3',
-          name: 'sound.mp3',
-          filename: 'sound.mp3', // Add filename for Android
-        }
-        : {
-          uri: audioUri,
-          type: 'audio/x-m4a',
-          name: 'recording.m4a',
-        };
-
-    formData.append('file', fileObj);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'en');
-
-    try {
-      const response = await fetchHelper(
-        'transcribeAudio',
-        {},
-        formData,
-      );
-      return response;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const transcribeAudio = async (audioPath: string) => {
-    setIsTranscribing(true);
-    // Always use local Whisper - cloud disabled
-    setIsUsingLocalWhisper(true);
-
-    if (!audioPath) {
-      setFinishedTranscribing(true);
-      setTranscribedText(ISSUEMESSAGE);
-      // Reset audio recording state
-
-      TTSService.speak('I am having an issue, Tap Home to retry', true);
-      setIsRecording(false);
-      setIsTranscribing(false);
-      return;
-    }
-
-    try {
-      let transcribeResponse: any;
-      if (!DEBUGWITHOUTTRANSCRIPTION) {
-        try {
-          // Always use local Whisper - no cloud fallback
-          transcribeResponse = await transcribeAudioWithWhisper(audioPath);
-        } catch (whisperError) {
-          mixpanel.track('Error', {
-            error_type: 'whisper_transcription_error',
-            error_message:
-              whisperError instanceof Error
-                ? whisperError.message
-                : String(whisperError),
-          });
-          setFinishedTranscribing(true);
-          setTranscribedText(ISSUEMESSAGE);
-          TTSService.speak('I am having an issue, Tap Home to retry', true);
-          setIsRecording(false);
-          setIsTranscribing(false);
-          return;
-        }
-      } else {
-        transcribeResponse = { text: DEBUGTRANSCRIPTION };
-      }
-
-      if (transcribeResponse?.text) {
-        const transcribedText = transcribeResponse.text.trim();
-
-        // Use the new processTranscriptionResult function
-        await processTranscriptionResult(transcribedText);
-        setIsRecording(false);
-      } else {
         setFinishedTranscribing(true);
-        setTranscribedText(TRANSCRIPTIONERRORMESSAGE);
-        TTSService.speak("I couldn't hear you. Tap Home to retry", true);
-        setIsRecording(false);
+        setTranscribedText(transcribedText);
         setIsTranscribing(false);
+        setIsProcessingAnswer(true);
+
+        if (inputsRef.current) {
+          inputsRef.current.setInput(transcribedText);
+        }
+
+        const contextInfo = getCachedContextInfo();
+        const corePrompt = `User asked: "${transcribedText}"`;
+        const contextPrompt = `Context: ${contextInfo}`;
+        const messageWithContext = `${corePrompt}. ${contextPrompt}`;
+
+        try {
+          const currentAnswersCount =
+            parseInt(preferences.answersCount as string) || 5;
+          const answers = await generateAnswers(transcribedText, {
+            mode: 'generate_answers',
+            metadata: { contextInfo: contextInfo },
+            number: currentAnswersCount,
+            countMin: currentAnswersCount,
+            countMax: currentAnswersCount,
+          });
+
+          if (answers && answers.length > 0) {
+            const processedAnswers = await Promise.all(
+              answers.map(async (answer: any) => {
+                const pepesImageUrl = await resolvePepesImage(
+                  answer.word,
+                  answer.imageUrl,
+                );
+                return { ...answer, imageUrl: pepesImageUrl || answer.imageUrl };
+              }),
+            );
+
+            setDirectAnswers(processedAnswers);
+            const answerWords = processedAnswers.map(
+              (answer: any) => answer.word,
+            );
+            setAccumulatedPriors(answerWords);
+            setIsProcessingAnswer(false);
+            setShowImages(true);
+            startResponseTimer();
+
+            setCurrentAIRecord({
+              question: transcribedText,
+              round1Answers: answerWords,
+              currentRound: 1,
+            });
+
+            const assistantResponse = `Suggested: ${processedAnswers
+              .map((a: any) => a.word)
+              .join(', ')}`;
+            addToConversationHistory(transcribedText, assistantResponse);
+          } else {
+            setIsProcessingAnswer(false);
+            TTSService.speak('I am having an issue, Tap Home to retry', true);
+          }
+        } catch (error) {
+          setIsProcessingAnswer(false);
+          TTSService.speak(
+            'Failed to process your request. Please try again.',
+            true,
+          );
+        }
       }
+
+      setIsTranscribing(false);
     } catch (error) {
-      mixpanel.track('Error', {
-        error_type: 'transcribe_audio_error',
-        error_message: error instanceof Error ? error.message : String(error),
-      });
+      console.error('[STT TRACE][Home] processVoiceResults failed:', error);
       setFinishedTranscribing(true);
       setTranscribedText(ISSUEMESSAGE);
       TTSService.speak('I am having an issue, Tap Home to retry', true);
-      setIsRecording(false);
       setIsTranscribing(false);
     }
   };
@@ -858,6 +959,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   // Reset function for local states
   const resetLocalStates = () => {
+    // Signal that we are navigating back to Open.tsx so the cleanup useEffect
+    // does not re-pause the wakeword after Open has already resumed it.
+    isNavigatingToOpenRef.current = true;
+
     // Stop response timer if running
     stopResponseTimer('home');
 
@@ -869,13 +974,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     setIsProcessingAnswer(false); // Reset processing state
     setIsTranscribing(false); // Reset transcription state
     setIsRecording(false); // Reset recording state
-    setIsRecording(false); // Reset recording state
+    isRecordingRef.current = false;
+    isStartingRef.current = false;
     setWaitingForNextConversation(false); // Reset waiting state
     setIsUsingLocalWhisper(false); // Reset transcription method indicator
     setModelNotAvailable(false); // Reset model availability indicator
     setDirectAnswers([]); // Reset direct answers
     setAccumulatedPriors([]); // Reset accumulated priors
     setCurrentAIRecord(null); // Clear AI Resolved record
+    setPartialResult('');
+    voiceResultsRef.current = [];
+    partialResultRef.current = '';
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
 
     // Clear the input in the Inputs component
     if (inputsRef.current) {
@@ -891,7 +1005,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Clean up wake word service if waiting
     if (waitingForNextConversation) {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.stopListening();
+      wakeWordService.pauseDetection(false).catch(() => { });
     }
   };
 
@@ -1045,6 +1159,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       await logWordSelection(selectedAnswer, 'Home');
       // Update history with the user's specific choice
       updateLastAssistantMessage(selectedAnswer);
+      // Personal Memory: completed Q&A answer
+      personalMemoryService.recordCompletedCommunication({
+        eventId: makeMemoryEventId(),
+        kind: 'answer',
+        text: selectedAnswer,
+        words: selectedAnswer.split(/\s+/).filter(Boolean),
+        source: 'Home',
+        occurredAt: new Date(),
+        question: currentAIRecord?.question ?? transcribedText,
+      });
     }
 
     // Update AI Resolved record with the selected answer
@@ -1086,15 +1210,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       }
     }
 
-    // Send the selected answer back for learning feedback
-    try {
-      await generateAnswers(transcribedText, {
-        mode: 'learning_feedback',
-      });
-    } catch (error) {
-      // Don't block the user flow if learning feedback fails
-    }
-
     // Only navigate back to Open if not currently retrying/getting more answers
     if (selectedAnswer !== 'MoreAnswers') {
       // Navigate to Open.tsx only if gobackAfterSelection is true
@@ -1103,6 +1218,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         setAccumulatedPriors([]);
         if (gobackAfterSelection) {
           // Wait 1 second to allow user to hear the selected answer being spoken
+          isNavigatingToOpenRef.current = true;
           resetLocalStates();
           navigation.navigate(views.OPEN as never);
         } else {
@@ -1170,7 +1286,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
         style={[
           styles.container,
           Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
-          { backgroundColor: '#FFF8E7' }
+          { backgroundColor: '#FFF8E7' },
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1187,6 +1303,21 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               mixpanel.track('Contiuing the conversation Restarted', {
                 source: 'microphone_button_home_screen',
               });
+
+              // Reset states to clear previous images/results and show recording UI
+              setShowImages(false);
+              setFinishedTranscribing(false);
+              setTranscribedText('');
+              setIsRetrying(false);
+              setRetryCount(0);
+              setIsProcessingAnswer(false);
+              setDirectAnswers([]);
+              setAccumulatedPriors([]);
+              setCurrentAIRecord(null);
+              setPartialResult('');
+              voiceResultsRef.current = [];
+              partialResultRef.current = '';
+
               setWaitingForNextConversation(false); // Exit waiting state immediately
               playSound(); // This will trigger handleRecord()
             }}>
@@ -1222,15 +1353,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               ? { height: 0, opacity: 0 }
               : {
                 height: responsiveValues.inputNavigationHeight,
-                marginTop: Math.max(insets.top, 10)
+                marginTop: Math.max(insets.top, 10),
               },
           ]}>
-          {stateof !== 'Keyboard' && (
-            <Inputs
-              ref={inputsRef}
-              mode={stateof}
-            />
-          )}
+          {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
         </View>
 
         <View style={{ flex: 1, width: '100%' }}>
@@ -1471,9 +1597,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           />
                         </TouchableOpacity>
                       </View>
-                    ) : stateof === 'Keyboard' ? (
-                      null // Keyboard mode handled by KeyboardHome view
-                    ) : isTranscribing ? (
+                    ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
                       <View style={{ alignItems: 'center' }}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
@@ -1494,7 +1618,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         </Text>
                       </View>
                     ) : isRecording ? (
-                      <View style={{ alignItems: 'center' }}>
+                      <View
+                        style={[
+                          styles.recordingContainer,
+                          {
+                            width: recordingContainerSize,
+                            height: recordingContainerSize,
+                            marginTop: Math.min(viewportHeight * 0.08, 48),
+                          },
+                        ]}>
                         <FastImage
                           source={require('../assets/movie/recording.gif')}
                           style={responsiveValues.recordingIconSize}
@@ -1508,8 +1640,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           style={{
                             fontSize: responsiveValues.transcriptionFontSize,
                             fontWeight: 'bold',
-                            color: '#FF0000',
-                            marginTop: 10,
+                            color: '#8A2BE2',
+                            marginTop: 18,
                           }}>
                           Recording...
                         </Text>
@@ -1623,6 +1755,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                 </>
               )}
             </View>
+            {isRecording && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.recordingScreenGlow,
+                  {
+                    opacity: recordingGlowOpacity,
+                  },
+                ]}
+              />
+            )}
           </View>
         </View>
       </View>
@@ -1642,17 +1785,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recordingContainer: {
-    width: height * 0.4,
-    height: height * 0.4,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    borderRadius: height * 0.2,
-    backgroundColor: 'rgba(255,0,0,0.1)',
-    borderWidth: 2,
-    borderColor: '#ff0000',
-    marginTop: height * 0.2,
     zIndex: 10,
+  },
+  recordingScreenGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 5,
+    backgroundColor: '#CE93D8',
+    shadowColor: '#8E24AA',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    zIndex: 999,
   },
   playButton: {
     width: 80,
