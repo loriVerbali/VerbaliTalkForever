@@ -62,6 +62,36 @@ PODS:
     - onnxruntime-objc/Core (= 1.20.0)
   - onnxruntime-objc/Core (1.20.0):
     - onnxruntime-c (= 1.20.0)
+  - PostHog (3.58.3)
+  - posthog-react-native-session-replay (1.6.0):
+    - boost
+    - DoubleConversion
+    - fast_float
+    - fmt
+    - glog
+    - hermes-engine
+    - PostHog (~> 3.58.1)
+    - RCT-Folly
+    - RCT-Folly/Fabric
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - SocketRocket
+    - Yoga
   - RCT-Folly (2024.11.18.00):
     - boost
     - DoubleConversion
@@ -3123,6 +3153,7 @@ DEPENDENCIES:
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - KeyWordRNBridge (from `../node_modules/react-native-wakeword`)
   - MixpanelReactNative (from `../node_modules/mixpanel-react-native`)
+  - posthog-react-native-session-replay (from `../node_modules/posthog-react-native-session-replay`)
   - RCT-Folly (from `../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
@@ -3225,6 +3256,7 @@ SPEC REPOS:
     - Mixpanel-swift
     - onnxruntime-c
     - onnxruntime-objc
+    - PostHog
     - SDWebImage
     - SDWebImageWebPCoder
     - SocketRocket
@@ -3252,6 +3284,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-wakeword"
   MixpanelReactNative:
     :path: "../node_modules/mixpanel-react-native"
+  posthog-react-native-session-replay:
+    :path: "../node_modules/posthog-react-native-session-replay"
   RCT-Folly:
     :podspec: "../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec"
   RCTDeprecation:
@@ -3454,6 +3488,8 @@ SPEC CHECKSUMS:
   MixpanelReactNative: 1f0d8718b2be7174f719ed5db8e8f75d7975dea4
   onnxruntime-c: 07cfff40dda7e1c54a4350bb2ad226c63150fce3
   onnxruntime-objc: b22c5d4517e9804e47c66f1f122ec4a6aa923f86
+  PostHog: f6da05611d29a8facb652f7e2ee8389bc3f96b67
+  posthog-react-native-session-replay: 133cc922281b93a6e1b185abc72d78ec6d01cd8e
   RCT-Folly: 846fda9475e61ec7bcbf8a3fe81edfcaeb090669
   RCTDeprecation: 22bf66112da540a7d40e536366ddd8557934fca1
   RCTRequired: a0ed4dc41b35f79fbb6d8ba320e06882a8c792cf
