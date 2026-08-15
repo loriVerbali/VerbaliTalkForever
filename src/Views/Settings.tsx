@@ -101,14 +101,13 @@ const SETTINGS_SECTIONS: SectionNavItem[] = [
       'View analytics about usage: total utterances, sentence-building speed, AI response times, and how many questions get answered.',
   },
   {
-    key: 'helpCenter',
-    label: 'Learn Center',
-    icon: '🎓',
-    color: '#fcf8e8',
-    title: 'Help and Learn Center',
-    requiresConnection: true,
+    key: 'memory',
+    label: 'Personal Memory',
+    icon: '🧠',
+    color: '#ede7f6',
+    title: 'Personal Memory',
     description:
-      'Short how-to videos covering the home screen, answering questions, starting conversations, reports, and board customization.',
+      'Controls how MaTalk learns from words and sentences chosen on this device. Review what it has learned, pause learning, or clear it.',
   },
   {
     key: 'personalize',
@@ -120,13 +119,14 @@ const SETTINGS_SECTIONS: SectionNavItem[] = [
       "Add your people, stuff, food, and places, customize the 8 words on your main screen, and pick your hero's avatar.",
   },
   {
-    key: 'memory',
-    label: 'Personal Memory',
-    icon: '🧠',
-    color: '#ede7f6',
-    title: 'Personal Memory',
+    key: 'helpCenter',
+    label: 'Learn Center',
+    icon: '🎓',
+    color: '#fcf8e8',
+    title: 'Help and Learn Center',
+    requiresConnection: true,
     description:
-      'Controls how MaTalk learns from words and sentences chosen on this device. Review what it has learned, pause learning, or clear it.',
+      'Short how-to videos covering the home screen, answering questions, starting conversations, reports, and board customization.',
   },
   {
     key: 'verbi',
@@ -357,6 +357,7 @@ const SettingsScreen: React.FC = () => {
   const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
     useState(false);
   const [showGenderInfo, setShowGenderInfo] = useState(false);
+  const [showProfileInfo, setShowProfileInfo] = useState(false);
   // Hero name state
   const [heroName, setHeroName] = useState('Name');
   const [isEditingHeroName, setIsEditingHeroName] = useState(false);
@@ -660,6 +661,11 @@ const SettingsScreen: React.FC = () => {
   const handleMemoryAiToggle = async (value: boolean) => {
     mixpanel.track('memory_ai_context_changed', { enabled: value });
     await setItem('memoryAiContextEnabled', value ? '1' : '0');
+    if (!value) {
+      // Turning uploads off must also drop anything already queued, so that
+      // turning them back on later can't retroactively send that text.
+      personalMemoryService.clearExtractionQueue().catch(() => {});
+    }
   };
 
   const refreshMemoryReviewCount = async () => {
@@ -1864,237 +1870,127 @@ const SettingsScreen: React.FC = () => {
 
               {renderBackToTop('reports')}
             </View>
-            {isConnected && (
-              <View
-                style={[styles.section, styles.sectionHelpCenter]}
-                onLayout={registerSectionPosition('helpCenter')}>
-                <Text style={styles.sectionTitle}>Help and Learn Center</Text>
-                <Text style={styles.aboutDescription}>
-                  Your help and learn center for getting started with MaTalk AI.
-                </Text>
 
-                {/* Checklist Cards Grid - Single Row Layout */}
-                <View style={styles.checklistGrid}>
-                  <View
-                    style={[
-                      styles.checklistRow,
-                      isTablet && styles.checklistRowTablet,
-                    ]}>
-                    <TouchableOpacity
-                      style={[
-                        styles.checklistCard,
-                        isTablet && styles.checklistCardTablet,
-                      ]}
-                      onPress={() => handleVideoCardPress('homescreen')}>
-                      <View style={styles.videoContainer}>
-                        <View style={styles.videoThumbnail}>
-                          <View style={styles.videoPlayTriangle} />
-                        </View>
-                        {watchedVideos.has(0) && (
-                          <View
-                            style={[
-                              styles.videoHeartOverlay,
-                              isTablet && styles.videoHeartOverlayTablet,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.videoHeartIcon,
-                                isTablet && styles.videoHeartIconTablet,
-                              ]}>
-                              ♥
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.checklistCardTitle,
-                          isTablet && styles.checklistCardTitleTablet,
-                        ]}>
-                        Home Screen
-                      </Text>
-                    </TouchableOpacity>
+            {/* ─── Personal Memory ───────────────────────────────────── */}
+            <View
+              style={[styles.section]}
+              onLayout={registerSectionPosition('memory')}>
+              <Text style={styles.sectionTitle}>Personal Memory</Text>
 
+              <TouchableOpacity
+                style={styles.memoryNavRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate(views.HERO_PROFILE)}>
+                <View style={styles.memoryNavIconCircle}>
+                  <Text style={styles.memoryNavIconText}>👤</Text>
+                </View>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <View style={styles.memoryNavTitleRow}>
+                    <Text style={styles.memoryNavTitle}>
+                      {heroName === 'Name' ? 'Hero' : heroName}'s Profile
+                    </Text>
                     <TouchableOpacity
-                      style={[
-                        styles.checklistCard,
-                        isTablet && styles.checklistCardTablet,
-                      ]}
-                      onPress={() => handleVideoCardPress('question')}>
-                      <View style={styles.videoContainer}>
-                        <View style={styles.videoThumbnail}>
-                          <View style={styles.videoPlayTriangle} />
-                        </View>
-                        {watchedVideos.has(1) && (
-                          <View
-                            style={[
-                              styles.videoHeartOverlay,
-                              isTablet && styles.videoHeartOverlayTablet,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.videoHeartIcon,
-                                isTablet && styles.videoHeartIconTablet,
-                              ]}>
-                              ♥
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.checklistCardTitle,
-                          isTablet && styles.checklistCardTitleTablet,
-                        ]}>
-                        Responding to a question
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.checklistCard,
-                        isTablet && styles.checklistCardTablet,
-                      ]}
-                      onPress={() => handleVideoCardPress('convo')}>
-                      <View style={styles.videoContainer}>
-                        <View style={styles.videoThumbnail}>
-                          <View style={styles.videoPlayTriangle} />
-                        </View>
-                        {watchedVideos.has(2) && (
-                          <View
-                            style={[
-                              styles.videoHeartOverlay,
-                              isTablet && styles.videoHeartOverlayTablet,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.videoHeartIcon,
-                                isTablet && styles.videoHeartIconTablet,
-                              ]}>
-                              ♥
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.checklistCardTitle,
-                          isTablet && styles.checklistCardTitleTablet,
-                        ]}>
-                        Start a conversation
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.checklistCard,
-                        isTablet && styles.checklistCardTablet,
-                      ]}
-                      onPress={() => handleVideoCardPress('reports')}>
-                      <View style={styles.videoContainer}>
-                        <View style={styles.videoThumbnail}>
-                          <View style={styles.videoPlayTriangle} />
-                        </View>
-                        {watchedVideos.has(3) && (
-                          <View
-                            style={[
-                              styles.videoHeartOverlay,
-                              isTablet && styles.videoHeartOverlayTablet,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.videoHeartIcon,
-                                isTablet && styles.videoHeartIconTablet,
-                              ]}>
-                              ♥
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.checklistCardTitle,
-                          isTablet && styles.checklistCardTitleTablet,
-                        ]}>
-                        Reports
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.checklistCard,
-                        isTablet && styles.checklistCardTablet,
-                      ]}
-                      onPress={() => handleVideoCardPress('personalization')}>
-                      <View style={styles.videoContainer}>
-                        <View style={styles.videoThumbnail}>
-                          <View style={styles.videoPlayTriangle} />
-                        </View>
-                        {watchedVideos.has(4) && (
-                          <View
-                            style={[
-                              styles.videoHeartOverlay,
-                              isTablet && styles.videoHeartOverlayTablet,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.videoHeartIcon,
-                                isTablet && styles.videoHeartIconTablet,
-                              ]}>
-                              ♥
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.checklistCardTitle,
-                          isTablet && styles.checklistCardTitleTablet,
-                        ]}>
-                        Personalize Your Experience
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.checklistCard,
-                        isTablet && styles.checklistCardTablet,
-                      ]}
-                      onPress={() => handleVideoCardPress('boardCustomize')}>
-                      <View style={styles.videoContainer}>
-                        <View style={styles.videoThumbnail}>
-                          <View style={styles.videoPlayTriangle} />
-                        </View>
-                        {watchedVideos.has(5) && (
-                          <View
-                            style={[
-                              styles.videoHeartOverlay,
-                              isTablet && styles.videoHeartOverlayTablet,
-                            ]}>
-                            <Text
-                              style={[
-                                styles.videoHeartIcon,
-                                isTablet && styles.videoHeartIconTablet,
-                              ]}>
-                              ♥
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.checklistCardTitle,
-                          isTablet && styles.checklistCardTitleTablet,
-                        ]}>
-                        Board Customize
-                      </Text>
+                      onPress={() => {
+                        mixpanel.track('Settings Info Button Pressed', {
+                          infoType: 'Hero Profile',
+                        });
+                        setShowProfileInfo(true);
+                      }}
+                      style={styles.infoButton}>
+                      <Text style={styles.infoIcon}>i</Text>
                     </TouchableOpacity>
                   </View>
+                  <Text style={styles.aboutDescription}>
+                    What we learned about{' '}
+                    {heroName === 'Name' ? 'your hero' : heroName}
+                  </Text>
                 </View>
+                <View style={styles.memoryNavRight}>
+                  {memoryReviewCount > 0 && (
+                    <View style={styles.memoryBadge}>
+                      <Text style={styles.memoryBadgeText}>
+                        {memoryReviewCount} to review
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.memoryNavChevronCircle}>
+                    <Text style={styles.memoryNavChevron}>›</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
 
-                {renderBackToTop('helpCenter')}
+              <Text style={styles.aboutDescription}>
+                Matalk learns from the words, answers, phrases, and sentences
+                selected on this device. Personal Memory is stored locally on
+                this device. Relevant parts of Personal Memory may be sent as
+                text context during Verbi Board predictions and Q&A requests to
+                improve the quality and personalization of AI responses.
+              </Text>
+
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.settingLabel}>Personal Memory</Text>
+                  <Text style={styles.aboutDescription}>
+                    Off: no learning, no influence, no AI context. Stored data
+                    is kept.
+                  </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: '#767577', true: '#8E24AA' }}
+                  thumbColor={memoryEnabledPref ? '#fff' : '#f4f3f4'}
+                  ios_backgroundColor="#3e3e3e"
+                  onValueChange={handleMemoryToggle}
+                  value={memoryEnabledPref}
+                />
               </View>
-            )}
+
+              {memoryEnabledPref && (
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
+                    <Text style={styles.settingLabel}>Pause learning</Text>
+                    <Text style={styles.aboutDescription}>
+                      Stops new learning; existing memory keeps working.
+                    </Text>
+                  </View>
+                  <Switch
+                    trackColor={{ false: '#767577', true: '#8E24AA' }}
+                    thumbColor={memoryPausedPref ? '#fff' : '#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                    onValueChange={handleMemoryPauseToggle}
+                    value={memoryPausedPref}
+                  />
+                </View>
+              )}
+
+              <View style={styles.switchRow}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={styles.settingLabel}>
+                    Use Personal Memory to improve AI answers
+                  </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: '#767577', true: '#8E24AA' }}
+                  thumbColor={memoryAiPref ? '#fff' : '#f4f3f4'}
+                  ios_backgroundColor="#3e3e3e"
+                  onValueChange={handleMemoryAiToggle}
+                  value={memoryAiPref}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.exportButton}
+                onPress={handleClearRecentMemory}>
+                <Text style={styles.buttonText}>Clear Recent Memory</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteAccountButton}
+                onPress={handleResetPersonalMemory}>
+                <Text style={styles.logoutText}>Reset Personal Memory</Text>
+              </TouchableOpacity>
+
+              {renderBackToTop('memory')}
+            </View>
 
             <View
               style={[styles.section, styles.sectionPersonalize]}
@@ -2502,108 +2398,237 @@ const SettingsScreen: React.FC = () => {
                 />
               </View>
             </View>
+            {isConnected && (
+              <View
+                style={[styles.section, styles.sectionHelpCenter]}
+                onLayout={registerSectionPosition('helpCenter')}>
+                <Text style={styles.sectionTitle}>Help and Learn Center</Text>
+                <Text style={styles.aboutDescription}>
+                  Your help and learn center for getting started with MaTalk AI.
+                </Text>
 
-            {/* ─── Personal Memory ───────────────────────────────────── */}
-            <View
-              style={[styles.section]}
-              onLayout={registerSectionPosition('memory')}>
-              <Text style={styles.sectionTitle}>Personal Memory</Text>
-              <Text style={styles.aboutDescription}>
-                Matalk learns from the words, answers, phrases, and sentences
-                selected on this device. Personal Memory is stored locally on
-                this device. Relevant parts of Personal Memory may be sent as
-                text context during Verbi Board predictions and Q&A requests to
-                improve the quality and personalization of AI responses.
-              </Text>
-
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={styles.settingLabel}>Personal Memory</Text>
-                  <Text style={styles.aboutDescription}>
-                    Off: no learning, no influence, no AI context. Stored data
-                    is kept.
-                  </Text>
-                </View>
-                <Switch
-                  trackColor={{ false: '#767577', true: '#8E24AA' }}
-                  thumbColor={memoryEnabledPref ? '#fff' : '#f4f3f4'}
-                  ios_backgroundColor="#3e3e3e"
-                  onValueChange={handleMemoryToggle}
-                  value={memoryEnabledPref}
-                />
-              </View>
-
-              {memoryEnabledPref && (
-                <View style={styles.switchRow}>
-                  <View style={{ flex: 1, paddingRight: 10 }}>
-                    <Text style={styles.settingLabel}>Pause learning</Text>
-                    <Text style={styles.aboutDescription}>
-                      Stops new learning; existing memory keeps working.
-                    </Text>
-                  </View>
-                  <Switch
-                    trackColor={{ false: '#767577', true: '#8E24AA' }}
-                    thumbColor={memoryPausedPref ? '#fff' : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={handleMemoryPauseToggle}
-                    value={memoryPausedPref}
-                  />
-                </View>
-              )}
-
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={styles.settingLabel}>
-                    Use Personal Memory to improve AI answers
-                  </Text>
-                </View>
-                <Switch
-                  trackColor={{ false: '#767577', true: '#8E24AA' }}
-                  thumbColor={memoryAiPref ? '#fff' : '#f4f3f4'}
-                  ios_backgroundColor="#3e3e3e"
-                  onValueChange={handleMemoryAiToggle}
-                  value={memoryAiPref}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={styles.memoryNavRow}
-                onPress={() => navigation.navigate(views.HERO_PROFILE)}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={styles.settingLabel}>
-                    {heroName === 'Name' ? 'Hero' : heroName}'s Profile
-                  </Text>
-                  <Text style={styles.aboutDescription}>
-                    What we learned about{' '}
-                    {heroName === 'Name' ? 'your hero' : heroName}
-                  </Text>
-                </View>
-                <View style={styles.memoryNavRight}>
-                  {memoryReviewCount > 0 && (
-                    <View style={styles.memoryBadge}>
-                      <Text style={styles.memoryBadgeText}>
-                        {memoryReviewCount} to review
+                {/* Checklist Cards Grid - Single Row Layout */}
+                <View style={styles.checklistGrid}>
+                  <View
+                    style={[
+                      styles.checklistRow,
+                      isTablet && styles.checklistRowTablet,
+                    ]}>
+                    <TouchableOpacity
+                      style={[
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('homescreen')}>
+                      <View style={styles.videoContainer}>
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
+                        {watchedVideos.has(0) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Home Screen
                       </Text>
-                    </View>
-                  )}
-                  <Text style={styles.memoryNavChevron}>›</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('question')}>
+                      <View style={styles.videoContainer}>
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
+                        {watchedVideos.has(1) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Responding to a question
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('convo')}>
+                      <View style={styles.videoContainer}>
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
+                        {watchedVideos.has(2) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Start a conversation
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('reports')}>
+                      <View style={styles.videoContainer}>
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
+                        {watchedVideos.has(3) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Reports
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('personalization')}>
+                      <View style={styles.videoContainer}>
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
+                        {watchedVideos.has(4) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Personalize Your Experience
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.checklistCard,
+                        isTablet && styles.checklistCardTablet,
+                      ]}
+                      onPress={() => handleVideoCardPress('boardCustomize')}>
+                      <View style={styles.videoContainer}>
+                        <View style={styles.videoThumbnail}>
+                          <View style={styles.videoPlayTriangle} />
+                        </View>
+                        {watchedVideos.has(5) && (
+                          <View
+                            style={[
+                              styles.videoHeartOverlay,
+                              isTablet && styles.videoHeartOverlayTablet,
+                            ]}>
+                            <Text
+                              style={[
+                                styles.videoHeartIcon,
+                                isTablet && styles.videoHeartIconTablet,
+                              ]}>
+                              ♥
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text
+                        style={[
+                          styles.checklistCardTitle,
+                          isTablet && styles.checklistCardTitleTablet,
+                        ]}>
+                        Board Customize
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.exportButton}
-                onPress={handleClearRecentMemory}>
-                <Text style={styles.buttonText}>Clear Recent Memory</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.deleteAccountButton}
-                onPress={handleResetPersonalMemory}>
-                <Text style={styles.logoutText}>Reset Personal Memory</Text>
-              </TouchableOpacity>
-
-              {renderBackToTop('memory')}
-            </View>
+                {renderBackToTop('helpCenter')}
+              </View>
+            )}
 
             {/* ─── Verbi AI Suggestions ──────────────────────────────── */}
             <View
@@ -2805,6 +2830,20 @@ const SettingsScreen: React.FC = () => {
           }}
           title="Gender Selection"
           description="Gender selection is completely optional and is used only for personalization purposes. You don't have to choose a gender if you prefer not to. This setting helps customize your experience but is not required for the app to function."
+        />
+
+        <InfoModal
+          visible={showProfileInfo}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Hero Profile',
+            });
+            setShowProfileInfo(false);
+          }}
+          title={`${heroName === 'Name' ? 'Hero' : heroName}'s Profile`}
+          description={`This is everything MaTalk AI has learned about ${
+            heroName === 'Name' ? 'your hero' : heroName
+          } from daily use — favorite people, foods, activities, and routines. Tap the card to review what was learned: you can approve, edit, or delete any item. Items waiting for your review show up in the red badge. Everything stays on this device.`}
         />
 
         <InfoModal
@@ -3288,21 +3327,59 @@ const styles = StyleSheet.create({
   },
   memoryNavRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e8dff0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  memoryNavIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(142, 36, 170, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  memoryNavIconText: {
+    fontSize: 22,
+  },
+  memoryNavTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  memoryNavTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
   },
   memoryNavRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  memoryNavChevronCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#8E24AA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
   memoryNavChevron: {
-    fontSize: 22,
-    color: '#999',
-    marginLeft: 8,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: -2,
   },
   memoryBadge: {
     backgroundColor: '#E53935',

@@ -126,9 +126,16 @@ export const AboutTheUserContent: React.FC = () => {
 
   const handleStillTrue = handleConfirm;
 
+  // seedFromIntake() revives `inactive` intake-mirrored facts on every run —
+  // that path exists for tiles removed and later restored. A caregiver
+  // removal must stick, so mirrored facts land in `rejected` instead: never
+  // revived by seeding, and blocklisted from being re-learned by AI.
+  const removedStatus = (fact: KnowledgeItemRow): 'rejected' | 'inactive' =>
+    fact.source === 'intake' && fact.pepes_item_id ? 'rejected' : 'inactive';
+
   const handleNotAnymore = async (fact: KnowledgeItemRow) => {
     await caregiverAction(fact, {
-      status: 'inactive',
+      status: removedStatus(fact),
       review_flag: null,
     });
     // Linked favorite tile: offer to unmark the heart
@@ -232,7 +239,7 @@ export const AboutTheUserContent: React.FC = () => {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => caregiverAction(fact, {status: 'inactive'}),
+        onPress: () => caregiverAction(fact, {status: removedStatus(fact)}),
       },
     ]);
   };
