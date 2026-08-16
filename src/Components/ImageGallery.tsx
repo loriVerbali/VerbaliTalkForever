@@ -1,10 +1,8 @@
-import React from 'react';
-import { View, StyleSheet, Text, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, StyleSheet, Text, useWindowDimensions } from 'react-native';
 import ImageCard from './ImageCard';
 import { useAdmin } from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
-const { height, width } = Dimensions.get('window');
-
 interface ImageGalleryProps {
   images: Array<{ url: { url: string }; prompt: string }>;
   imageWidth?: number;
@@ -27,32 +25,31 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   answersCount = 5,
 }) => {
   const { isTablet } = useAdmin();
+  const { width, height } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(width * 0.95);
+  const [containerHeight, setContainerHeight] = useState(height * 0.7);
 
-  // ----- Rigid layout and sizing: 2 rows for 5, 7, 11 -----
-  const layout = (() => {
-    if (answersCount <= 5) {
-      return {
-        imageWidth: isTablet ? width * 0.25 : width * 0.28,
-        imageHeight: isTablet ? width * 0.20 : width * 0.22,
-        rowSize: 3,
-      };
-    } else if (answersCount <= 7) {
-      return {
-        imageWidth: isTablet ? width * 0.18 : width * 0.20,
-        imageHeight: isTablet ? width * 0.14 : width * 0.16,
-        rowSize: 4,
-      };
-    } else {
-      // 11 (3 rows of 4)
-      return {
-        imageWidth: isTablet ? width * 0.18 : width * 0.20,
-        imageHeight: isTablet ? width * 0.14 : width * 0.16,
-        rowSize: 4,
-      };
-    }
-  })();
-
-  const { imageWidth, imageHeight, rowSize } = layout;
+  // 5 and 7 answers use two rows; 11 answers uses three rows. The extra
+  // slot is the "Get more answers" card.
+  const rowSize = answersCount <= 5 ? 3 : 4;
+  const rowCount = Math.ceil((answersCount + 1) / rowSize);
+  const rowPaddingHorizontal = isTablet ? 16 : 6;
+  const cardGap = isTablet ? 14 : 8;
+  const rowMarginVertical = isTablet ? height * 0.01 : height * 0.005;
+  const labelHeightAllowance = isTablet ? 38 : 30;
+  const imageWidth =
+    (containerWidth -
+      rowPaddingHorizontal * 2 -
+      cardGap * (rowSize - 1)) /
+    rowSize;
+  const heightAvailablePerRow =
+    containerHeight / rowCount -
+    labelHeightAllowance -
+    rowMarginVertical * 2;
+  const imageHeight = Math.max(
+    1,
+    Math.min(imageWidth * 0.78, heightAvailablePerRow),
+  );
 
   // Combine images and the "More" button into a single list before chunking
   const moreItem = {
@@ -61,7 +58,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     isMoreButton: true as const,
   };
 
-  const allItems = [...images, moreItem];
+  const allItems: Array<{
+    url: { url: string };
+    prompt: string;
+    isMoreButton?: boolean;
+    isSpacer?: boolean;
+  }> = [...images, moreItem];
 
   const rows: Array<
     Array<{
@@ -82,9 +84,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   }
 
   // Responsive spacing
-  const rowMarginVertical = isTablet ? height * 0.015 : height * 0.008;
-  const rowPaddingHorizontal = isTablet ? width * 0.03 : width * 0.01;
-  const containerMinHeight = isTablet ? height * 0.4 : height * 0.35;
   const emptyContainerPadding = isTablet ? width * 0.06 : width * 0.05;
   const emptyTextFontSize = isTablet ? width * 0.045 : width * 0.04;
 
@@ -100,7 +99,18 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   }
 
   return (
-    <View style={[styles.container, { minHeight: containerMinHeight }]}>
+    <View
+      style={styles.container}
+      onLayout={event => {
+        const { width: measuredWidth, height: measuredHeight } =
+          event.nativeEvent.layout;
+        if (Math.abs(measuredWidth - containerWidth) > 1) {
+          setContainerWidth(measuredWidth);
+        }
+        if (Math.abs(measuredHeight - containerHeight) > 1) {
+          setContainerHeight(measuredHeight);
+        }
+      }}>
       {rows.map((rowImages, rowIndex) => (
         <View
           key={rowIndex}

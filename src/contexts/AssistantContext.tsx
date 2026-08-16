@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import fetchHelper from '../utils/fetcher';
 import { useAppSettings } from '../utils/persistance';
+import { personalMemoryService } from '../services/PersonalMemoryService';
 
 // New type for messages in conversation history
 interface Message {
@@ -109,6 +110,11 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       console.error('Error loading pepes for AI context:', e);
     }
 
+    // Personal Memory context (undefined when disabled/empty — key omitted)
+    const memoryContext = mode.startsWith('generate_')
+      ? await personalMemoryService.buildMemoryContext({currentText: sentence})
+      : undefined;
+
     try {
       const response = await fetchHelper(
         'generateAnswers',
@@ -123,6 +129,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
             audience: options.metadata?.audience || 'my', // Replace with actual audience
             tellUsMore: preferences.tellUsMore || '', // Add Tell Us More context
             pepes: parsedPepes, // Add People & Stuff data context
+            ...(memoryContext ? { memoryContext } : {}), // Personal Memory context
             ...(mode.startsWith('generate_') ? { conversationHistory } : {}), // Only include history in generate modes
             ...metadata,
           },

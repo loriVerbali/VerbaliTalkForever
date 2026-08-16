@@ -107,7 +107,9 @@ const validateReceiptOnLaunch = async () => {
       return null;
     }
 
-    const receipt = await getReceiptIOS({forceRefresh: true});
+    // forceRefresh: false — a forced SKReceiptRefreshRequest can prompt for
+    // App Store sign-in on launch and hold an iOS background task
+    const receipt = await getReceiptIOS({forceRefresh: false});
     if (!receipt) {
       
       return null;

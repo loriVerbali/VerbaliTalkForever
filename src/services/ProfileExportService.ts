@@ -7,6 +7,8 @@ import { Platform } from 'react-native';
 import { closeDatabase, getDatabase, initDatabase } from '../utils/database';
 // @ts-ignore
 import { sentenceBuilderSqlite } from '../utils/sentenceBuilderSqlite';
+import { personalMemoryDb } from '../utils/personalMemoryDb';
+import { personalMemoryService } from './PersonalMemoryService';
 import { initialPreferences } from '../utils/persistance';
 
 const BACKUP_FOLDER_NAME = 'matalk-profile-backup';
@@ -82,6 +84,11 @@ export const ProfileExportService = {
             } catch (e) {
                 console.warn('Failed to reopen sentence builder DB after export:', e);
             }
+            try {
+                await personalMemoryService.reopen(); // reopens personal_memory.db
+            } catch (e) {
+                console.warn('Failed to reopen personal memory DB after export:', e);
+            }
         }
     },
 
@@ -154,11 +161,21 @@ export const ProfileExportService = {
     },
 
     async _exportDatabase(destPath: string) {
-        // Close BOTH databases before copying to ensure clean file state
+        // Close ALL databases before copying to ensure clean file state
         await closeDatabase(); // matalk_metrics.db
         await sentenceBuilderSqlite.close(); // sentence_builder.db
+        try {
+            await personalMemoryDb.close(); // personal_memory.db
+            personalMemoryService.onDatabaseClosed();
+        } catch (e) {
+            console.warn('Failed to close personal memory DB before export:', e);
+        }
 
-        const dbNames = ['matalk_metrics.db', 'sentence_builder.db'];
+        const dbNames = [
+            'matalk_metrics.db',
+            'sentence_builder.db',
+            'personal_memory.db',
+        ];
 
         // react-native-sqlite-storage may place DBs in different locations depending on version/config
         // Search all possible locations to find the actual files

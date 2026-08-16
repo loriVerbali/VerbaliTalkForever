@@ -30,11 +30,11 @@ import matalkImg from '../assets/matalk.png';
 import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import ShowAndTell from '../Components/ShowAndTell';
-import WhisperDownload from '../Components/WhisperDownload';
 import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
-import WhisperModelManager from '../utils/WhisperModelManager';
+import WakeWordService from '../utils/wakewordService';
+import TTSService from '../utils/TTSService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,13 +53,13 @@ const onboardingSteps = [
     additionalComponents: 'terms-and-conditions',
     buttonText: 'Next',
   },
-
   {
     id: 'name',
     question: "What is our Hero's name?",
     additionalComponents: 'name-input',
     buttonText: 'Next',
   },
+  // Removed subscription step - this is a paid app
   {
     id: 'gender',
     question: "Choose your Hero's Avatar or Skip (optional)",
@@ -70,12 +70,6 @@ const onboardingSteps = [
     id: 'admin-code',
     question: '',
     additionalComponents: 'admin-code-input',
-    buttonText: 'Next',
-  },
-  {
-    id: 'on-device-whisper',
-    question: 'Give us a minute to setup the magic in your app',
-    additionalComponents: 'on-device-whisper',
     buttonText: 'Next',
   },
   {
@@ -120,8 +114,6 @@ const OnboardingScreen: React.FC = () => {
     'easy',
   );
   // Removed isLoggedIn state - guest sessions are always "authenticated"
-  const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
-  const [whisperModelInvoked, setWhisperModelInvoked] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
@@ -236,8 +228,13 @@ const OnboardingScreen: React.FC = () => {
       if (selectedGender) {
         await setItem('gender', selectedGender);
       }
-      if (permissionsDenied || permissionsPermanentlyDenied) {
-        setCurrentStep(currentStep + 1);
+
+      try {
+        const wakeWordService = WakeWordService.getInstance();
+        await wakeWordService.initializeAndPause();
+        await wakeWordService.resumeDetection();
+      } catch (error) {
+        console.warn('[Onboarding] WakeWord activation failed:', error);
       }
 
       // Use the context to complete onboarding
@@ -863,30 +860,21 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { fontSize: 24, fontWeight: '900', color: '#FF6B6B' },
+                        { fontSize: 24, fontWeight: '900', color: '#333' },
                       ]}>
-                      Manual Permission Required
+                      Speech Recognition Disabled
                     </Text>
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { color: '#FF6B6B' },
+                        { color: '#666' },
                       ]}>
-                      Please enable microphone manually in your device settings
-                      to continue using MaTalk AI fully or tap next and do this
-                      via the settings later
+                      Without microphone and speech recognition, voice commands and features won't be available.
+                      {"\n\n"}
+                      You can still use MaTalk AI to communicate by tapping on cards.
+                      {"\n\n"}
+                      If you change your mind later, you can enable these permissions in your device settings.
                     </Text>
-                    <TouchableOpacity
-                      style={styles.settingsButton}
-                      onPress={openSettings}>
-                      <Text
-                        style={[
-                          styles.buttonText,
-                          { fontSize: nextButtonTextFontSize },
-                        ]}>
-                        Open Settings
-                      </Text>
-                    </TouchableOpacity>
                   </>
                 )}
 
@@ -895,30 +883,16 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { color: '#FF6B6B', fontWeight: 'bold', marginTop: 20 },
+                        { color: '#8E24AA', fontWeight: 'bold', marginTop: 20 },
                       ]}>
-                      Are you sure?
+                      Speech Recognition is Limited
                     </Text>
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { color: '#FF6B6B' },
+                        { color: '#666' },
                       ]}>
-                      Without these permissions, MaTalk won't be able to:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        { color: '#FF6B6B', marginBottom: 10 },
-                      ]}>
-                      • Listen for your voice commands
-                    </Text>
-                    <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        { color: '#FF6B6B', marginBottom: 20 },
-                      ]}>
-                      • Provide the full MaTalk experience
+                      Without permission, you won't be able to use voice features like "Hey Verbi". You can still use the app by tapping on the screen.
                     </Text>
                   </>
                 )}
@@ -978,46 +952,6 @@ const OnboardingScreen: React.FC = () => {
             )}
           </View>
         );
-      case 'on-device-whisper':
-        return (
-          <View style={{ width: '100%', flex: 1 }}>
-            <WhisperDownload
-              isModelInvoked={whisperModelInvoked}
-              onComplete={async (modelName?: string) => {
-                // Track which whisper model was given to the user
-                if (modelName) {
-                  mixpanel.track('Onboarding Whisper Model Assigned', {
-                    screen_label: 'on-device-whisper',
-                    whisper_model: modelName,
-                  });
-                }
-
-                // Check if model is available after download and adjust settings accordingly
-                try {
-                  await WhisperModelManager.checkModelAvailabilityAndAdjustSettings(
-                    setItem,
-                    getItem,
-                  );
-                } catch (error) { }
-
-                // CRITICAL: Do NOT initialize WhisperService during onboarding
-                // Whisper initialization will happen in LoggedNavigation AFTER wake word is initialized
-                // This ensures wake word gets access to ONNX Runtime/CoreML resources first
-                try {
-                  await setItem('useLocalWhisper', '1');
-                  setWhisperModelInvoked(true);
-                  // Show "magic ready" message, then reveal the Next button
-                  setTimeout(() => {
-                    setWhisperDownloadComplete(true);
-                  }, 1500);
-                } catch (error) {
-                  // Still mark as complete even if there was an error
-                  setWhisperDownloadComplete(true);
-                }
-              }}
-            />
-          </View>
-        );
       default:
         return null;
     }
@@ -1046,6 +980,14 @@ const OnboardingScreen: React.FC = () => {
 
   const currentStepData = onboardingSteps[currentStep];
 
+  const initializeSpeechServices = async () => {
+    try {
+      await TTSService.initialize();
+    } catch (error) {
+      console.warn('[Onboarding] TTS/STT initialization failed:', error);
+    }
+  };
+
   const requestPermission = async () => {
     setPermissionsAttempted(true);
     if (Platform.OS === 'android') {
@@ -1071,6 +1013,7 @@ const OnboardingScreen: React.FC = () => {
             screen_label: 'Permissions',
             permission_granted: 'yes',
           });
+          await initializeSpeechServices();
           return true;
         }
 
@@ -1092,6 +1035,9 @@ const OnboardingScreen: React.FC = () => {
           screen_label: 'Permissions',
           permission_granted: granted ? 'yes' : 'no',
         });
+        if (granted) {
+          await initializeSpeechServices();
+        }
         return granted;
       } catch (err) {
         setPermissionsGranted(false);
@@ -1118,6 +1064,7 @@ const OnboardingScreen: React.FC = () => {
           screen_label: 'Permissions',
           permission_granted: 'yes',
         });
+        await initializeSpeechServices();
         return true;
       }
 
@@ -1134,6 +1081,9 @@ const OnboardingScreen: React.FC = () => {
         screen_label: 'Permissions',
         permission_granted: granted ? 'yes' : 'no',
       });
+      if (granted) {
+        await initializeSpeechServices();
+      }
       return { mic, speech };
     }
 
@@ -1144,6 +1094,7 @@ const OnboardingScreen: React.FC = () => {
       screen_label: 'Permissions',
       permission_granted: 'yes',
     });
+    await initializeSpeechServices();
     return true;
   };
 
@@ -1317,12 +1268,11 @@ const OnboardingScreen: React.FC = () => {
                 styles.button,
                 // Hide the button until step requirements are met
                 ((currentStepData.id === 'terms' && !termsAgreed) ||
-                  (currentStepData.id === 'Permissions' && !permissionsAttempted) ||
+                  (currentStepData.id === 'Permissions' &&
+                    !permissionsAttempted) ||
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
                   (currentStepData.id === 'Optional Permissions' &&
-                    !locationPermissionAttempted) ||
-                  (currentStepData.id === 'on-device-whisper' &&
-                    !whisperDownloadComplete)) &&
+                    !locationPermissionAttempted)) &&
                 styles.hiddenButton,
               ]}
               onPress={() => {
@@ -1332,17 +1282,11 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
                 (currentStepData.id === 'admin-code' &&
-                  adminCode.length !== 4) ||
-                (currentStepData.id === 'on-device-whisper' &&
-                  !whisperDownloadComplete)
+                  adminCode.length !== 4)
               }>
               <Text
                 style={[styles.buttonText, { fontSize: nextButtonTextFontSize }]}>
-                {currentStepData.id === 'on-device-whisper'
-                  ? whisperDownloadComplete
-                    ? 'Continue'
-                    : 'Getting Magic Ready'
-                  : currentStepData.buttonText}
+                {currentStepData.buttonText}
               </Text>
             </TouchableOpacity>
           </View>

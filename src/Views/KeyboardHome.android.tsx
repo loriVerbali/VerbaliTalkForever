@@ -16,7 +16,6 @@ import MatalkIcon from '../Components/MatalkIcon';
 import TTSService from '../utils/TTSService';
 import { polishText } from '../utils/polishApi';
 import { useAdmin } from '../contexts/adminContext';
-import AudioSessionManager from '../utils/AudioSessionManager';
 
 const { width, height } = Dimensions.get('window');
 
@@ -32,8 +31,6 @@ const KeyboardHomeScreen: React.FC = () => {
 
         try {
             setIsSubmittingKeyboard(true);
-            // Prepare for TTS before speaking
-            await AudioSessionManager.prepareForTTS();
             await TTSService.speak(inputText, true, () => {
                 setKeyboardInput('');
             });

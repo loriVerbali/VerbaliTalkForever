@@ -63,7 +63,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>The App uses the photo library to personalize the conversation for instance a picture of dad or mom or a known relative </string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>We use your microphone so you can record speech to communicate with others. For example, your speech is transcribed into text and read aloud.</string>
+	<string>MaTalk AI uses speech recognition to convert your speech into text, enabling you to build sentences, use voice commands like "Hey Verbi", and communicate with caregivers.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
