@@ -108,6 +108,30 @@ PODS:
   - onnxruntime-objc/Core (1.20.0):
     - onnxruntime-c (= 1.20.0)
   - openiap (3.0.1)
+  - PostHog (3.58.3)
+  - posthog-react-native-session-replay (1.6.0):
+    - hermes-engine
+    - PostHog (~> 3.58.1)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RCTDeprecation (0.86.2)
   - RCTRequired (0.86.2)
   - RCTSwiftUI (0.86.2)
@@ -2545,6 +2569,7 @@ DEPENDENCIES:
   - MixpanelReactNative (from `../node_modules/mixpanel-react-native`)
   - NitroIap (from `../node_modules/react-native-iap`)
   - NitroModules (from `../node_modules/react-native-nitro-modules`)
+  - posthog-react-native-session-replay (from `../node_modules/posthog-react-native-session-replay`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
   - RCTSwiftUI (from `../node_modules/react-native/ReactApple/RCTSwiftUI`)
@@ -2654,6 +2679,7 @@ SPEC REPOS:
     - onnxruntime-c
     - onnxruntime-objc
     - openiap
+    - PostHog
     - SDWebImage
     - SDWebImageWebPCoder
     - SSZipArchive
@@ -2674,6 +2700,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-iap"
   NitroModules:
     :path: "../node_modules/react-native-nitro-modules"
+  posthog-react-native-session-replay:
+    :path: "../node_modules/posthog-react-native-session-replay"
   RCTDeprecation:
     :path: "../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
   RCTRequired:
@@ -2885,6 +2913,8 @@ SPEC CHECKSUMS:
   onnxruntime-c: 07cfff40dda7e1c54a4350bb2ad226c63150fce3
   onnxruntime-objc: b22c5d4517e9804e47c66f1f122ec4a6aa923f86
   openiap: 255962c723010b03d240326fb65f5b637ea312cf
+  PostHog: f6da05611d29a8facb652f7e2ee8389bc3f96b67
+  posthog-react-native-session-replay: f6508a18e7e0a30757649205721c6155467fdfe3
   RCTDeprecation: bccb6545c26db881ecddfd83a3f9ea82aba1605f
   RCTRequired: b2f74764d596fc0051f00fee94b49bf41a6f7f5a
   RCTSwiftUI: c6d6a31b849b9dfa64c33b55dc91ac15dd55774c

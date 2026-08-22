@@ -600,6 +600,16 @@ class WakeWordService {
     );
   }
 
+  /**
+   * True once the engine has been initialized this session. Callers that only
+   * want to RE-open the mic (e.g. resume after TTS) must check this first —
+   * resumeDetection/startListening self-initialize, which opens the mic and
+   * triggers the permission prompt.
+   */
+  public hasInitialized(): boolean {
+    return this.isInitialized;
+  }
+
   public async pauseDetection(stopMic: boolean = true): Promise<void> {
     wwTrace(`[WakeWordService] pauseDetection(stopMic=${stopMic}) called`);
     if (this.pausingPromise) {

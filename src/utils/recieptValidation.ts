@@ -75,7 +75,10 @@ const validateSubscription = async (receipt: string) => {
 
 const validateReceiptOnLaunch = async () => {
   if (__DEV__) {
-    return true;
+    // "Can't determine" — leaves the persisted isIOSActive flag untouched so
+    // paywall behavior (trial card visibility etc.) is testable in dev.
+    // Dev app access is still guaranteed by hasAppAccess's __DEV__ bypass.
+    return null;
   }
   if (Platform.OS === 'android') {
     // For Android, get existing purchases and validate the latest one
@@ -138,7 +141,17 @@ const validateReceiptOnLaunch = async () => {
     // SKReceiptRefreshRequest holding an iOS background task.
     // getReceiptDataIOS never forces a refresh (that is a separate
     // requestReceiptRefreshIOS call), so this stays refresh-free.
-    const receipt = await getReceiptDataIOS();
+    //
+    // v16 throws purchase-verification-failed when the receipt file is
+    // simply absent (normal until StoreKit syncs). That's "can't
+    // determine", not "inactive" — don't let it fall into the outer catch,
+    // which would return false and revoke access.
+    let receipt: string | null = null;
+    try {
+      receipt = await getReceiptDataIOS();
+    } catch (receiptError) {
+      return null;
+    }
     if (!receipt) {
       return null;
     }

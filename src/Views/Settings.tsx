@@ -24,7 +24,7 @@ import {
 import FastImage from 'react-native-fast-image';
 import { useAppSettings } from '../utils/persistance';
 import { personalMemoryService } from '../services/PersonalMemoryService';
-import { getSubscriptionStatus } from '../utils/trialUtils';
+import { getSubscriptionStatus, getTrialDaysRemaining } from '../utils/trialUtils';
 import { sessionManager } from '../utils/sessionManager';
 import { useAdmin } from '../contexts/adminContext';
 import { views } from '../utils/constants';
@@ -383,6 +383,11 @@ const SettingsScreen: React.FC = () => {
   const [subscriptionStatusText, setSubscriptionStatusText] = useState('');
   const [subscriptionStatusColor, setSubscriptionStatusColor] =
     useState('#f44336');
+  // During an active trial the subscription paywall (parental gate + plans)
+  // is collapsed behind an Upgrade button so it doesn't fill the first fold.
+  const [trialDaysLeft, setTrialDaysLeft] = useState(0);
+  const [isTrialStatus, setIsTrialStatus] = useState(false);
+  const [upgradeExpanded, setUpgradeExpanded] = useState(false);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideoSource, setSelectedVideoSource] = useState<any>(null);
@@ -499,6 +504,10 @@ const SettingsScreen: React.FC = () => {
       preferences.trialInstallationDate,
     );
     setSubscriptionStatusText(status.text);
+    setIsTrialStatus(status.status === 'trial');
+    setTrialDaysLeft(
+      getTrialDaysRemaining(preferences.trialInstallationDate),
+    );
 
     // Set color based on status
     if (status.status === 'active') {
@@ -1353,6 +1362,7 @@ const SettingsScreen: React.FC = () => {
             style={{
               flexDirection: 'row',
               alignItems: 'center',
+              flexWrap: 'wrap',
               marginBottom: 10,
             }}>
             <Text
@@ -1372,8 +1382,30 @@ const SettingsScreen: React.FC = () => {
               }}>
               {subscriptionStatusText}
             </Text>
+            {isTrialStatus && trialDaysLeft > 0 && !upgradeExpanded && (
+              <Pressable
+                onPress={() => {
+                  mixpanel.track('Settings Trial Upgrade Button Tapped', {
+                    days_left: trialDaysLeft,
+                  });
+                  setUpgradeExpanded(true);
+                }}
+                style={{
+                  backgroundColor: '#47B76F',
+                  paddingHorizontal: 28,
+                  paddingVertical: 12,
+                  borderRadius: 32,
+                  marginLeft: 10,
+                }}>
+                <Text
+                  style={{ color: '#fff', fontSize: 30, fontWeight: 'bold' }}>
+                  Subscribe to Matalk AI
+                </Text>
+              </Pressable>
+            )}
           </View>
-          {preferences.isIOSActive !== '1' && (
+          {preferences.isIOSActive !== '1' &&
+            !(isTrialStatus && trialDaysLeft > 0 && !upgradeExpanded) && (
             <View
               style={{ backgroundColor: '#fff', padding: 10, marginBottom: 10 }}
               onLayout={() => {

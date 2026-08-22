@@ -137,19 +137,16 @@ export const getSubscriptionStatus = (
 export const shouldShowTrialCard = (
   isIOSActive: string,
   isInTrial: string,
-  installationDate: string,
+  _installationDate: string,
 ): boolean => {
   // Don't show if user has paid subscription
   if (isIOSActive === '1') {
     return false;
   }
 
-  // Don't show if trial has expired
-  if (installationDate !== 'init.NotSet' && !isTrialActive(installationDate)) {
-    return false;
-  }
-
-  // Don't show if user is already in trial
+  // Don't show if user already started a trial (active or expired). The
+  // trial clock starts when the card is tapped, so anyone who never tapped
+  // it can still start one — no matter how long ago the app was installed.
   if (isInTrial === '1') {
     return false;
   }

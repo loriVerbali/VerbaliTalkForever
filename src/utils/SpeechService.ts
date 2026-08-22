@@ -33,6 +33,11 @@ const PHONETIC_SUBSTITUTIONS: Array<[RegExp, string]> = [
   [/\bVerbi\b/gi, 'ver be'],
 ];
 
+// Fallback for TTS-only init when the Metro dev-server asset URL can't be
+// loaded by the standalone TTS bridge. Must match the model file used in
+// getTtsModel() below, which is also a native bundle resource.
+const TTS_MODEL_BUNDLED_FILENAME = 'model_ex_hanna_light_davoice_ph.dm';
+
 /**
  * Applies phonetic substitutions to `text` before sending it to the TTS engine.
  * This has negligible overhead (a handful of regex replacements, no allocations
@@ -91,6 +96,14 @@ const traceWarn = (...args: unknown[]) => {
 class SpeechServiceClass {
   private static instance: SpeechServiceClass;
   private initialized: boolean = false;
+  // Onboarding runs the engine in TTS-only mode: no STT bridge, so the iOS
+  // mic + speech-recognition permission prompts don't fire before the
+  // onboarding Permissions step asks for them. Full init tears this down.
+  private ttsOnlyMode: boolean = false;
+  private ttsOnlyInitPromise: Promise<void> | null = null;
+  // In-flight full init. Deduplicates concurrent initialize() calls and lets
+  // TTS-only callers wait for an upgrade that is already under way.
+  private initializePromise: Promise<void> | null = null;
   private isPlaying: boolean = false;
   private queue: SpeechQueueItem[] = [];
   private processingQueue: boolean = false;
@@ -114,7 +127,8 @@ class SpeechServiceClass {
   // Lazy-load the model so it isn't resolved at class construction time.
   // In dev mode Metro serves .dm assets over HTTP; an eager require() triggers
   // synchronous URL loading on the main thread and produces a runtime warning.
-  // Switch voice models by changing which line is active below.
+  // Switch voice models by changing which line is active below — and keep
+  // TTS_MODEL_BUNDLED_FILENAME (top of file) in sync.
   private _ttsModel: any = null;
   private getTtsModel() {
     if (!this._ttsModel) {
@@ -194,23 +208,27 @@ class SpeechServiceClass {
       );
       await prepareSpeechRecognitionAfterFullInit();
 
-      // Set up completion listener
-      this.speechInstance.onFinishedSpeaking = () => {
-        trace('[STT TRACE][SpeechService] onFinishedSpeaking event');
-        if (this.synthesisInProgress) {
-          // Android: the native play queue drained between sentence chunks —
-          // the utterance isn't actually done, more chunks are on the way.
-          trace(
-            '[STT TRACE][SpeechService] ignoring onFinishedSpeaking mid-synthesis',
-          );
-          return;
-        }
-        this.handlePlaybackFinished();
-      };
+      this.attachFinishedSpeakingListener();
     } catch (e) {
       console.error('[SpeechService] init error:', e);
       throw e;
     }
+  }
+
+  private attachFinishedSpeakingListener() {
+    // Set up completion listener
+    this.speechInstance.onFinishedSpeaking = () => {
+      trace('[STT TRACE][SpeechService] onFinishedSpeaking event');
+      if (this.synthesisInProgress) {
+        // Android: the native play queue drained between sentence chunks —
+        // the utterance isn't actually done, more chunks are on the way.
+        trace(
+          '[STT TRACE][SpeechService] ignoring onFinishedSpeaking mid-synthesis',
+        );
+        return;
+      }
+      this.handlePlaybackFinished();
+    };
   }
 
   public static getInstance(): SpeechServiceClass {
@@ -326,7 +344,11 @@ class SpeechServiceClass {
       this.processQueue();
     } else if (
       Platform.OS === 'ios' &&
-      completedItem?.resumeWakeWordOnComplete !== false
+      // completedItem is null when a stale native finish event arrives after
+      // stop() already cleared it — a cancelled utterance must not re-open
+      // the mic.
+      completedItem != null &&
+      completedItem.resumeWakeWordOnComplete !== false
     ) {
       // Queue is drained — the audio session is no longer needed for TTS.
       // Resume wakeword detection so it can listen again without waiting for
@@ -351,6 +373,15 @@ class SpeechServiceClass {
     this.cancelScheduledWakeWordResume();
     this.wakeWordResumeTimer = setTimeout(() => {
       this.wakeWordResumeTimer = null;
+      // Resume only re-opens a mic that was open before TTS started. It must
+      // never bootstrap wakeword — resumeDetection self-initializes, which
+      // opens the mic and fires the permission prompt (e.g. mid-onboarding).
+      if (!WakeWordService.getInstance().hasInitialized()) {
+        trace(
+          '[SpeechService] skipping wakeword resume — service never initialized',
+        );
+        return;
+      }
       WakeWordService.getInstance()
         .resumeDetection()
         .then(() => {
@@ -364,13 +395,119 @@ class SpeechServiceClass {
 
   public async initialize(): Promise<void> {
     if (this.initialized) return;
-    try {
-      await this.initSpeech();
-      this.initialized = true;
-    } catch (error) {
-      console.error('[SpeechService] initialize error:', error);
-      this.initialized = false;
-    }
+    if (this.initializePromise) return this.initializePromise;
+
+    const upgradingFromTtsOnly = this.ttsOnlyMode;
+    // The upgrade tears down the standalone TTS bridge right away (initAll
+    // destroys it before booting the unified engine), so TTS-only mode is
+    // over no matter how initAll ends. Leaving the flag set would let
+    // speak()/stop() talk to the destroyed bridge while init is in flight.
+    this.ttsOnlyMode = false;
+
+    this.initializePromise = (async () => {
+      try {
+        if (Platform.OS === 'ios' && upgradingFromTtsOnly) {
+          // Undo onboarding's playback-only routing so the full engine falls
+          // back to the wakeword routing config (playAndRecord).
+          try {
+            await this.speechInstance.clearAudioRoutingConfig();
+          } catch (routingError) {
+            console.warn(
+              '[SpeechService] clearing TTS-only routing config failed:',
+              routingError,
+            );
+          }
+        }
+        await this.initSpeech();
+        this.initialized = true;
+      } catch (error) {
+        console.error('[SpeechService] initialize error:', error);
+        this.initialized = false;
+      } finally {
+        this.initializePromise = null;
+      }
+    })();
+
+    return this.initializePromise;
+  }
+
+  /**
+   * Onboarding-only: initialize just the TTS engine, without the STT bridge.
+   * Full init (initAll) warms the speech recognizer, which fires the iOS
+   * microphone and speech-recognition permission prompts — this path doesn't.
+   * Call initialize() afterwards (onboarding completion does) to upgrade to
+   * the full engine.
+   */
+  public async initializeTtsOnly(): Promise<void> {
+    if (this.initialized || this.ttsOnlyMode) return;
+    // A full init is already under way (e.g. the Permissions step upgrades
+    // after the mic grant) — wait for it instead of racing the dead
+    // standalone bridge.
+    if (this.initializePromise) return this.initializePromise;
+    if (this.ttsOnlyInitPromise) return this.ttsOnlyInitPromise;
+
+    this.ttsOnlyInitPromise = (async () => {
+      try {
+        if (AppConfig.davoiceLicense) {
+          trace('[SpeechService] Activating DaVoice license (TTS-only)');
+          await this.activateLicense(AppConfig.davoiceLicense);
+        } else {
+          throw new Error(
+            'No DaVoice license found. Set DAVOICE_LICENSE in the environment.',
+          );
+        }
+
+        // Without a direct routing config the TTS engine resolves its iOS
+        // audio session from the wakeword routing (playAndRecord), and
+        // activating a record-capable session triggers the mic permission
+        // prompt. Playback-only routing keeps onboarding prompt-free; full
+        // init clears it so wakeword routing takes over again.
+        if (Platform.OS === 'ios') {
+          try {
+            await this.speechInstance.setAudioRoutingConfig({
+              default: {
+                category: 'playback',
+                mode: 'default',
+                options: ['mixWithOthers', 'duckOthers'],
+                preferredInput: 'none',
+              },
+            });
+          } catch (routingError) {
+            console.warn(
+              '[SpeechService] TTS-only routing config failed:',
+              routingError,
+            );
+          }
+        }
+
+        try {
+          await this.speechInstance.initTTS({ model: this.getTtsModel() });
+        } catch (assetError) {
+          // Dev mode: Metro serves the .dm over HTTP with a query string the
+          // standalone TTS bridge can't load (initAll's unified bridge can).
+          // The model also ships as a native bundle resource, so retry with
+          // the bare filename — the bridge passes strings through unchanged.
+          trace(
+            `[SpeechService] initTTS via asset failed (${String(
+              assetError,
+            )}); retrying with bundled filename`,
+          );
+          await this.speechInstance.initTTS({
+            model: TTS_MODEL_BUNDLED_FILENAME,
+          });
+        }
+        this.attachFinishedSpeakingListener();
+        this.ttsOnlyMode = true;
+        trace('[SpeechService] TTS-only init complete');
+      } catch (e) {
+        console.error('[SpeechService] initializeTtsOnly error:', e);
+        throw e;
+      } finally {
+        this.ttsOnlyInitPromise = null;
+      }
+    })();
+
+    return this.ttsOnlyInitPromise;
   }
 
   public async speak(
@@ -391,7 +528,9 @@ class SpeechServiceClass {
     this.cancelScheduledWakeWordResume();
 
     try {
-      if (!this.initialized) {
+      // TTS-only mode (onboarding) can speak without the full engine —
+      // self-initializing here would boot STT and trigger permission prompts.
+      if (!this.initialized && !this.ttsOnlyMode) {
         const initialized = await this.waitForInitialization();
         if (!initialized) {
           return;
@@ -467,7 +606,7 @@ class SpeechServiceClass {
     // Abort any Android sentence-chunk loop still feeding the engine.
     this.speakGeneration++;
     try {
-      if (this.speechInstance && this.initialized) {
+      if (this.speechInstance && (this.initialized || this.ttsOnlyMode)) {
         await this.speechInstance.stopSpeaking();
         trace('[STT TRACE][SpeechService] stopSpeaking resolved');
       }
@@ -488,18 +627,20 @@ class SpeechServiceClass {
     try {
       this.cancelScheduledWakeWordResume();
       await this.stop();
-      if (this.speechInstance && this.initialized) {
+      if (this.speechInstance && (this.initialized || this.ttsOnlyMode)) {
         await this.speechInstance.destroyAll();
       }
       this.speechInstance.onFinishedSpeaking = () => { };
       this.volumeCleanup?.();
       this.volumeCleanup = null;
       this.initialized = false;
+      this.ttsOnlyMode = false;
     } catch (error) {
       console.error('[SpeechService] shutdown error:', error);
       this.volumeCleanup?.();
       this.volumeCleanup = null;
       this.initialized = false;
+      this.ttsOnlyMode = false;
     }
   }
 

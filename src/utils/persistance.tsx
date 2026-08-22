@@ -8,8 +8,8 @@ import React, {
   useRef,
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
-import { validateReceiptOnLaunch } from './recieptValidation';
-import { sessionManager } from './sessionManager';
+import {validateReceiptOnLaunch} from './recieptValidation';
+import {sessionManager} from './sessionManager';
 
 interface Preferences {
   loggedIn: string;
@@ -140,7 +140,7 @@ export const initialPreferences: Preferences = {
   showAndTellModalShown: initEnum.false,
   my8words: '',
   handshakeMessage:
-    'Hi ,this is how I communicate say Hey Verby and it will record the question.',
+    'Hi ,this is how I communicate say Hey Ver-bee and it will record the question.',
   // Device-based organization access
   deviceId: initEnum.notSet,
   isEnrolled: initEnum.false,
@@ -212,13 +212,10 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   ): Promise<void> => {
     try {
       await DefaultPreference.set(key, value);
-      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: value }));
+      setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
       if (key === 'isInTrial') {
-
       }
-    } catch (error) {
-
-    }
+    } catch (error) {}
   };
 
   const getItem = async (key: keyof Preferences): Promise<string> => {
@@ -241,19 +238,15 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const removeItem = async (key: keyof Preferences): Promise<void> => {
     try {
       await DefaultPreference.set(key, initEnum.notSet);
-      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: '' }));
-    } catch (error) {
-
-    }
+      setPreferences(prevPreferences => ({...prevPreferences, [key]: ''}));
+    } catch (error) {}
   };
 
   const initializePreferences = async (): Promise<Preferences> => {
     // Prevent multiple initializations
     if (initializationRef.current) {
-
       return preferences;
     }
-
 
     initializationRef.current = true;
 
@@ -265,11 +258,11 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const results = await Promise.all(
         getKeys.map(async key => {
           const found = await DefaultPreference.get(key);
-          return { key, value: found };
+          return {key, value: found};
         }),
       );
 
-      for (const { key, value } of results) {
+      for (const {key, value} of results) {
         // Fallback to initial value if stored value is null, undefined, empty, or placeholders
         const fallbackValue = initialPreferences[key];
         const isMissing =
@@ -281,7 +274,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         loaded[key] = isMissing ? fallbackValue : value;
       }
       setPreferences(
-        prevPreferences => ({ ...prevPreferences, ...loaded } as Preferences),
+        prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
       );
 
       // Set trial installation date on first app launch (never override)
@@ -303,9 +296,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
             } else if (purchaseValid === true) {
               await setItem('isIOSActive', '1');
             }
-          } catch (error) {
-
-          }
+          } catch (error) {}
         }, 3000);
 
         // Store the timeout ID so we can clear it if needed
@@ -314,7 +305,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
       return loaded as Preferences;
     } catch (error) {
-
       return initialPreferences;
     }
   };
@@ -339,10 +329,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       // Initialize guest session
       try {
         await sessionManager.ensureValidSession();
-
-      } catch (error) {
-
-      }
+      } catch (error) {}
     };
 
     initApp();
@@ -365,9 +352,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         await DefaultPreference.set(key, initialPreferences[key]);
       }
       setPreferences(initialPreferences);
-    } catch (error) {
-
-    }
+    } catch (error) {}
   };
 
   return (

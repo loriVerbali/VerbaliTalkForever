@@ -25,6 +25,7 @@ import {
   Purchase,
   getAvailablePurchases,
   getReceiptDataIOS,
+  requestReceiptRefreshIOS,
 } from 'react-native-iap';
 import { useAdmin } from '../contexts/adminContext';
 import { useToast } from '../contexts/ToastContext';
@@ -70,6 +71,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
   );
   const [showParentalGate, setShowParentalGate] = useState(true); // Start with parental gate shown
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
+  const [pendingPlan, setPendingPlan] = useState<SubscriptionPlan | null>(null); // Paid plan awaiting parental gate
   const [showYearlyPlan, setShowYearlyPlan] = useState(false); // Toggle between yearly and monthly
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false); // Toggle for subscription info
   const { setItem, preferences } = useAppSettings();
@@ -130,11 +132,32 @@ const Subscription: React.FC<SubscriptionProps> = ({
   // v16 removed purchase.transactionReceipt. iOS: the app receipt comes from
   // getReceiptDataIOS(). Android: dataAndroid is the raw Play receipt JSON
   // (same payload the old transactionReceipt held), purchaseToken as fallback.
+  //
+  // v16's native getReceiptDataIOS throws purchase-verification-failed when
+  // the receipt file simply doesn't exist yet (normal in sandbox/dev builds
+  // until StoreKit syncs) — that must not abort the purchase flow.
+  // allowRefresh triggers AppStore.sync() which can show an auth prompt, so
+  // it's only safe right after a purchase, never on passive init.
   const getReceiptForValidation = async (
     purchase: Purchase,
+    { allowRefresh = false } = {},
   ): Promise<string> => {
     if (Platform.OS === 'ios') {
-      return (await getReceiptDataIOS()) ?? '';
+      try {
+        return (await getReceiptDataIOS()) ?? '';
+      } catch (receiptError) {
+        if (allowRefresh) {
+          try {
+            return (await requestReceiptRefreshIOS()) ?? '';
+          } catch (refreshError) {
+            console.error(
+              'getReceiptForValidation: receipt refresh failed:',
+              refreshError,
+            );
+          }
+        }
+        return '';
+      }
     }
     return buildAndroidReceipt(purchase);
   };
@@ -246,49 +269,50 @@ const Subscription: React.FC<SubscriptionProps> = ({
         }
       }
 
-      const receipt = await getReceiptForValidation(purchase);
-      if (receipt) {
-        // Finish the transaction. On Android this acknowledges the purchase;
-        // an acknowledge failure (e.g. already acknowledged when the listener
-        // fires twice) must not block granting access, so don't let it throw.
-        if (Platform.OS === 'android') {
-          try {
-            await finishTransaction({ purchase });
-          } catch (finishError) {
-            console.error(
-              '💥 handlePurchaseUpdate: Android finishTransaction failed:',
-              finishError,
-            );
-          }
-        } else {
-          await finishTransaction({ purchase });
-        }
+      const receipt = await getReceiptForValidation(purchase, {
+        allowRefresh: true,
+      });
 
-        const isActive = await validateSubscription(receipt);
-
-        if (isActive) {
-          await setItem('isIOSActive', isActive ? '1' : '0');
-          setGotSubscription(true);
-          setPurchaseSuccess(true);
-          mixpanel.track('Subscription Purchased', {
-            screen_label: 'subscription',
-            selection_type: purchase.productId.includes('monthly')
-              ? 'monthly'
-              : 'yearly',
-          });
-        } else if (Platform.OS === 'android') {
-          // Don't leave the user stuck on this screen with no feedback
-          showError(
-            'We could not verify your purchase. Please try again or contact support.',
-          );
-        }
-
-        // Optionally, you can store purchase info if needed
-      } else if (Platform.OS === 'android') {
+      // Android without a receipt has nothing to send the backend. iOS may
+      // legitimately have no receipt file yet (sandbox/dev before StoreKit
+      // syncs), so it still proceeds and lets validation decide.
+      if (!receipt && Platform.OS === 'android') {
         console.error(
           '💥 handlePurchaseUpdate: Android - empty receipt for purchase:',
           purchase.productId,
         );
+        showError(
+          'We could not verify your purchase. Please try again or contact support.',
+        );
+        return;
+      }
+
+      // Finish the transaction. On Android this acknowledges the purchase;
+      // a finish failure (e.g. already finished when the listener fires
+      // twice) must not block granting access, so don't let it throw.
+      try {
+        await finishTransaction({ purchase });
+      } catch (finishError) {
+        console.error(
+          '💥 handlePurchaseUpdate: finishTransaction failed:',
+          finishError,
+        );
+      }
+
+      const isActive = await validateSubscription(receipt);
+
+      if (isActive) {
+        await setItem('isIOSActive', isActive ? '1' : '0');
+        setGotSubscription(true);
+        setPurchaseSuccess(true);
+        mixpanel.track('Subscription Purchased', {
+          screen_label: 'subscription',
+          selection_type: purchase.productId.includes('monthly')
+            ? 'monthly'
+            : 'yearly',
+        });
+      } else {
+        // Don't leave the user stuck on this screen with no feedback
         showError(
           'We could not verify your purchase. Please try again or contact support.',
         );
@@ -299,13 +323,19 @@ const Subscription: React.FC<SubscriptionProps> = ({
   };
 
   const handlePlanSelection = async (plan: SubscriptionPlan) => {
-    // Directly proceed with purchase since parental gate was already passed
     setSelectedPlan(plan);
 
     mixpanel.track('Onboarding Subscription Selected', {
       screen_label: 'subscription',
       selection_type: plan === 'monthly' ? 'monthly' : 'yearly',
     });
+
+    // Paid purchases stay behind the parental gate
+    if (!parentalGatePassed) {
+      setPendingPlan(plan);
+      setShowParentalGate(true);
+      return;
+    }
 
     if (isIAPInitialized) {
       await purchaseSubscription(plan);
@@ -324,10 +354,13 @@ const Subscription: React.FC<SubscriptionProps> = ({
         selection_type: 'trial',
       });
 
-      // Set trial status and grant access
+      // Set trial status and grant access. The trial clock starts now, at
+      // tap time — not at first app launch — so the user gets the full 7 days.
+      await setItem('trialInstallationDate', Date.now().toString());
       await setItem('isInTrial', '1');
 
       // Grant app access
+      setShowParentalGate(false);
       setGotSubscription(true);
       setPurchaseSuccess(true);
     } catch (error) {
@@ -341,6 +374,19 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const handleParentalGateSuccess = async () => {
     setShowParentalGate(false);
     setParentalGatePassed(true);
+
+    // Continue the paid purchase the user started before the gate
+    if (pendingPlan) {
+      const plan = pendingPlan;
+      setPendingPlan(null);
+      if (isIAPInitialized) {
+        await purchaseSubscription(plan);
+      } else {
+        showError(
+          'In-app purchases are not available. Please try again later.',
+        );
+      }
+    }
   };
 
   const purchaseSubscription = async (plan: SubscriptionPlan) => {
@@ -755,14 +801,39 @@ const Subscription: React.FC<SubscriptionProps> = ({
     },
   };
 
-  // Show parental gate first
+  // Show parental gate first. The 7-day free trial is offered below the gate
+  // so it can be started without parental help — it creates no subscription.
   if (showParentalGate) {
+    const trialAvailable = shouldShowTrialCard(
+      preferences.isIOSActive,
+      preferences.isInTrial,
+      preferences.trialInstallationDate,
+    );
     return (
       <View style={styles.container}>
         <ParentalGate
           onSuccess={handleParentalGateSuccess}
           isSettingsContext={context === 'settings'}
           message="Choosing a plan is a protected area. Ask your parents to continue:"
+          footer={
+            trialAvailable ? (
+              <View style={styles.gateTrialContainer}>
+                <TouchableOpacity
+                  style={styles.gateTrialButton}
+                  onPress={handleTrialSelection}
+                  disabled={isLoading}>
+                  <Text style={styles.gateTrialButtonText}>
+                    {isLoading ? 'Starting...' : 'Start 7-Day Free Trial'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.trialDisclaimer}>
+                  Starting the free trial does not create an auto-renewable
+                  subscription and nothing will be charged. You can subscribe
+                  from Settings during or after the 7 days.
+                </Text>
+              </View>
+            ) : undefined
+          }
         />
       </View>
     );
@@ -1084,6 +1155,18 @@ const Subscription: React.FC<SubscriptionProps> = ({
                 </TouchableOpacity>
               )}
           </View>
+
+          {shouldShowTrialCard(
+            preferences.isIOSActive,
+            preferences.isInTrial,
+            preferences.trialInstallationDate,
+          ) && (
+              <Text style={styles.trialDisclaimer}>
+                Starting the free trial does not create an auto-renewable
+                subscription and nothing will be charged. You can subscribe
+                from Settings during or after the 7 days.
+              </Text>
+            )}
 
           <View
             style={{
@@ -1407,6 +1490,38 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
     lineHeight: 20,
+  },
+  trialDisclaimer: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 24,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  gateTrialContainer: {
+    marginTop: 18,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    maxWidth: 480,
+  },
+  gateTrialButton: {
+    backgroundColor: '#34C759',
+    borderRadius: 30,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  gateTrialButtonText: {
+    color: 'white',
+    fontSize: 17,
+    fontWeight: 'bold',
   },
   modalCloseButton: {
     backgroundColor: '#007AFF',
