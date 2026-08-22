@@ -217,6 +217,10 @@ const App = () => {
           <ConnectionProvider>
             <PostHogProvider
               apiKey="phc_xTg6VY6vzemW5JDCkTY63fQxpzQhHGG3y8zWGk5Lgaws"
+              // Screen autocapture calls useNavigation(), but this provider
+              // sits above NavigationContainer so it can only ever log
+              // "useNavigation error". Screens are tracked via mixpanel.
+              autocapture={{ captureScreens: false }}
               options={{
                 host: 'https://us.i.posthog.com',
 

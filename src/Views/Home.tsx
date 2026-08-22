@@ -6,6 +6,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Platform,
+  PermissionsAndroid,
   Animated,
   useWindowDimensions,
 } from 'react-native';
@@ -24,7 +25,6 @@ import {
 import TTSService from '../utils/TTSService';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
-import fetchHelper from '../utils/fetcher';
 import mixpanel from '../utils/mixpanelInstance';
 import { logConversation } from '../utils/conversationLogger';
 import { useAdmin } from '../contexts/adminContext';
@@ -508,7 +508,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             JSON.stringify(event),
             `isRecordingRef=${isRecordingRef.current}`,
           );
-          if (!isRecordingRef.current) {
+          // Android's SpeechRecognizer delivers the final result AFTER
+          // Voice.stop() has resolved (and isRecordingRef is already false),
+          // so late finals must be accepted there. iOS finals arrive in-session.
+          if (!isRecordingRef.current && Platform.OS === 'ios') {
             sttTrace('[STT TRACE][Home] final result ignored: not recording');
             return;
           }
@@ -601,13 +604,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           }
         },
       },
-      { key: 'Home.ios' },
+      { key: 'Home' },
     );
 
     return () => {
       sttTrace('[STT TRACE][Home] unsubscribing from speech events');
       unsubscribe();
-      stopSpeechRecognition().catch(() => { });
+      if (Platform.OS === 'android') {
+        // Destroy the recognizer so the mic is fully released for the
+        // wakeword engine on the next screen.
+        Promise.resolve(Voice.destroy()).catch(() => { });
+      } else {
+        stopSpeechRecognition().catch(() => { });
+      }
     };
   }, []);
 
@@ -670,14 +679,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     try {
       if (!recordingPermissionsReady) {
-        const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
-        sttTrace(`[STT TRACE][Home] microphone permission=${micPermission}`);
-        if (micPermission === RESULTS.DENIED) {
-          const result = await request(PERMISSIONS.IOS.MICROPHONE);
-          sttTrace(
-            `[STT PERMISSIONS][Home] microphone request result=${result}`,
+        if (Platform.OS === 'android') {
+          const granted = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+            {
+              title: 'Microphone Permission',
+              message:
+                'This app needs access to your microphone to record audio',
+              buttonNeutral: 'Ask Me Later',
+              buttonNegative: 'Cancel',
+              buttonPositive: 'OK',
+            },
           );
-          if (result !== RESULTS.GRANTED) {
+          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
             setFinishedTranscribing(true);
             setTranscribedText('Microphone permission is required');
             TTSService.speak(
@@ -688,49 +702,78 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             isStartingRef.current = false;
             return;
           }
-        } else if (micPermission === RESULTS.BLOCKED) {
-          setFinishedTranscribing(true);
-          setTranscribedText('Microphone permission is blocked');
-          TTSService.speak('Please enable microphone access in Settings', true);
-          isRecordingRef.current = false;
-          isStartingRef.current = false;
-          return;
-        }
+        } else {
+          const micPermission = await check(PERMISSIONS.IOS.MICROPHONE);
+          sttTrace(`[STT TRACE][Home] microphone permission=${micPermission}`);
+          if (micPermission === RESULTS.DENIED) {
+            const result = await request(PERMISSIONS.IOS.MICROPHONE);
+            sttTrace(
+              `[STT PERMISSIONS][Home] microphone request result=${result}`,
+            );
+            if (result !== RESULTS.GRANTED) {
+              setFinishedTranscribing(true);
+              setTranscribedText('Microphone permission is required');
+              TTSService.speak(
+                'Please allow microphone access in Settings',
+                true,
+              );
+              isRecordingRef.current = false;
+              isStartingRef.current = false;
+              return;
+            }
+          } else if (micPermission === RESULTS.BLOCKED) {
+            setFinishedTranscribing(true);
+            setTranscribedText('Microphone permission is blocked');
+            TTSService.speak(
+              'Please enable microphone access in Settings',
+              true,
+            );
+            isRecordingRef.current = false;
+            isStartingRef.current = false;
+            return;
+          }
 
-        const hasSpeechPermission =
-          await Voice.hasIOSSpeechRecognitionPermissions();
-        sttTrace(
-          `[STT TRACE][Home] speech permission existing=${hasSpeechPermission}`,
-        );
-        const speechGranted = hasSpeechPermission
-          ? true
-          : await Voice.requestIOSSpeechRecognitionPermissions(10000);
-        sttTrace(
-          `[STT PERMISSIONS][Home] DaVoice speech recognition granted=${String(
-            speechGranted,
-          )}`,
-        );
-        if (!speechGranted) {
-          setFinishedTranscribing(true);
-          setTranscribedText('Speech recognition permission is required');
-          TTSService.speak(
-            'Please allow speech recognition access in Settings',
-            true,
+          // iOS also needs the separate speech-recognition permission; there
+          // is no Android counterpart (RECORD_AUDIO covers it).
+          const hasSpeechPermission =
+            await Voice.hasIOSSpeechRecognitionPermissions();
+          sttTrace(
+            `[STT TRACE][Home] speech permission existing=${hasSpeechPermission}`,
           );
-          isRecordingRef.current = false;
-          isStartingRef.current = false;
-          return;
+          const speechGranted = hasSpeechPermission
+            ? true
+            : await Voice.requestIOSSpeechRecognitionPermissions(10000);
+          sttTrace(
+            `[STT PERMISSIONS][Home] DaVoice speech recognition granted=${String(
+              speechGranted,
+            )}`,
+          );
+          if (!speechGranted) {
+            setFinishedTranscribing(true);
+            setTranscribedText('Speech recognition permission is required');
+            TTSService.speak(
+              'Please allow speech recognition access in Settings',
+              true,
+            );
+            isRecordingRef.current = false;
+            isStartingRef.current = false;
+            return;
+          }
+          await logSpeechDiagnostics('home-permissions-complete');
         }
-        await logSpeechDiagnostics('home-permissions-complete');
       }
 
       if (!skipWakewordPause) {
         try {
           const w = WakeWordService.getInstance();
           sttTrace('[STT TRACE][Home] wakeword pause begin');
-          // pauseDetection releases the mic but keeps the native instance alive —
-          // no re-init cost when WakeWord resumes on return to Open.tsx.
-          await w.pauseDetection(false);
+          // iOS: stopMic=false keeps the shared audio session alive — no
+          // re-init cost when WakeWord resumes on return to Open.tsx.
+          // Android: stopMic=true is required — with false the wakeword's
+          // AudioRecord keeps the mic and SpeechRecognizer fails to start
+          // (error 5 "Client side error"). startListening() resumes it via
+          // unPauseDetection(), which re-acquires the mic.
+          await w.pauseDetection(Platform.OS === 'android');
           sttTrace('[STT TRACE][Home] wakeword paused (mic released)');
         } catch (error) {
           sttWarn('[STT TRACE][Home] wakeword pause failed:', error);
@@ -1252,6 +1295,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
           // Activate wake word listening with callback
           try {
+            if (Platform.OS === 'android') {
+              // Release the recognizer connection before the wakeword engine
+              // re-acquires the mic.
+              await Voice.destroy();
+            }
             const wakeWordService = WakeWordService.getInstance();
 
             wakeWordService.setCallback(async (phrase: string) => {
@@ -1790,19 +1838,33 @@ const styles = StyleSheet.create({
     padding: 20,
     zIndex: 10,
   },
-  recordingScreenGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 5,
-    backgroundColor: '#CE93D8',
-    shadowColor: '#8E24AA',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 14,
-    zIndex: 999,
-  },
+  recordingScreenGlow: Platform.select({
+    // Android can't render shadows, so pulse a full-screen border instead.
+    android: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      borderWidth: 5,
+      borderColor: '#CE93D8',
+      elevation: 30,
+      zIndex: 999,
+    },
+    default: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 5,
+      backgroundColor: '#CE93D8',
+      shadowColor: '#8E24AA',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 1,
+      shadowRadius: 14,
+      zIndex: 999,
+    },
+  }),
   playButton: {
     width: 80,
     height: 80,

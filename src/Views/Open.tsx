@@ -701,6 +701,13 @@ const OpenScreen: React.FC = () => {
   };
 
   const resumeWakewordAfterOpenTTS = useCallback(async () => {
+    // iOS: SpeechService owns the post-TTS resume (deferred, so a burst of
+    // word taps never restarts the mic between words). Resuming here too
+    // would re-open the mic immediately and make the next tap pay the full
+    // mic release/reacquire cycle again.
+    if (Platform.OS === 'ios') {
+      return;
+    }
     if (!navigation.isFocused()) {
       return;
     }

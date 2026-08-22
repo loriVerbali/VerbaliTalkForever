@@ -17,19 +17,22 @@ import {
   purchaseUpdatedListener,
   purchaseErrorListener,
   finishTransaction,
-  getSubscriptions,
-  requestSubscription,
+  fetchProducts,
+  requestPurchase,
   clearTransactionIOS,
   endConnection,
   PurchaseError,
-  SubscriptionPurchase,
-  ProductPurchase,
   Purchase,
   getAvailablePurchases,
+  getReceiptDataIOS,
+  requestReceiptRefreshIOS,
 } from 'react-native-iap';
 import { useAdmin } from '../contexts/adminContext';
 import { useToast } from '../contexts/ToastContext';
-import { validateSubscription } from '../utils/recieptValidation';
+import {
+  validateSubscription,
+  buildAndroidReceipt,
+} from '../utils/recieptValidation';
 import { useAppSettings } from '../utils/persistance';
 import { shouldShowTrialCard } from '../utils/trialUtils';
 import mixpanel from '../utils/mixpanelInstance';
@@ -68,6 +71,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
   );
   const [showParentalGate, setShowParentalGate] = useState(true); // Start with parental gate shown
   const [parentalGatePassed, setParentalGatePassed] = useState(false); // Track if parental gate was passed
+  const [pendingPlan, setPendingPlan] = useState<SubscriptionPlan | null>(null); // Paid plan awaiting parental gate
   const [showYearlyPlan, setShowYearlyPlan] = useState(false); // Toggle between yearly and monthly
   const [showSubscriptionInfo, setShowSubscriptionInfo] = useState(false); // Toggle for subscription info
   const { setItem, preferences } = useAppSettings();
@@ -125,6 +129,39 @@ const Subscription: React.FC<SubscriptionProps> = ({
     };
   }, [purchaseSuccess]);
 
+  // v16 removed purchase.transactionReceipt. iOS: the app receipt comes from
+  // getReceiptDataIOS(). Android: dataAndroid is the raw Play receipt JSON
+  // (same payload the old transactionReceipt held), purchaseToken as fallback.
+  //
+  // v16's native getReceiptDataIOS throws purchase-verification-failed when
+  // the receipt file simply doesn't exist yet (normal in sandbox/dev builds
+  // until StoreKit syncs) — that must not abort the purchase flow.
+  // allowRefresh triggers AppStore.sync() which can show an auth prompt, so
+  // it's only safe right after a purchase, never on passive init.
+  const getReceiptForValidation = async (
+    purchase: Purchase,
+    { allowRefresh = false } = {},
+  ): Promise<string> => {
+    if (Platform.OS === 'ios') {
+      try {
+        return (await getReceiptDataIOS()) ?? '';
+      } catch (receiptError) {
+        if (allowRefresh) {
+          try {
+            return (await requestReceiptRefreshIOS()) ?? '';
+          } catch (refreshError) {
+            console.error(
+              'getReceiptForValidation: receipt refresh failed:',
+              refreshError,
+            );
+          }
+        }
+        return '';
+      }
+    }
+    return buildAndroidReceipt(purchase);
+  };
+
   const initializeIAP = async () => {
     try {
       const result = await initConnection();
@@ -154,7 +191,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
           const latestPurchase = sorted[0];
 
-          const latestReceipt = latestPurchase.transactionReceipt;
+          const latestReceipt = await getReceiptForValidation(latestPurchase);
           const isActive = await validateSubscription(latestReceipt);
           await setItem('isIOSActive', isActive ? '1' : '0');
 
@@ -178,8 +215,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
     try {
       setIsLoadingSubscriptions(true);
-      const products = await getSubscriptions({ skus: SUBSCRIPTION_SKUS });
-      setSubscriptions(products);
+      const products = await fetchProducts({
+        skus: SUBSCRIPTION_SKUS,
+        type: 'subs',
+      });
+      setSubscriptions(products ?? []);
       setIsLoadingSubscriptions(false);
     } catch (error) {
       if (retryCount < maxRetries) {
@@ -194,7 +234,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
   const setupPurchaseListeners = () => {
     const purchaseUpdateSubscription = purchaseUpdatedListener(
-      (purchase: SubscriptionPurchase | ProductPurchase) => {
+      (purchase: Purchase) => {
         handlePurchaseUpdate(purchase);
       },
     );
@@ -229,22 +269,53 @@ const Subscription: React.FC<SubscriptionProps> = ({
         }
       }
 
-      if (purchase.transactionReceipt) {
-        // Finish the transaction
+      const receipt = await getReceiptForValidation(purchase, {
+        allowRefresh: true,
+      });
 
-        const finishResult = await finishTransaction({ purchase });
-
-        const isActive = await validateSubscription(
-          purchase.transactionReceipt,
+      // Android without a receipt has nothing to send the backend. iOS may
+      // legitimately have no receipt file yet (sandbox/dev before StoreKit
+      // syncs), so it still proceeds and lets validation decide.
+      if (!receipt && Platform.OS === 'android') {
+        console.error(
+          '💥 handlePurchaseUpdate: Android - empty receipt for purchase:',
+          purchase.productId,
         );
+        showError(
+          'We could not verify your purchase. Please try again or contact support.',
+        );
+        return;
+      }
 
-        if (isActive) {
-          await setItem('isIOSActive', isActive ? '1' : '0');
-          setGotSubscription(true);
-          setPurchaseSuccess(true);
-        }
+      // Finish the transaction. On Android this acknowledges the purchase;
+      // a finish failure (e.g. already finished when the listener fires
+      // twice) must not block granting access, so don't let it throw.
+      try {
+        await finishTransaction({ purchase });
+      } catch (finishError) {
+        console.error(
+          '💥 handlePurchaseUpdate: finishTransaction failed:',
+          finishError,
+        );
+      }
 
-        // Optionally, you can store purchase info if needed
+      const isActive = await validateSubscription(receipt);
+
+      if (isActive) {
+        await setItem('isIOSActive', isActive ? '1' : '0');
+        setGotSubscription(true);
+        setPurchaseSuccess(true);
+        mixpanel.track('Subscription Purchased', {
+          screen_label: 'subscription',
+          selection_type: purchase.productId.includes('monthly')
+            ? 'monthly'
+            : 'yearly',
+        });
+      } else {
+        // Don't leave the user stuck on this screen with no feedback
+        showError(
+          'We could not verify your purchase. Please try again or contact support.',
+        );
       }
     } catch (error) {
       console.error('💥 handlePurchaseUpdate: Error handling purchase:', error);
@@ -252,13 +323,19 @@ const Subscription: React.FC<SubscriptionProps> = ({
   };
 
   const handlePlanSelection = async (plan: SubscriptionPlan) => {
-    // Directly proceed with purchase since parental gate was already passed
     setSelectedPlan(plan);
 
     mixpanel.track('Onboarding Subscription Selected', {
       screen_label: 'subscription',
       selection_type: plan === 'monthly' ? 'monthly' : 'yearly',
     });
+
+    // Paid purchases stay behind the parental gate
+    if (!parentalGatePassed) {
+      setPendingPlan(plan);
+      setShowParentalGate(true);
+      return;
+    }
 
     if (isIAPInitialized) {
       await purchaseSubscription(plan);
@@ -277,10 +354,13 @@ const Subscription: React.FC<SubscriptionProps> = ({
         selection_type: 'trial',
       });
 
-      // Set trial status and grant access
+      // Set trial status and grant access. The trial clock starts now, at
+      // tap time — not at first app launch — so the user gets the full 7 days.
+      await setItem('trialInstallationDate', Date.now().toString());
       await setItem('isInTrial', '1');
 
       // Grant app access
+      setShowParentalGate(false);
       setGotSubscription(true);
       setPurchaseSuccess(true);
     } catch (error) {
@@ -294,6 +374,19 @@ const Subscription: React.FC<SubscriptionProps> = ({
   const handleParentalGateSuccess = async () => {
     setShowParentalGate(false);
     setParentalGatePassed(true);
+
+    // Continue the paid purchase the user started before the gate
+    if (pendingPlan) {
+      const plan = pendingPlan;
+      setPendingPlan(null);
+      if (isIAPInitialized) {
+        await purchaseSubscription(plan);
+      } else {
+        showError(
+          'In-app purchases are not available. Please try again later.',
+        );
+      }
+    }
   };
 
   const purchaseSubscription = async (plan: SubscriptionPlan) => {
@@ -313,21 +406,15 @@ const Subscription: React.FC<SubscriptionProps> = ({
         // Clear any pending transactions
         await clearTransactionIOS();
 
-        // iOS uses the traditional sku parameter
-        const purchaseResult = await requestSubscription({ sku });
-
-        if (purchaseResult) {
-          setPurchaseSuccess(true);
-          setGotSubscription(true);
-          mixpanel.track('Subscription Purchased', {
-            screen_label: 'subscription',
-            selection_type: plan === 'monthly' ? 'monthly' : 'yearly',
-          });
-        }
+        // Success is handled by purchaseUpdatedListener, not the return value
+        await requestPurchase({
+          request: { apple: { sku } },
+          type: 'subs',
+        });
       } else {
-        // Android - Google Play Billing v6+ requires subscriptionOffers with offerToken
+        // Android - Google Play Billing requires subscriptionOffers with offerToken
 
-        const subscription = subscriptions.find(sub => sub.productId === sku);
+        const subscription = subscriptions.find(sub => sub.id === sku);
         if (!subscription) {
           console.error(
             '💥 purchaseSubscription: Android - Subscription not found for SKU:',
@@ -336,66 +423,37 @@ const Subscription: React.FC<SubscriptionProps> = ({
           throw new Error(`Subscription not found for SKU: ${sku}`);
         }
 
-        // Extract offerToken from subscription details
-        let offerToken: string | undefined;
-        let basePlanId: string | undefined;
-
-        if (
-          subscription.subscriptionOfferDetails &&
-          subscription.subscriptionOfferDetails.length > 0
-        ) {
-          // Look for introductory offer first (if exists)
-          const introOffer = subscription.subscriptionOfferDetails.find(
-            (offer: any) => offer.offerId,
-          );
-
-          if (introOffer && introOffer.offerToken) {
-            offerToken = introOffer.offerToken;
-            basePlanId = introOffer.basePlanId;
-          } else {
-            // Fall back to base plan offer
-            const baseOffer =
-              subscription.subscriptionOfferDetails.find(
-                (offer: any) => !offer.offerId,
-              ) || subscription.subscriptionOfferDetails[0];
-
-            if (baseOffer && baseOffer.offerToken) {
-              offerToken = baseOffer.offerToken;
-              basePlanId = baseOffer.basePlanId;
-            }
-          }
-        }
+        // Extract offerToken from subscription offers. Prefer an offer with an
+        // offerId (introductory/promotional), fall back to the base plan offer.
+        const offers = subscription.subscriptionOffers ?? [];
+        const chosenOffer =
+          offers.find((offer: any) => offer.id && offer.offerTokenAndroid) ??
+          offers.find((offer: any) => offer.offerTokenAndroid);
+        const offerToken = chosenOffer?.offerTokenAndroid;
 
         if (!offerToken) {
           console.error(
-            '💥 purchaseSubscription: Android - No offerToken found in subscription details',
+            '💥 purchaseSubscription: Android - No offerToken found in subscription offers',
           );
           console.error(
-            '💥 purchaseSubscription: Android - Available subscription offer details:',
-            JSON.stringify(subscription.subscriptionOfferDetails, null, 2),
+            '💥 purchaseSubscription: Android - Available subscription offers:',
+            JSON.stringify(offers, null, 2),
           );
           throw new Error(
             'No offerToken found for Android subscription. Please ensure your subscription is properly configured in Google Play Console.',
           );
         }
 
-        // Android uses subscriptionOffers parameter for Google Play Billing v6+
-        const subscriptionOffer: any = {
-          sku,
-          offerToken,
-        };
-        if (basePlanId) {
-          subscriptionOffer.basePlanId = basePlanId;
-        }
-
-        const purchaseResult = await requestSubscription({
-          subscriptionOffers: [subscriptionOffer],
+        // Success is handled by purchaseUpdatedListener, not the return value
+        await requestPurchase({
+          request: {
+            google: {
+              skus: [sku],
+              subscriptionOffers: [{ sku, offerToken }],
+            },
+          },
+          type: 'subs',
         });
-
-        if (purchaseResult) {
-          setPurchaseSuccess(true);
-          setGotSubscription(true);
-        }
       }
     } catch (error) {
       console.error('💥 purchaseSubscription: Purchase failed:', error);
@@ -421,42 +479,43 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.annual'
             : 'matalk.annual';
 
-      const subscription = subscriptions.find(sub => sub.productId === sku);
+      const subscription = subscriptions.find(sub => sub.id === sku);
 
       if (subscription) {
         if (Platform.OS === 'android') {
           // Android subscription structure
           if (
-            subscription.subscriptionOfferDetails &&
-            subscription.subscriptionOfferDetails.length > 0
+            subscription.subscriptionOffers &&
+            subscription.subscriptionOffers.length > 0
           ) {
-            // Look for introductory offer first (offerId exists)
-            const introOffer = subscription.subscriptionOfferDetails.find(
-              (offer: any) => offer.offerId,
+            // Look for introductory offer first (offer id exists)
+            const introOffer = subscription.subscriptionOffers.find(
+              (offer: any) => offer.id,
             );
             if (
               introOffer &&
-              introOffer.pricingPhases &&
-              introOffer.pricingPhases.pricingPhaseList &&
-              introOffer.pricingPhases.pricingPhaseList.length > 0
+              introOffer.pricingPhasesAndroid &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList.length > 0
             ) {
               const introPrice =
-                introOffer.pricingPhases.pricingPhaseList[0].formattedPrice;
+                introOffer.pricingPhasesAndroid.pricingPhaseList[0]
+                  .formattedPrice;
 
               return introPrice;
             }
 
             // Fall back to regular price
-            const regularOffer = subscription.subscriptionOfferDetails[0];
+            const regularOffer = subscription.subscriptionOffers[0];
             if (
               regularOffer &&
-              regularOffer.pricingPhases &&
-              regularOffer.pricingPhases.pricingPhaseList &&
-              regularOffer.pricingPhases.pricingPhaseList.length > 0
+              regularOffer.pricingPhasesAndroid &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList.length > 0
             ) {
               const regularPrice =
-                regularOffer.pricingPhases.pricingPhaseList[
-                  regularOffer.pricingPhases.pricingPhaseList.length - 1
+                regularOffer.pricingPhasesAndroid.pricingPhaseList[
+                  regularOffer.pricingPhasesAndroid.pricingPhaseList.length - 1
                 ].formattedPrice;
 
               return regularPrice;
@@ -465,11 +524,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
         } else {
           // iOS subscription structure
           // Check for introductory offer
-          if (subscription.introductoryPrice) {
-            return subscription.introductoryPrice;
+          if (subscription.introductoryPriceIOS) {
+            return subscription.introductoryPriceIOS;
           }
 
-          const finalPrice = subscription.localizedPrice || subscription.price;
+          const finalPrice = subscription.displayPrice || subscription.price;
 
           return finalPrice;
         }
@@ -501,28 +560,28 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.annual'
             : 'matalk.annual';
 
-      const subscription = subscriptions.find(sub => sub.productId === sku);
+      const subscription = subscriptions.find(sub => sub.id === sku);
 
       if (subscription) {
         if (Platform.OS === 'android') {
           // Android subscription structure - always get the regular price (last pricing phase)
           if (
-            subscription.subscriptionOfferDetails &&
-            subscription.subscriptionOfferDetails.length > 0
+            subscription.subscriptionOffers &&
+            subscription.subscriptionOffers.length > 0
           ) {
             const regularOffer =
-              subscription.subscriptionOfferDetails.find(
-                (offer: any) => !offer.offerId,
-              ) || subscription.subscriptionOfferDetails[0];
+              subscription.subscriptionOffers.find(
+                (offer: any) => !offer.id,
+              ) || subscription.subscriptionOffers[0];
             if (
               regularOffer &&
-              regularOffer.pricingPhases &&
-              regularOffer.pricingPhases.pricingPhaseList &&
-              regularOffer.pricingPhases.pricingPhaseList.length > 0
+              regularOffer.pricingPhasesAndroid &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList.length > 0
             ) {
               const regularPrice =
-                regularOffer.pricingPhases.pricingPhaseList[
-                  regularOffer.pricingPhases.pricingPhaseList.length - 1
+                regularOffer.pricingPhasesAndroid.pricingPhaseList[
+                  regularOffer.pricingPhasesAndroid.pricingPhaseList.length - 1
                 ].formattedPrice;
 
               return regularPrice;
@@ -530,7 +589,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
           }
         } else {
           // iOS subscription structure - always return the regular price, not the introductory price
-          const finalPrice = subscription.localizedPrice || subscription.price;
+          const finalPrice = subscription.displayPrice || subscription.price;
 
           return finalPrice;
         }
@@ -556,27 +615,29 @@ const Subscription: React.FC<SubscriptionProps> = ({
           : null;
 
       if (sku) {
-        const subscription = subscriptions.find(sub => sub.productId === sku);
+        const subscription = subscriptions.find(sub => sub.id === sku);
 
         if (Platform.OS === 'android') {
           // Android subscription structure
           if (
-            subscription.subscriptionOfferDetails &&
-            subscription.subscriptionOfferDetails.length > 0
+            subscription?.subscriptionOffers &&
+            subscription.subscriptionOffers.length > 0
           ) {
-            const introOffer = subscription.subscriptionOfferDetails.find(
-              (offer: any) => offer.offerId,
+            const introOffer = subscription.subscriptionOffers.find(
+              (offer: any) => offer.id,
             );
             if (
               introOffer &&
-              introOffer.pricingPhases &&
-              introOffer.pricingPhases.pricingPhaseList &&
-              introOffer.pricingPhases.pricingPhaseList.length > 1
+              introOffer.pricingPhasesAndroid &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList.length > 1
             ) {
               const introPrice =
-                introOffer.pricingPhases.pricingPhaseList[0].formattedPrice;
+                introOffer.pricingPhasesAndroid.pricingPhaseList[0]
+                  .formattedPrice;
               const introCycles =
-                introOffer.pricingPhases.pricingPhaseList[0].billingCycleCount;
+                introOffer.pricingPhasesAndroid.pricingPhaseList[0]
+                  .billingCycleCount;
 
               const offerText =
                 plan === 'monthly'
@@ -590,9 +651,9 @@ const Subscription: React.FC<SubscriptionProps> = ({
           }
         } else {
           // iOS subscription structure
-          if (subscription?.introductoryPrice) {
+          if (subscription?.introductoryPriceIOS) {
             // Use the actual introductory price from IAP
-            const introPrice = subscription.introductoryPrice;
+            const introPrice = subscription.introductoryPriceIOS;
             const offerText =
               plan === 'monthly'
                 ? `Intro offer: ${introPrice}/month for the first 3 months`
@@ -629,7 +690,10 @@ const Subscription: React.FC<SubscriptionProps> = ({
           : isMediumPhone
             ? width * 0.38
             : width * 0.36,
-      height: isTablet
+      // Android text renders taller (font padding), so a fixed height makes
+      // the card content spill over the elements below it. Let the card grow
+      // on Android; keep the fixed height on iOS.
+      [Platform.OS === 'android' ? 'minHeight' : 'height']: isTablet
         ? isSmallPhone
           ? 110
           : isMediumPhone
@@ -737,14 +801,39 @@ const Subscription: React.FC<SubscriptionProps> = ({
     },
   };
 
-  // Show parental gate first
+  // Show parental gate first. The 7-day free trial is offered below the gate
+  // so it can be started without parental help — it creates no subscription.
   if (showParentalGate) {
+    const trialAvailable = shouldShowTrialCard(
+      preferences.isIOSActive,
+      preferences.isInTrial,
+      preferences.trialInstallationDate,
+    );
     return (
       <View style={styles.container}>
         <ParentalGate
           onSuccess={handleParentalGateSuccess}
           isSettingsContext={context === 'settings'}
           message="Choosing a plan is a protected area. Ask your parents to continue:"
+          footer={
+            trialAvailable ? (
+              <View style={styles.gateTrialContainer}>
+                <TouchableOpacity
+                  style={styles.gateTrialButton}
+                  onPress={handleTrialSelection}
+                  disabled={isLoading}>
+                  <Text style={styles.gateTrialButtonText}>
+                    {isLoading ? 'Starting...' : 'Start 7-Day Free Trial'}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.trialDisclaimer}>
+                  Starting the free trial does not create an auto-renewable
+                  subscription and nothing will be charged. You can subscribe
+                  from Settings during or after the 7 days.
+                </Text>
+              </View>
+            ) : undefined
+          }
         />
       </View>
     );
@@ -1067,8 +1156,32 @@ const Subscription: React.FC<SubscriptionProps> = ({
               )}
           </View>
 
+          {shouldShowTrialCard(
+            preferences.isIOSActive,
+            preferences.isInTrial,
+            preferences.trialInstallationDate,
+          ) && (
+              <Text style={styles.trialDisclaimer}>
+                Starting the free trial does not create an auto-renewable
+                subscription and nothing will be charged. You can subscribe
+                from Settings during or after the 7 days.
+              </Text>
+            )}
+
           <View
-            style={{ marginTop: 1, alignItems: 'center', flexDirection: 'row' }}>
+            style={{
+              marginTop: 1,
+              alignItems: 'center',
+              flexDirection: 'row',
+              // On Android the four texts overflow the row and pile up;
+              // let them wrap. iOS layout untouched.
+              ...(Platform.OS === 'android' && {
+                flexWrap: 'wrap' as const,
+                justifyContent: 'center' as const,
+                columnGap: 8,
+                paddingHorizontal: 8,
+              }),
+            }}>
             <Text
               style={[
                 styles.modalFeature,
@@ -1103,8 +1216,12 @@ const Subscription: React.FC<SubscriptionProps> = ({
                   textAlign: 'center',
                   paddingHorizontal: 20,
                 }}>
-                <TouchableOpacity onPress={handleToggleSubscriptionInfo}>
+                {Platform.OS === 'android' ? (
+                  // Android (Fabric) renders an inline view inside <Text> on
+                  // top of the paragraph; a nested Text with onPress lays out
+                  // correctly inline.
                   <Text
+                    onPress={handleToggleSubscriptionInfo}
                     style={{
                       color: '#007AFF',
                       fontWeight: 'bold',
@@ -1112,7 +1229,19 @@ const Subscription: React.FC<SubscriptionProps> = ({
                     }}>
                     Subscription Information{showSubscriptionInfo ? ' ▼' : ' ▶'}
                   </Text>
-                </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={handleToggleSubscriptionInfo}>
+                    <Text
+                      style={{
+                        color: '#007AFF',
+                        fontWeight: 'bold',
+                        fontSize: isTablet ? 12 : 10,
+                      }}>
+                      Subscription Information
+                      {showSubscriptionInfo ? ' ▼' : ' ▶'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 : Subscription automatically renews unless canceled at least 24
                 hours before the end of the current period.All subscriptions can
                 be managed in your{' '}
@@ -1361,6 +1490,38 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 8,
     lineHeight: 20,
+  },
+  trialDisclaimer: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 24,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  gateTrialContainer: {
+    marginTop: 18,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    maxWidth: 480,
+  },
+  gateTrialButton: {
+    backgroundColor: '#34C759',
+    borderRadius: 30,
+    paddingVertical: 14,
+    paddingHorizontal: 36,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  gateTrialButtonText: {
+    color: 'white',
+    fontSize: 17,
+    fontWeight: 'bold',
   },
   modalCloseButton: {
     backgroundColor: '#007AFF',
