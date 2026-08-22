@@ -17,19 +17,22 @@ import {
   purchaseUpdatedListener,
   purchaseErrorListener,
   finishTransaction,
-  getSubscriptions,
-  requestSubscription,
+  fetchProducts,
+  requestPurchase,
   clearTransactionIOS,
   endConnection,
   PurchaseError,
-  SubscriptionPurchase,
-  ProductPurchase,
   Purchase,
   getAvailablePurchases,
+  getReceiptDataIOS,
+  requestReceiptRefreshIOS,
 } from 'react-native-iap';
 import { useAdmin } from '../contexts/adminContext';
 import { useToast } from '../contexts/ToastContext';
-import { validateSubscription } from '../utils/recieptValidation';
+import {
+  validateSubscription,
+  buildAndroidReceipt,
+} from '../utils/recieptValidation';
 import { useAppSettings } from '../utils/persistance';
 // Removed trialUtils import - this is a paid app
 import mixpanel from '../utils/mixpanelInstance';
@@ -109,6 +112,34 @@ const Subscription: React.FC<SubscriptionProps> = ({
     };
   }, [purchaseSuccess]);
 
+  // Read the receipt to validate. iOS receipts come from the local receipt
+  // file (may legitimately be absent until StoreKit syncs); Android receipts
+  // are built from the purchase object. Refreshing the iOS receipt can prompt
+  // for App Store sign-in, so it's only allowed right after a purchase.
+  const getReceiptForValidation = async (
+    purchase: Purchase,
+    { allowRefresh = false } = {},
+  ): Promise<string> => {
+    if (Platform.OS === 'ios') {
+      try {
+        return (await getReceiptDataIOS()) ?? '';
+      } catch (receiptError) {
+        if (allowRefresh) {
+          try {
+            return (await requestReceiptRefreshIOS()) ?? '';
+          } catch (refreshError) {
+            console.error(
+              'getReceiptForValidation: receipt refresh failed:',
+              refreshError,
+            );
+          }
+        }
+        return '';
+      }
+    }
+    return buildAndroidReceipt(purchase);
+  };
+
   const initializeIAP = async () => {
     try {
       const result = await initConnection();
@@ -138,7 +169,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
           const latestPurchase = sorted[0];
 
-          const latestReceipt = latestPurchase.transactionReceipt;
+          const latestReceipt = await getReceiptForValidation(latestPurchase);
           const isActive = await validateSubscription(latestReceipt);
           await setItem('isIOSActive', isActive ? '1' : '0');
 
@@ -162,8 +193,11 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
     try {
       setIsLoadingSubscriptions(true);
-      const products = await getSubscriptions({ skus: SUBSCRIPTION_SKUS });
-      setSubscriptions(products);
+      const products = await fetchProducts({
+        skus: SUBSCRIPTION_SKUS,
+        type: 'subs',
+      });
+      setSubscriptions(products ?? []);
       setIsLoadingSubscriptions(false);
     } catch (error) {
       if (retryCount < maxRetries) {
@@ -178,7 +212,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
 
   const setupPurchaseListeners = () => {
     const purchaseUpdateSubscription = purchaseUpdatedListener(
-      (purchase: SubscriptionPurchase | ProductPurchase) => {
+      (purchase: Purchase) => {
         handlePurchaseUpdate(purchase);
       },
     );
@@ -213,22 +247,47 @@ const Subscription: React.FC<SubscriptionProps> = ({
         }
       }
 
-      if (purchase.transactionReceipt) {
-        // Finish the transaction
+      const receipt = await getReceiptForValidation(purchase, {
+        allowRefresh: true,
+      });
 
-        const finishResult = await finishTransaction({ purchase });
-
-        const isActive = await validateSubscription(
-          purchase.transactionReceipt,
+      // Android without a receipt has nothing to send the backend. iOS may
+      // legitimately have no receipt file yet (sandbox/dev before StoreKit
+      // syncs), so it still proceeds and lets validation decide.
+      if (!receipt && Platform.OS === 'android') {
+        console.error(
+          '💥 handlePurchaseUpdate: Android - empty receipt for purchase:',
+          purchase.productId,
         );
+        showError(
+          'We could not verify your purchase. Please try again or contact support.',
+        );
+        return;
+      }
 
-        if (isActive) {
-          await setItem('isIOSActive', isActive ? '1' : '0');
-          setGotSubscription(true);
-          setPurchaseSuccess(true);
-        }
+      // Finish the transaction. On Android this acknowledges the purchase;
+      // a finish failure (e.g. already finished when the listener fires
+      // twice) must not block granting access, so don't let it throw.
+      try {
+        await finishTransaction({ purchase });
+      } catch (finishError) {
+        console.error(
+          '💥 handlePurchaseUpdate: finishTransaction failed:',
+          finishError,
+        );
+      }
 
-        // Optionally, you can store purchase info if needed
+      const isActive = await validateSubscription(receipt);
+
+      if (isActive) {
+        await setItem('isIOSActive', isActive ? '1' : '0');
+        setGotSubscription(true);
+        setPurchaseSuccess(true);
+      } else {
+        // Don't leave the user stuck on this screen with no feedback
+        showError(
+          'We could not verify your purchase. Please try again or contact support.',
+        );
       }
     } catch (error) {
       console.error('💥 handlePurchaseUpdate: Error handling purchase:', error);
@@ -297,17 +356,15 @@ const Subscription: React.FC<SubscriptionProps> = ({
         // Clear any pending transactions
         await clearTransactionIOS();
 
-        // iOS uses the traditional sku parameter
-        const purchaseResult = await requestSubscription({ sku });
-
-        if (purchaseResult) {
-          setPurchaseSuccess(true);
-          setGotSubscription(true);
-        }
+        // Success is handled by purchaseUpdatedListener, not the return value
+        await requestPurchase({
+          request: { apple: { sku } },
+          type: 'subs',
+        });
       } else {
-        // Android - Google Play Billing v6+ requires subscriptionOffers with offerToken
+        // Android - Google Play Billing requires subscriptionOffers with offerToken
 
-        const subscription = subscriptions.find(sub => sub.productId === sku);
+        const subscription = subscriptions.find(sub => sub.id === sku);
         if (!subscription) {
           console.error(
             '💥 purchaseSubscription: Android - Subscription not found for SKU:',
@@ -316,66 +373,37 @@ const Subscription: React.FC<SubscriptionProps> = ({
           throw new Error(`Subscription not found for SKU: ${sku}`);
         }
 
-        // Extract offerToken from subscription details
-        let offerToken: string | undefined;
-        let basePlanId: string | undefined;
-
-        if (
-          subscription.subscriptionOfferDetails &&
-          subscription.subscriptionOfferDetails.length > 0
-        ) {
-          // Look for introductory offer first (if exists)
-          const introOffer = subscription.subscriptionOfferDetails.find(
-            (offer: any) => offer.offerId,
-          );
-
-          if (introOffer && introOffer.offerToken) {
-            offerToken = introOffer.offerToken;
-            basePlanId = introOffer.basePlanId;
-          } else {
-            // Fall back to base plan offer
-            const baseOffer =
-              subscription.subscriptionOfferDetails.find(
-                (offer: any) => !offer.offerId,
-              ) || subscription.subscriptionOfferDetails[0];
-
-            if (baseOffer && baseOffer.offerToken) {
-              offerToken = baseOffer.offerToken;
-              basePlanId = baseOffer.basePlanId;
-            }
-          }
-        }
+        // Extract offerToken from subscription offers. Prefer an offer with an
+        // offerId (introductory/promotional), fall back to the base plan offer.
+        const offers = subscription.subscriptionOffers ?? [];
+        const chosenOffer =
+          offers.find((offer: any) => offer.id && offer.offerTokenAndroid) ??
+          offers.find((offer: any) => offer.offerTokenAndroid);
+        const offerToken = chosenOffer?.offerTokenAndroid;
 
         if (!offerToken) {
           console.error(
-            '💥 purchaseSubscription: Android - No offerToken found in subscription details',
+            '💥 purchaseSubscription: Android - No offerToken found in subscription offers',
           );
           console.error(
-            '💥 purchaseSubscription: Android - Available subscription offer details:',
-            JSON.stringify(subscription.subscriptionOfferDetails, null, 2),
+            '💥 purchaseSubscription: Android - Available subscription offers:',
+            JSON.stringify(offers, null, 2),
           );
           throw new Error(
             'No offerToken found for Android subscription. Please ensure your subscription is properly configured in Google Play Console.',
           );
         }
 
-        // Android uses subscriptionOffers parameter for Google Play Billing v6+
-        const subscriptionOffer: any = {
-          sku,
-          offerToken,
-        };
-        if (basePlanId) {
-          subscriptionOffer.basePlanId = basePlanId;
-        }
-
-        const purchaseResult = await requestSubscription({
-          subscriptionOffers: [subscriptionOffer],
+        // Success is handled by purchaseUpdatedListener, not the return value
+        await requestPurchase({
+          request: {
+            google: {
+              skus: [sku],
+              subscriptionOffers: [{ sku, offerToken }],
+            },
+          },
+          type: 'subs',
         });
-
-        if (purchaseResult) {
-          setPurchaseSuccess(true);
-          setGotSubscription(true);
-        }
       }
     } catch (error) {
       console.error('💥 purchaseSubscription: Purchase failed:', error);
@@ -401,42 +429,42 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.annual'
             : 'matalk.annual';
 
-      const subscription = subscriptions.find(sub => sub.productId === sku);
+      const subscription = subscriptions.find(sub => sub.id === sku);
 
       if (subscription) {
         if (Platform.OS === 'android') {
           // Android subscription structure
           if (
-            subscription.subscriptionOfferDetails &&
-            subscription.subscriptionOfferDetails.length > 0
+            subscription.subscriptionOffers &&
+            subscription.subscriptionOffers.length > 0
           ) {
             // Look for introductory offer first (offerId exists)
-            const introOffer = subscription.subscriptionOfferDetails.find(
-              (offer: any) => offer.offerId,
+            const introOffer = subscription.subscriptionOffers.find(
+              (offer: any) => offer.id,
             );
             if (
               introOffer &&
-              introOffer.pricingPhases &&
-              introOffer.pricingPhases.pricingPhaseList &&
-              introOffer.pricingPhases.pricingPhaseList.length > 0
+              introOffer.pricingPhasesAndroid &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList.length > 0
             ) {
               const introPrice =
-                introOffer.pricingPhases.pricingPhaseList[0].formattedPrice;
+                introOffer.pricingPhasesAndroid.pricingPhaseList[0].formattedPrice;
 
               return introPrice;
             }
 
             // Fall back to regular price
-            const regularOffer = subscription.subscriptionOfferDetails[0];
+            const regularOffer = subscription.subscriptionOffers[0];
             if (
               regularOffer &&
-              regularOffer.pricingPhases &&
-              regularOffer.pricingPhases.pricingPhaseList &&
-              regularOffer.pricingPhases.pricingPhaseList.length > 0
+              regularOffer.pricingPhasesAndroid &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList.length > 0
             ) {
               const regularPrice =
-                regularOffer.pricingPhases.pricingPhaseList[
-                  regularOffer.pricingPhases.pricingPhaseList.length - 1
+                regularOffer.pricingPhasesAndroid.pricingPhaseList[
+                  regularOffer.pricingPhasesAndroid.pricingPhaseList.length - 1
                 ].formattedPrice;
 
               return regularPrice;
@@ -449,7 +477,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
             return subscription.introductoryPrice;
           }
 
-          const finalPrice = subscription.localizedPrice || subscription.price;
+          const finalPrice = subscription.displayPrice || subscription.price;
 
           return finalPrice;
         }
@@ -459,7 +487,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
         );
         console.warn(
           `📋 getSubscriptionPrice: Available SKUs:`,
-          subscriptions.map(sub => sub.productId),
+          subscriptions.map(sub => sub.id),
         );
       }
     } else {
@@ -481,28 +509,28 @@ const Subscription: React.FC<SubscriptionProps> = ({
             ? 'matalkai.annual'
             : 'matalk.annual';
 
-      const subscription = subscriptions.find(sub => sub.productId === sku);
+      const subscription = subscriptions.find(sub => sub.id === sku);
 
       if (subscription) {
         if (Platform.OS === 'android') {
           // Android subscription structure - always get the regular price (last pricing phase)
           if (
-            subscription.subscriptionOfferDetails &&
-            subscription.subscriptionOfferDetails.length > 0
+            subscription.subscriptionOffers &&
+            subscription.subscriptionOffers.length > 0
           ) {
             const regularOffer =
-              subscription.subscriptionOfferDetails.find(
-                (offer: any) => !offer.offerId,
-              ) || subscription.subscriptionOfferDetails[0];
+              subscription.subscriptionOffers.find(
+                (offer: any) => !offer.id,
+              ) || subscription.subscriptionOffers[0];
             if (
               regularOffer &&
-              regularOffer.pricingPhases &&
-              regularOffer.pricingPhases.pricingPhaseList &&
-              regularOffer.pricingPhases.pricingPhaseList.length > 0
+              regularOffer.pricingPhasesAndroid &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList &&
+              regularOffer.pricingPhasesAndroid.pricingPhaseList.length > 0
             ) {
               const regularPrice =
-                regularOffer.pricingPhases.pricingPhaseList[
-                  regularOffer.pricingPhases.pricingPhaseList.length - 1
+                regularOffer.pricingPhasesAndroid.pricingPhaseList[
+                  regularOffer.pricingPhasesAndroid.pricingPhaseList.length - 1
                 ].formattedPrice;
 
               return regularPrice;
@@ -510,7 +538,7 @@ const Subscription: React.FC<SubscriptionProps> = ({
           }
         } else {
           // iOS subscription structure - always return the regular price, not the introductory price
-          const finalPrice = subscription.localizedPrice || subscription.price;
+          const finalPrice = subscription.displayPrice || subscription.price;
 
           return finalPrice;
         }
@@ -536,27 +564,27 @@ const Subscription: React.FC<SubscriptionProps> = ({
           : null;
 
       if (sku) {
-        const subscription = subscriptions.find(sub => sub.productId === sku);
+        const subscription = subscriptions.find(sub => sub.id === sku);
 
         if (Platform.OS === 'android') {
           // Android subscription structure
           if (
-            subscription.subscriptionOfferDetails &&
-            subscription.subscriptionOfferDetails.length > 0
+            subscription.subscriptionOffers &&
+            subscription.subscriptionOffers.length > 0
           ) {
-            const introOffer = subscription.subscriptionOfferDetails.find(
-              (offer: any) => offer.offerId,
+            const introOffer = subscription.subscriptionOffers.find(
+              (offer: any) => offer.id,
             );
             if (
               introOffer &&
-              introOffer.pricingPhases &&
-              introOffer.pricingPhases.pricingPhaseList &&
-              introOffer.pricingPhases.pricingPhaseList.length > 1
+              introOffer.pricingPhasesAndroid &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList &&
+              introOffer.pricingPhasesAndroid.pricingPhaseList.length > 1
             ) {
               const introPrice =
-                introOffer.pricingPhases.pricingPhaseList[0].formattedPrice;
+                introOffer.pricingPhasesAndroid.pricingPhaseList[0].formattedPrice;
               const introCycles =
-                introOffer.pricingPhases.pricingPhaseList[0].billingCycleCount;
+                introOffer.pricingPhasesAndroid.pricingPhaseList[0].billingCycleCount;
 
               const offerText =
                 plan === 'monthly'

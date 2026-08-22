@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
+import React, {useState, useContext, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,9 @@ import {
   Image,
   Keyboard,
 } from 'react-native';
-import { useAppSettings } from '../utils/persistance';
+import {useAppSettings} from '../utils/persistance';
 import FastImage from 'react-native-fast-image';
-import { OnboardingContext } from '../Navigation/RootControllerView';
+import {OnboardingContext} from '../Navigation/RootControllerView';
 import {
   check,
   request,
@@ -27,16 +27,18 @@ import {
   requestMultiple,
 } from 'react-native-permissions';
 import matalkImg from '../assets/matalk.png';
-import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
+import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import ShowAndTell from '../Components/ShowAndTell';
 import mixpanel from '../utils/mixpanelInstance';
-import { useAdmin } from '../contexts/adminContext';
+import {useAdmin} from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
 import WakeWordService from '../utils/wakewordService';
 import TTSService from '../utils/TTSService';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
+
+const VERBI_IMAGE_SIZE = Math.min(width * 0.2, 100);
 
 // Define onboarding steps
 const onboardingSteps = [
@@ -45,6 +47,8 @@ const onboardingSteps = [
     question: 'Welcome to MaTalk AI',
     additionalComponents: 'welcome',
     buttonText: 'Next',
+    speech:
+      'Welcome to Ma Talk AI, my name is Verbi. I will be here and in the app as your companion.To continue this very short process press the next button. You can mute me at any time by tapping the speaker button above my head.',
   },
   // Removed login step - guest sessions don't need login
   {
@@ -52,44 +56,55 @@ const onboardingSteps = [
     question: 'Terms and Conditions',
     additionalComponents: 'terms-and-conditions',
     buttonText: 'Next',
+    speech:
+      'Please review our terms and conditions, and tap I Accept to continue.',
   },
   {
     id: 'name',
     question: "What is our Hero's name?",
     additionalComponents: 'name-input',
     buttonText: 'Next',
+    speech: "Tell me your hero's name. I am so happy to meet you!",
   },
-  // Removed subscription step - this is a paid app
   {
     id: 'gender',
     question: "Choose your Hero's Avatar or Skip (optional)",
     additionalComponents: 'gender-selection',
     buttonText: 'Next',
+    speech:
+      "Choose your hero's avatar. This step is optional, you can skip it.",
   },
   {
     id: 'admin-code',
     question: '',
     additionalComponents: 'admin-code-input',
     buttonText: 'Next',
+    speech:
+      'Set a four digit parent code. It will be used to access the settings throughout the app.From there you can personalize, model and much more!',
   },
   {
     id: 'Permissions',
     question: 'Permissions',
     additionalComponents: 'permissions',
     buttonText: 'Next',
+    speech:
+      'Ma Talk AI needs a few permissions to work. Please allow them to continue.',
   },
   {
     id: 'Optional Permissions',
     question: 'Optional Permissions',
     additionalComponents: 'optional-permissions',
     buttonText: 'Next',
+    speech:
+      'These location permissions are optional. You can allow them for a better experience, or skip this step.',
   },
+  // Removed subscription step - this is a paid app
 ];
 
 const OnboardingScreen: React.FC = () => {
-  const { setItem, getItem } = useAppSettings();
-  const { isTablet } = useAdmin();
-  const { completeOnboarding } = useContext(OnboardingContext);
+  const {setItem, getItem} = useAppSettings();
+  const {isTablet} = useAdmin();
+  const {completeOnboarding} = useContext(OnboardingContext);
   // Removed Auth0 - using guest sessions
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
@@ -115,9 +130,46 @@ const OnboardingScreen: React.FC = () => {
   );
   // Removed isLoggedIn state - guest sessions are always "authenticated"
   const scrollViewRef = React.useRef<ScrollView>(null);
+  const [verbiMuted, setVerbiMuted] = useState(false);
+  const verbiMutedRef = useRef(false);
+
+  const toggleVerbiMute = () => {
+    const muted = !verbiMutedRef.current;
+    verbiMutedRef.current = muted;
+    setVerbiMuted(muted);
+    if (muted) {
+      TTSService.stop();
+    }
+  };
+
+  // Verbi narrates each onboarding step. The engine runs in TTS-only mode —
+  // full init would warm the speech recognizer and fire the mic +
+  // speech-recognition permission prompts before the Permissions step.
+  // Wakeword resume is skipped too (last speak arg false).
+  useEffect(() => {
+    const step = onboardingSteps[currentStep];
+    const speech = step?.speech;
+    if (!speech) {
+      return;
+    }
+    let cancelled = false;
+    if (!verbiMutedRef.current) {
+      TTSService.initializeTtsOnly()
+        .then(() => {
+          if (!cancelled) {
+            TTSService.speak(speech, true, undefined, false);
+          }
+        })
+        .catch(err => console.warn('[Onboarding] TTS-only init failed:', err));
+    }
+    return () => {
+      cancelled = true;
+      TTSService.stop();
+    };
+  }, [currentStep]);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
-    { transform: [{ scale: isTablet ? 0.68 : 0.6 }] },
+    {transform: [{scale: isTablet ? 0.68 : 0.6}]},
   ];
   const isSmallPhone = height <= 400;
   const tileWidth = isTablet ? '33.33%' : isSmallPhone ? '16.66%' : '33.33%';
@@ -131,7 +183,7 @@ const OnboardingScreen: React.FC = () => {
         setConversationMode(
           (savedConversationMode as 'easy' | 'advanced') || 'easy',
         );
-      } catch (error) { }
+      } catch (error) {}
     };
     loadConversationMode();
   }, []);
@@ -215,35 +267,52 @@ const OnboardingScreen: React.FC = () => {
     }
 
     if (currentStep < onboardingSteps.length - 1) {
+      // This is a paid app - always allow navigation
       setCurrentStep(currentStep + 1);
     } else {
-      // Complete onboarding
-      await setItem('wasOnboarded', '1');
-      if (heroName) {
-        await setItem('heroName', heroName);
-      }
-      if (adminCode) {
-        await setItem('adminCode', adminCode);
-      }
-      if (selectedGender) {
-        await setItem('gender', selectedGender);
-      }
+      const finishOnboarding = async () => {
+        // Complete onboarding
+        await setItem('wasOnboarded', '1');
+        if (heroName) {
+          await setItem('heroName', heroName);
+        }
+        if (adminCode) {
+          await setItem('adminCode', adminCode);
+        }
+        if (selectedGender) {
+          await setItem('gender', selectedGender);
+        }
 
-      try {
-        const wakeWordService = WakeWordService.getInstance();
-        await wakeWordService.initializeAndPause();
-        await wakeWordService.resumeDetection();
-      } catch (error) {
-        console.warn('[Onboarding] WakeWord activation failed:', error);
-      }
+        try {
+          const wakeWordService = WakeWordService.getInstance();
+          await wakeWordService.initializeAndPause();
 
-      // Use the context to complete onboarding
-      completeOnboarding();
+          // Upgrade from onboarding's TTS-only engine to the full STT+TTS
+          // engine — mic permission was granted at the Permissions step, so
+          // no surprise prompts. Mirrors the App.tsx bootstrap order.
+          try {
+            await TTSService.stop();
+            await TTSService.initialize();
+          } catch (error) {
+            console.warn('[Onboarding] Full TTS init failed:', error);
+          }
+
+          await wakeWordService.resumeDetection();
+        } catch (error) {
+          console.warn('[Onboarding] WakeWord activation failed:', error);
+        }
+
+        // Use the context to complete onboarding
+        completeOnboarding();
+      };
+
+      // This is a paid app - always allow navigation
+      await finishOnboarding();
     }
   };
 
   const renderAdditionalComponents = () => {
-    const { additionalComponents } = onboardingSteps[currentStep];
+    const {additionalComponents} = onboardingSteps[currentStep];
 
     switch (additionalComponents) {
       case 'welcome':
@@ -281,23 +350,26 @@ const OnboardingScreen: React.FC = () => {
           </View>
         );
       // Removed login case - guest sessions don't need login
-      // Removed subscription case - this is a paid app
+      // Removed subscription-selection case - this is a paid app
       case 'show-and-tell':
         return (
-          <View style={{ width: '100%', alignItems: 'center' }}>
+          <View style={{width: '100%', alignItems: 'center'}}>
             <ShowAndTell />
           </View>
         );
       case 'terms-and-conditions':
         return (
           <View style={styles.termsContainer}>
-            <TermsAndConditions onAgree={handleTermsAgreement} />
+            <TermsAndConditions
+              onAgree={handleTermsAgreement}
+              onAccept={handleNext}
+            />
           </View>
         );
       case 'name-input':
         return (
           <ScrollView
-            style={{ width: '100%' }}
+            style={{width: '100%'}}
             contentContainerStyle={styles.nameScrollContainer}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
@@ -336,7 +408,7 @@ const OnboardingScreen: React.FC = () => {
                 Pick the picture that looks most like your hero. You can skip
                 this step now and change it later. This is for a more
                 personalized experience -{' '}
-                <Text style={{ color: '#8E24AA', fontWeight: '600' }}>
+                <Text style={{color: '#8E24AA', fontWeight: '600'}}>
                   Totally optional
                 </Text>
               </Text>
@@ -344,10 +416,10 @@ const OnboardingScreen: React.FC = () => {
             <ScrollView
               horizontal={isSmallPhone}
               showsHorizontalScrollIndicator={false}
-              style={{ width: '100%' }}
+              style={{width: '100%'}}
               contentContainerStyle={[
                 styles.genderContainer,
-                { flexWrap: containerFlexWrap as any },
+                {flexWrap: containerFlexWrap as any},
               ]}>
               <TouchableOpacity
                 style={[
@@ -520,11 +592,13 @@ const OnboardingScreen: React.FC = () => {
           </>
         );
       case 'admin-code-input': {
-        const pinBoxSize = isTablet ? Math.min(width * 0.14, 100) : Math.min(width * 0.18, 80);
+        const pinBoxSize = isTablet
+          ? Math.min(width * 0.14, 100)
+          : Math.min(width * 0.18, 80);
 
         return (
           <ScrollView
-            style={{ width: '100%' }}
+            style={{width: '100%'}}
             contentContainerStyle={styles.adminCodeContainer}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}>
@@ -533,30 +607,35 @@ const OnboardingScreen: React.FC = () => {
               <Text style={styles.parentCodeLockIcon}>🔒</Text>
 
               {/* Title */}
-              <Text style={[
-                styles.parentCodeTitle,
-                { fontSize: isTablet ? 28 : 22 },
-              ]}>
+              <Text
+                style={[
+                  styles.parentCodeTitle,
+                  {fontSize: isTablet ? 28 : 22},
+                ]}>
                 Set Parent Code
               </Text>
 
               {/* Description */}
-              <Text style={[
-                styles.parentCodeDescription,
-                { fontSize: isTablet ? 16 : 13 },
-              ]}>
+              <Text
+                style={[
+                  styles.parentCodeDescription,
+                  {fontSize: isTablet ? 16 : 13},
+                ]}>
                 A parent code will be used to access the Settings page.
               </Text>
 
               {/* PIN Input Row */}
-              <TouchableOpacity activeOpacity={1} style={styles.parentCodePinRow} onPress={() => {
-                if (pinInputRef.current) {
-                  pinInputRef.current.blur();
-                  setTimeout(() => {
-                    pinInputRef.current?.focus();
-                  }, 100);
-                }
-              }}>
+              <TouchableOpacity
+                activeOpacity={1}
+                style={styles.parentCodePinRow}
+                onPress={() => {
+                  if (pinInputRef.current) {
+                    pinInputRef.current.blur();
+                    setTimeout(() => {
+                      pinInputRef.current?.focus();
+                    }, 100);
+                  }
+                }}>
                 <TextInput
                   ref={pinInputRef}
                   value={adminCode}
@@ -576,7 +655,12 @@ const OnboardingScreen: React.FC = () => {
                   }}
                   keyboardType="number-pad"
                   maxLength={4}
-                  style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                  style={{
+                    position: 'absolute',
+                    width: 1,
+                    height: 1,
+                    opacity: 0,
+                  }}
                   autoFocus={true}
                   caretHidden={true}
                 />
@@ -597,12 +681,16 @@ const OnboardingScreen: React.FC = () => {
                         styles.parentCodePinInput,
                         {
                           fontSize: showAdminCode
-                            ? (isTablet ? 36 : 28)
-                            : (isTablet ? 48 : 36),
+                            ? isTablet
+                              ? 36
+                              : 28
+                            : isTablet
+                            ? 48
+                            : 36,
                           lineHeight: pinBoxSize,
                         },
                       ]}>
-                      {showAdminCode ? digit : (digit ? '●' : '')}
+                      {showAdminCode ? digit : digit ? '●' : ''}
                     </Text>
                   </View>
                 ))}
@@ -611,11 +699,12 @@ const OnboardingScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.parentCodeEyeButton}
                   onPress={() => setShowAdminCode(!showAdminCode)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Text style={[
-                    styles.parentCodeEyeIcon,
-                    { fontSize: isTablet ? 24 : 18 },
-                  ]}>
+                  hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
+                  <Text
+                    style={[
+                      styles.parentCodeEyeIcon,
+                      {fontSize: isTablet ? 24 : 18},
+                    ]}>
                     {showAdminCode ? '👁️' : '👁️‍🗨️'}
                   </Text>
                 </TouchableOpacity>
@@ -631,7 +720,7 @@ const OnboardingScreen: React.FC = () => {
               Select pictures of family members that {heroName} will be able to
               start a conversation with.
             </Text>
-            <Text style={[styles.familylabel, { color: '#8E24AA' }]}>
+            <Text style={[styles.familylabel, {color: '#8E24AA'}]}>
               You can skip this and do it later! Just tap next
             </Text>
             <View style={styles.familyPicsWrapper}>
@@ -649,7 +738,7 @@ const OnboardingScreen: React.FC = () => {
               Select pictures of family members that {heroName} will be able to
               start a conversation with.
             </Text>
-            <Text style={[styles.familylabel, { color: '#8E24AA' }]}>
+            <Text style={[styles.familylabel, {color: '#8E24AA'}]}>
               You can skip this and do it later! Just tap next
             </Text>
             <View style={styles.familyPicsWrapper}>
@@ -672,7 +761,7 @@ const OnboardingScreen: React.FC = () => {
               <TouchableOpacity
                 style={styles.scrollIndicatorContainer}
                 onPress={() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                  scrollViewRef.current?.scrollToEnd({animated: true});
                 }}>
                 <Text style={styles.scrollIndicator}>⬇️</Text>
               </TouchableOpacity>
@@ -688,12 +777,12 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { fontSize: 24, fontWeight: '900' },
+                        {fontSize: 24, fontWeight: '900'},
                       ]}>
                       MaTalk AI needs the following permissions:
                     </Text>
                     <Text
-                      style={[styles.permissionsExplanation, { width: '80%' }]}>
+                      style={[styles.permissionsExplanation, {width: '80%'}]}>
                       Access to your microphone to listen for a wake word
                     </Text>
                     <Text
@@ -718,20 +807,20 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { fontSize: 24, fontWeight: '900', color: '#333' },
+                        {fontSize: 24, fontWeight: '900', color: '#333'},
                       ]}>
                       Speech Recognition Disabled
                     </Text>
                     <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        { color: '#666' },
-                      ]}>
-                      Without microphone and speech recognition, voice commands and features won't be available.
-                      {"\n\n"}
-                      You can still use MaTalk AI to communicate by tapping on cards.
-                      {"\n\n"}
-                      If you change your mind later, you can enable these permissions in your device settings.
+                      style={[styles.permissionsExplanation, {color: '#666'}]}>
+                      Without microphone and speech recognition, voice commands
+                      and features won't be available.
+                      {'\n\n'}
+                      You can still use MaTalk AI to communicate by tapping on
+                      cards.
+                      {'\n\n'}
+                      If you change your mind later, you can enable these
+                      permissions in your device settings.
                     </Text>
                   </>
                 )}
@@ -741,16 +830,15 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        { color: '#8E24AA', fontWeight: 'bold', marginTop: 20 },
+                        {color: '#8E24AA', fontWeight: 'bold', marginTop: 20},
                       ]}>
                       Speech Recognition is Limited
                     </Text>
                     <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        { color: '#666' },
-                      ]}>
-                      Without permission, you won't be able to use voice features like "Hey Verbi". You can still use the app by tapping on the screen.
+                      style={[styles.permissionsExplanation, {color: '#666'}]}>
+                      Without permission, you won't be able to use voice
+                      features like "Hey Verbi". You can still use the app by
+                      tapping on the screen.
                     </Text>
                   </>
                 )}
@@ -762,13 +850,13 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.buttonText,
-                        { fontSize: nextButtonTextFontSize },
+                        {fontSize: nextButtonTextFontSize},
                       ]}>
                       {permissionsPermanentlyDenied
                         ? 'Continue'
                         : permissionsDenied
-                          ? 'Try Again'
-                          : 'Continue'}
+                        ? 'Try Again'
+                        : 'Continue'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -800,7 +888,7 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.buttonText,
-                        { fontSize: nextButtonTextFontSize },
+                        {fontSize: nextButtonTextFontSize},
                       ]}>
                       Continue
                     </Text>
@@ -819,7 +907,8 @@ const OnboardingScreen: React.FC = () => {
     let m = member;
     Alert.alert(
       'Family Member Selected',
-      `You selected: ${member.name}${member.imageUri ? ' (with photo)' : ' (no photo)'
+      `You selected: ${member.name}${
+        member.imageUri ? ' (with photo)' : ' (no photo)'
       }`,
       [
         {
@@ -942,7 +1031,7 @@ const OnboardingScreen: React.FC = () => {
       if (granted) {
         await initializeSpeechServices();
       }
-      return { mic, speech };
+      return {mic, speech};
     }
 
     setPermissionsGranted(true);
@@ -980,9 +1069,9 @@ const OnboardingScreen: React.FC = () => {
 
         const isGranted =
           granted['android.permission.ACCESS_FINE_LOCATION'] ===
-          RESULTS.GRANTED &&
+            RESULTS.GRANTED &&
           granted['android.permission.ACCESS_COARSE_LOCATION'] ===
-          RESULTS.GRANTED;
+            RESULTS.GRANTED;
         setLocationGranted(isGranted);
         setLocationPermissionSuccess(isGranted);
         mixpanel.track('Onboarding Permissions Requested', {
@@ -1057,7 +1146,7 @@ const OnboardingScreen: React.FC = () => {
           ]}
           onPress={handleBack}>
           <Text
-            style={[styles.backButtonText, { fontSize: nextButtonTextFontSize }]}>
+            style={[styles.backButtonText, {fontSize: nextButtonTextFontSize}]}>
             Back
           </Text>
           <Image
@@ -1073,7 +1162,20 @@ const OnboardingScreen: React.FC = () => {
       <View style={styles.matalkIcon}>
         <FastImage source={matalkImg} style={styles.iconSize} />
       </View>
-      <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
+      <View style={styles.verbiContainer}>
+        <FastImage
+          source={require('../assets/verbiPoseTransparent.png')}
+          style={styles.verbiImage}
+          resizeMode={FastImage.resizeMode.contain}
+        />
+        <TouchableOpacity
+          style={styles.verbiMuteButton}
+          onPress={toggleVerbiMute}
+          hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+          <Text style={styles.verbiMuteIcon}>{verbiMuted ? '🔇' : '🔊'}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={[styles.container, {backgroundColor: '#f8f9fe'}]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}>
@@ -1131,7 +1233,7 @@ const OnboardingScreen: React.FC = () => {
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
                   (currentStepData.id === 'Optional Permissions' &&
                     !locationPermissionAttempted)) &&
-                styles.hiddenButton,
+                  styles.hiddenButton,
               ]}
               onPress={() => {
                 handleNext();
@@ -1139,11 +1241,10 @@ const OnboardingScreen: React.FC = () => {
               disabled={
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
-                (currentStepData.id === 'admin-code' &&
-                  adminCode.length !== 4)
+                (currentStepData.id === 'admin-code' && adminCode.length !== 4)
               }>
               <Text
-                style={[styles.buttonText, { fontSize: nextButtonTextFontSize }]}>
+                style={[styles.buttonText, {fontSize: nextButtonTextFontSize}]}>
                 {currentStepData.buttonText}
               </Text>
             </TouchableOpacity>
@@ -1352,7 +1453,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     elevation: 4,
   },
   selectedGender: {
@@ -1373,7 +1474,7 @@ const styles = StyleSheet.create({
     fontSize: Math.min(26.4, width * 0.048),
     color: '#FF3B30',
     textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 1 },
+    textShadowOffset: {width: 0, height: 1},
     textShadowRadius: 2,
     pointerEvents: 'none',
   },
@@ -1428,6 +1529,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
+  verbiContainer: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 20,
+  },
+  verbiImage: {
+    width: VERBI_IMAGE_SIZE,
+    height: VERBI_IMAGE_SIZE * 1.15,
+  },
+  verbiMuteButton: {
+    position: 'absolute',
+    top: 0,
+    right: -6,
+    backgroundColor: 'white',
+    borderRadius: 17,
+    width: 34,
+    height: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  verbiMuteIcon: {
+    fontSize: 16,
+  },
   welcomeImage: {
     width: width * 0.15,
     height: width * 0.15,
@@ -1457,7 +1589,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: height * 0.4,
     flexDirection: 'row',
-    flex: 1
+    flex: 1,
   },
   adminCodeImage: {
     width: width * 0.05,
@@ -1501,7 +1633,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     elevation: 2,
   },
   parentCodePinBoxFilled: {
@@ -1546,7 +1678,8 @@ const styles = StyleSheet.create({
   backButton: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 60 : 20,
-    left: 20,
+    // Sits to the right of Verbi, who occupies the top-left corner.
+    left: VERBI_IMAGE_SIZE + 36,
     zIndex: 10,
     padding: 12,
     backgroundColor: 'rgba(20, 108, 240, 0.75)',
@@ -1555,18 +1688,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...(Platform.OS === 'ios'
       ? {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
-      }
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 5,
+        }
       : {
-        elevation: 15,
-      }),
+          elevation: 15,
+        }),
   },
   backButtonText: {
     fontSize: 16,
@@ -1580,7 +1713,7 @@ const styles = StyleSheet.create({
     shadowColor: 'gray',
     shadowOpacity: 0.8,
     shadowRadius: 5,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: {width: 0, height: 8},
     elevation: 8,
     backgroundColor: 'white',
     marginBottom: height * 0.02,

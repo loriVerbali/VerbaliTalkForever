@@ -13,6 +13,9 @@ const { width, height } = Dimensions.get('window');
 
 interface TermsAndConditionsProps {
   onAgree: (agreed: boolean) => void;
+  // Matalk's redesigned Terms auto-advances via onAccept; Forever keeps the
+  // scroll-and-checkbox flow, so the prop is accepted but unused.
+  onAccept?: () => void;
 }
 
 const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
