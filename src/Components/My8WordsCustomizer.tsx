@@ -101,7 +101,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
           await setItem('my8words', stringifyMy8Words(parsedData));
         }
       } catch (error) {
-
       }
     };
     loadMy8Words();
@@ -266,7 +265,6 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
               await setItem('my8words', stringifyMy8Words(defaultData));
               Alert.alert('Success', 'Cards reset to default words');
             } catch (error) {
-
               Alert.alert('Error', 'Failed to reset cards. Please try again.');
             }
           },

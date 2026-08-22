@@ -11,9 +11,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 import fetchHelper from '../../utils/fetcher';
 import { MagicPreviewResponse, MagicUpdateRequest } from '../../types/HeroContext';
+import { useAdmin } from '../../contexts/adminContext';
 
 export type ContextModalMode = 'view' | 'edit';
 
@@ -50,9 +52,26 @@ const ContextModal: React.FC<ContextModalProps> = ({
   const [text, setText] = useState(currentFreeText);
   const [phase, setPhase] = useState<Phase>('input');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
+  const { isTablet } = useAdmin();
 
   const heroDisplay = heroName || 'your child';
+  const hideHeader = isKeyboardVisible && !isTablet;
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   // Sync state when modal becomes visible or props change
   useEffect(() => {
@@ -175,24 +194,26 @@ const ContextModal: React.FC<ContextModalProps> = ({
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             {/* Header */}
-            <View style={styles.header}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>
-                  Context about {heroDisplay}
-                </Text>
-                <Text style={styles.subtitle}>
-                  Information is saved locally on this device
-                </Text>
+            {!hideHeader && (
+              <View style={styles.header}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.title}>
+                    Context about {heroDisplay}
+                  </Text>
+                  <Text style={styles.subtitle}>
+                    Information is saved locally on this device
+                  </Text>
+                </View>
+                {phase !== 'loading' && (
+                  <TouchableOpacity
+                    onPress={onCancel}
+                    style={styles.closeBtn}
+                    accessibilityLabel="Close">
+                    <Text style={styles.closeBtnText}>✕</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              {phase !== 'loading' && (
-                <TouchableOpacity
-                  onPress={onCancel}
-                  style={styles.closeBtn}
-                  accessibilityLabel="Close">
-                  <Text style={styles.closeBtnText}>✕</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
 
             {/* Body */}
             <ScrollView
@@ -226,12 +247,16 @@ const ContextModal: React.FC<ContextModalProps> = ({
                     </View>
                   ) : (
                     <View style={styles.fieldSection}>
-                      <Text style={styles.fieldLabel}>
-                        Quick Add &amp; Brain Dump
-                      </Text>
-                      <Text style={styles.helperText}>
-                        Edit {heroDisplay}'s info below or just add new details at the bottom. The AI will clean it up and merge it into their profile.
-                      </Text>
+                      {!hideHeader && (
+                        <>
+                          <Text style={styles.fieldLabel}>
+                            Quick Add &amp; Brain Dump
+                          </Text>
+                          <Text style={styles.helperText}>
+                            Edit {heroDisplay}'s info below or just add new details at the bottom. The AI will clean it up and merge it into their profile.
+                          </Text>
+                        </>
+                      )}
                       <TextInput
                         ref={inputRef}
                         style={styles.textInput}

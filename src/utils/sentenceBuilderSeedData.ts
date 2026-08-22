@@ -1085,15 +1085,6 @@ export const COMPREHENSIVE_SEED_NODES: Omit<
     isSeed: true,
     seedPackVersion: 1,
   },
-  {
-    parentId: 'folder_time',
-    kind: 'folder',
-    title: 'Seasons',
-    imageUri: '../assets/classic/seasons.jpg',
-    orderIndex: 30,
-    isSeed: true,
-    seedPackVersion: 1,
-  },
 
   // Duration folder words
   {
@@ -1485,47 +1476,6 @@ export const COMPREHENSIVE_SEED_NODES: Omit<
     seedPackVersion: 1,
   },
 
-  // Seasons folder words
-  {
-    parentId: 'folder_seasons',
-    kind: 'word',
-    title: 'Summer',
-    type: 'noun',
-    imageUri: '../assets/classic/summer.jpg',
-    orderIndex: 0,
-    isSeed: true,
-    seedPackVersion: 1,
-  },
-  {
-    parentId: 'folder_seasons',
-    kind: 'word',
-    title: 'Fall',
-    type: 'noun',
-    imageUri: '../assets/classic/fall.jpg',
-    orderIndex: 1,
-    isSeed: true,
-    seedPackVersion: 1,
-  },
-  {
-    parentId: 'folder_seasons',
-    kind: 'word',
-    title: 'Winter',
-    type: 'noun',
-    imageUri: '../assets/classic/winter.jpg',
-    orderIndex: 2,
-    isSeed: true,
-    seedPackVersion: 1,
-  },
-  {
-    parentId: 'folder_seasons',
-    kind: 'word',
-    title: 'Spring',
-    type: 'noun',
-    imageUri: '../assets/classic/spring.jpg',
-    orderIndex: 3,
-    isSeed: true,
-    seedPackVersion: 1,
-  },
 
   // Description category and words
   {
@@ -8860,16 +8810,6 @@ export const COMPREHENSIVE_SEED_NODES: Omit<
     type: 'adjective',
     imageUri: '../../assets/shortCuts/wantNeed/more.jpg',
     orderIndex: 29,
-    isSeed: true,
-    seedPackVersion: 1,
-  },
-  {
-    parentId: 'folder_shortcuts',
-    kind: 'word',
-    title: 'Sleep',
-    type: 'verb',
-    imageUri: '../../assets/shortCuts/wantNeed/sleep.jpg',
-    orderIndex: 30,
     isSeed: true,
     seedPackVersion: 1,
   },

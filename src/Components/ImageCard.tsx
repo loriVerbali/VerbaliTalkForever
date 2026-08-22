@@ -14,7 +14,6 @@ import { useNavigation } from '@react-navigation/native';
 import { views } from '../utils/constants';
 import { useAdmin } from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
-import AudioSessionManager from '../utils/AudioSessionManager';
 
 // Ma-Talk logo URL - if image matches this, show word text instead
 const MA_TALK_LOGO_URL = 'https://matalkcdn.win/Ma-Talk%20logo.jpg';
@@ -89,37 +88,17 @@ const ImageCard: React.FC<ImageCardProps> = ({
     questionMarkLeft: isTablet ? width * 0.045 : width * 0.037,
   };
 
-  const sayAnswer = async (prompt: string) => {
-
-    // Put the session in playback mode with speaker override
-    await AudioSessionManager.prepareForTTS();
-
-    // We pass the session restoration as a callback to ensure it only runs 
-    // AFTER the audio has finished playing.
-    // NOTE: speak(..., true) returns immediately, so we cannot use await + finally here.
-    const onPlaybackComplete = async () => {
-
-      // Always clear the flag after playback completes
-      // If your native module exposes endTTS() (we added it), prefer that:
-      // await AudioSessionManagerModule.endTTS();
-      AudioSessionManager.setTTSActive(false);
-
-      await AudioSessionManager.prepareForWakeword();
-    };
-
-    // Calling speak with immediate=true and our completion callback
-    await ttsService.speak(prompt, true, onPlaybackComplete);
+  const sayAnswer = async (prompt: string, onComplete?: () => void) => {
+    await ttsService.speak(prompt, true, onComplete);
   };
 
   const handleRefresh = async () => {
     if (retryCount >= maxRetries) {
       // Navigate to shortcuts view when max retries reached
-      await AudioSessionManager.prepareForTTS();
       ttsService.speak('Let me show you some shortcuts instead', true);
       navigation.navigate(views.SHORTCUTS as never);
     } else if (onRefresh) {
       // Provide audio feedback to the user
-      await AudioSessionManager.prepareForTTS();
       ttsService.speak('Getting more answers for you', true);
       onRefresh();
     }
@@ -244,9 +223,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 isDebouncing.current = false;
               }, 1000);
 
-              sayAnswer(image.prompt);
-              // Call the callback to log the conversation
-              onAnswerSelected?.(image.prompt);
+              sayAnswer(image.prompt, () => {
+                // Run the selection flow after TTS releases the audio session.
+                onAnswerSelected?.(image.prompt);
+              });
             }}>
             <View style={{ flexDirection: 'column', alignItems: 'center' }}>
               {/* Check if the URL is a placeholder */}

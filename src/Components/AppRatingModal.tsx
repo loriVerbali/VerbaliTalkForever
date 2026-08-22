@@ -42,7 +42,6 @@ const AppRatingModal: React.FC<AppRatingModalProps> = ({
   onClose,
   onDismiss,
 }) => {
-
   const [state, setState] = useState<RatingModalState>('initial');
   const [selectedFeedback, setSelectedFeedback] = useState<Set<string>>(
     new Set(),

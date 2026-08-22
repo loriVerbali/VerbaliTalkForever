@@ -90,3 +90,5 @@ ios/en_US-amy-medium.onnx
 .env.*
 node_modules
 *.onnx
+
+scripts/.memory-cli-state.json

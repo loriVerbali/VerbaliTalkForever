@@ -1,0 +1,296 @@
+import { useEffect, useRef, useCallback } from 'react';
+import { Node } from '../../../types/sentenceBuilder';
+import {
+  VerbiAction,
+  VerbiClientState,
+  VerbiFolder,
+  PredictionMode,
+  VerbiSuggestion,
+} from '../state/verbiTypes';
+import { verbiApi } from '../services/verbiApi';
+import { generateRequestId } from '../utils/generateRequestId';
+import { normalizeSentenceSnapshot } from '../utils/normalizeSentenceSnapshot';
+import { routePredictionMode } from '../utils/routePredictionMode';
+import mixpanel from '../../../utils/mixpanelInstance';
+import {
+  VERBI_EVENTS,
+  parseVerbiSuggestionLimit,
+} from '../state/verbiTypes';
+import { useAppSettings } from '../../../utils/persistance';
+import { getTimeOfDay } from '../../../utils/timeOfDay';
+import { personalMemoryService } from '../../../services/PersonalMemoryService';
+
+const DEBOUNCE_MS = 100;
+
+interface UseVerbiPredictionInput {
+  state: VerbiClientState;
+  dispatch: (action: VerbiAction) => void;
+  sentenceTokenIds: string[];
+  nodes: Node[];
+  boardId: string;
+  locale: string;
+}
+
+export function useVerbiPrediction({
+  state,
+  dispatch,
+  sentenceTokenIds,
+  nodes,
+  boardId,
+  locale,
+}: UseVerbiPredictionInput) {
+  const { getItem } = useAppSettings();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped by every new request. Aborting the fetch is not enough on its own:
+  // a response that already came back is past the point where the signal can
+  // stop it, and it would then paint suggestions for a sentence the user has
+  // already moved on from. Each attempt captures its generation and gives up
+  // the moment a newer word supersedes it.
+  const generationRef = useRef(0);
+
+  // Drop anything still pending when the screen goes away.
+  useEffect(() => {
+    return () => {
+      // Deliberately reading the live value: this is a counter, and bumping
+      // whatever it holds at teardown is exactly what invalidates in-flight work.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      generationRef.current++;
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+    };
+  }, []);
+
+  const requestPrediction = useCallback(
+    (overrideFolder?: VerbiFolder | null) => {
+      // Don't request if offline or disabled
+      if (!state.isOnline || !state.enabled) {
+        return;
+      }
+
+      // Supersede everything older, right now — not 100ms from now when the
+      // debounced body runs.
+      const generation = ++generationRef.current;
+
+      // Cancel any in-flight request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+
+      // Debounce
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      debounceTimerRef.current = setTimeout(async () => {
+        if (generationRef.current !== generation) return;
+
+        const snapshot = normalizeSentenceSnapshot(sentenceTokenIds, nodes);
+        const activeFolder =
+          overrideFolder !== undefined
+            ? overrideFolder
+            : state.folderStack.length > 0
+            ? state.folderStack[state.folderStack.length - 1]
+            : null;
+
+        const isTurnStale =
+          state.turnState === 'IDLE_EMPTY' ||
+          state.turnState === 'READY_FOR_NEXT_TURN';
+
+        const mode: PredictionMode = routePredictionMode({
+          openVerbiFolder: activeFolder,
+          sentenceItemCount: snapshot.itemCount,
+          isTurnStale,
+        });
+
+        const requestId = generateRequestId();
+        const turnId = state.activeTurnId ?? `turn_fallback_${Date.now()}`;
+
+        dispatch({
+          type: 'PREDICTION_REQUESTED',
+          payload: { requestId, mode },
+        });
+
+        const now = Date.now();
+        mixpanel.track(VERBI_EVENTS.PREDICTION_REQUESTED, {
+          mode,
+          turnId,
+          hasConversation: !!state.conversationId,
+        });
+
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
+        try {
+          let parsedPepes: any = null;
+          try {
+            const pepesRaw = await getItem('pepes');
+            if (pepesRaw) {
+              parsedPepes = JSON.parse(pepesRaw);
+            }
+          } catch (e) {
+            console.error('Error loading pepes for Verbi prediction context:', e);
+          }
+
+          // Read on every request so a change in the grid settings panel takes
+          // effect on the next prediction without remounting this hook.
+          const limit = parseVerbiSuggestionLimit(
+            await getItem('verbiSuggestionLimit'),
+          );
+
+          // Intake free text + Personal Memory context, both optional
+          let tellUsMore: string | undefined;
+          try {
+            const raw = await getItem('tellUsMore');
+            tellUsMore = raw ? raw.slice(0, 500) : undefined;
+          } catch (e) {
+            tellUsMore = undefined;
+          }
+          const memoryContext = await personalMemoryService.buildMemoryContext({
+            currentText: snapshot.text,
+          });
+
+          const response = await verbiApi.predict(
+            {
+              requestId,
+              conversationId: state.conversationId,
+              turnId,
+              mode,
+              sentence: {
+                text: snapshot.text,
+                items: snapshot.items,
+                isStale: isTurnStale,
+              },
+              folder: activeFolder
+                ? {
+                    id: activeFolder.id,
+                    label: activeFolder.label,
+                    category: activeFolder.category,
+                  }
+                : null,
+              board: { boardId, locale },
+              isAdult: true,
+              contextCues: {
+                timeOfDay: getTimeOfDay(),
+                date: new Date().toISOString().split('T')[0],
+                pepes: parsedPepes,
+                ...(tellUsMore ? { tellUsMore } : {}),
+                ...(memoryContext ? { memoryContext } : {}),
+              },
+              limit,
+            },
+            controller.signal,
+          );
+
+          // A word landed while this was in the air: the answer describes a
+          // sentence that no longer exists, so drop it rather than paint it.
+          if (generationRef.current !== generation) return;
+
+          const latencyMs = Date.now() - now;
+          mixpanel.track(VERBI_EVENTS.PREDICTION_SUCCEEDED, {
+            mode,
+            latencyMs,
+            suggestionCount: response.suggestions?.length ?? 0,
+            fallbackUsed: response.fallbackUsed,
+          });
+
+          // Text-only build: suggestion artwork is neither rendered nor
+          // cached, so no image resolution or download work is done here.
+          const mappedSuggestions: VerbiSuggestion[] = [
+            ...(response.suggestions ?? []),
+          ];
+
+          if (generationRef.current !== generation) return;
+
+          // Personal Memory: annotate word suggestions with usage scores so
+          // the reducer can order newcomers within their group (§6.4).
+          try {
+            const labels = mappedSuggestions
+              .filter(sug => sug.type === 'word')
+              .map(sug => sug.label);
+            const scores = await personalMemoryService.getMemoryScores(labels);
+            if (scores.size > 0) {
+              for (const sug of mappedSuggestions) {
+                const score = scores.get(sug.label.trim().toLowerCase());
+                if (score !== undefined) {
+                  sug.memoryScore = score;
+                }
+              }
+            }
+          } catch (e) {
+            // scores are optional — server order stands
+          }
+
+          if (generationRef.current !== generation) return;
+
+          dispatch({
+            type: 'PREDICTION_SUCCEEDED',
+            payload: {
+              requestId,
+              suggestions: mappedSuggestions,
+              groups: response.groups ?? [],
+              fallbackUsed: response.fallbackUsed ?? false,
+            },
+          });
+
+        } catch (error: any) {
+          // Ignore abort errors — they're intentional
+          if (error?.name === 'AbortError') {
+            return;
+          }
+
+          // A superseded request must not surface an error over the request
+          // that replaced it.
+          if (generationRef.current !== generation) return;
+
+          const code = (error as any)?.code ?? 'UNKNOWN';
+          mixpanel.track(VERBI_EVENTS.PREDICTION_FAILED, { mode, code });
+
+          dispatch({
+            type: 'PREDICTION_FAILED',
+            payload: { requestId, code },
+          });
+        } finally {
+          // Only clear the slot if it is still ours — a newer request may have
+          // already installed its own controller here.
+          if (abortControllerRef.current === controller) {
+            abortControllerRef.current = null;
+          }
+        }
+      }, DEBOUNCE_MS);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      state.isOnline,
+      state.enabled,
+      state.folderStack,
+      state.turnState,
+      state.activeTurnId,
+      state.conversationId,
+      sentenceTokenIds,
+      nodes,
+      boardId,
+      locale,
+      getItem,
+    ],
+  );
+
+  const cancelPrediction = useCallback(() => {
+    generationRef.current++;
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  return { requestPrediction, cancelPrediction };
+}
