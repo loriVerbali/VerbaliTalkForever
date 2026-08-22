@@ -6,146 +6,161 @@
  * @flow strict-local
  */
 import 'react-native-gesture-handler';
-import React, { useEffect, useRef } from 'react';
-import { StyleSheet, AppState, AppStateStatus, StatusBar } from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {
+  StyleSheet,
+  AppState,
+  AppStateStatus,
+  StatusBar,
+  View,
+  Dimensions,
+  Text,
+} from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
-import { AppSettingsProvider } from './utils/persistance';
-import { AdminProvider } from './contexts/adminContext';
-import { ChatContextProvider } from './contexts/ChatContextProvider';
-import { SoundProvider } from './contexts/soundContext';
-import { ConnectionProvider } from './utils/connection';
-import { ToastProvider } from './contexts/ToastContext';
-import { DatabaseProvider } from './contexts/DatabaseContext';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { sessionManager } from './utils/sessionManager';
-import { Mixpanel } from 'mixpanel-react-native';
+import {AppSettingsProvider} from './utils/persistance';
+import {AdminProvider} from './contexts/adminContext';
+import {ChatContextProvider} from './contexts/ChatContextProvider';
+import {ConnectionProvider} from './utils/connection';
+import {ToastProvider} from './contexts/ToastContext';
+import {DatabaseProvider} from './contexts/DatabaseContext';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {sessionManager} from './utils/sessionManager';
+import mixpanel from './utils/mixpanelInstance';
 import TTSService from './utils/TTSService';
 import WakeWordService from './utils/wakewordService';
 import fetchHelper from './utils/fetcher';
+import {personalMemoryService} from './services/PersonalMemoryService';
 import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
+import FastImage from 'react-native-fast-image';
+import {PostHogProvider} from 'posthog-react-native';
+
+const {width, height} = Dimensions.get('window');
 
 const App = () => {
   const appState = useRef(AppState.currentState);
+  // Bootstrap tracks whether the init-once startup sequence has completed.
+  // The Navigator (and therefore Open.tsx) is not rendered until this is true,
+  // so Open.tsx always mounts with WakeWord already live.
+  const [bootstrapDone, setBootstrapDone] = useState(false);
+  const bootstrapRanRef = useRef(false);
+  const bootstrapDoneRef = useRef(false);
 
-  // Lock to landscape orientation as early as possible
-  // Orientation.lockToLandscapeLeft();
-
-  const trackAutomaticEvents = false;
-  const mixpanelToken = '48186fefd3c06e4f4b0c4ad87d1555d2';
-
-  const mixpanel = new Mixpanel(mixpanelToken, trackAutomaticEvents);
-  mixpanel.init();
-  mixpanel.reset(); // anonymizes session, clears device_id and user_id
-  mixpanel.clearSuperProperties();
-
-  // Initialize device ID for Mixpanel tracking
   useEffect(() => {
-    const initializeDeviceTracking = async () => {
+    bootstrapDoneRef.current = bootstrapDone;
+  }, [bootstrapDone]);
+
+  // Initialize Mixpanel and device tracking (once on mount)
+  useEffect(() => {
+    const initializeMixpanel = async () => {
       try {
-        // Get the actual device ID
+        await mixpanel.init();
         const deviceId = await DeviceInfo.getUniqueId();
-
-        // Identify the user with the device ID in Mixpanel
         mixpanel.identify(deviceId);
-
-        // Also set it as a super property for easier querying
-        mixpanel.registerSuperProperties({
-          device_id: deviceId,
-        });
+        mixpanel.registerSuperProperties({device_id: deviceId});
       } catch (error) {
-        console.error('Error setting device ID in Mixpanel:', error);
-        // Fallback: generate a GUID if device ID retrieval fails
-        const fallbackId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-          /[xy]/g,
-          function (c) {
-            const r = (Math.random() * 16) | 0;
-            const v = c === 'x' ? r : (r & 0x3) | 0x8;
-            return v.toString(16);
-          },
-        );
-        mixpanel.identify(fallbackId);
-        mixpanel.registerSuperProperties({
-          device_id: fallbackId,
-        });
+        console.error('Error initializing Mixpanel:', error);
       }
     };
-
-    initializeDeviceTracking();
+    initializeMixpanel();
   }, []);
 
-  // Refresh session when app becomes active
+  // ─── ONE-TIME BOOTSTRAP ───────────────────────────────────────────────────
+  // Sequence (in order, never repeated unless the app crashes):
+  //   1. WakeWord  → initializeAndPause()  (existing users only)
+  //   2. TTS/STT   → TTSService.initialize() (existing users only)
+  //   3. WakeWord  → resumeDetection()     (existing users only)
+  // New users activate WakeWord after onboarding grants microphone permission.
+  // Only then do we flip bootstrapDone=true so the Navigator renders.
   useEffect(() => {
-    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
+    if (bootstrapRanRef.current) return;
+    bootstrapRanRef.current = true;
+
+    const bootstrap = async () => {
+      // Warm up the backend on cold start (fire-and-forget, don't block startup)
+      fetchHelper('wakeup', {}, {}).catch(() => {});
+
+      const wakeWordService = WakeWordService.getInstance();
+      const wasOnboarded = await DefaultPreference.get('wasOnboarded');
+      const isOnboardingComplete = wasOnboarded === '1';
+
+      if (isOnboardingComplete) {
         try {
-          await sessionManager.ensureValidSession();
-        } catch (error) { }
+          // Step 1: init WakeWord, leave it paused
+          await wakeWordService.initializeAndPause();
+        } catch (err) {
+          console.warn('[App] WakeWord initializeAndPause failed:', err);
+        }
       }
-      appState.current = nextAppState;
+
+      if (isOnboardingComplete) {
+        try {
+          // Step 2: init TTS + STT (initAll → DaVoice.stop parks it)
+          await TTSService.initialize();
+        } catch (err) {
+          console.warn('[App] TTSService.initialize failed:', err);
+        }
+      }
+
+      if (isOnboardingComplete) {
+        try {
+          // Step 3: open the mic — WakeWord is now live
+          await wakeWordService.resumeDetection();
+        } catch (err) {
+          console.warn('[App] WakeWord resumeDetection failed:', err);
+        }
+      }
+
+      // Personal Memory: open the local DB (no-op mode on failure)
+      await personalMemoryService.init().catch(() => {});
+
+      // Navigator renders — Open.tsx mounts with WakeWord already active
+      setBootstrapDone(true);
     };
 
-    const subscription = AppState.addEventListener(
-      'change',
-      handleAppStateChange,
-    );
-    return () => subscription?.remove();
+    bootstrap();
   }, []);
 
-  // Initialize voice and TTS services at app level for better performance
+  // ─── APP STATE (background ↔ foreground) ─────────────────────────────────
+  // Use pause/resume — never stop/start — so the instance is never torn down.
   useEffect(() => {
-    const initServices = async () => {
-      // Initialize TTS service when the app starts
-      await TTSService.initialize();
-
-      // CRITICAL: Do NOT pre-initialize WhisperService here
-      // Whisper initialization must happen AFTER wake word is initialized
-      // This is handled in LoggedNavigation.tsx to ensure correct initialization order
-      // Pre-initializing here would cause wake word to fail because Whisper takes exclusive control
-      // of ONNX Runtime, CoreML, and audio resources
-    };
-
-    initServices();
-
-    // Handle app state changes for wake word and resource management
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       const wakeWordService = WakeWordService.getInstance();
-
-      // Check if onboarding is complete before starting wakeword service
       const wasOnboarded = await DefaultPreference.get('wasOnboarded');
       const isOnboardingComplete = wasOnboarded === '1';
 
       if (nextAppState === 'background') {
-        // Stop wake word service when app goes to background to save battery and memory
+        // Release mic while backgrounded
         try {
-          await wakeWordService.stopListening();
-        } catch (error) { }
+          await wakeWordService.pauseDetection(false);
+        } catch {}
       } else if (
         nextAppState === 'active' &&
         appState.current === 'background'
       ) {
-        // App is coming back to foreground - send wakeup call to backend
+        // Coming back to foreground
+        try {
+          await sessionManager.ensureValidSession();
+        } catch {}
 
         try {
           await fetchHelper('wakeup', {}, {});
-        } catch (error) { }
+        } catch {}
 
-        // Restart wake word service when app comes back to foreground (only if onboarding is complete)
-        if (isOnboardingComplete) {
+        // Resume mic (only if onboarding is complete and bootstrap ran)
+        if (isOnboardingComplete && bootstrapDoneRef.current) {
           try {
-            await wakeWordService.startListening();
-          } catch (error) { }
-        } else {
+            await wakeWordService.resumeDetection();
+          } catch {}
         }
+
+        // Personal Memory: drain extraction queue + daily drift check
+        personalMemoryService.onAppForeground();
       } else if (nextAppState === 'active' && appState.current === 'inactive') {
-        // App is being opened for the first time or from inactive state
         try {
+          await sessionManager.ensureValidSession();
           await fetchHelper('wakeup', {}, {});
-        } catch (error) { }
-        // Don't start wakeword here - let Open.tsx handle it after onboarding
+        } catch {}
       }
 
       appState.current = nextAppState;
@@ -156,33 +171,106 @@ const App = () => {
       handleAppStateChange,
     );
 
-    // Clean up resources when app is closed
     return () => {
-      TTSService.shutdown();
-      // Clean up wake word service when app closes
-      WakeWordService.getInstance().cleanup();
       subscription?.remove();
     };
   }, []);
 
+  // Show splash while bootstrap runs so Open.tsx always mounts ready
+  if (!bootstrapDone) {
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          width,
+          height,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#FFF8E7',
+        }}>
+        <StatusBar hidden animated />
+        <FastImage
+          source={require('./assets/movie/recording.gif')}
+          style={{width: width * 0.3, height: width * 0.3}}
+          resizeMode={FastImage.resizeMode.contain}
+        />
+        <Text
+          style={{
+            fontSize: height * 0.03,
+            fontWeight: 'bold',
+            color: '#8E24AA',
+            marginTop: height * 0.02,
+            textAlign: 'center',
+          }}>
+          loading our magic...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <>
-      {/* Hide status bar for immersive experience - handled by Android native code */}
+      {/* Hide status bar for immersive experience */}
       <StatusBar hidden animated />
       <GestureHandlerRootView style={styles.container}>
         <ToastProvider>
           <ConnectionProvider>
-            <AppSettingsProvider>
-              <DatabaseProvider>
-                <AdminProvider>
-                  <ChatContextProvider>
-                    <SoundProvider>
+            <PostHogProvider
+              apiKey="phc_xTg6VY6vzemW5JDCkTY63fQxpzQhHGG3y8zWGk5Lgaws"
+              options={{
+                host: 'https://us.i.posthog.com',
+
+                // Enable session recording. Requires enabling in your project settings as well.
+                // Default is false.
+                enableSessionReplay: true,
+
+                sessionReplayConfig: {
+                  // Whether text inputs are masked. Default is true.
+                  // Password inputs are always masked regardless
+                  maskAllTextInputs: true,
+
+                  // Whether images are masked. Default is true.
+                  maskAllImages: true,
+
+                  // Capture logs automatically. Default is true.
+                  // Android only (Native Logcat only)
+                  //
+                  // Support for remote configuration
+                  // in the [session replay settings](https://app.posthog.com/settings/project-replay#replay-log-capture)
+                  // requires SDK version 4.35.0 or higher.
+                  captureLog: true,
+
+                  // Whether network requests are captured in recordings. Default is true
+                  // Only metric-like data like speed, size, and response code are captured.
+                  // No data is captured from the request or response body.
+                  // iOS only
+                  //
+                  // Support for remote configuration
+                  // in the [session replay settings](https://app.posthog.com/settings/project-replay#replay-network)
+                  // requires SDK version 4.35.0 or higher.
+                  captureNetworkTelemetry: true,
+
+                  // Sample rate for session recordings. A value between 0.0 and 1.0.
+                  // 1.0 means 100% of sessions will be recorded. 0.5 means 50%, and so on.
+                  // Local config has precedence over remote config when both are set.
+                  // Default is undefined (all sessions are recorded).
+                  sampleRate: undefined,
+
+                  // Throttling delay used to reduce the number of snapshots captured
+                  // and reduce performance impact. Default is 1000ms
+                  throttleDelayMs: 1500,
+                },
+              }}>
+              <AppSettingsProvider>
+                <DatabaseProvider>
+                  <AdminProvider>
+                    <ChatContextProvider>
                       <RootControllerView />
-                    </SoundProvider>
-                  </ChatContextProvider>
-                </AdminProvider>
-              </DatabaseProvider>
-            </AppSettingsProvider>
+                    </ChatContextProvider>
+                  </AdminProvider>
+                </DatabaseProvider>
+              </AppSettingsProvider>
+            </PostHogProvider>
           </ConnectionProvider>
         </ToastProvider>
       </GestureHandlerRootView>

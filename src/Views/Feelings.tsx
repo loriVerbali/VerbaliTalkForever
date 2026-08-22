@@ -14,7 +14,6 @@ import FastImage from 'react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
 import { views } from '../utils/constants';
 import TTSService from '../utils/TTSService';
-import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
 import {
   GestureHandlerRootView,
@@ -23,41 +22,13 @@ import {
 } from 'react-native-gesture-handler';
 import { useConnection } from '../utils/connection';
 
-const { width, height } = Dimensions.get('window');
-//Good Feelings
-import happyImg from '../assets/feelings/goodFeelings/happy.jpg';
-import excitedImg from '../assets/feelings/goodFeelings/excited.jpg';
-import lovedImg from '../assets/feelings/goodFeelings/loved.jpg';
-import calmImg from '../assets/feelings/goodFeelings/calm.jpg';
-import proudImg from '../assets/feelings/goodFeelings/proud.jpg';
-import sillyImg from '../assets/feelings/goodFeelings/silly.jpg';
-//Good Body
-import comfortableImg from '../assets/feelings/goodBody/comfortable.jpg';
-import relaxedImg from '../assets/feelings/goodBody/relaxed.jpg';
-import okImg from '../assets/feelings/goodBody/ok.jpg';
-import warmImg from '../assets/feelings/goodBody/warm.jpg';
-import strongImg from '../assets/feelings/goodBody/strong.jpg';
-import energeticImg from '../assets/feelings/goodBody/energetic.jpg';
-//Bad Feelings
-import sadImg from '../assets/feelings/badFeeling/sad.jpg';
-import boredImg from '../assets/feelings/badFeeling/bored.jpg';
-import scaredImg from '../assets/feelings/badFeeling/scared.jpg';
-import worriedImg from '../assets/feelings/badFeeling/worried.jpg';
-import embarrassedImg from '../assets/feelings/badFeeling/embarrassed.jpg';
-import angryImg from '../assets/feelings/badFeeling/angry.jpg';
-//Bad Body
-import coldImg from '../assets/feelings/badBody/cold.jpg';
-import hurtImg from '../assets/feelings/badBody/hurt.jpg';
-import sickImg from '../assets/feelings/badBody/sick.jpg';
-import tiredImg from '../assets/feelings/badBody/tired.jpg';
-import dizzyImg from '../assets/feelings/badBody/dizzy.jpg';
-import itchyImg from '../assets/feelings/badBody/itchy.jpg';
-
-import { Mixpanel } from 'mixpanel-react-native';
+import mixpanel from '../utils/mixpanelInstance';
 import { useAdmin } from '../contexts/adminContext';
-// For simplicity, we'll use the same dog image for all feeling cards
-// In a real app, you would have different images for each feeling
-const dogImg = require('../assets/welcome.png'); // Replace with actual dog image
+
+const { width, height } = Dimensions.get('window');
+// Individual feeling images removed — cards display text only
+
+const dogImg = require('../assets/welcome.png');
 const micImg = require('../assets/microphone.png');
 const badEmotionImg = require('../assets/feelings/badEmotional.jpg');
 const goodEmotionImg = require('../assets/feelings/goodEmotional.jpg');
@@ -146,7 +117,6 @@ const Feelings = () => {
   const { isConnected } = useConnection();
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey = 'goodBody' | 'goodFeelings' | 'badBody' | 'badFeelings';
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryKey>('goodBody');
@@ -178,7 +148,7 @@ const Feelings = () => {
       gridWidth: isTablet ? (width - 20) / 4 : (width - 40) / 4, // Back to 4 columns
       gridImageHeight: isTablet ? height * 0.25 : height * 0.16, // Slight height increase
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? width * 0.08 : width * 0.12,
+      labelGridFontSize: isTablet ? 88 : 72,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.05 : height * 0.03,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -232,9 +202,6 @@ const Feelings = () => {
     setTimeout(() => {
       isDebouncing.current = false;
     }, 1000);
-
-    // Prepare audio session for TTS to ensure consistent volume
-    await AudioSessionManager.prepareForTTS();
 
     // Use TTSService to speak the feeling text
     TTSService.speak(feeling, true); // Use immediate=true to prioritize this speech
@@ -302,7 +269,7 @@ const Feelings = () => {
           <Image
             source={
               connectionState
-                ? require('../assets/michrophone.gif')
+                ? require('../assets/micstatic.png')
                 : require('../assets/noMic.png')
             }
             style={responsiveValues.iconSize}
@@ -553,36 +520,33 @@ const Feelings = () => {
                   styles.gridItem,
                   {
                     width: responsiveValues.gridWidth,
+                    height: responsiveValues.gridImageHeight,
+                    backgroundColor: feeling.backgroundColor || 'white',
                     borderRadius: responsiveValues.borderRadius,
                     shadowRadius: responsiveValues.shadowRadius,
                     shadowOffset: responsiveValues.shadowOffset,
                     elevation: responsiveValues.elevation,
                     marginBottom: responsiveValues.gridItemMarginBottom,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    padding: 12,
                   },
                   pressed && styles.buttonPressed,
                 ]}
                 onPress={() => handleFeelingPress(feeling.label)}>
-                <View
+                <Text
                   style={[
-                    styles.gridTextContainer,
+                    styles.labelGrid,
                     {
-                      backgroundColor: feeling.backgroundColor,
-                      height: responsiveValues.gridImageHeight,
-                      borderRadius: responsiveValues.borderRadius,
-                      justifyContent: 'center',
-                      alignItems: 'center',
+                      fontSize: responsiveValues.gridWidth * 0.5,
+                      width: '100%',
                     },
-                  ]}>
-                  <Text
-                    numberOfLines={1}
-                    adjustsFontSizeToFit={true}
-                    style={[
-                      styles.labelGrid,
-                      { fontSize: responsiveValues.labelGridFontSize },
-                    ]}>
-                    {feeling.label}
-                  </Text>
-                </View>
+                  ]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.2}>
+                  {feeling.label}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -708,20 +672,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  gridTextContainer: {
+  gridImageContainer: {
     width: '100%',
-    // height, borderRadius are now handled dynamically
+    // height, borderTopLeftRadius, borderTopRightRadius are now handled dynamically
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  gridLabelContainer: {
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    // paddingVertical, borderBottomLeftRadius, borderBottomRightRadius are now handled dynamically
+  },
+  imageGrid: {
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   labelGrid: {
     fontWeight: 'bold',
     // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
-    width: '80%',
-    alignSelf: 'center',
   },
   iconSize: {
     width: 60,

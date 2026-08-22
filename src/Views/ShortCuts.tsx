@@ -6,15 +6,12 @@ import {
   Dimensions,
   ScrollView,
   Pressable,
-  Image,
   Animated,
   Platform,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
-import { views } from '../utils/constants';
 import TTSService from '../utils/TTSService';
-import AudioSessionManager from '../utils/AudioSessionManager';
 import HomeButton from '../Components/HomeButton';
 import { useAdmin } from '../contexts/adminContext';
 import {
@@ -25,20 +22,15 @@ import {
 import { useConnection } from '../utils/connection';
 
 // General assets
-import micImg from '../assets/microphone.png';
-import boyImg from '../assets/boy.png';
 import matalkImg from '../assets/matalk.png';
-import dogImg from '../assets/welcome.png';
 
-// Image imports removed - displaying text instead
-import { Mixpanel } from 'mixpanel-react-native';
-
+import mixpanel from '../utils/mixpanelInstance';
 const { width, height } = Dimensions.get('window');
-const attentionImg = require('../assets/shortCuts/attention.png');
-const iWantNeedImg = require('../assets/shortCuts/IwantNeed.png');
-const actionsImg = require('../assets/shortCuts/actions.png');
-const funImg = require('../assets/shortCuts/fun.png');
-const positionsImg = require('../assets/shortCuts/positions.png');
+const attentionImg = require('../assets/shortCuts/attention.jpg');
+const iWantNeedImg = require('../assets/shortCuts/IwantNeed.jpg');
+const actionsImg = require('../assets/shortCuts/actions.jpg');
+const funImg = require('../assets/shortCuts/fun.jpg');
+const positionsImg = require('../assets/shortCuts/positions.jpg');
 
 // Static data extracted outside component to prevent recreation on every render
 const topCategories = [
@@ -140,7 +132,6 @@ const ShortCuts = () => {
   const [connectionState, setConnectionState] = useState(isConnected);
   const isDebouncing = useRef(false);
 
-  const mixpanel = new Mixpanel('b5c43b5eeefef8db948f6bf391e5ce39', true);
   type CategoryKey =
     | 'attention'
     | 'iWantNeed'
@@ -180,7 +171,7 @@ const ShortCuts = () => {
       gridWidth: isTablet ? (width * 0.8) / 4 - 16 : (width * 0.85) / 4 - 15,
       gridImageHeight: isTablet ? height * 0.25 : height * 0.18,
       labelTopFontSize: isTablet ? width * 0.014 : width * 0.014,
-      labelGridFontSize: isTablet ? width * 0.08 : width * 0.12,
+      labelGridFontSize: isTablet ? 60 : 48,
       marginTop: isTablet ? height * 0.02 : height * 0.01,
       marginBottom: isTablet ? height * 0.01 : height * 0.005,
       gridItemMarginBottom: isTablet ? 15 : 10,
@@ -200,9 +191,6 @@ const ShortCuts = () => {
       Opened: 'Shortcuts',
     });
     TTSService.initialize();
-
-    // Enforce speaker output on mount
-    AudioSessionManager.prepareForTTS();
 
     // Clean up TTS when component unmounts
     return () => {
@@ -238,9 +226,6 @@ const ShortCuts = () => {
     setTimeout(() => {
       isDebouncing.current = false;
     }, 1000);
-
-    // Prepare audio session for TTS to ensure consistent volume
-    await AudioSessionManager.prepareForTTS();
 
     // Use TTSService to speak the feeling text
     TTSService.speak(feeling, true); // Use immediate=true to prioritize this speech
@@ -324,7 +309,7 @@ const ShortCuts = () => {
           <FastImage
             source={
               connectionState
-                ? require('../assets/michrophone.gif')
+                ? require('../assets/micstatic.png')
                 : require('../assets/noMic.png')
             }
             style={responsiveValues.iconSize}
@@ -670,36 +655,33 @@ const ShortCuts = () => {
                       styles.gridItem,
                       {
                         width: responsiveValues.gridWidth,
+                        height: responsiveValues.gridImageHeight,
+                        backgroundColor: feeling.backgroundColor || 'white',
                         borderRadius: responsiveValues.borderRadius,
                         shadowRadius: responsiveValues.shadowRadius,
                         shadowOffset: responsiveValues.shadowOffset,
                         elevation: responsiveValues.elevation,
                         marginBottom: responsiveValues.gridItemMarginBottom,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        padding: 10,
                       },
                       pressed && styles.buttonPressed,
                     ]}
                     onPress={() => handleFeelingPress(feeling.label)}>
-                    <View
+                    <Text
                       style={[
-                        styles.gridTextContainer,
+                        styles.labelGrid,
                         {
-                          backgroundColor: feeling.backgroundColor,
-                          height: responsiveValues.gridImageHeight,
-                          borderRadius: responsiveValues.borderRadius,
-                          justifyContent: 'center',
-                          alignItems: 'center',
+                          fontSize: responsiveValues.gridWidth * 0.5,
+                          width: '100%',
                         },
-                      ]}>
-                      <Text
-                        numberOfLines={1}
-                        adjustsFontSizeToFit={true}
-                        style={[
-                          styles.labelGrid,
-                          { fontSize: responsiveValues.labelGridFontSize },
-                        ]}>
-                        {feeling.label}
-                      </Text>
-                    </View>
+                      ]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.2}>
+                      {feeling.label}
+                    </Text>
                   </Pressable>
                 ))}
 
@@ -838,20 +820,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  gridTextContainer: {
+  gridImageContainer: {
     width: '100%',
-    // height, borderRadius are now handled dynamically
+    // height, borderTopLeftRadius, borderTopRightRadius are now handled dynamically
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  gridLabelContainer: {
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    // paddingVertical, borderBottomLeftRadius, borderBottomRightRadius are now handled dynamically
+  },
+  imageGrid: {
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   labelGrid: {
     fontWeight: 'bold',
     // fontSize is now handled dynamically
     textAlign: 'center',
     color: '#000',
-    width: '80%',
-    alignSelf: 'center',
   },
   iconSize: {
     width: 60,

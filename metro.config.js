@@ -18,6 +18,9 @@ const config = {
       },
     }),
   },
+  resolver: {
+    assetExts: [...defaultConfig.resolver.assetExts, 'dm', 'onnx'],
+  },
 };
 
 module.exports = mergeConfig(defaultConfig, config);

@@ -7,6 +7,8 @@ import { Platform } from 'react-native';
 import { closeDatabase, initDatabase } from '../utils/database';
 // @ts-ignore
 import { sentenceBuilderSqlite } from '../utils/sentenceBuilderSqlite';
+import { personalMemoryDb } from '../utils/personalMemoryDb';
+import { personalMemoryService } from './PersonalMemoryService';
 
 const IMPORT_FOLDER_NAME = 'matalk-profile-import';
 
@@ -34,57 +36,47 @@ export const ProfileImportService = {
      * Main import function — orchestrates the entire restore flow.
      * Throws on failure with a user-friendly message.
      */
-    async importProfile(): Promise<void> {
+    async importProfile(options?: { preserveMemory?: boolean }): Promise<void> {
+        const preserveMemory = options?.preserveMemory === true;
         const stagingPath = `${RNFS.DocumentDirectoryPath}/${IMPORT_FOLDER_NAME}`;
         let zipCopyPath = '';
 
         try {
-            console.log('[Import] Starting profile import...');
 
             // 1. Cleanup any previous import staging
             await this._cleanup(stagingPath);
 
             // 2. Pick the backup ZIP file
             zipCopyPath = await this._pickBackupFile(stagingPath);
-            console.log('[Import] ZIP copied to staging:', zipCopyPath);
 
             // 3. Unzip into staging
             const unzipPath = `${stagingPath}/unzipped`;
             await RNFS.mkdir(unzipPath);
             await unzip(zipCopyPath, unzipPath);
-            console.log('[Import] Unzipped to:', unzipPath);
 
             // 4. Find the actual backup root (may be nested inside a folder)
             const backupRoot = await this._findBackupRoot(unzipPath);
-            console.log('[Import] Backup root:', backupRoot);
 
             // 5. Validate backup structure and metadata
             await this._validateBackup(backupRoot);
-            console.log('[Import] Validation passed');
 
             // 6. Freeze writes — close both databases
             await this._freezeWrites();
-            console.log('[Import] Databases closed');
 
             // 7. Clear current profile data (preserving subscription keys)
-            await this._clearCurrentData();
-            console.log('[Import] Current data cleared');
+            await this._clearCurrentData(preserveMemory);
 
             // 8. Restore backup data
-            await this._restoreBackupData(backupRoot);
-            console.log('[Import] Backup data restored');
+            await this._restoreBackupData(backupRoot, preserveMemory);
 
             // 9. Reopen databases to verify integrity
             await this._reopenDatabases();
-            console.log('[Import] Databases reopened and verified');
 
             // 10. Rewrite device-specific local paths to match this device
             await this._rewriteLocalPaths();
-            console.log('[Import] Local paths rewritten');
 
             // 11. Cleanup staging
             await this._cleanup(stagingPath);
-            console.log('[Import] Staging cleaned up — import complete!');
         } catch (error: any) {
             console.error('[Import] Failed:', error);
 
@@ -229,12 +221,19 @@ export const ProfileImportService = {
         } catch (e) {
             console.warn('[Import] Error closing sentence builder DB:', e);
         }
+
+        try {
+            await personalMemoryDb.close();
+            personalMemoryService.onDatabaseClosed();
+        } catch (e) {
+            console.warn('[Import] Error closing personal memory DB:', e);
+        }
     },
 
     /**
      * Clear current profile data while preserving subscription keys.
      */
-    async _clearCurrentData() {
+    async _clearCurrentData(preserveMemory: boolean = false) {
         // 1. Save protected preference values
         const savedProtected: Record<string, string | null> = {};
         for (const key of PROTECTED_KEYS) {
@@ -261,6 +260,9 @@ export const ProfileImportService = {
 
         // 4. Delete current DB files — search all possible locations
         const dbNames = ['matalk_metrics.db', 'sentence_builder.db'];
+        if (!preserveMemory) {
+            dbNames.push('personal_memory.db');
+        }
         const possibleDirs = this._getDbSearchDirs();
 
         for (const dbName of dbNames) {
@@ -268,7 +270,6 @@ export const ProfileImportService = {
                 const dbPath = `${dir}/${dbName}`;
                 if (await RNFS.exists(dbPath)) {
                     await RNFS.unlink(dbPath);
-                    console.log(`[Import] Deleted DB: ${dbPath}`);
                 }
             }
         }
@@ -282,7 +283,6 @@ export const ProfileImportService = {
         for (const dir of imageDirs) {
             if (await RNFS.exists(dir)) {
                 await RNFS.unlink(dir);
-                console.log(`[Import] Deleted image dir: ${dir}`);
             }
         }
     },
@@ -323,7 +323,7 @@ export const ProfileImportService = {
      * - Copy image directories
      * - Restore preferences from storage.json (excluding protected keys)
      */
-    async _restoreBackupData(backupRoot: string) {
+    async _restoreBackupData(backupRoot: string, preserveMemory: boolean = false) {
         // 1. Restore DB files
         // First, figure out where DBs should go by creating a temp DB and finding it
         // Use the first possible directory as default, but log alternatives
@@ -334,16 +334,16 @@ export const ProfileImportService = {
         const backupDbDir = `${backupRoot}/db`;
         if (await RNFS.exists(backupDbDir)) {
             const backupDbFiles = await RNFS.readDir(backupDbDir);
-            console.log(`[Import] Backup db/ contains: ${backupDbFiles.map(f => `${f.name} (${f.size} bytes)`).join(', ')}`);
 
             for (const file of backupDbFiles) {
                 if (file.isFile()) {
+                    // Keep this device's Personal Memory when requested
+                    if (preserveMemory && file.name === 'personal_memory.db') {
+                        continue;
+                    }
                     // Try to find where this DB was previously located
                     // If not found, use the default directory
                     let targetDir = defaultDbDir;
-
-                    // Log the target
-                    console.log(`[Import] Restoring ${file.name} to: ${targetDir}/${file.name}`);
 
                     // Ensure target directory exists
                     if (!(await RNFS.exists(targetDir))) {
@@ -356,7 +356,6 @@ export const ProfileImportService = {
                     // Verify the copy
                     if (await RNFS.exists(destPath)) {
                         const stat = await RNFS.stat(destPath);
-                        console.log(`[Import] ✅ Restored ${file.name} (${stat.size} bytes) to: ${destPath}`);
                     } else {
                         console.error(`[Import] ❌ Failed to restore ${file.name}!`);
                     }
@@ -374,11 +373,9 @@ export const ProfileImportService = {
                 const destPath = `${RNFS.DocumentDirectoryPath}/${folder.name}`;
                 if (folder.isDirectory()) {
                     await this._copyDirectoryRecursive(folder.path, destPath);
-                    console.log(`[Import] Restored image dir: ${folder.name}`);
                 } else if (folder.isFile()) {
                     // Single file in images root
                     await RNFS.copyFile(folder.path, destPath);
-                    console.log(`[Import] Restored image file: ${folder.name}`);
                 }
             }
         }
@@ -393,17 +390,18 @@ export const ProfileImportService = {
         for (const [key, value] of Object.entries(storageData)) {
             // Skip protected keys
             if (PROTECTED_KEYS.includes(key)) {
-                console.log(`[Import] Skipping protected key: ${key}`);
                 continue;
             }
 
             try {
+                if (key === 'tellUsMore') {
+                    console.log(`[Import] Restoring tellUsMore context (${(value || '').length} chars)`);
+                }
                 await DefaultPreference.set(key, value);
             } catch (e) {
                 console.warn(`[Import] Failed to set preference ${key}:`, e);
             }
         }
-        console.log('[Import] Preferences restored');
     },
 
     /**
@@ -430,7 +428,6 @@ export const ProfileImportService = {
         // Reopen metrics DB
         try {
             await initDatabase();
-            console.log('[Import] ✅ Metrics DB reopened');
         } catch (e) {
             console.error('[Import] ❌ Failed to reopen metrics DB:', e);
             throw new Error('Failed to initialize the metrics database after import.');
@@ -439,18 +436,23 @@ export const ProfileImportService = {
         // Reopen sentence builder DB with retry
         try {
             await sentenceBuilderSqlite.init();
-            console.log('[Import] ✅ Sentence Builder DB reopened');
         } catch (e) {
             console.error('[Import] ❌ Failed to reopen sentence builder DB (attempt 1):', e);
             // Wait and retry once — the file system may need a moment
             await new Promise<void>(resolve => setTimeout(() => resolve(), 500));
             try {
                 await sentenceBuilderSqlite.init();
-                console.log('[Import] ✅ Sentence Builder DB reopened (retry)');
             } catch (retryError) {
                 console.error('[Import] ❌ Failed to reopen sentence builder DB (attempt 2):', retryError);
                 throw new Error('Failed to initialize the sentence builder database after import.');
             }
+        }
+
+        // Reopen personal memory DB (non-fatal — service degrades to no-op)
+        try {
+            await personalMemoryService.reopen();
+        } catch (e) {
+            console.warn('[Import] Failed to reopen personal memory DB:', e);
         }
     },
 
@@ -479,7 +481,6 @@ export const ProfileImportService = {
                             if (filename) {
                                 const newPath = `${currentDocsPath}/my8words/${filename}`;
                                 if (card.localImagePath !== newPath) {
-                                    console.log(`[Import] Rewriting my8words path: ${card.localImagePath} → ${newPath}`);
                                     card.localImagePath = newPath;
                                     changed = true;
                                 }
@@ -488,7 +489,6 @@ export const ProfileImportService = {
                     }
                     if (changed) {
                         await DefaultPreference.set('my8words', JSON.stringify(my8wordsData));
-                        console.log('[Import] my8words paths rewritten');
                     }
                 }
             }
@@ -511,7 +511,6 @@ export const ProfileImportService = {
                                 // If imageUri is just a filename (from portable backup), build full path
                                 if (!item.imageUri.includes('/')) {
                                     const newPath = `file://${currentDocsPath}/pepes/${item.imageUri}`;
-                                    console.log(`[Import] Rewriting pepes imageUri: ${item.name} → ${newPath}`);
                                     item.imageUri = newPath;
                                     changed = true;
                                 } else {
@@ -520,7 +519,6 @@ export const ProfileImportService = {
                                     if (filename) {
                                         const newPath = `file://${currentDocsPath}/pepes/${filename}`;
                                         if (item.imageUri !== newPath) {
-                                            console.log(`[Import] Rewriting pepes imageUri: ${item.name} → ${newPath}`);
                                             item.imageUri = newPath;
                                             changed = true;
                                         }
@@ -533,7 +531,6 @@ export const ProfileImportService = {
 
                 if (changed) {
                     await DefaultPreference.set('pepes', JSON.stringify(pepesData));
-                    console.log('[Import] pepes paths rewritten');
                 }
             }
         } catch (e) {
@@ -551,7 +548,6 @@ export const ProfileImportService = {
                 );
 
                 if (results.rows.length > 0) {
-                    console.log(`[Import] Found ${results.rows.length} nodes with absolute imageUri paths`);
 
                     for (let i = 0; i < results.rows.length; i++) {
                         const row = results.rows.item(i);
@@ -575,13 +571,9 @@ export const ProfileImportService = {
                                     `UPDATE nodes SET imageUri = ? WHERE id = ?`,
                                     [newPath, row.id]
                                 );
-                                console.log(`[Import] Rewriting DB imageUri: ${row.id}`);
                             }
                         }
                     }
-                    console.log('[Import] sentence_builder DB paths rewritten');
-                } else {
-                    console.log('[Import] No absolute imageUri paths found in DB — nothing to rewrite');
                 }
             } else {
                 console.warn('[Import] Could not access sentence_builder DB for path rewriting');

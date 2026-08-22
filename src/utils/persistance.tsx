@@ -23,8 +23,10 @@ interface Preferences {
   topicsCount: string;
   actionsCount: string;
   objectsCount: string;
-  wasOnboarded: string;
   heroName: string;
+  onboardingStatus: string;
+
+  parentalCode: string;
   adminCode: string;
   gender: string;
   auth0Id: string;
@@ -37,6 +39,7 @@ interface Preferences {
   schoolIsCurrentLocation: string;
   therapyAddress: string;
   therapyIsCurrentLocation: string;
+  wasOnboarded: string;
   wasLocationOnboarded: string;
   conversationMode: string;
   gobackAfterSelection: string;
@@ -54,6 +57,10 @@ interface Preferences {
   showAndTellModalShown: string;
   my8words: string;
   handshakeMessage: string;
+  // Device-based organization access
+  deviceId: string;
+  isEnrolled: string;
+  orgName: string;
   // Guest session management
   installationGuid: string;
   sessionToken: string;
@@ -61,6 +68,27 @@ interface Preferences {
   // App rating
   ratingPromptShown: string;
   ratingPromptDismissed: string;
+  deviceRevoked: string;
+  answersCount: string;
+  intakeSilenceTimeoutMs: string;
+  tellUsMore: string;
+  intakeActiveStepIndex: string;
+  intakeStepStatuses: string;
+  // Verbi AI suggestion column
+  verbiEnabled: string;
+  verbiMicrophoneEnabled: string;
+  /** How many suggestions Verbi should return per prediction request. */
+  verbiSuggestionLimit: string;
+  // One-time welcome guide on the Communication (Convo) page
+  convoWelcomeGuideShown: string;
+  // One-time welcome guide on the Home (Open) page
+  homeWelcomeGuideShown: string;
+  // Personal Memory (on-device learning)
+  memoryEnabled: string;
+  memoryLearningPaused: string;
+  memoryAiContextEnabled: string;
+  memoryExtractionThreshold: string;
+  memorySchemaVersion: string;
 }
 
 const initEnum = {
@@ -86,9 +114,9 @@ export const initialPreferences: Preferences = {
   topicsCount: '4',
   actionsCount: '4',
   objectsCount: '4',
-  wasOnboarded: initEnum.false,
-  wasLocationOnboarded: initEnum.false,
   heroName: '',
+  onboardingStatus: '0',
+  parentalCode: '0000',
   adminCode: '',
   gender: '',
   auth0Id: '',
@@ -101,6 +129,8 @@ export const initialPreferences: Preferences = {
   schoolIsCurrentLocation: '',
   therapyAddress: '',
   therapyIsCurrentLocation: '',
+  wasOnboarded: initEnum.false,
+  wasLocationOnboarded: initEnum.false,
   conversationMode: 'easy',
   gobackAfterSelection: initEnum.false,
   wasDeleted: initEnum.false,
@@ -118,6 +148,10 @@ export const initialPreferences: Preferences = {
   my8words: '',
   handshakeMessage:
     'Hi ,this is how I communicate say Hey Verby and it will record the question.',
+  // Device-based organization access
+  deviceId: initEnum.notSet,
+  isEnrolled: initEnum.false,
+  orgName: '',
   // Guest session management
   installationGuid: initEnum.notSet,
   sessionToken: initEnum.notSet,
@@ -125,6 +159,26 @@ export const initialPreferences: Preferences = {
   // App rating
   ratingPromptShown: initEnum.false,
   ratingPromptDismissed: initEnum.false,
+  deviceRevoked: initEnum.false,
+  answersCount: '5',
+  intakeSilenceTimeoutMs: '3000',
+  tellUsMore: '',
+  intakeActiveStepIndex: '0',
+  intakeStepStatuses: '[]',
+  // Verbi AI suggestion column
+  verbiEnabled: '1',
+  verbiMicrophoneEnabled: '1',
+  verbiSuggestionLimit: '10',
+  // One-time welcome guide on the Communication (Convo) page
+  convoWelcomeGuideShown: initEnum.false,
+  // One-time welcome guide on the Home (Open) page
+  homeWelcomeGuideShown: initEnum.false,
+  // Personal Memory (on-device learning)
+  memoryEnabled: initEnum.true,
+  memoryLearningPaused: initEnum.false,
+  memoryAiContextEnabled: initEnum.true,
+  memoryExtractionThreshold: '0.85',
+  memorySchemaVersion: '1',
 };
 
 interface AppSettingsContextProps {
@@ -177,9 +231,16 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const getItem = async (key: keyof Preferences): Promise<string> => {
     try {
       const item = await DefaultPreference.get(key);
-      return item ?? initialPreferences[key];
+      if (
+        item === null ||
+        item === undefined ||
+        item === '' ||
+        item === initEnum.notSet
+      ) {
+        return initialPreferences[key];
+      }
+      return item;
     } catch (error) {
-
       return initialPreferences[key];
     }
   };
@@ -207,14 +268,31 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const getKeys = Object.keys(initialPreferences) as (keyof Preferences)[];
       const loaded: Partial<Preferences> = {};
 
-      for (const key of getKeys) {
-        const found = await DefaultPreference.get(key);
-        loaded[key] = (found ?? initialPreferences[key]) as any;
-        if (key === 'isInTrial') {
+      // Load all preferences in parallel for better performance
+      const results = await Promise.all(
+        getKeys.map(async key => {
+          const found = await DefaultPreference.get(key);
+          return { key, value: found };
+        }),
+      );
 
+      for (const { key, value } of results) {
+        // Fallback to initial value if stored value is null, undefined, empty, or placeholders
+        const fallbackValue = initialPreferences[key];
+        const isMissing =
+          value === null ||
+          value === undefined ||
+          value === '' ||
+          value === initEnum.notSet;
+
+        loaded[key] = isMissing ? fallbackValue : value;
+
+        if (key === 'answersCount') {
+          console.log(
+            `[Persistence] Loaded answersCount: "${loaded[key]}" (original: "${value}", fallback: "${fallbackValue}")`,
+          );
         }
       }
-
       setPreferences(
         prevPreferences => ({ ...prevPreferences, ...loaded } as Preferences),
       );
@@ -233,9 +311,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         const timeoutId = setTimeout(async () => {
           try {
             const purchaseValid = await validateReceiptOnLaunch();
-            if (!purchaseValid) {
+            if (purchaseValid === false) {
               await setItem('isIOSActive', '0');
-            } else {
+            } else if (purchaseValid === true) {
               await setItem('isIOSActive', '1');
             }
           } catch (error) {

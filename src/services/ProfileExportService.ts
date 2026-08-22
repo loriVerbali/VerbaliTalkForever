@@ -7,6 +7,8 @@ import { Platform } from 'react-native';
 import { closeDatabase, getDatabase, initDatabase } from '../utils/database';
 // @ts-ignore
 import { sentenceBuilderSqlite } from '../utils/sentenceBuilderSqlite';
+import { personalMemoryDb } from '../utils/personalMemoryDb';
+import { personalMemoryService } from './PersonalMemoryService';
 import { initialPreferences } from '../utils/persistance';
 
 const BACKUP_FOLDER_NAME = 'matalk-profile-backup';
@@ -34,7 +36,6 @@ export const ProfileExportService = {
         let zipPath = '';
 
         try {
-            console.log('Starting profile export...');
 
             // 1. Cleanup & Setup Staging
             await this._cleanup(stagingPath);
@@ -60,7 +61,6 @@ export const ProfileExportService = {
             zipPath = `${RNFS.DocumentDirectoryPath}/${zipFileName}`;
 
             await zip(exportPath, zipPath);
-            console.log(`Zip created at: ${zipPath}`);
 
             // 7. Share
             await this._shareBackup(zipPath);
@@ -83,6 +83,11 @@ export const ProfileExportService = {
                 await sentenceBuilderSqlite.init(); // reopens sentence_builder.db
             } catch (e) {
                 console.warn('Failed to reopen sentence builder DB after export:', e);
+            }
+            try {
+                await personalMemoryService.reopen(); // reopens personal_memory.db
+            } catch (e) {
+                console.warn('Failed to reopen personal memory DB after export:', e);
             }
         }
     },
@@ -117,6 +122,10 @@ export const ProfileExportService = {
                 // specific logic: if value is null/undefined, do we default to initial?
                 // The requirement says "Export all key-value persistence for the active profile".
                 prefsToExport[key] = value ?? (initialPreferences as any)[key];
+
+                if (key === 'tellUsMore') {
+                    console.log(`[Export] Including tellUsMore context (${(prefsToExport[key] || '').length} chars)`);
+                }
             } catch (e) {
                 console.warn(`Failed to get preference for ${key}`, e);
                 prefsToExport[key] = (initialPreferences as any)[key];
@@ -135,7 +144,6 @@ export const ProfileExportService = {
                                 // Extract just the filename from the full path
                                 const filename = item.imageUri.replace('file://', '').split('/').pop();
                                 if (filename) {
-                                    console.log(`[Export] Rewriting pepes imageUri: ${item.name} → ${filename}`);
                                     item.imageUri = filename;
                                 }
                             }
@@ -153,11 +161,21 @@ export const ProfileExportService = {
     },
 
     async _exportDatabase(destPath: string) {
-        // Close BOTH databases before copying to ensure clean file state
+        // Close ALL databases before copying to ensure clean file state
         await closeDatabase(); // matalk_metrics.db
         await sentenceBuilderSqlite.close(); // sentence_builder.db
+        try {
+            await personalMemoryDb.close(); // personal_memory.db
+            personalMemoryService.onDatabaseClosed();
+        } catch (e) {
+            console.warn('Failed to close personal memory DB before export:', e);
+        }
 
-        const dbNames = ['matalk_metrics.db', 'sentence_builder.db'];
+        const dbNames = [
+            'matalk_metrics.db',
+            'sentence_builder.db',
+            'personal_memory.db',
+        ];
 
         // react-native-sqlite-storage may place DBs in different locations depending on version/config
         // Search all possible locations to find the actual files
@@ -178,11 +196,9 @@ export const ProfileExportService = {
 
             for (const dir of possibleDirs) {
                 const fullPath = `${dir}/${dbName}`;
-                console.log(`[Export] Checking for ${dbName} at: ${fullPath}`);
 
                 if (await RNFS.exists(fullPath)) {
                     await RNFS.copyFile(fullPath, `${destPath}/${dbName}`);
-                    console.log(`[Export] ✅ Exported ${dbName} from: ${fullPath}`);
                     found = true;
                     break;
                 }
@@ -196,7 +212,6 @@ export const ProfileExportService = {
                         if (await RNFS.exists(dir)) {
                             const files = await RNFS.readDir(dir);
                             const dbFiles = files.filter(f => f.name.endsWith('.db') || f.name.endsWith('.sqlite'));
-                            console.log(`[Export] Contents of ${dir}: ${dbFiles.map(f => f.name).join(', ') || '(no .db files)'}`);
                         }
                     } catch (e) {
                         // ignore
@@ -242,7 +257,6 @@ export const ProfileExportService = {
                                     }
                                     const filename = sourcePath.split('/').pop()!;
                                     await RNFS.copyFile(sourcePath, `${pepesImagesDir}/${filename}`);
-                                    console.log(`[Export] ✅ Copied pepes image: ${item.name} (${filename})`);
                                     copiedCount++;
                                 } else {
                                     console.warn(`[Export] ⚠️ Pepes image not found: ${sourcePath} (${item.name})`);
@@ -251,9 +265,7 @@ export const ProfileExportService = {
                         }
                     }
                 }
-                if (copiedCount > 0) {
-                    console.log(`[Export] Exported ${copiedCount} pepes images`);
-                }
+
             }
         } catch (e) {
             console.warn('[Export] Error exporting pepes images:', e);

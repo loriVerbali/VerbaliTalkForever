@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import fetchHelper from '../utils/fetcher';
+import { useAppSettings } from '../utils/persistance';
+import { personalMemoryService } from '../services/PersonalMemoryService';
 
 // New type for messages in conversation history
 interface Message {
@@ -42,6 +44,7 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
   children,
 }) => {
   const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
+  const { preferences, getItem } = useAppSettings();
 
   const addToConversationHistory = (
     userMessage: string,
@@ -96,22 +99,43 @@ export const AssistantProvider: React.FC<AssistantProviderProps> = ({
       genderType = 'white boy',
     } = options;
 
+    const requestedNumber = options.number || countMax || 10;
+
+    // Get pepes data for context if not already provided
+    let parsedPepes = null;
+    try {
+      const pepesData = await getItem('pepes');
+      parsedPepes = pepesData ? JSON.parse(pepesData) : null;
+    } catch (e) {
+      console.error('Error loading pepes for AI context:', e);
+    }
+
+    // Personal Memory context (undefined when disabled/empty — key omitted)
+    const memoryContext = mode.startsWith('generate_')
+      ? await personalMemoryService.buildMemoryContext({currentText: sentence})
+      : undefined;
+
     try {
       const response = await fetchHelper(
         'generateAnswers',
         {},
         {
           sentence,
+          number: requestedNumber,
           mode,
           metadata: {
-            kidName: options.metadata.kidName || 'I', // Replace with actual kid name
-            speaker: options.metadata.speaker || 'anyone', // Replace with actual speaker
-            audience: options.metadata.audience || 'my', // Replace with actual audience
+            kidName: options.metadata?.kidName || 'I', // Replace with actual kid name
+            speaker: options.metadata?.speaker || 'anyone', // Replace with actual speaker
+            audience: options.metadata?.audience || 'my', // Replace with actual audience
+            tellUsMore: preferences.tellUsMore || '', // Add Tell Us More context
+            pepes: parsedPepes, // Add People & Stuff data context
+            ...(memoryContext ? { memoryContext } : {}), // Personal Memory context
             ...(mode.startsWith('generate_') ? { conversationHistory } : {}), // Only include history in generate modes
             ...metadata,
           },
           prior,
           options: {
+            number: requestedNumber,
             countMin,
             countMax,
             genderType,

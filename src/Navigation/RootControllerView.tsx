@@ -1,22 +1,21 @@
-import React, { Suspense, useEffect, useState, useCallback } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import React, {Suspense, useEffect, useState, useCallback} from 'react';
+import {NavigationContainer} from '@react-navigation/native';
+import {createStackNavigator} from '@react-navigation/stack';
 import LoggedNavigation from '../Navigation/LoggedNavigation';
 import InitNavigation from '../Navigation/InitNavigation';
-import { useAppSettings } from '../utils/persistance';
-import { stacks } from '../utils/constants';
-import { useConnection } from '../utils/connection';
-import { View, Text, Dimensions, StatusBar } from 'react-native';
+import {useAppSettings} from '../utils/persistance';
+import {stacks} from '../utils/constants';
+import {View, Text, Dimensions, StatusBar} from 'react-native';
 import FastImage from 'react-native-fast-image';
 import NoInternetConnection from '../Components/NoInternetConnection';
-import { navigationRef } from '../utils/navigation';
+import {navigationRef} from '../utils/navigation';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 // Create a context to set onboarding state
 export const OnboardingContext = React.createContext<{
   completeOnboarding: () => void;
 }>({
-  completeOnboarding: () => { },
+  completeOnboarding: () => {},
 });
 
 const RootStack = createStackNavigator();
@@ -24,7 +23,7 @@ const RootStack = createStackNavigator();
 const RootStackScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
-  const { getItem } = useAppSettings();
+  const {getItem} = useAppSettings();
 
   // Function to complete onboarding from children
   const completeOnboarding = useCallback(() => {
@@ -34,8 +33,6 @@ const RootStackScreen: React.FC = () => {
   useEffect(() => {
     const initApp = async () => {
       if (isLoading) {
-        // initializePreferences is now handled by AppSettingsProvider
-        // await initializePreferences();
         const wasOnboarded = await getItem('wasOnboarded');
         setShowOnboarding(wasOnboarded !== '1');
         setIsLoading(false);
@@ -50,17 +47,17 @@ const RootStackScreen: React.FC = () => {
   }
 
   return (
-    <OnboardingContext.Provider value={{ completeOnboarding }}>
+    <OnboardingContext.Provider value={{completeOnboarding}}>
       <RootStack.Navigator>
         {showOnboarding ? (
           <RootStack.Screen
-            options={{ headerShown: false }}
+            options={{headerShown: false}}
             name={stacks.INITSTACK}
             component={InitNavigation}
           />
         ) : (
           <RootStack.Screen
-            options={{ headerShown: false }}
+            options={{headerShown: false}}
             name={stacks.LOGGEDINSTACK}
             component={LoggedNavigation}
           />
@@ -71,7 +68,7 @@ const RootStackScreen: React.FC = () => {
 };
 
 const RootControllerView: React.FC = () => {
-  const { restartKey } = useAppSettings();
+  const {restartKey} = useAppSettings();
 
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -95,13 +92,13 @@ const LoadingScreen = () => {
       }}>
       <StatusBar barStyle="dark-content" backgroundColor="#f0f0f0" />
       <FastImage
-        source={require('../assets/matalk.png')}
-        style={{ width: width * 0.6, height: width * 0.3 }}
+        source={require('../assets/movie/recording.gif')}
+        style={{width: width * 0.3, height: width * 0.3}}
         resizeMode={FastImage.resizeMode.contain}
       />
       <NoInternetConnection />
-      <Text style={{ fontSize: 16, color: '#333', marginTop: 10 }}>
-        Loading...
+      <Text style={{fontSize: 16, color: '#333', marginTop: 10}}>
+        loading our magic...
       </Text>
     </View>
   );

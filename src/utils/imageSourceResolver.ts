@@ -1,4 +1,4 @@
-import {ImageSourcePropType} from 'react-native';
+import { ImageSourcePropType } from 'react-native';
 
 // Static mapping of classic images that Metro can resolve at build time
 const CLASSIC_IMAGES: Record<string, any> = {
@@ -749,6 +749,11 @@ const CLASSIC_IMAGES: Record<string, any> = {
 };
 
 /**
+ * The standard placeholder image used for AI-created tiles that have no photo
+ */
+export const AI_PLACEHOLDER_IMAGE_URI = 'src/assets/taptoAdd.png';
+
+/**
  * Resolves image source for sentence builder components
  * Handles different path formats and converts them to proper require statements
  */
@@ -759,14 +764,19 @@ export const resolveImageSource = (
     return null;
   }
 
+  // Handle local placeholder image
+  if (imageUri === AI_PLACEHOLDER_IMAGE_URI) {
+    return require('../assets/taptoAdd.png');
+  }
+
   // Handle HTTP URLs
   if (imageUri.startsWith('http')) {
-    return {uri: imageUri};
+    return { uri: imageUri };
   }
 
   // Handle file:// paths
   if (imageUri.startsWith('file://')) {
-    return {uri: imageUri};
+    return { uri: imageUri };
   }
 
   // Handle asset paths - use static mapping for classic images
@@ -805,14 +815,35 @@ export const resolveImageSource = (
   // Handle other asset paths
   if (imageUri.startsWith('../../assets/')) {
     const assetPath = imageUri.replace('../../assets/', '');
-    return {uri: assetPath};
+    return { uri: assetPath };
   }
 
   if (imageUri.startsWith('../assets/')) {
     const assetPath = imageUri.replace('../assets/', '');
-    return {uri: assetPath};
+    return { uri: assetPath };
   }
 
   // Fallback for other local paths
-  return {uri: `file://${imageUri}`};
+  return { uri: `file://${imageUri}` };
+};
+
+/**
+ * Checks if an image URI is considered a placeholder
+ */
+export const isPlaceholderImage = (imageUri?: string): boolean => {
+  if (!imageUri) {
+    return true;
+  }
+
+  if (imageUri === AI_PLACEHOLDER_IMAGE_URI) {
+    return true;
+  }
+
+  // If resolveImageSource returns null, it's either an invalid path or missing
+  // which will result in the local welcome.png placeholder being shown
+  if (resolveImageSource(imageUri) === null) {
+    return true;
+  }
+
+  return false;
 };

@@ -1,4 +1,4 @@
-import React, {useState, useContext, useEffect} from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,12 @@ import {
   ScrollView,
   Linking,
   Alert,
-  ActivityIndicator,
   Image,
+  Keyboard,
 } from 'react-native';
-import {useAppSettings} from '../utils/persistance';
+import { useAppSettings } from '../utils/persistance';
 import FastImage from 'react-native-fast-image';
-import {OnboardingContext} from '../Navigation/RootControllerView';
+import { OnboardingContext } from '../Navigation/RootControllerView';
 import {
   check,
   request,
@@ -27,26 +27,22 @@ import {
   requestMultiple,
 } from 'react-native-permissions';
 import matalkImg from '../assets/matalk.png';
-import LinearGradient from 'react-native-linear-gradient';
-import FamilyPics, {FamilyMember} from '../Components/FamilyPics';
+import FamilyPics, { FamilyMember } from '../Components/FamilyPics';
 import TermsAndConditions from '../Components/TermsAndConditions';
 import ShowAndTell from '../Components/ShowAndTell';
-import WhisperDownload from '../Components/WhisperDownload';
-import {Mixpanel} from 'mixpanel-react-native';
-import {useAdmin} from '../contexts/adminContext';
+import mixpanel from '../utils/mixpanelInstance';
+import { useAdmin } from '../contexts/adminContext';
 // Removed Auth0 - using guest sessions
-import NetInfo from '@react-native-community/netinfo';
-import RNFS from 'react-native-fs';
-import WhisperService from '../utils/WhisperService';
-import WhisperModelManager from '../utils/WhisperModelManager';
+import WakeWordService from '../utils/wakewordService';
+import TTSService from '../utils/TTSService';
 
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 // Define onboarding steps
 const onboardingSteps = [
   {
     id: 'welcome',
-    question: 'Welcome to VerbaliTalk Forever',
+    question: 'Welcome to MaTalk AI',
     additionalComponents: 'welcome',
     buttonText: 'Next',
   },
@@ -63,6 +59,7 @@ const onboardingSteps = [
     additionalComponents: 'name-input',
     buttonText: 'Next',
   },
+  // Removed subscription step - this is a paid app
   {
     id: 'gender',
     question: "Choose your Hero's Avatar or Skip (optional)",
@@ -71,14 +68,8 @@ const onboardingSteps = [
   },
   {
     id: 'admin-code',
-    question: 'Set Admin Code',
+    question: '',
     additionalComponents: 'admin-code-input',
-    buttonText: 'Next',
-  },
-  {
-    id: 'on-device-whisper',
-    question: 'Give us a minute to setup the magic in your app',
-    additionalComponents: 'on-device-whisper',
     buttonText: 'Next',
   },
   {
@@ -96,14 +87,16 @@ const onboardingSteps = [
 ];
 
 const OnboardingScreen: React.FC = () => {
-  const mixpanel = new Mixpanel('48186fefd3c06e4f4b0c4ad87d1555d2', true);
-  const {setItem, getItem} = useAppSettings();
-  const {isTablet} = useAdmin();
-  const {completeOnboarding} = useContext(OnboardingContext);
+  const { setItem, getItem } = useAppSettings();
+  const { isTablet } = useAdmin();
+  const { completeOnboarding } = useContext(OnboardingContext);
   // Removed Auth0 - using guest sessions
   const [currentStep, setCurrentStep] = useState(0);
   const [heroName, setHeroName] = useState('');
   const [adminCode, setAdminCode] = useState('');
+  const [showAdminCode, setShowAdminCode] = useState(false);
+  const pinInputRef = useRef<TextInput | null>(null);
+  const [pinDigits, setPinDigits] = useState(['', '', '', '']);
   const [selectedGender, setSelectedGender] = useState('');
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [permissionsDenied, setPermissionsDenied] = useState(false);
@@ -121,12 +114,10 @@ const OnboardingScreen: React.FC = () => {
     'easy',
   );
   // Removed isLoggedIn state - guest sessions are always "authenticated"
-  const [whisperDownloadComplete, setWhisperDownloadComplete] = useState(false);
-  const [whisperModelInvoked, setWhisperModelInvoked] = useState(false);
   const scrollViewRef = React.useRef<ScrollView>(null);
   const genderWrapperStyle = [
     styles.genderImageWrapper,
-    {transform: [{scale: isTablet ? 0.68 : 0.6}]},
+    { transform: [{ scale: isTablet ? 0.68 : 0.6 }] },
   ];
   const isSmallPhone = height <= 400;
   const tileWidth = isTablet ? '33.33%' : isSmallPhone ? '16.66%' : '33.33%';
@@ -140,7 +131,7 @@ const OnboardingScreen: React.FC = () => {
         setConversationMode(
           (savedConversationMode as 'easy' | 'advanced') || 'easy',
         );
-      } catch (error) {}
+      } catch (error) { }
     };
     loadConversationMode();
   }, []);
@@ -237,8 +228,13 @@ const OnboardingScreen: React.FC = () => {
       if (selectedGender) {
         await setItem('gender', selectedGender);
       }
-      if (permissionsDenied || permissionsPermanentlyDenied) {
-        setCurrentStep(currentStep + 1);
+
+      try {
+        const wakeWordService = WakeWordService.getInstance();
+        await wakeWordService.initializeAndPause();
+        await wakeWordService.resumeDetection();
+      } catch (error) {
+        console.warn('[Onboarding] WakeWord activation failed:', error);
       }
 
       // Use the context to complete onboarding
@@ -247,24 +243,22 @@ const OnboardingScreen: React.FC = () => {
   };
 
   const renderAdditionalComponents = () => {
-    const {additionalComponents} = onboardingSteps[currentStep];
+    const { additionalComponents } = onboardingSteps[currentStep];
 
     switch (additionalComponents) {
       case 'welcome':
         return (
-          <View style={styles.welcomeContainer}>
-            <FastImage
-              source={require('../assets/heroImage.jpg')}
-              style={styles.heroImage}
-              resizeMode={FastImage.resizeMode.contain}
-            />
-          </View>
+          <FastImage
+            source={require('../assets/heroImage.jpg')}
+            style={styles.heroImage}
+            resizeMode={FastImage.resizeMode.contain}
+          />
         );
       // Removed login case - guest sessions don't need login
       // Removed subscription case - this is a paid app
       case 'show-and-tell':
         return (
-          <View style={{width: '100%', alignItems: 'center'}}>
+          <View style={{ width: '100%', alignItems: 'center' }}>
             <ShowAndTell />
           </View>
         );
@@ -277,12 +271,17 @@ const OnboardingScreen: React.FC = () => {
       case 'name-input':
         return (
           <ScrollView
-            style={{width: '100%'}}
+            style={{ width: '100%' }}
             contentContainerStyle={styles.nameScrollContainer}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
             showsVerticalScrollIndicator={false}>
             <View style={styles.nameContainer}>
+              <FastImage
+                source={require('../assets/boy.png')}
+                style={styles.sideImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
               <View style={styles.inputContainer}>
                 <TextInput
                   style={isTablet ? styles.input : styles.inputPhone}
@@ -295,6 +294,11 @@ const OnboardingScreen: React.FC = () => {
                   maxLength={20}
                 />
               </View>
+              <FastImage
+                source={require('../assets/girl.png')}
+                style={styles.sideImage}
+                resizeMode={FastImage.resizeMode.contain}
+              />
             </View>
           </ScrollView>
         );
@@ -306,7 +310,7 @@ const OnboardingScreen: React.FC = () => {
                 Pick the picture that looks most like your hero. You can skip
                 this step now and change it later. This is for a more
                 personalized experience -{' '}
-                <Text style={{color: '#8E24AA', fontWeight: '600'}}>
+                <Text style={{ color: '#8E24AA', fontWeight: '600' }}>
                   Totally optional
                 </Text>
               </Text>
@@ -314,10 +318,10 @@ const OnboardingScreen: React.FC = () => {
             <ScrollView
               horizontal={isSmallPhone}
               showsHorizontalScrollIndicator={false}
-              style={{width: '100%'}}
+              style={{ width: '100%' }}
               contentContainerStyle={[
                 styles.genderContainer,
-                {flexWrap: containerFlexWrap as any},
+                { flexWrap: containerFlexWrap as any },
               ]}>
               <TouchableOpacity
                 style={[
@@ -657,34 +661,111 @@ const OnboardingScreen: React.FC = () => {
             </ScrollView>
           </>
         );
-      case 'admin-code-input':
+      case 'admin-code-input': {
+        const pinBoxSize = isTablet ? Math.min(width * 0.14, 100) : Math.min(width * 0.18, 80);
+
         return (
           <ScrollView
-            style={{width: '100%'}}
+            style={{ width: '100%' }}
             contentContainerStyle={styles.adminCodeContainer}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}>
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={isTablet ? styles.input : styles.inputPhone}
-                placeholder="Set a 4 digit code"
-                placeholderTextColor="#888"
-                value={adminCode}
-                inputMode={isTablet ? 'numeric' : 'text'}
-                onChangeText={text => {
-                  // Only allow numbers and limit to 4 digits
-                  const numericText = text.replace(/[^0-9]/g, '');
-                  if (numericText.length <= 4) {
-                    setAdminCode(numericText);
-                  }
-                }}
-                keyboardType={isTablet ? 'numeric' : 'default'}
-                maxLength={4}
-                secureTextEntry={true}
-              />
+            <View style={styles.parentCodeWrapper}>
+              {/* Lock Icon */}
+              <Text style={styles.parentCodeLockIcon}>🔒</Text>
+
+              {/* Title */}
+              <Text style={[
+                styles.parentCodeTitle,
+                { fontSize: isTablet ? 28 : 22 },
+              ]}>
+                Set Parent Code
+              </Text>
+
+              {/* Description */}
+              <Text style={[
+                styles.parentCodeDescription,
+                { fontSize: isTablet ? 16 : 13 },
+              ]}>
+                A parent code will be used to access the Settings page.
+              </Text>
+
+              {/* PIN Input Row */}
+              <TouchableOpacity activeOpacity={1} style={styles.parentCodePinRow} onPress={() => {
+                if (pinInputRef.current) {
+                  pinInputRef.current.blur();
+                  setTimeout(() => {
+                    pinInputRef.current?.focus();
+                  }, 100);
+                }
+              }}>
+                <TextInput
+                  ref={pinInputRef}
+                  value={adminCode}
+                  onChangeText={text => {
+                    const numericText = text.replace(/[^0-9]/g, '');
+                    if (numericText.length <= 4) {
+                      setAdminCode(numericText);
+                      const newDigits = ['', '', '', ''];
+                      for (let i = 0; i < numericText.length; i++) {
+                        newDigits[i] = numericText[i];
+                      }
+                      setPinDigits(newDigits);
+                      if (numericText.length === 4) {
+                        Keyboard.dismiss();
+                      }
+                    }
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                  autoFocus={true}
+                  caretHidden={true}
+                />
+                {pinDigits.map((digit, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.parentCodePinBox,
+                      {
+                        width: pinBoxSize,
+                        height: pinBoxSize,
+                        borderRadius: pinBoxSize * 0.18,
+                      },
+                      digit !== '' && styles.parentCodePinBoxFilled,
+                    ]}>
+                    <Text
+                      style={[
+                        styles.parentCodePinInput,
+                        {
+                          fontSize: showAdminCode
+                            ? (isTablet ? 36 : 28)
+                            : (isTablet ? 48 : 36),
+                          lineHeight: pinBoxSize,
+                        },
+                      ]}>
+                      {showAdminCode ? digit : (digit ? '●' : '')}
+                    </Text>
+                  </View>
+                ))}
+
+                {/* Eye Toggle */}
+                <TouchableOpacity
+                  style={styles.parentCodeEyeButton}
+                  onPress={() => setShowAdminCode(!showAdminCode)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={[
+                    styles.parentCodeEyeIcon,
+                    { fontSize: isTablet ? 24 : 18 },
+                  ]}>
+                    {showAdminCode ? '👁️' : '👁️‍🗨️'}
+                  </Text>
+                </TouchableOpacity>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         );
+      }
       case 'family-members':
         return isTablet ? (
           <View style={styles.familyMembersContainer}>
@@ -692,7 +773,7 @@ const OnboardingScreen: React.FC = () => {
               Select pictures of family members that {heroName} will be able to
               start a conversation with.
             </Text>
-            <Text style={[styles.familylabel, {color: '#8E24AA'}]}>
+            <Text style={[styles.familylabel, { color: '#8E24AA' }]}>
               You can skip this and do it later! Just tap next
             </Text>
             <View style={styles.familyPicsWrapper}>
@@ -710,7 +791,7 @@ const OnboardingScreen: React.FC = () => {
               Select pictures of family members that {heroName} will be able to
               start a conversation with.
             </Text>
-            <Text style={[styles.familylabel, {color: '#8E24AA'}]}>
+            <Text style={[styles.familylabel, { color: '#8E24AA' }]}>
               You can skip this and do it later! Just tap next
             </Text>
             <View style={styles.familyPicsWrapper}>
@@ -733,7 +814,7 @@ const OnboardingScreen: React.FC = () => {
               <TouchableOpacity
                 style={styles.scrollIndicatorContainer}
                 onPress={() => {
-                  scrollViewRef.current?.scrollToEnd({animated: true});
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
                 }}>
                 <Text style={styles.scrollIndicator}>⬇️</Text>
               </TouchableOpacity>
@@ -749,12 +830,12 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        {fontSize: 24, fontWeight: '900'},
+                        { fontSize: 24, fontWeight: '900' },
                       ]}>
-                      VerbaliTalk Forever needs the following permissions:
+                      MaTalk AI needs the following permissions:
                     </Text>
                     <Text
-                      style={[styles.permissionsExplanation, {width: '80%'}]}>
+                      style={[styles.permissionsExplanation, { width: '80%' }]}>
                       Access to your microphone to listen for a wake word
                     </Text>
                     <Text
@@ -779,30 +860,21 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        {fontSize: 24, fontWeight: '900', color: '#FF6B6B'},
+                        { fontSize: 24, fontWeight: '900', color: '#333' },
                       ]}>
-                      Manual Permission Required
+                      Speech Recognition Disabled
                     </Text>
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        {color: '#FF6B6B'},
+                        { color: '#666' },
                       ]}>
-                      Please enable microphone manually in your device settings
-                      to continue using VerbaliTalk Forever fully or tap next
-                      and do this via the settings later
+                      Without microphone and speech recognition, voice commands and features won't be available.
+                      {"\n\n"}
+                      You can still use MaTalk AI to communicate by tapping on cards.
+                      {"\n\n"}
+                      If you change your mind later, you can enable these permissions in your device settings.
                     </Text>
-                    <TouchableOpacity
-                      style={styles.settingsButton}
-                      onPress={openSettings}>
-                      <Text
-                        style={[
-                          styles.buttonText,
-                          {fontSize: nextButtonTextFontSize},
-                        ]}>
-                        Open Settings
-                      </Text>
-                    </TouchableOpacity>
                   </>
                 )}
 
@@ -811,31 +883,16 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        {color: '#FF6B6B', fontWeight: 'bold', marginTop: 20},
+                        { color: '#8E24AA', fontWeight: 'bold', marginTop: 20 },
                       ]}>
-                      Are you sure?
+                      Speech Recognition is Limited
                     </Text>
                     <Text
                       style={[
                         styles.permissionsExplanation,
-                        {color: '#FF6B6B'},
+                        { color: '#666' },
                       ]}>
-                      Without these permissions, VerbaliTalk Forever won't be
-                      able to:
-                    </Text>
-                    <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        {color: '#FF6B6B', marginBottom: 10},
-                      ]}>
-                      • Listen for your voice commands
-                    </Text>
-                    <Text
-                      style={[
-                        styles.permissionsExplanation,
-                        {color: '#FF6B6B', marginBottom: 20},
-                      ]}>
-                      • Provide the full VerbaliTalk Forever experience
+                      Without permission, you won't be able to use voice features like "Hey Verbi". You can still use the app by tapping on the screen.
                     </Text>
                   </>
                 )}
@@ -847,13 +904,13 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.buttonText,
-                        {fontSize: nextButtonTextFontSize},
+                        { fontSize: nextButtonTextFontSize },
                       ]}>
                       {permissionsPermanentlyDenied
                         ? 'Continue'
                         : permissionsDenied
-                        ? 'Try Again'
-                        : 'Continue'}
+                          ? 'Try Again'
+                          : 'Continue'}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -876,7 +933,7 @@ const OnboardingScreen: React.FC = () => {
             ) : (
               <>
                 <Text style={styles.permissionsExplanation}>
-                  Location to help VerbaliTalk Forever know where you are.
+                  Location to help MaTalk know where you are.
                 </Text>
                 {!locationPermissionAttempted && (
                   <TouchableOpacity
@@ -885,7 +942,7 @@ const OnboardingScreen: React.FC = () => {
                     <Text
                       style={[
                         styles.buttonText,
-                        {fontSize: nextButtonTextFontSize},
+                        { fontSize: nextButtonTextFontSize },
                       ]}>
                       Continue
                     </Text>
@@ -893,50 +950,6 @@ const OnboardingScreen: React.FC = () => {
                 )}
               </>
             )}
-          </View>
-        );
-      case 'on-device-whisper':
-        return (
-          <View style={{width: '100%', flex: 1}}>
-            <WhisperDownload
-              isModelInvoked={whisperModelInvoked}
-              onComplete={async (modelName?: string) => {
-                // Track which whisper model was given to the user
-                if (modelName) {
-                  mixpanel.track('Onboarding Whisper Model Assigned', {
-                    screen_label: 'on-device-whisper',
-                    whisper_model: modelName,
-                  });
-                }
-
-                // Check if model is available after download and adjust settings accordingly
-                try {
-                  await WhisperModelManager.checkModelAvailabilityAndAdjustSettings(
-                    setItem,
-                    getItem,
-                  );
-                } catch (error) {}
-
-                // CRITICAL: Do NOT initialize WhisperService during onboarding
-                // Whisper initialization will happen in LoggedNavigation AFTER wake word is initialized
-                // This ensures wake word gets access to ONNX Runtime/CoreML resources first
-                try {
-                  await setItem('useLocalWhisper', '1');
-                  // Mark model as downloaded (but not initialized yet)
-                  setWhisperModelInvoked(true);
-                  // Wait a moment to show "magic ready" message
-                  setTimeout(() => {
-                    setWhisperDownloadComplete(true);
-                    // Auto-advance to next step after showing "magic ready"
-                    handleNext();
-                  }, 1500);
-                } catch (error) {
-                  // Still mark as complete even if there was an error
-                  setWhisperDownloadComplete(true);
-                  handleNext();
-                }
-              }}
-            />
           </View>
         );
       default:
@@ -948,8 +961,7 @@ const OnboardingScreen: React.FC = () => {
     let m = member;
     Alert.alert(
       'Family Member Selected',
-      `You selected: ${member.name}${
-        member.imageUri ? ' (with photo)' : ' (no photo)'
+      `You selected: ${member.name}${member.imageUri ? ' (with photo)' : ' (no photo)'
       }`,
       [
         {
@@ -967,6 +979,14 @@ const OnboardingScreen: React.FC = () => {
   };
 
   const currentStepData = onboardingSteps[currentStep];
+
+  const initializeSpeechServices = async () => {
+    try {
+      await TTSService.initialize();
+    } catch (error) {
+      console.warn('[Onboarding] TTS/STT initialization failed:', error);
+    }
+  };
 
   const requestPermission = async () => {
     setPermissionsAttempted(true);
@@ -993,6 +1013,7 @@ const OnboardingScreen: React.FC = () => {
             screen_label: 'Permissions',
             permission_granted: 'yes',
           });
+          await initializeSpeechServices();
           return true;
         }
 
@@ -1014,6 +1035,9 @@ const OnboardingScreen: React.FC = () => {
           screen_label: 'Permissions',
           permission_granted: granted ? 'yes' : 'no',
         });
+        if (granted) {
+          await initializeSpeechServices();
+        }
         return granted;
       } catch (err) {
         setPermissionsGranted(false);
@@ -1040,6 +1064,7 @@ const OnboardingScreen: React.FC = () => {
           screen_label: 'Permissions',
           permission_granted: 'yes',
         });
+        await initializeSpeechServices();
         return true;
       }
 
@@ -1056,7 +1081,10 @@ const OnboardingScreen: React.FC = () => {
         screen_label: 'Permissions',
         permission_granted: granted ? 'yes' : 'no',
       });
-      return {mic, speech};
+      if (granted) {
+        await initializeSpeechServices();
+      }
+      return { mic, speech };
     }
 
     setPermissionsGranted(true);
@@ -1066,6 +1094,7 @@ const OnboardingScreen: React.FC = () => {
       screen_label: 'Permissions',
       permission_granted: 'yes',
     });
+    await initializeSpeechServices();
     return true;
   };
 
@@ -1093,9 +1122,9 @@ const OnboardingScreen: React.FC = () => {
 
         const isGranted =
           granted['android.permission.ACCESS_FINE_LOCATION'] ===
-            RESULTS.GRANTED &&
+          RESULTS.GRANTED &&
           granted['android.permission.ACCESS_COARSE_LOCATION'] ===
-            RESULTS.GRANTED;
+          RESULTS.GRANTED;
         setLocationGranted(isGranted);
         setLocationPermissionSuccess(isGranted);
         mixpanel.track('Onboarding Permissions Requested', {
@@ -1170,7 +1199,7 @@ const OnboardingScreen: React.FC = () => {
           ]}
           onPress={handleBack}>
           <Text
-            style={[styles.backButtonText, {fontSize: nextButtonTextFontSize}]}>
+            style={[styles.backButtonText, { fontSize: nextButtonTextFontSize }]}>
             Back
           </Text>
           <Image
@@ -1186,7 +1215,7 @@ const OnboardingScreen: React.FC = () => {
       <View style={styles.matalkIcon}>
         <FastImage source={matalkImg} style={styles.iconSize} />
       </View>
-      <LinearGradient colors={['#FFF8E7', '#FFFFFF']} style={styles.container}>
+      <View style={[styles.container, { backgroundColor: '#f8f9fe' }]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.container}>
@@ -1237,15 +1266,14 @@ const OnboardingScreen: React.FC = () => {
             <TouchableOpacity
               style={[
                 styles.button,
-                // Hide the done button if on permissions step and permissions not granted
-                ((currentStepData.id === 'Permissions' &&
-                  !permissionsAttempted) ||
+                // Hide the button until step requirements are met
+                ((currentStepData.id === 'terms' && !termsAgreed) ||
+                  (currentStepData.id === 'Permissions' &&
+                    !permissionsAttempted) ||
                   (currentStepData.id === 'name' && !heroName.trim().length) ||
                   (currentStepData.id === 'Optional Permissions' &&
-                    !locationPermissionAttempted) ||
-                  (currentStepData.id === 'on-device-whisper' &&
-                    !whisperDownloadComplete)) &&
-                  styles.hiddenButton,
+                    !locationPermissionAttempted)) &&
+                styles.hiddenButton,
               ]}
               onPress={() => {
                 handleNext();
@@ -1254,22 +1282,16 @@ const OnboardingScreen: React.FC = () => {
                 (currentStepData.id === 'terms' && !termsAgreed) ||
                 (currentStepData.id === 'name' && !heroName.trim().length) ||
                 (currentStepData.id === 'admin-code' &&
-                  adminCode.length !== 4) ||
-                (currentStepData.id === 'on-device-whisper' &&
-                  !whisperDownloadComplete)
+                  adminCode.length !== 4)
               }>
               <Text
-                style={[styles.buttonText, {fontSize: nextButtonTextFontSize}]}>
-                {currentStepData.id === 'on-device-whisper'
-                  ? whisperDownloadComplete
-                    ? 'Continue'
-                    : 'Getting Magic Ready'
-                  : currentStepData.buttonText}
+                style={[styles.buttonText, { fontSize: nextButtonTextFontSize }]}>
+                {currentStepData.buttonText}
               </Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 };
@@ -1472,7 +1494,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    shadowOffset: {width: 0, height: 4},
+    shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
   selectedGender: {
@@ -1493,7 +1515,7 @@ const styles = StyleSheet.create({
     fontSize: Math.min(26.4, width * 0.048),
     color: '#FF3B30',
     textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: {width: 0, height: 1},
+    textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
     pointerEvents: 'none',
   },
@@ -1542,19 +1564,15 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   welcomeContainer: {
-    justifyContent: 'center',
+    justifyContent: 'space-around',
     alignItems: 'center',
     width: '90%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   welcomeImage: {
     width: width * 0.15,
     height: width * 0.15,
-    borderRadius: 16,
-  },
-  heroImage: {
-    width: '100%',
-    maxWidth: width * 0.9,
-    height: height * 0.4,
     borderRadius: 16,
   },
   nameContainer: {
@@ -1581,11 +1599,72 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: height * 0.4,
     flexDirection: 'row',
-    flex: 1,
+    flex: 1
   },
   adminCodeImage: {
     width: width * 0.05,
     height: width * 0.05,
+  },
+  parentCodeWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  parentCodeLockIcon: {
+    fontSize: Math.min(36, width * 0.09),
+    marginBottom: 12,
+  },
+  parentCodeTitle: {
+    fontWeight: '800',
+    color: '#222',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  parentCodeDescription: {
+    color: '#888',
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 20,
+    paddingHorizontal: 10,
+  },
+  parentCodePinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  parentCodePinBox: {
+    backgroundColor: '#F5F0EB',
+    borderWidth: 2,
+    borderColor: '#D6CFC8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  parentCodePinBoxFilled: {
+    borderColor: '#B0A89F',
+    backgroundColor: '#EDE8E3',
+  },
+  parentCodePinInput: {
+    textAlign: 'center',
+    color: '#555',
+    width: '100%',
+    height: '100%',
+    padding: 0,
+  },
+  parentCodeEyeButton: {
+    marginLeft: 4,
+    padding: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parentCodeEyeIcon: {
+    opacity: 0.6,
   },
   permissionsImage: {
     width: Math.min(width * 0.2, 80),
@@ -1618,18 +1697,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...(Platform.OS === 'ios'
       ? {
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 2,
-          },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 5,
-        }
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+      }
       : {
-          elevation: 15,
-        }),
+        elevation: 15,
+      }),
   },
   backButtonText: {
     fontSize: 16,
@@ -1643,7 +1722,7 @@ const styles = StyleSheet.create({
     shadowColor: 'gray',
     shadowOpacity: 0.8,
     shadowRadius: 5,
-    shadowOffset: {width: 0, height: 8},
+    shadowOffset: { width: 0, height: 8 },
     elevation: 8,
     backgroundColor: 'white',
     marginBottom: height * 0.02,
@@ -1767,6 +1846,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  heroImage: {
+    width: '100%',
+    maxWidth: width * 0.9,
+    height: height * 0.4,
+    borderRadius: 16,
   },
 });
 
