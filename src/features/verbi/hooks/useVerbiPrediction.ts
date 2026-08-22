@@ -16,14 +16,7 @@ import {
   VERBI_EVENTS,
   parseVerbiSuggestionLimit,
 } from '../state/verbiTypes';
-import {
-  initVerbiImageCache,
-  generateImageKey,
-  getCachedImageUri,
-} from '../services/verbiImageCache';
-import { verbiDownloadQueue, DownloadTask } from '../services/verbiDownloadQueue';
 import { useAppSettings } from '../../../utils/persistance';
-import { resolvePepesImage } from '../../../utils/pepesUtils';
 import { getTimeOfDay } from '../../../utils/timeOfDay';
 import { personalMemoryService } from '../../../services/PersonalMemoryService';
 
@@ -55,10 +48,6 @@ export function useVerbiPrediction({
   // already moved on from. Each attempt captures its generation and gives up
   // the moment a newer word supersedes it.
   const generationRef = useRef(0);
-
-  useEffect(() => {
-    initVerbiImageCache();
-  }, []);
 
   // Drop anything still pending when the screen goes away.
   useEffect(() => {
@@ -185,6 +174,7 @@ export function useVerbiPrediction({
                   }
                 : null,
               board: { boardId, locale },
+              isAdult: true,
               contextCues: {
                 timeOfDay: getTimeOfDay(),
                 date: new Date().toISOString().split('T')[0],
@@ -209,57 +199,11 @@ export function useVerbiPrediction({
             fallbackUsed: response.fallbackUsed,
           });
 
-          await initVerbiImageCache();
-          const rawSuggestions = response.suggestions ?? [];
-          const downloadTasks: DownloadTask[] = [];
-
-          const mappedSuggestions: VerbiSuggestion[] = rawSuggestions.map(sug => {
-            // First check if word matches a local Pepes item or alias
-            const pepesImageUri = resolvePepesImage(sug.label, parsedPepes);
-            if (pepesImageUri) {
-              return {
-                ...sug,
-                localImagePath: pepesImageUri,
-                imageUrl: pepesImageUri,
-              };
-            }
-
-            const rawIconVal = sug.icon?.value;
-            const remoteUrl =
-              sug.imageUrl ||
-              (typeof rawIconVal === 'string' && rawIconVal.startsWith('http')
-                ? rawIconVal
-                : undefined);
-
-            if (
-              !remoteUrl ||
-              typeof remoteUrl !== 'string' ||
-              !remoteUrl.startsWith('http')
-            ) {
-              return sug;
-            }
-
-            const filenameKey = generateImageKey(remoteUrl, sug.label || sug.id);
-            const cachedUri = getCachedImageUri(filenameKey);
-
-            if (cachedUri) {
-              return { ...sug, localImagePath: cachedUri };
-            } else {
-              downloadTasks.push({
-                imageUrl: remoteUrl,
-                filenameKey,
-                rank: sug.rank ?? 0,
-                suggestionId: sug.id,
-                onComplete: (suggestionId, localUri) => {
-                  dispatch({
-                    type: 'SUGGESTION_IMAGE_CACHED',
-                    payload: { suggestionId, localUri },
-                  });
-                },
-              });
-              return sug;
-            }
-          });
+          // Text-only build: suggestion artwork is neither rendered nor
+          // cached, so no image resolution or download work is done here.
+          const mappedSuggestions: VerbiSuggestion[] = [
+            ...(response.suggestions ?? []),
+          ];
 
           if (generationRef.current !== generation) return;
 
@@ -294,9 +238,6 @@ export function useVerbiPrediction({
             },
           });
 
-          if (downloadTasks.length > 0) {
-            verbiDownloadQueue.enqueueItems(downloadTasks);
-          }
         } catch (error: any) {
           // Ignore abort errors — they're intentional
           if (error?.name === 'AbortError') {

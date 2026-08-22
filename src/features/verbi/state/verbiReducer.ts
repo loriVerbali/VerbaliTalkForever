@@ -164,18 +164,6 @@ export function verbiReducer(
       };
     }
 
-    // ─── Suggestion Image Cached ──────────────────────────────────────────────
-    case 'SUGGESTION_IMAGE_CACHED': {
-      return {
-        ...state,
-        suggestions: state.suggestions.map(s =>
-          s.id === action.payload.suggestionId
-            ? { ...s, localImagePath: action.payload.localUri }
-            : s,
-        ),
-      };
-    }
-
     // ─── Prediction Failed ────────────────────────────────────────────────────
     case 'PREDICTION_FAILED': {
       // Out-of-order guard

@@ -31,7 +31,6 @@ import type {
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 
-import FastImage from 'react-native-fast-image';
 import {DraggableGrid} from 'react-native-draggable-grid';
 import {useAppSettings} from '../../utils/persistance';
 import {sentenceBuilderSqlite} from '../../utils/sentenceBuilderSqlite';
@@ -45,11 +44,6 @@ import {
   GRID_CONFIGS,
   GridConfigKey,
 } from '../../types/sentenceBuilder';
-import {
-  resolveImageSource,
-  isPlaceholderImage,
-} from '../../utils/imageSourceResolver';
-import {resolvePepesImage} from '../../utils/pepesUtils';
 import {views} from '../../utils/constants';
 import NavigationBar from './NavigationBar';
 import EditModal from './EditModal';
@@ -215,8 +209,6 @@ const SentenceBuilderGrid = forwardRef<
       height: number;
     } | null>(null);
     const boardViewRef = useRef<View | null>(null);
-    const [showPlaceholderModal, setShowPlaceholderModal] = useState(false);
-    const [placeholderWord, setPlaceholderWord] = useState('');
     // Last card tapped, used only to swallow same-card double-taps.
     const lastPressRef = useRef<{nodeId: string; at: number}>({
       nodeId: '',
@@ -704,13 +696,6 @@ const SentenceBuilderGrid = forwardRef<
             {nodeId: node.id, title: node.title},
           ]);
         } else {
-          // Check for placeholder image
-          if (isPlaceholderImage(node.imageUri)) {
-            setPlaceholderWord(node.title);
-            setShowPlaceholderModal(true);
-            return;
-          }
-
           // Speak the word using TTS (always speak, even if it's a consecutive duplicate)
           const textToSpeak = node.ttsText || node.title;
           await TTSService.speak(
@@ -1036,14 +1021,12 @@ const SentenceBuilderGrid = forwardRef<
             const syntheticId = `verbi_${Date.now()}_${Math.random()
               .toString(36)
               .slice(2, 8)}`;
-            const pepesImageUri = resolvePepesImage(label, preferences.pepes);
             const syntheticNode: Node = {
               id: syntheticId,
               key: syntheticId,
               parentId: null,
               kind: 'word',
               title: label,
-              imageUri: pepesImageUri || undefined,
               ttsText: spokenText ?? label,
               orderIndex: 9999,
               isSeed: false,
@@ -1409,122 +1392,65 @@ const SentenceBuilderGrid = forwardRef<
                   )}
                 </View>
               ) : node.kind === 'word' ? (
-                <>
-                  {node.imageUri ? (
-                    <FastImage
-                      source={
-                        resolveImageSource(node.imageUri) ||
-                        require('../../assets/welcome.png')
-                      }
-                      style={{
-                        width: cardDimensions.width,
-                        height: isMobile
-                          ? cardDimensions.height
-                          : cardDimensions.height * 0.82,
-                        borderTopLeftRadius: 8,
-                        borderTopRightRadius: 8,
-                        borderBottomLeftRadius: isMobile ? 8 : 0,
-                        borderBottomRightRadius: isMobile ? 8 : 0,
-                      }}
-                      resizeMode={FastImage.resizeMode.cover}
-                    />
-                  ) : (
-                    <View
-                      style={{
-                        width: cardDimensions.width,
-                        height: isMobile
-                          ? cardDimensions.height
-                          : cardDimensions.height * 0.82,
-                        backgroundColor: color,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        borderTopLeftRadius: 8,
-                        borderTopRightRadius: 8,
-                        borderBottomLeftRadius: isMobile ? 8 : 0,
-                        borderBottomRightRadius: isMobile ? 8 : 0,
-                      }}>
-                      <Text
-                        style={{
-                          fontSize: cardDimensions.width * 0.15,
-                          color: '#fff',
-                        }}>
-                        {node.title.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                </>
-              ) : (
-                // Folder - show image if available, otherwise folder icon
-                <>
-                  {node.imageUri ? (
-                    <FastImage
-                      source={
-                        resolveImageSource(node.imageUri) ||
-                        require('../../assets/welcome.png')
-                      }
-                      style={{
-                        width: cardDimensions.width,
-                        height: isMobile
-                          ? cardDimensions.height
-                          : cardDimensions.height * 0.82,
-                        borderTopLeftRadius: 8,
-                        borderTopRightRadius: 8,
-                        borderBottomLeftRadius: isMobile ? 8 : 0,
-                        borderBottomRightRadius: isMobile ? 8 : 0,
-                      }}
-                      resizeMode={FastImage.resizeMode.cover}
-                    />
-                  ) : null}
-                </>
-              )}
-
-              {/* Text overlay for all devices */}
-              {!isEmptyCell && !isDeletedCard && (
+                // Text-only build: the word itself fills the card instead of an image
                 <View
                   style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    backgroundColor:
-                      node.kind === 'folder'
-                        ? '#FFF8E7'
-                        : 'rgba(255, 255, 255, 0.7)',
-                    borderBottomLeftRadius: 4,
-                    borderBottomRightRadius: 4,
-                    paddingVertical: node.kind === 'folder' ? 4 : 2,
-                    paddingHorizontal: 2,
+                    width: cardDimensions.width,
+                    height: cardDimensions.height,
+                    backgroundColor: color,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    borderTopWidth: node.kind === 'folder' ? 2 : 0,
-                    borderColor: node.kind === 'folder' ? '#222222' : color,
+                    borderRadius: 8,
+                    paddingHorizontal: 4,
                   }}>
                   <Text
                     style={{
-                      fontSize:
-                        node.kind === 'folder'
-                          ? Math.max(10, cardDimensions.width * 0.07)
-                          : Math.max(8, cardDimensions.width * 0.06),
-                      fontWeight: node.kind === 'folder' ? '800' : '600',
-                      color: '#000',
+                      fontSize: cardDimensions.width * 0.2,
+                      fontWeight: '700',
+                      color: '#fff',
                       textAlign: 'center',
-                      textShadowColor:
-                        node.kind === 'folder'
-                          ? undefined
-                          : 'rgba(0, 0, 0, 0.8)',
-                      textShadowOffset:
-                        node.kind === 'folder'
-                          ? undefined
-                          : {width: 1, height: 1},
-                      textShadowRadius: node.kind === 'folder' ? undefined : 2,
+                      textShadowColor: 'rgba(0, 0, 0, 0.8)',
+                      textShadowOffset: {width: 1, height: 1},
+                      textShadowRadius: 2,
                     }}
-                    numberOfLines={2}>
-                    {node.kind === 'folder'
-                      ? node.title.toUpperCase()
-                      : node.title}
+                    numberOfLines={3}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.4}>
+                    {node.title}
+                  </Text>
+                </View>
+              ) : (
+                // Text-only build: the folder title fills the card. Top padding
+                // clears the folder-tab decoration drawn above at zIndex 11/12.
+                <View
+                  style={{
+                    width: cardDimensions.width,
+                    height: cardDimensions.height,
+                    backgroundColor: color,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderRadius: 8,
+                    paddingHorizontal: 4,
+                    paddingTop: cardDimensions.height * 0.12,
+                  }}>
+                  <Text
+                    style={{
+                      fontSize: cardDimensions.width * 0.18,
+                      fontWeight: '800',
+                      color: '#fff',
+                      textAlign: 'center',
+                      textShadowColor: 'rgba(0, 0, 0, 0.8)',
+                      textShadowOffset: {width: 1, height: 1},
+                      textShadowRadius: 2,
+                    }}
+                    numberOfLines={3}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.4}>
+                    {node.title.toUpperCase()}
                   </Text>
                 </View>
               )}
+
             </View>
           </View>
         </View>
@@ -2172,54 +2098,6 @@ const SentenceBuilderGrid = forwardRef<
                       </View>
                     </>
                   )}
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-
-        {/* Placeholder Image Warning Modal */}
-        <Modal
-          visible={showPlaceholderModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowPlaceholderModal(false)}>
-          <TouchableWithoutFeedback
-            onPress={() => setShowPlaceholderModal(false)}>
-            <View style={styles.modalOverlay}>
-              <TouchableWithoutFeedback>
-                <View
-                  style={[
-                    styles.modalContent,
-                    {borderColor: '#ff3b30', borderWidth: 2},
-                  ]}>
-                  <Text style={styles.warningIcon}>⚠️</Text>
-                  <Text style={[styles.modalTitle, {color: '#ff3b30'}]}>
-                    Missing Image
-                  </Text>
-                  <Text style={styles.placeholderWarningText}>
-                    No image is attached to "{placeholderWord}", please go to
-                    settings and add an image to this word.
-                  </Text>
-
-                  <TouchableOpacity
-                    style={styles.settingsLinkButton}
-                    onPress={() => {
-                      setShowPlaceholderModal(false);
-                      navigation.navigate(views.SETTINGS as never);
-                    }}>
-                    <Text style={styles.settingsLinkText}>Go to Settings</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton,
-                      styles.cancelButton,
-                      {marginTop: 15, width: '100%'},
-                    ]}
-                    onPress={() => setShowPlaceholderModal(false)}>
-                    <Text style={styles.buttonText}>Dismiss</Text>
-                  </TouchableOpacity>
                 </View>
               </TouchableWithoutFeedback>
             </View>

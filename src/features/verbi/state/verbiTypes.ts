@@ -138,10 +138,6 @@ export type VerbiAction =
         fallbackUsed: boolean;
       };
     }
-  | {
-      type: 'SUGGESTION_IMAGE_CACHED';
-      payload: { suggestionId: string; localUri: string };
-    }
   | { type: 'PREDICTION_FAILED'; payload: { requestId: string; code?: string } }
   | { type: 'FOLDER_OPENED'; payload: VerbiFolder }
   | { type: 'FOLDER_BACK' }
@@ -181,6 +177,14 @@ export type PredictionRequest = {
     boardId: string;
     locale: string;
   };
+  /**
+   * Adult mode. In child mode the server drops any predicted word that has no
+   * picture in `word_image` (see verbi.prediction.js `processSuggestions`) —
+   * this build renders text-only cards, so that filter would silently discard
+   * usable vocabulary. Sent as its own flag rather than `boardId: 'adult'`
+   * because boardId is persisted on the conversation record.
+   */
+  isAdult?: boolean;
   contextCues?: {
     timeOfDay?: string;
     date?: string;

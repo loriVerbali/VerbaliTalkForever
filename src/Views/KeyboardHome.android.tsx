@@ -25,6 +25,9 @@ const KeyboardHomeScreen: React.FC = () => {
     const [keyboardInput, setKeyboardInput] = useState('');
     const [isSubmittingKeyboard, setIsSubmittingKeyboard] = useState(false);
 
+    // Keyboard text is sized to match the enlarged card surfaces elsewhere in the app
+    const buttonSize = isTablet ? 72 : 56;
+
     const handleKeyboardSubmit = async () => {
         const inputText = keyboardInput.trim();
         if (!inputText || isSubmittingKeyboard) return;
@@ -73,9 +76,9 @@ const KeyboardHomeScreen: React.FC = () => {
                     keyboardVerticalOffset={Platform.OS === 'android' ? 20 : 0}
                 >
                     <View style={styles.contentContainer}>
-                        <View style={styles.inputContainer}>
+                        <View style={[styles.inputContainer, { minHeight: isTablet ? 160 : 110, maxHeight: isTablet ? 260 : 180 }]}>
                             <TextInput
-                                style={styles.textInput}
+                                style={[styles.textInput, { fontSize: isTablet ? 48 : 32 }]}
                                 value={keyboardInput}
                                 onChangeText={setKeyboardInput}
                                 placeholder="Type your message..."
@@ -87,9 +90,9 @@ const KeyboardHomeScreen: React.FC = () => {
 
                             <View style={styles.divider} />
 
-                            <View style={styles.buttonRow}>
+                            <View style={[styles.buttonRow, { width: isTablet ? 240 : 190 }]}>
                                 <TouchableOpacity
-                                    style={styles.playButton}
+                                    style={[styles.playButton, { width: buttonSize, height: buttonSize }]}
                                     onPress={handleKeyboardSubmit}
                                     disabled={isSubmittingKeyboard || keyboardInput.trim().length === 0}
                                 >
@@ -101,7 +104,7 @@ const KeyboardHomeScreen: React.FC = () => {
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={styles.smallButton}
+                                    style={[styles.smallButton, { width: buttonSize, height: buttonSize }]}
                                     onPress={handleKeyboardCancel}
                                     disabled={isSubmittingKeyboard}
                                 >
@@ -113,7 +116,7 @@ const KeyboardHomeScreen: React.FC = () => {
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    style={styles.smallButton}
+                                    style={[styles.smallButton, { width: buttonSize, height: buttonSize }]}
                                     onPress={handlePolish}
                                     disabled={isSubmittingKeyboard}
                                 >
@@ -162,8 +165,8 @@ const styles = StyleSheet.create({
         padding: 10,
         borderLeftWidth: 4,
         borderLeftColor: '#007AFF',
-        minHeight: 80,
-        maxHeight: 140,
+        minHeight: 110,   // phone base; tablet overridden inline
+        maxHeight: 180,   // phone base; tablet overridden inline
         width: '100%',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -173,7 +176,7 @@ const styles = StyleSheet.create({
     },
     textInput: {
         flex: 1,
-        fontSize: 18,
+        fontSize: 32,     // phone base; tablet overridden inline
         color: '#333',
         textAlignVertical: 'top',
         padding: 5,
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        width: 135,
+        width: 190,       // phone base; tablet overridden inline
         height: '100%',
     },
     playButton: {

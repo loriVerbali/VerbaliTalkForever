@@ -1,0 +1,215 @@
+# Merging matalkforever `develop` into VerbaliTalkForever
+
+This repo is the **adult** fork of [matalkforever](https://github.com/loriVerbali/matalkforever).
+Everything should behave exactly like upstream **except** the differences in
+[Adult invariants](#adult-invariants) below.
+
+Upstream is merged in periodically. This is the runbook.
+
+> First done 2026-08-16 in merge commit `1e261b0`. That merge took ~10 conflicts and
+> surfaced 4 bugs that a clean merge would have shipped silently. Read
+> [What auto-merge gets wrong](#what-auto-merge-gets-wrong) before starting.
+
+---
+
+## 0. One-time setup
+
+```bash
+git remote add matalk https://github.com/loriVerbali/matalkforever.git
+```
+
+`origin` is VerbaliTalkForever. `matalk` is upstream. Don't confuse them.
+
+---
+
+## 1. The merge
+
+```bash
+git fetch matalk
+git checkout -b sync-$(date +%Y%m%d)      # never merge straight onto a branch you care about
+git merge matalk/develop --no-commit --no-ff
+```
+
+**The histories are already joined.** Merge commit `1e261b0` records `matalk/develop`
+as a real second parent, so `matalk/develop` is a true ancestor of this repo now.
+Expect an ordinary 3-way merge.
+
+<details>
+<summary>If git says "refusing to merge unrelated histories"</summary>
+
+That means upstream rewrote history again. Do **not** use
+`--allow-unrelated-histories` — it conflicts on ~557 files because with no merge
+base every differing file is a conflict.
+
+Instead find a commit whose tree is identical on both sides and graft it:
+
+```bash
+# find the closest upstream commit to some local commit
+for c in $(git rev-list matalk/develop -n 60); do
+  echo "$(git diff --name-only $c <local-sha> -- src | wc -l) $c $(git log -1 --format=%s $c)"
+done | sort -n | head
+
+# confirm the trees actually match, then graft
+git rev-parse <local-sha>^{tree}  # must equal:
+git rev-parse <upstream-sha>^{tree}
+git replace --graft <local-sha> <upstream-sha>
+```
+
+This is how the 2026-08-16 merge went from 557 conflicts to 10.
+**Delete the graft after committing** (`git replace -d <local-sha>`) — it is a
+local-only ref that makes your history view differ from everyone else's.
+</details>
+
+---
+
+## 2. Resolve conflicts
+
+Rules that held up last time:
+
+| area | resolution |
+|---|---|
+| `ios/*.xcodeproj/project.pbxproj` | **Keep ours** (`git checkout --ours`). The two projects build different targets (`VerbaliTalkForever` vs `matalkforever`) with different native stacks. Never line-merge a pbxproj. |
+| `android/app/build.gradle` | Keep our `applicationId` / `versionName`, take upstream's higher `versionCode`. |
+| `.gitignore` | Union both sides. |
+| Card rendering | Ours — see [Adult invariants](#adult-invariants). |
+| Everything else | Theirs, unless it collides with an invariant. |
+
+**Deleted-by-us conflicts (`DU`)**: our iOS restructure moved app sources from
+`ios/matalkaiforever.verbali.io/` up to `ios/`. Keep our deletion. But if upstream
+adds a *native asset* under a deleted path (e.g. a speech model), restore it:
+`git checkout matalk/develop -- <path>`.
+
+---
+
+## 3. Adult invariants
+
+Check every one of these after the merge. Most auto-merge correctly; the ones
+marked ⚠️ have silently reverted before.
+
+**API** — `src/utils/config.ts`
+- `/answers/generate-adult`, not `/answers/generate`
+- `baseUrl` intentionally **follows upstream** (currently `matalkapi-copy-nologin`)
+
+**Text-only cards.** The app shows words, never pictures:
+- `Feelings.tsx` / `ShortCuts.tsx` word grids render `<Text>` only, font `88/72` and `60/48`.
+  ShortCuts' 5 *category header* tiles keep their images — that is intended.
+- `Open.tsx` — the adult-only `isPepeCard()` gate (doesn't exist upstream): user-added
+  "Pepe" cards keep images; `default_` / `../assets/` / `http` render as text.
+  Also keeps its own `yesNoCard` shadow tuning.
+- `My8WordsCustomizer.tsx` — image search stays removed; new words save `imageUrl: ''`.
+- `SentenceBuilderGrid.tsx` ⚠️ — word and folder cards render the word filling the
+  card. No image branch, no label strip underneath.
+- `VerbiSuggestionTile.tsx` ⚠️ — word fills the tile. No `FastImage`, no label strip.
+- `EditModal.tsx` ⚠️ — no image search; words are **typed** (`name.trim()`), not picked
+  from the library.
+
+**Other adult deltas**
+- `MyPepesAndStuff.tsx` — category is **Medicine** (Pills, Inhalers, Prescription…),
+  not upstream's **Toys**.
+- 5 extra avatars in Onboarding + Settings: `oman`, `obman`, `owwoman`, `obwoman`, `aowoman`.
+- Keyboard text is `isTablet ? 48 : 32` with `72/56` buttons, not upstream's flat `18`/`40`.
+- Verbi predictions send `isAdult: true` (`useVerbiPrediction.ts`).
+
+**Identity** — `applicationId verbalitalk.io.verbali`, `versionName VERBALITALKV1`,
+`ios/VerbaliTalkForever.xcodeproj`. Never take MatalkForever branding.
+
+> Image **assets** are still in the repo (28 feelings, 41 shortcuts) — just unimported.
+> Re-enabling images is a code change, not an asset restore.
+
+---
+
+## 4. What auto-merge gets wrong
+
+Every one of these was a real bug in the 2026-08-16 merge. They compile and bundle
+fine; they break at runtime or silently degrade behaviour.
+
+**Deleted modules still called.** Upstream removed `AudioSessionManager` (native + JS)
+in the DaVoice migration, but our side of the `Open.tsx` conflict still called
+`AudioSessionManager.prepareForTTS()`. Would have crashed on tap.
+→ After resolving, grep for identifiers upstream deleted.
+
+**Image gates that block behaviour, not just pixels.** `SentenceBuilderGrid` had
+`if (isPlaceholderImage(node.imageUri)) return;` — a word with a placeholder image
+refused to speak and showed a "add an image in Settings" modal, pointing at a flow
+that no longer exists in this build.
+→ Grep for `isPlaceholderImage` and any early-return keyed on an image.
+
+**Server-side image filters.** `verbi.prediction.js processSuggestions` drops any
+predicted word with no picture in `word_image` unless `isAdult` is set. In a
+text-only app that silently deletes vocabulary.
+→ Keep `isAdult: true` in the prediction request.
+
+**Required-image save paths.** `EditModal.handleSave` used to *require* an API image
+selection and read the title from it. Stripping the search without rewriting the
+save path makes adding a word impossible.
+→ After removing any image picker, check what the save path reads.
+
+---
+
+## 5. Verify
+
+`tsc` has **never** passed in this repo (24 pre-existing errors, mostly dead imports
+of uninstalled packages). Don't chase a clean run — diff against a baseline instead:
+
+```bash
+# baseline from BEFORE your merge
+git stash && npx tsc --noEmit 2>&1 | grep "error TS" \
+  | sed -E 's/\([0-9]+,[0-9]+\)//' | sort -u > /tmp/base.txt && git stash pop
+
+# after
+npx tsc --noEmit 2>&1 | grep "error TS" \
+  | sed -E 's/\([0-9]+,[0-9]+\)//' | sort -u > /tmp/after.txt
+comm -23 /tmp/after.txt /tmp/base.txt   # empty == no regressions
+```
+
+This is what caught two `Cannot find name` bugs the bundler happily ignored.
+
+**Bundle both platforms** — the real check that the JS tree resolves. Platform-specific
+files (`*.ios.tsx` / `*.android.tsx`) are only compiled for their own platform, so one
+bundle proves nothing about the other:
+
+```bash
+npx react-native bundle --entry-file index.js --platform ios \
+  --dev true --bundle-output /tmp/ios.jsbundle --assets-dest /tmp/a
+npx react-native bundle --entry-file index.js --platform android \
+  --dev true --bundle-output /tmp/and.jsbundle --assets-dest /tmp/b
+```
+
+**Native build**, if anything under `ios/` changed:
+
+```bash
+cd ios && pod install
+xcodebuild -workspace VerbaliTalkForever.xcworkspace -scheme VerbaliTalkForever \
+  -configuration Debug -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' build
+```
+
+A Debug simulator build defers bundling to Metro, so **it does not validate your JS** —
+it only proves the native side links. You need both.
+
+Then actually run it. Bundling proves nothing about layout or whether DaVoice speaks.
+
+---
+
+## 6. Traps
+
+**Check what's reachable before editing it.** `src/Components/SentenceBuilder/` had 9
+files; only 3 were live. `FolderCard`, `WordCard`, `SentenceBar`, `Breadcrumb`, `AddCard`
+were imported by nothing (now deleted). `Login.tsx` is commented out of the navigator and
+imports `react-native-auth0`, which isn't in `package.json` — so all `/get-assistant`,
+`/make-assistant`, `/delete-assistant` calls are dead code.
+
+```bash
+grep -rn "ComponentName" src/ | grep -v "^src/path/to/ComponentName.tsx"
+```
+
+**Don't truncate audit greps.** A `| head -20` hid `SentenceBuilderGrid.tsx` — the main
+word grid — during the image audit, and it shipped with images for a full round trip.
+
+**The backend is checked out locally** at `../MatalkBE/matalkapi`. Read it instead of
+guessing. It has a full adult mode: `/answers/generate-adult`,
+`/get-assistant-adult-mode`, `/make-assistant-adult-mode`, `/delete-assistant-adult`
+(separate `user_assistants_adult` table, `AssistantDefs/currentAdult.json` persona),
+and `isAdult` on `/v1/verbi/predictions`.
+
+**Deployment ≠ source.** The backend repo having a route says nothing about whether
+`matalkapi-copy-nologin` is running that build. Verify against the live host.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,21 +7,12 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
   Alert,
   Dimensions,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import FastImage from 'react-native-fast-image';
-import { searchWordImages, WordImageResult } from '../../utils/wordImageApi';
-import { searchGoogleImages } from '../../utils/googleImageApi';
 import { Node, WordType, DEFAULT_COLOR_MAP } from '../../types/sentenceBuilder';
-import { downloadSentenceBuilderImage } from '../../utils/sentenceBuilderImageDownloader';
-import { useAppSettings } from '../../utils/persistance';
-import { isPlaceholderImage, resolveImageSource } from '../../utils/imageSourceResolver';
-import { views } from '../../utils/constants';
 
 const { width, height } = Dimensions.get('window');
 
@@ -66,27 +57,14 @@ const EditModal: React.FC<EditModalProps> = ({
   currentFolders = [],
   allFolders = [],
 }) => {
-  const { preferences } = useAppSettings();
-  const navigation = useNavigation();
   const [isFolder, setIsFolder] = useState(false);
   const [name, setName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0]); // Default to Green (noun)
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<WordImageResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   const [isNewNode, setIsNewNode] = useState(false);
-  const [selectedWordFromApi, setSelectedWordFromApi] =
-    useState<WordImageResult | null>(null);
-  const [selectedFolderImage, setSelectedFolderImage] =
-    useState<WordImageResult | null>(null);
   const [useExistingFolder, setUseExistingFolder] = useState(false);
   const [selectedExistingFolder, setSelectedExistingFolder] =
     useState<Node | null>(null);
   const [folderSearchQuery, setFolderSearchQuery] = useState('');
-  const [googleSearchResults, setGoogleSearchResults] = useState<WordImageResult[]>([]);
-  const [isGoogleSearching, setIsGoogleSearching] = useState(false);
-  const lastGoogleQueryRef = useRef('');
 
   // Initialize form when modal opens
   useEffect(() => {
@@ -105,88 +83,16 @@ const EditModal: React.FC<EditModalProps> = ({
                 : DEFAULT_COLOR_MAP[node.type || 'other']),
           ) || COLOR_OPTIONS[0];
         setSelectedColor(matchingColor);
-        // Clear API selections for existing nodes
-        setSelectedWordFromApi(null);
-        setSelectedFolderImage(null);
       } else {
         setName('');
         setIsFolder(false);
         setSelectedColor(COLOR_OPTIONS[0]); // Default to Green (noun)
-        setSelectedWordFromApi(null);
-        setSelectedFolderImage(null);
       }
-      setSearchQuery('');
-      setSearchResults([]);
-      setSearchError(null);
       setUseExistingFolder(false);
       setSelectedExistingFolder(null);
       setFolderSearchQuery('');
-      setGoogleSearchResults([]);
-      setIsGoogleSearching(false);
-      lastGoogleQueryRef.current = '';
     }
   }, [isVisible, node]);
-
-  // Search both our library and Google as the user types, with debouncing
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      const query = searchQuery.trim();
-      if (query.length >= 2) {
-        performSearch(query);
-        performGoogleSearch(query);
-      } else if (query.length === 0) {
-        setSearchResults([]);
-        setGoogleSearchResults([]);
-        lastGoogleQueryRef.current = '';
-      }
-      setSearchError(null);
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
-
-  const performSearch = async (query: string) => {
-    setIsSearching(true);
-    try {
-      // 1. Search in local pepes
-      let localResults: WordImageResult[] = [];
-      if (preferences.pepes) {
-        try {
-          const pepesData = JSON.parse(preferences.pepes);
-          const queryLower = query.toLowerCase();
-
-          // Collect all pepes from all categories
-          const allPepes = Object.values(pepesData).flat() as any[];
-
-          // Filter by name or aliases
-          const matchingPepes = allPepes.filter((pepe: any) =>
-            pepe.name?.toLowerCase().includes(queryLower) ||
-            (pepe.aliases && pepe.aliases.some((alias: string) => alias.toLowerCase().includes(queryLower)))
-          );
-
-          // Map to WordImageResult
-          localResults = matchingPepes.map((pepe: any) => ({
-            word: pepe.name,
-            imageUrl: pepe.imageUri,
-            id: `pepe_${pepe.id}`,
-          }));
-        } catch (e) {
-          console.error('Failed to parse pepes data', e);
-        }
-      }
-
-      // 2. Search API words
-      const apiResults = await searchWordImages(query);
-
-      // 3. Combine results, local first
-      setSearchResults([...localResults, ...apiResults.results]);
-    } catch (error) {
-
-      Alert.alert('Error', 'Failed to search for words. Please try again.');
-    } finally {
-      setIsSearching(false);
-    }
-  };
 
   const handleSave = async () => {
     // Handle normal add/edit mode
@@ -205,73 +111,25 @@ const EditModal: React.FC<EditModalProps> = ({
         }
       }
     } else {
-      // For words, require selection from API
-      if (!selectedWordFromApi) {
-        Alert.alert('Error', 'Please search and select a word from the API');
+      // Text-only build: words are typed, not picked from the image library
+      if (!name.trim()) {
+        Alert.alert('Error', 'Please enter a word');
         return;
       }
     }
 
     try {
-      let localImagePath: string | undefined;
-
-      // Only the selection made in the current mode counts — a selection
-      // left over from the other mode (e.g. a word tapped before switching
-      // to Folder) must not override the image chosen afterwards.
-      const selectedImage = isFolder
-        ? useExistingFolder
-          ? null
-          : selectedFolderImage
-        : selectedWordFromApi;
-
-      // Download image if one is selected
-      if (selectedImage) {
-        const filename = `${isFolder ? 'folder' : 'word'}_${selectedImage.id}`;
-
-        // Check if it's already a local image (e.g. from local pepes)
-        const isLocalImage =
-          selectedImage.imageUrl.startsWith('file://') ||
-          selectedImage.imageUrl.startsWith('/');
-
-        if (isLocalImage) {
-          localImagePath = selectedImage.imageUrl;
-        } else {
-          try {
-            localImagePath = await downloadSentenceBuilderImage(
-              selectedImage.imageUrl,
-              filename,
-            );
-          } catch (error) {
-            console.error('Download failed:', error);
-            Alert.alert(
-              'Warning',
-              'Failed to download image. The item will be saved without an image.',
-            );
-          }
-        }
-      }
-
       const nodeData: Partial<Node> = {
         title: isFolder
           ? useExistingFolder
             ? selectedExistingFolder!.title
             : name.trim()
-          : selectedWordFromApi!.word,
+          : name.trim(),
         kind: isFolder ? 'folder' : 'word',
         type: isFolder ? undefined : selectedColor.type,
         parentId,
         orderIndex: position,
-        // Add local image path if available, otherwise use URL as fallback
-        ...(localImagePath && {
-          imageUri: localImagePath,
-          imageHash: selectedImage?.id,
-        }),
-        // Fallback to URL if download failed
-        ...(!localImagePath &&
-          selectedImage && {
-          imageUri: selectedImage.imageUrl,
-          imageHash: selectedImage.id,
-        }),
+        // Text-only build: no imageUri is stored on new nodes
         // For existing folders, include the source folder ID for copying
         ...(isFolder &&
           useExistingFolder && {
@@ -306,24 +164,6 @@ const EditModal: React.FC<EditModalProps> = ({
     );
   };
 
-  const handleSearchResultSelect = (searchResult: WordImageResult) => {
-    if (isPlaceholderImage(searchResult.imageUrl)) {
-      setSearchError('No image is attached to this word, please go to settings and add an image to this word.');
-      return;
-    }
-    setSearchError(null);
-
-    if (isFolder) {
-      // For folders, this is selecting an image
-      setSelectedFolderImage(searchResult);
-    } else {
-      // For words, this is selecting the word itself
-      setSelectedWordFromApi(searchResult);
-    }
-    setSearchQuery('');
-    setSearchResults([]);
-  };
-
   const handleExistingFolderSelect = (folder: Node) => {
     setSelectedExistingFolder(folder);
   };
@@ -332,41 +172,6 @@ const EditModal: React.FC<EditModalProps> = ({
   const filteredFolders = allFolders.filter(folder =>
     folder.title.toLowerCase().includes(folderSearchQuery.toLowerCase()),
   );
-
-  const performGoogleSearch = async (query: string) => {
-    if (lastGoogleQueryRef.current === query) return;
-    lastGoogleQueryRef.current = query;
-
-    setIsGoogleSearching(true);
-    try {
-      const apiResults = await searchGoogleImages(query, 5);
-      // Use the searched word as the label/title — Google's own image
-      // titles are arbitrary page titles.
-      setGoogleSearchResults(
-        apiResults.results.map(result => ({ ...result, word: query })),
-      );
-    } catch (error) {
-      console.error('Google Image search error:', error);
-      Alert.alert('Error', 'Failed to search Google Images. Please try again.');
-    } finally {
-      setIsGoogleSearching(false);
-    }
-  };
-
-  const handleGoogleSearchResultSelect = (searchResult: WordImageResult) => {
-    if (isPlaceholderImage(searchResult.imageUrl)) {
-      setSearchError('No image is attached to this word, please go to settings and add an image to this word.');
-      return;
-    }
-    setSearchError(null);
-
-    if (isFolder) {
-      setSelectedFolderImage(searchResult);
-    } else {
-      setSelectedWordFromApi(searchResult);
-    }
-    // We don't clear the search results here so the user can see what they selected
-  };
 
   // Colorful New/Existing pill toggle, shown inline with the section title
   const renderFolderModeToggle = () => (
@@ -400,24 +205,6 @@ const EditModal: React.FC<EditModalProps> = ({
         </Text>
       </TouchableOpacity>
     </View>
-  );
-
-  const renderSearchResult = ({ item }: { item: WordImageResult }) => (
-    <TouchableOpacity
-      style={[
-        styles.searchResult,
-        (isFolder
-          ? selectedFolderImage?.id === item.id
-          : selectedWordFromApi?.id === item.id) && styles.searchResultSelected,
-      ]}
-      onPress={() => handleSearchResultSelect(item)}>
-      <FastImage
-        source={{ uri: item.imageUrl }}
-        style={styles.searchResultImage}
-        resizeMode={FastImage.resizeMode.cover}
-      />
-      <Text style={styles.searchResultText}>{item.word}</Text>
-    </TouchableOpacity>
   );
 
   return (
@@ -458,10 +245,7 @@ const EditModal: React.FC<EditModalProps> = ({
                     styles.segmentButton,
                     !isFolder && styles.segmentButtonSelected,
                   ]}
-                  onPress={() => {
-                    setIsFolder(false);
-                    setSelectedFolderImage(null);
-                  }}>
+                  onPress={() => setIsFolder(false)}>
                   <Text
                     style={[
                       styles.segmentButtonText,
@@ -475,10 +259,7 @@ const EditModal: React.FC<EditModalProps> = ({
                     styles.segmentButton,
                     isFolder && styles.segmentButtonSelected,
                   ]}
-                  onPress={() => {
-                    setIsFolder(true);
-                    setSelectedWordFromApi(null);
-                  }}>
+                  onPress={() => setIsFolder(true)}>
                   <Text
                     style={[
                       styles.segmentButtonText,
@@ -490,182 +271,25 @@ const EditModal: React.FC<EditModalProps> = ({
               </View>
             </View>
 
-            {/* Unified Search Section - Only for words or new folders */}
-            {(!isFolder || (isFolder && !useExistingFolder)) && (
+            {/* Name Input - words are typed in this text-only build */}
+            {(!isFolder || !useExistingFolder) && (
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionTitle}>
-                    {isFolder ? 'Search for Folder Image' : 'Search for Word'}
+                    {isFolder ? 'Folder Name' : 'Word'}
                   </Text>
                   {isFolder && renderFolderModeToggle()}
                 </View>
-                <Text style={styles.sectionSubtitle}>
-                  {isFolder
-                    ? 'Search for an image to use for this folder, from our library or Google'
-                    : 'Search for a word from our library (including images you added in Pepes and Stuff) or Google'}
-                </Text>
-
-                <View style={styles.searchInputContainer}>
-                  <TextInput
-                    style={styles.searchInput}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    placeholder={
-                      isFolder ? 'Search for an image...' : 'Search for a word...'
-                    }
-                    placeholderTextColor="#999"
-                    returnKeyType="search"
-                  />
-                  {(isSearching || isGoogleSearching) && (
-                    <ActivityIndicator
-                      size="small"
-                      color="#007bff"
-                      style={styles.searchLoader}
-                    />
-                  )}
-                </View>
-
-                {searchQuery.trim().length > 0 &&
-                  searchQuery.trim().length < 2 && (
-                    <Text style={styles.hintText}>
-                      Type at least 2 characters to search
-                    </Text>
-                  )}
-
-                {searchError && (
-                  <View style={styles.searchErrorContainer}>
-                    <Text style={styles.searchErrorText}>{searchError}</Text>
-                    <TouchableOpacity
-                      style={styles.settingsLink}
-                      onPress={() => {
-                        onClose();
-                        navigation.navigate(views.SETTINGS as never);
-                      }}>
-                      <Text style={styles.settingsLinkText}>Go to Settings</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-                {searchResults.length > 0 && (
-                  <View style={styles.searchResultsContainer}>
-                    <Text style={styles.searchResultsTitle}>Our Library:</Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      style={styles.searchResultsList}>
-                      {searchResults.map(item => (
-                        <View key={item.id} style={styles.searchResultWrapper}>
-                          {renderSearchResult({ item })}
-                        </View>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-
-                {googleSearchResults.length > 0 && (
-                    <View style={styles.searchResultsContainer}>
-                      <Text style={styles.searchResultsTitle}>
-                        Google:
-                      </Text>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.searchResultsList}>
-                        {googleSearchResults.map(item => (
-                          <View key={item.id} style={styles.searchResultWrapper}>
-                            <TouchableOpacity
-                              style={[
-                                styles.searchResult,
-                                (isFolder
-                                  ? selectedFolderImage?.id === item.id
-                                  : selectedWordFromApi?.id === item.id) &&
-                                styles.searchResultSelected,
-                              ]}
-                              onPress={() => handleGoogleSearchResultSelect(item)}>
-                              <FastImage
-                                source={{ uri: item.imageUrl }}
-                                style={styles.searchResultImage}
-                                resizeMode={FastImage.resizeMode.cover}
-                              />
-                              <Text
-                                style={styles.searchResultText}
-                                numberOfLines={1}>
-                                {item.word}
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-              </View>
-            )}
-
-            {/* Name Input - Only for new folders */}
-            {isFolder && !useExistingFolder && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Folder Name</Text>
                 <TextInput
                   style={styles.input}
                   value={name}
                   onChangeText={setName}
-                  placeholder="Enter folder name..."
+                  placeholder={
+                    isFolder ? 'Enter folder name...' : 'Enter a word...'
+                  }
                   placeholderTextColor="#999"
+                  autoCorrect={false}
                 />
-              </View>
-            )}
-
-            {/* Selected Word Display - Only for words */}
-            {!isFolder && selectedWordFromApi && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Selected Word</Text>
-                <View style={styles.selectedWordContainer}>
-                  <FastImage
-                    source={{ uri: selectedWordFromApi.imageUrl }}
-                    style={styles.selectedWordImage}
-                    resizeMode={FastImage.resizeMode.cover}
-                  />
-                  <Text style={styles.selectedWordText}>
-                    {selectedWordFromApi.word}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.clearSelectionButton}
-                    onPress={() => setSelectedWordFromApi(null)}>
-                    <Text style={styles.clearSelectionText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-                {isPlaceholderImage(selectedWordFromApi.imageUrl) && (
-                  <Text style={styles.placeholderErrorText}>
-                    No image is attached to this word, please go to settings and add an image to this word.
-                  </Text>
-                )}
-              </View>
-            )}
-
-            {/* Selected Folder Image Display - Only for new folders */}
-            {isFolder && !useExistingFolder && selectedFolderImage && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Selected Image</Text>
-                <View style={styles.selectedWordContainer}>
-                  <FastImage
-                    source={{ uri: selectedFolderImage.imageUrl }}
-                    style={styles.selectedWordImage}
-                    resizeMode={FastImage.resizeMode.cover}
-                  />
-                  <Text style={styles.selectedWordText}>
-                    {selectedFolderImage.word}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.clearSelectionButton}
-                    onPress={() => setSelectedFolderImage(null)}>
-                    <Text style={styles.clearSelectionText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-                {isPlaceholderImage(selectedFolderImage.imageUrl) && (
-                  <Text style={styles.placeholderErrorText}>
-                    No image is attached to this word, please go to settings and add an image to this word.
-                  </Text>
-                )}
               </View>
             )}
 
@@ -693,14 +317,6 @@ const EditModal: React.FC<EditModalProps> = ({
 
                 {selectedExistingFolder && (
                   <View style={styles.selectedWordContainer}>
-                    <FastImage
-                      source={
-                        resolveImageSource(selectedExistingFolder.imageUri) ||
-                        require('../../assets/welcome.png')
-                      }
-                      style={styles.selectedWordImage}
-                      resizeMode={FastImage.resizeMode.cover}
-                    />
                     <Text style={styles.selectedWordText}>
                       📁 {selectedExistingFolder.title}
                     </Text>
@@ -730,14 +346,6 @@ const EditModal: React.FC<EditModalProps> = ({
                               styles.searchResultSelected,
                             ]}
                             onPress={() => handleExistingFolderSelect(folder)}>
-                            <FastImage
-                              source={
-                                resolveImageSource(folder.imageUri) ||
-                                require('../../assets/welcome.png')
-                              }
-                              style={styles.searchResultImage}
-                              resizeMode={FastImage.resizeMode.cover}
-                            />
                             <Text style={styles.searchResultText}>
                               📁 {folder.title}
                             </Text>

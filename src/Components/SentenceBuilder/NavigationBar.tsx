@@ -11,7 +11,6 @@ import FastImage from 'react-native-fast-image';
 import { useNavigation } from '@react-navigation/native';
 import { Node, FolderStackItem } from '../../types/sentenceBuilder';
 import { views } from '../../utils/constants';
-import { resolveImageSource } from '../../utils/imageSourceResolver';
 import { useAdmin } from '../../contexts/adminContext';
 
 const { height } = Dimensions.get('window');
@@ -58,7 +57,6 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
   const responsiveValues = {
     tokenSize: isTablet ? height * 0.0612 : height * 0.068, // 15% smaller
     tokenBorderRadius: isTablet ? height * 0.0306 : height * 0.034,
-    tokenImageBorderRadius: isTablet ? height * 0.0306 - 2 : height * 0.034 - 2,
     playButtonSize: isTablet ? height * 0.045 : height * 0.06,
     playButtonBorderRadius: isTablet ? height * 0.0225 : height * 0.025,
     // Total token height including label (token + label + spacing)
@@ -125,27 +123,15 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
             node.kind === 'folder' && styles.folderToken,
           ]}
           onPress={() => onRemoveToken(nodeId, index)}>
-          {node.imageUri ? (
-            <FastImage
-              source={
-                resolveImageSource(node.imageUri) ||
-                require('../../assets/welcome.png')
-              }
-              style={[
-                styles.tokenImage,
-                { borderRadius: responsiveValues.tokenImageBorderRadius },
-              ]}
-              resizeMode={FastImage.resizeMode.cover}
-            />
-          ) : (
-            <View style={[styles.tokenImage, styles.tokenPlaceholder]}>
-              <Text style={styles.tokenPlaceholderText}>
-                {node.kind === 'folder'
-                  ? '📁'
-                  : node.title.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
+          {/* Text-only: word images are not shown in this build. The full word
+              renders in the label below; this chip shows an initial. */}
+          <View style={[styles.tokenImage, styles.tokenPlaceholder]}>
+            <Text style={styles.tokenPlaceholderText}>
+              {node.kind === 'folder'
+                ? '📁'
+                : node.title.charAt(0).toUpperCase()}
+            </Text>
+          </View>
         </TouchableOpacity>
         <Text
           style={[styles.tokenLabel, { maxWidth: responsiveValues.tokenSize }]}
