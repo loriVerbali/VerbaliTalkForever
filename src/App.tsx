@@ -34,6 +34,13 @@ import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
 import FastImage from 'react-native-fast-image';
 import {PostHogProvider} from 'posthog-react-native';
+import AppUpdateModal from './Components/AppUpdateModal';
+import {
+  checkForUpdatePopup,
+  hasUpdatePopupBeenShownThisSession,
+  markUpdatePopupShown,
+} from './utils/appUpdateService';
+import type {DisplayableUpdatePolicy} from './types/appUpdate';
 
 const {width, height} = Dimensions.get('window');
 
@@ -45,6 +52,13 @@ const App = () => {
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const bootstrapRanRef = useRef(false);
   const bootstrapDoneRef = useRef(false);
+
+  // Start-up update popup. The policy request runs in parallel with bootstrap
+  // and the modal is shown once the root UI is available. The once-per-session
+  // guard lives in appUpdateService (in-memory only, by design).
+  const [updatePolicy, setUpdatePolicy] =
+    useState<DisplayableUpdatePolicy | null>(null);
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
 
   useEffect(() => {
     bootstrapDoneRef.current = bootstrapDone;
@@ -84,6 +98,17 @@ const App = () => {
       const wasOnboarded = await DefaultPreference.get('wasOnboarded');
       const isOnboardingComplete = wasOnboarded === '1';
 
+      // Update popup: only for users who have completed onboarding. Fetched in
+      // parallel — never awaited by bootstrap, fails safely to null so startup
+      // is unaffected by network issues.
+      if (isOnboardingComplete && !hasUpdatePopupBeenShownThisSession()) {
+        checkForUpdatePopup()
+          .then(policy => {
+            if (policy) setUpdatePolicy(policy);
+          })
+          .catch(() => {});
+      }
+
       if (isOnboardingComplete) {
         try {
           // Step 1: init WakeWord, leave it paused
@@ -120,6 +145,23 @@ const App = () => {
 
     bootstrap();
   }, []);
+
+  // ─── UPDATE POPUP (once per native session) ──────────────────────────────
+  // Show only after the root UI is rendered; mark the guard when displayed.
+  useEffect(() => {
+    if (!bootstrapDone || !updatePolicy) return;
+    if (hasUpdatePopupBeenShownThisSession()) return;
+    markUpdatePopupShown();
+    setUpdateModalVisible(true);
+    try {
+      mixpanel.track('Update Popup Shown', {
+        importance: updatePolicy.importance,
+        installed_build: updatePolicy.installedBuild,
+        minimum_popup_build: updatePolicy.minimumPopupBuild,
+        latest_build: updatePolicy.latestBuild,
+      });
+    } catch {}
+  }, [bootstrapDone, updatePolicy]);
 
   // ─── APP STATE (background ↔ foreground) ─────────────────────────────────
   // Use pause/resume — never stop/start — so the instance is never torn down.
@@ -277,6 +319,12 @@ const App = () => {
             </PostHogProvider>
           </ConnectionProvider>
         </ToastProvider>
+        {/* Root-owned so it works for onboarding and logged-in stacks alike */}
+        <AppUpdateModal
+          visible={updateModalVisible}
+          policy={updatePolicy}
+          onClose={() => setUpdateModalVisible(false)}
+        />
       </GestureHandlerRootView>
     </>
   );
