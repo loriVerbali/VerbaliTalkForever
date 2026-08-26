@@ -817,16 +817,31 @@ const Subscription: React.FC<SubscriptionProps> = ({
           message="Choosing a plan is a protected area. Ask your parents to continue:"
           footer={
             trialAvailable ? (
-              <View style={styles.gateTrialContainer}>
+              <View
+                style={[
+                  styles.gateTrialContainer,
+                  !isTablet && styles.gateTrialContainerPhone,
+                ]}>
                 <TouchableOpacity
-                  style={styles.gateTrialButton}
+                  style={[
+                    styles.gateTrialButton,
+                    !isTablet && styles.gateTrialButtonPhone,
+                  ]}
                   onPress={handleTrialSelection}
                   disabled={isLoading}>
-                  <Text style={styles.gateTrialButtonText}>
+                  <Text
+                    style={[
+                      styles.gateTrialButtonText,
+                      !isTablet && styles.gateTrialButtonTextPhone,
+                    ]}>
                     {isLoading ? 'Starting...' : 'Start 7-Day Free Trial'}
                   </Text>
                 </TouchableOpacity>
-                <Text style={styles.trialDisclaimer}>
+                <Text
+                  style={[
+                    styles.trialDisclaimer,
+                    !isTablet && styles.trialDisclaimerPhone,
+                  ]}>
                   Starting the free trial does not create an auto-renewable
                   subscription and nothing will be charged. You can subscribe
                   from Settings during or after the 7 days.
@@ -1522,6 +1537,26 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 17,
     fontWeight: 'bold',
+  },
+  // Phone-only: keeps the trial offer under the gate instead of overlapping it
+  gateTrialContainerPhone: {
+    marginTop: 12,
+    paddingHorizontal: 12,
+    alignSelf: 'stretch',
+  },
+  gateTrialButtonPhone: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 26,
+  },
+  gateTrialButtonTextPhone: {
+    fontSize: 15,
+  },
+  trialDisclaimerPhone: {
+    fontSize: 11,
+    lineHeight: 15,
+    paddingHorizontal: 4,
+    marginTop: 8,
   },
   modalCloseButton: {
     backgroundColor: '#007AFF',
