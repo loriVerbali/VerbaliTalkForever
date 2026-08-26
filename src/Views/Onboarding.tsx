@@ -447,7 +447,7 @@ const OnboardingScreen: React.FC = () => {
                 )}
               </View>
             ) : (
-              <View style={styles.questionContainer}>
+              <View style={styles.subscriptionContainer}>
                 <Subscription setGotSubscription={setGotSubscription} />
               </View>
             )}
@@ -1451,6 +1451,18 @@ const styles = StyleSheet.create({
     width: '90%',
     marginBottom: 20,
     zIndex: 1000,
+  },
+  // The subscription step renders a whole screen of its own (parental gate,
+  // then the plan list), so it must not inherit questionContainer's
+  // 18%-of-screen cap — that style is for the step's question header. The cap
+  // used to be invisible because a plain View lets oversized children overflow;
+  // once ParentalGate switched to a ScrollView on phones it clipped instead,
+  // squeezing the gate and its trial-button footer into a thin band.
+  subscriptionContainer: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   question: {
     fontSize: Math.min(22, width * 0.05),

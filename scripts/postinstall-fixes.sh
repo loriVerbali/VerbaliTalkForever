@@ -98,3 +98,17 @@ if [ -f "$F" ] && grep -qE '^\s*Log\.[di]\(' "$F"; then
   perl -pi -e 's{^(\s*)Log\.([di])\(}{$1// Log.$2(}' "$F"
   echo "postinstall-fixes: silenced Log.d/Log.i in DaVoice TTS Android bridge"
 fi
+
+# --- Fix 6: initTTS() drops modelExt ------------------------------------------
+# Speech.initTTS() resolves the model but calls the native bridge without
+# modelExt, unlike initAll(). The Android bridge then defaults the extension to
+# "onnx", so in release it copies res/raw to the cache as
+# "rn_raw_<name>.onnx" -- a DaVoice .dm model wearing an ONNX file extension.
+# Debug never hit this: the model arrives as a Metro URL and guessExtFromUrl()
+# recovers ".dm" from the path. Only the onboarding TTS-only path calls
+# initTTS() directly, which is why the crash was release + Welcome screen.
+F="node_modules/react-native-davoice-tts/speech/index.ts"
+if [ -f "$F" ] && grep -q 'const r = await NativeTTS.initTTS({ model: modelPath });' "$F"; then
+  perl -pi -e 's/\Qconst r = await NativeTTS.initTTS({ model: modelPath });\E/const r = await NativeTTS.initTTS({ model: modelPath, modelExt: this.resolveModelExt(cfg.model) });/' "$F"
+  echo "postinstall-fixes: forwarded modelExt from initTTS to the native bridge"
+fi
