@@ -34,10 +34,10 @@ Both real conflicts were resolved **keep-ours**:
 
 | File | Cause | Resolution |
 |---|---|---|
-| `ios/Matalk.xcodeproj/project.pbxproj` (now `ios/MatalkForever.xcodeproj/`) | Both sides touched the project file; Matalk bumps `CURRENT_PROJECT_VERSION` / `MARKETING_VERSION` (e.g. 3 / 34) | Keep ours (Forever versions its own builds, e.g. 1 / 3.0), then hand-apply any *structural* changes from Matalk (new source files, resources) — see §5 |
+| `ios/Matalk.xcodeproj/project.pbxproj` (now `ios/MatalkForever.xcodeproj/`) | Both sides touched the project file; Matalk bumps `CURRENT_PROJECT_VERSION` / `MARKETING_VERSION` (e.g. 3 / 34) | Keep ours (Forever versions its own builds, e.g. 2 / 4 — MARKETING_VERSION must stay a plain integer, see §7), then hand-apply any *structural* changes from Matalk (new source files, resources) — see §5 |
 | `src/Views/Onboarding.tsx` | Matalk's version has the `subscription` onboarding step | Take Matalk's feature changes, then delete: the `Subscription` import, `SUBSCRIPTIONSKIP`, the `subscription` step object (leave `// Removed subscription step - this is a paid app`), `gotSubscription` state, the subscription `useEffect`, the deferred-navigation special case, and the whole `case 'subscription-selection'` render branch |
 | `src/Views/Settings.tsx` | Matalk's subscription section vs Forever's stripped version | Keep ours for the subscription section; take Matalk's new feature sections (e.g. Personal Memory) — `showAccountSettings` must default `true` |
-| `android/app/build.gradle` | Matalk bumps `versionCode` (29→32 in 2026-08-30) and may change *functional* lines in the same hunk (2026-08-30: `abiFilters` → `arm64-v8a` only, matching `gradle.properties`) | Keep ours (`versionCode` 26 / `versionName MATALKFOREVERV3` are Forever's), then hand-apply the functional change |
+| `android/app/build.gradle` | Matalk bumps `versionCode` (29→32 in 2026-08-30) and may change *functional* lines in the same hunk (2026-08-30: `abiFilters` → `arm64-v8a` only, matching `gradle.properties`) | Keep ours (`versionCode` and the integer `versionName` are Forever's own train), then hand-apply the functional change |
 
 Everything else auto-merges — but the auto-merge result is **not** shippable. Continue below before committing.
 
@@ -121,7 +121,7 @@ Then commit the merge (message pattern: *"Merge Matalk develop (…) — keep Ma
 - Build and run the iOS app (`Matalk.xcworkspace`, scheme `MatalkForever`); walk Onboarding end-to-end — there must be **no plan-selection step** and no paywall on entry (Open → Convo).
 - Check Settings: new feature sections present, no subscription/manage-plan section, account settings visible.
 - Confirm `.env`, `MaTalkStore.storekit`, `player.js`, `trialUtils.ts` are absent from `git status` / the tree.
-- **Update popup is inert in Forever by design (as of 2026-08-30):** `appUpdateService.checkForUpdatePopup()` requires `DeviceInfo.getVersion()` to be a plain integer. Forever ships `MARKETING_VERSION = 3.0.1` (iOS) and `versionName "MATALKFOREVERV3"` (Android), both of which parse to `null` → no popup, no error. Enabling it is a versioning-policy decision (see `APP_START_UPDATE_POPUP_PLAN.md` §"Version sources are inconsistent"), not a merge task.
+- **App versions must stay plain integers** (since 2026-08-30: iOS `MARKETING_VERSION = 4`, Android `versionName "4"`): `appUpdateService.checkForUpdatePopup()` parses `DeviceInfo.getVersion()` with `/^\d+$/` and silently disables the popup for anything else (the old `3.0.1` / `MATALKFOREVERV3` did exactly that). Bump the integer by 1 on both platforms per store release; the backend `minimumPopupBuild` for `matalk_forever` compares against it. `CURRENT_PROJECT_VERSION` / `versionCode` remain the ordinary store build counters.
 
 ## 8. If the sync lands as two Matalk PRs (like last time)
 
@@ -133,4 +133,4 @@ The 2026-08 sync merged Matalk in two steps: first PR #38 (intake) at `05b6cec`,
 |---|---|---|---|---|
 | 2026-08-13 | → `46484b7` | `intake-and-memory`, PR #13 | pbxproj, Onboarding, Settings | intake + personal memory + DaVoice |
 | 2026-08-2x | → `abf289e` | `updateAug1`, PR #15 | — | Android upgrade / RN 0.86.2 |
-| 2026-08-30 | `abf289e` → `7e82143` (PRs #42, #43) | `sync-matalk-2026-08-30` | pbxproj, Onboarding, Subscription, `android/app/build.gradle` (all keep-ours; abiFilters hand-applied) | start-up update popup (`appUpdateService`, `AppUpdateModal`, `APP_KEY=matalk_forever`), ParentalGate phone layout, Android arm64-only + KSP pin, DaVoice/wakeword bumps + postinstall Fix 6. Dropped: `android/build.log`, dev `baseUrl`. |
+| 2026-08-30 | `abf289e` → `7e82143` (PRs #42, #43) | `sync-matalk-2026-08-30` | pbxproj, Onboarding, Subscription, `android/app/build.gradle` (all keep-ours; abiFilters hand-applied) | start-up update popup (`appUpdateService`, `AppUpdateModal`, `APP_KEY=matalk_forever`), ParentalGate phone layout, Android arm64-only + KSP pin, DaVoice/wakeword bumps + postinstall Fix 6. Dropped: `android/build.log`, dev `baseUrl`. Follow-up commit: integer app versions (iOS 4 / Android "4") so the popup can evaluate them. |
