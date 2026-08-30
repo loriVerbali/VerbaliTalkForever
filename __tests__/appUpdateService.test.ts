@@ -8,7 +8,7 @@ jest.mock('react-native-config', () => ({__esModule: true, default: {}}));
 const mockGetBuildNumber = jest.fn();
 jest.mock('react-native-device-info', () => ({
   __esModule: true,
-  default: {getBuildNumber: () => mockGetBuildNumber()},
+  default: {getVersion: () => mockGetBuildNumber()},
 }));
 
 import {
@@ -19,7 +19,7 @@ import {
   fetchUpdatePolicy,
   hasUpdatePopupBeenShownThisSession,
   markUpdatePopupShown,
-  parseBuildNumber,
+  parseVersionNumber,
   parseUpdatePolicyResponse,
   UPDATE_POLICY_PATH,
 } from '../src/utils/appUpdateService';
@@ -66,20 +66,20 @@ describe('APP_KEY', () => {
   });
 });
 
-describe('parseBuildNumber', () => {
-  it('parses plain integer strings from DeviceInfo.getBuildNumber()', () => {
-    expect(parseBuildNumber('31')).toBe(31);
-    expect(parseBuildNumber(' 35 ')).toBe(35);
-    expect(parseBuildNumber(0)).toBe(0);
+describe('parseVersionNumber', () => {
+  it('parses plain integer strings from DeviceInfo.getVersion()', () => {
+    expect(parseVersionNumber('31')).toBe(31);
+    expect(parseVersionNumber(' 35 ')).toBe(35);
+    expect(parseVersionNumber(0)).toBe(0);
   });
 
   it('rejects display/marketing versions and garbage', () => {
-    expect(parseBuildNumber('6.2')).toBeNull();
-    expect(parseBuildNumber('MatalkV2')).toBeNull();
-    expect(parseBuildNumber('')).toBeNull();
-    expect(parseBuildNumber(undefined)).toBeNull();
-    expect(parseBuildNumber(-1)).toBeNull();
-    expect(parseBuildNumber(1.5)).toBeNull();
+    expect(parseVersionNumber('6.2')).toBeNull();
+    expect(parseVersionNumber('MatalkV2')).toBeNull();
+    expect(parseVersionNumber('')).toBeNull();
+    expect(parseVersionNumber(undefined)).toBeNull();
+    expect(parseVersionNumber(-1)).toBeNull();
+    expect(parseVersionNumber(1.5)).toBeNull();
   });
 });
 

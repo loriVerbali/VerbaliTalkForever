@@ -73,13 +73,13 @@ const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
   }
 
   const isImportant = policy.importance === 'important';
-
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
+      supportedOrientations={['landscape-left', 'landscape-right']}
       onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View

@@ -4,10 +4,16 @@
  * Decides whether the start-up "update available" popup should be shown for
  * this installation:
  *
- *   showPopup = policy.enabled && installedBuild < policy.minimumPopupBuild
+ *   showPopup = policy.enabled && installedVersion < policy.minimumPopupBuild
  *
- * - `installedBuild` is the native, monotonically increasing build number
- *   (Android versionCode / iOS CFBundleVersion) via DeviceInfo.getBuildNumber().
+ * - `installedVersion` is the user-facing app version via DeviceInfo.getVersion()
+ *   (iOS CFBundleShortVersionString / Android versionName) — the number bumped
+ *   for every store release.
+ *
+ *   IMPORTANT: this version MUST be a plain integer ("34") on both platforms.
+ *   A semver-style value ("34.1", "1.0.0") fails parseVersionNumber, which
+ *   resolves to null and silently disables the popup. The wire/DB fields are
+ *   still named *Build for backwards compatibility; they hold version numbers.
  * - The policy is fetched from the public backend endpoint for this app's
  *   compile-time APP_KEY and the current Platform.OS.
  * - Every failure path (network, timeout, malformed response, disabled policy,
@@ -62,10 +68,11 @@ export const getCurrentPlatform = (): UpdatePlatform | null => {
 };
 
 /**
- * Parse the native build number into a non-negative integer.
- * Returns null for anything that is not a plain integer string.
+ * Parse the native app version into a non-negative integer.
+ * Returns null for anything that is not a plain integer string — including
+ * semver values such as "34.1", which disables the popup rather than guessing.
  */
-export const parseBuildNumber = (raw: unknown): number | null => {
+export const parseVersionNumber = (raw: unknown): number | null => {
   if (typeof raw === 'number') {
     return Number.isInteger(raw) && raw >= 0 ? raw : null;
   }
@@ -162,15 +169,15 @@ export const parseUpdatePolicyResponse = (
  */
 export const evaluateUpdatePolicy = (
   policy: UpdatePolicyResponse | null,
-  installedBuild: number | null,
+  installedVersion: number | null,
 ): DisplayableUpdatePolicy | null => {
   if (!policy || !policy.enabled) {
     return null;
   }
-  if (installedBuild === null) {
+  if (installedVersion === null) {
     return null;
   }
-  if (!(installedBuild < policy.minimumPopupBuild)) {
+  if (!(installedVersion < policy.minimumPopupBuild)) {
     return null;
   }
   return {
@@ -180,7 +187,7 @@ export const evaluateUpdatePolicy = (
     storeUrl: policy.storeUrl,
     minimumPopupBuild: policy.minimumPopupBuild,
     latestBuild: policy.latestBuild,
-    installedBuild,
+    installedBuild: installedVersion,
   };
 };
 
@@ -238,12 +245,18 @@ export const checkForUpdatePopup =
       if (!platform) {
         return null;
       }
-      const installedBuild = parseBuildNumber(DeviceInfo.getBuildNumber());
-      if (installedBuild === null) {
+      const installedVersion = parseVersionNumber(DeviceInfo.getVersion());
+      if (installedVersion === null) {
+        if (__DEV__) {
+          console.warn(
+            '[AppUpdate] app version is not a plain integer:',
+            DeviceInfo.getVersion(),
+          );
+        }
         return null;
       }
       const policy = await fetchUpdatePolicy(APP_KEY, platform);
-      return evaluateUpdatePolicy(policy, installedBuild);
+      return evaluateUpdatePolicy(policy, installedVersion);
     } catch {
       return null;
     }
