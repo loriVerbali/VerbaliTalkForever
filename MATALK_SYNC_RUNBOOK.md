@@ -79,7 +79,7 @@ Notes on why each:
 - `ios/matalkaiforever.verbali.io/` — Forever's app target folder (AppDelegate, Info.plist, `MaTalkForever.jpg` icons).
 - `ios/Podfile` — target is `'matalkforever'`.
 - `package.json` — keep Forever's name/version and the `copyHermes` / `deleteDerivedData` scripts; **do** take Matalk's new dependencies (last time: memory deps, posthog).
-- `TermsAndConditions.tsx` — Forever's one-time-license text, not subscription terms.
+- `TermsAndConditions.tsx` — keep Forever's one-time-license **text** (title "MaTalk AI Forever", §payment "one time license fee", the extra license sections), but **take Matalk's component mechanics**. A blanket keep-ours here silently dropped Matalk `5243795` (2026-08-22: scroll-to-bottom checkbox → top "I Accept" button + `onAccept` prop, which Onboarding already wires to `handleNext`); it had to be back-ported on 2026-08-30. Recipe: `git diff <base> matalk/develop -- src/Components/TermsAndConditions.tsx > /tmp/t.diff && patch -p1 -F3 < /tmp/t.diff`, then eyeball the text hunks.
 - `Subscription.tsx` — Forever keeps a de-trialed orphan copy (not rendered anywhere); don't let Matalk's trial version replace it.
 - `recieptValidation.ts` — Forever's paid-app receipt handling.
 - `config.ts` — Matalk's develop periodically lands with `baseUrl` flipped to a LAN dev IP (`http://192.168.1.175:3000`, 2026-08-30). Keep ours and confirm `baseUrl` is the railway URL; hand-apply only *new* config keys.
@@ -133,4 +133,4 @@ The 2026-08 sync merged Matalk in two steps: first PR #38 (intake) at `05b6cec`,
 |---|---|---|---|---|
 | 2026-08-13 | → `46484b7` | `intake-and-memory`, PR #13 | pbxproj, Onboarding, Settings | intake + personal memory + DaVoice |
 | 2026-08-2x | → `abf289e` | `updateAug1`, PR #15 | — | Android upgrade / RN 0.86.2 |
-| 2026-08-30 | `abf289e` → `7e82143` (PRs #42, #43) | `sync-matalk-2026-08-30` | pbxproj, Onboarding, Subscription, `android/app/build.gradle` (all keep-ours; abiFilters hand-applied) | start-up update popup (`appUpdateService`, `AppUpdateModal`, `APP_KEY=matalk_forever`), ParentalGate phone layout, Android arm64-only + KSP pin, DaVoice/wakeword bumps + postinstall Fix 6. Dropped: `android/build.log`, dev `baseUrl`. Follow-up commit: integer app versions (iOS 4 / Android "4") so the popup can evaluate them. |
+| 2026-08-30 | `abf289e` → `7e82143` (PRs #42, #43) | `sync-matalk-2026-08-30` | pbxproj, Onboarding, Subscription, `android/app/build.gradle` (all keep-ours; abiFilters hand-applied) | start-up update popup (`appUpdateService`, `AppUpdateModal`, `APP_KEY=matalk_forever`), ParentalGate phone layout, Android arm64-only + KSP pin, DaVoice/wakeword bumps + postinstall Fix 6. Dropped: `android/build.log`, dev `baseUrl`. Follow-up commits: integer app versions (iOS 4 / Android "4") so the popup can evaluate them; back-port of Matalk `5243795` Terms redesign (accept button, no scroll gate) missed by the 2026-08-22 keep-ours. |
