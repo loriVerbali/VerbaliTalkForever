@@ -77,8 +77,7 @@ const SETTINGS_SECTIONS: SectionNavItem[] = [
     icon: '👤',
     color: '#e8f4fc',
     title: 'Account',
-    description:
-      'Shows your subscription status and lets you activate or manage your MaTalk AI subscription.',
+    description: 'Shows your MaTalk AI account information.',
   },
   {
     key: 'accountSettings',
