@@ -37,6 +37,7 @@ Both real conflicts were resolved **keep-ours**:
 | `ios/Matalk.xcodeproj/project.pbxproj` (now `ios/MatalkForever.xcodeproj/`) | Both sides touched the project file; Matalk bumps `CURRENT_PROJECT_VERSION` / `MARKETING_VERSION` (e.g. 3 / 34) | Keep ours (Forever versions its own builds, e.g. 1 / 3.0), then hand-apply any *structural* changes from Matalk (new source files, resources) — see §5 |
 | `src/Views/Onboarding.tsx` | Matalk's version has the `subscription` onboarding step | Take Matalk's feature changes, then delete: the `Subscription` import, `SUBSCRIPTIONSKIP`, the `subscription` step object (leave `// Removed subscription step - this is a paid app`), `gotSubscription` state, the subscription `useEffect`, the deferred-navigation special case, and the whole `case 'subscription-selection'` render branch |
 | `src/Views/Settings.tsx` | Matalk's subscription section vs Forever's stripped version | Keep ours for the subscription section; take Matalk's new feature sections (e.g. Personal Memory) — `showAccountSettings` must default `true` |
+| `android/app/build.gradle` | Matalk bumps `versionCode` (29→32 in 2026-08-30) and may change *functional* lines in the same hunk (2026-08-30: `abiFilters` → `arm64-v8a` only, matching `gradle.properties`) | Keep ours (`versionCode` 26 / `versionName MATALKFOREVERV3` are Forever's), then hand-apply the functional change |
 
 Everything else auto-merges — but the auto-merge result is **not** shippable. Continue below before committing.
 
@@ -64,6 +65,8 @@ git checkout HEAD -- \
   src/Components/TermsAndConditions.tsx \
   src/Components/Subscription.tsx \
   src/utils/recieptValidation.ts \
+  src/utils/config.ts \
+  src/utils/appIdentity.ts \
   android/app/build.gradle \
   android/app/src/main/AndroidManifest.xml \
   android/app/src/main/res/values/strings.xml \
@@ -79,6 +82,8 @@ Notes on why each:
 - `TermsAndConditions.tsx` — Forever's one-time-license text, not subscription terms.
 - `Subscription.tsx` — Forever keeps a de-trialed orphan copy (not rendered anywhere); don't let Matalk's trial version replace it.
 - `recieptValidation.ts` — Forever's paid-app receipt handling.
+- `config.ts` — Matalk's develop periodically lands with `baseUrl` flipped to a LAN dev IP (`http://192.168.1.175:3000`, 2026-08-30). Keep ours and confirm `baseUrl` is the railway URL; hand-apply only *new* config keys.
+- `appIdentity.ts` — `APP_KEY` must be `'matalk_forever'` (Matalk's is `'matalk'`). It selects the backend update-popup policy; accepted keys live in MatalkBE `matalkapi/services/appUpdate/appUpdate.service.js`. `__tests__/appUpdateService.test.ts` asserts the value twice (the `APP_KEY` describe block and the end-to-end URL check `appKey=${APP_KEY}&platform=ios`, which Matalk hardcodes as `appKey=matalk`) — fix the assertions, not the key.
 
 ## 5. Subscription strip on newly arrived code (the "functionality yes, subscriptions no" pass)
 
@@ -116,7 +121,16 @@ Then commit the merge (message pattern: *"Merge Matalk develop (…) — keep Ma
 - Build and run the iOS app (`Matalk.xcworkspace`, scheme `MatalkForever`); walk Onboarding end-to-end — there must be **no plan-selection step** and no paywall on entry (Open → Convo).
 - Check Settings: new feature sections present, no subscription/manage-plan section, account settings visible.
 - Confirm `.env`, `MaTalkStore.storekit`, `player.js`, `trialUtils.ts` are absent from `git status` / the tree.
+- **Update popup is inert in Forever by design (as of 2026-08-30):** `appUpdateService.checkForUpdatePopup()` requires `DeviceInfo.getVersion()` to be a plain integer. Forever ships `MARKETING_VERSION = 3.0.1` (iOS) and `versionName "MATALKFOREVERV3"` (Android), both of which parse to `null` → no popup, no error. Enabling it is a versioning-policy decision (see `APP_START_UPDATE_POPUP_PLAN.md` §"Version sources are inconsistent"), not a merge task.
 
 ## 8. If the sync lands as two Matalk PRs (like last time)
 
 The 2026-08 sync merged Matalk in two steps: first PR #38 (intake) at `05b6cec`, then PR #39 (memory) at `46484b7`. The second merge conflicted only on `project.pbxproj` (version numbers — keep ours) and `Settings.tsx` (keep ours header, take new feature UI). Repeat §2–§6 for each step; the second pass is much smaller.
+
+## 9. Sync log
+
+| Date | Matalk range | Branch / PR | Conflicts | Notes |
+|---|---|---|---|---|
+| 2026-08-13 | → `46484b7` | `intake-and-memory`, PR #13 | pbxproj, Onboarding, Settings | intake + personal memory + DaVoice |
+| 2026-08-2x | → `abf289e` | `updateAug1`, PR #15 | — | Android upgrade / RN 0.86.2 |
+| 2026-08-30 | `abf289e` → `7e82143` (PRs #42, #43) | `sync-matalk-2026-08-30` | pbxproj, Onboarding, Subscription, `android/app/build.gradle` (all keep-ours; abiFilters hand-applied) | start-up update popup (`appUpdateService`, `AppUpdateModal`, `APP_KEY=matalk_forever`), ParentalGate phone layout, Android arm64-only + KSP pin, DaVoice/wakeword bumps + postinstall Fix 6. Dropped: `android/build.log`, dev `baseUrl`. |

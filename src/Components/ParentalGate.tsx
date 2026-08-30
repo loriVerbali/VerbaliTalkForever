@@ -4,12 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import {useAdmin} from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
-
-const {width} = Dimensions.get('window');
 
 interface ParentalGateProps {
   onSuccess: () => void;
@@ -28,6 +27,7 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
   footer,
 }) => {
   const {isTablet} = useAdmin();
+  const {width, height} = useWindowDimensions();
   const [currentSequence, setCurrentSequence] = useState<string[]>([]);
   const [userInput, setUserInput] = useState<string[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -122,25 +122,40 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
     return numberMap[number] || number;
   };
 
-  const cardWidth = isTablet ? Math.min(width * 0.6, 640) : width * 0.92;
-  const keypadButtonSize = isTablet ? 78 : 68;
-  const keypadGap = isTablet ? 18 : 14;
+  // Phones get a tighter layout so the whole gate (plus any footer) fits
+  // without the keypad or the Go Back link being pushed off screen.
+  const isCompactPhone = !isTablet && height < 780;
+  const cardWidth = isTablet
+    ? Math.min(width * 0.6, 640)
+    : Math.min(width * 0.92, 420);
+  const keypadButtonSize = isTablet ? 78 : isCompactPhone ? 54 : 62;
+  const keypadGap = isTablet ? 18 : isCompactPhone ? 10 : 12;
   // Fixed width forces a 3x3 grid regardless of card width
   const keypadWidth = keypadButtonSize * 3 + keypadGap * 2;
 
-  return (
-    <View style={isSettingsContext ? styles.settingsOverlay : styles.overlay}>
-      <View style={[styles.card, {width: cardWidth}]}>
-        <View style={styles.lockBadge}>
-          <Text style={styles.lockIcon}>🔒</Text>
+  const content = (
+    <>
+      <View
+        style={[
+          styles.card,
+          {width: cardWidth},
+          isCompactPhone && styles.cardCompact,
+        ]}>
+        <View style={[styles.lockBadge, isCompactPhone && styles.lockBadgeCompact]}>
+          <Text style={[styles.lockIcon, isCompactPhone && styles.lockIconCompact]}>
+            🔒
+          </Text>
         </View>
-        <Text style={styles.title}>Adults Only</Text>
-        <Text style={styles.messageText}>
+        <Text style={[styles.title, isCompactPhone && styles.titleCompact]}>
+          Adults Only
+        </Text>
+        <Text
+          style={[styles.messageText, isCompactPhone && styles.messageTextCompact]}>
           {message ||
             'Ask your parents or a caregiver to continue, this is a protected area:'}
         </Text>
 
-        <View style={styles.tapRow}>
+        <View style={[styles.tapRow, isCompactPhone && styles.tapRowCompact]}>
           <View style={styles.tapPill}>
             <Text style={styles.tapText}>
               {`Tap: ${showSequence ? currentSequence.join(', ') : ''}`}
@@ -159,7 +174,12 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
         </View>
 
         {/* Keypad */}
-        <View style={[styles.keypadGrid, {width: keypadWidth, gap: keypadGap}]}>
+        <View
+          style={[
+            styles.keypadGrid,
+            {width: keypadWidth, gap: keypadGap},
+            isCompactPhone && styles.keypadGridCompact,
+          ]}>
           {numberWords.map((number, index) => (
             <TouchableOpacity
               key={index}
@@ -174,7 +194,11 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
               ]}
               onPress={() => handleNumberPress(number)}
               disabled={userInput.length >= 4}>
-              <Text style={styles.keypadButtonText}>
+              <Text
+                style={[
+                  styles.keypadButtonText,
+                  isCompactPhone && styles.keypadButtonTextCompact,
+                ]}>
                 {getNumberDisplay(number)}
               </Text>
             </TouchableOpacity>
@@ -182,7 +206,11 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
         </View>
 
         {/* Status Messages */}
-        <View style={styles.statusContainer}>
+        <View
+          style={[
+            styles.statusContainer,
+            isCompactPhone && styles.statusContainerCompact,
+          ]}>
           {isCorrect === false && (
             <Text style={styles.errorText}>Incorrect sequence. Try again.</Text>
           )}
@@ -205,13 +233,38 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
         </View>
 
         {onCancel && (
-          <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+          <TouchableOpacity
+            style={[
+              styles.cancelButton,
+              isCompactPhone && styles.cancelButtonCompact,
+            ]}
+            onPress={onCancel}>
             <Text style={styles.cancelButtonText}>Go Back</Text>
           </TouchableOpacity>
         )}
       </View>
       {footer}
-    </View>
+    </>
+  );
+
+  // Tablets keep the original centered, non-scrolling layout. Phones scroll so
+  // the keypad, Go Back and any footer stay reachable on short screens.
+  if (isTablet || isSettingsContext) {
+    return (
+      <View style={isSettingsContext ? styles.settingsOverlay : styles.overlay}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.scrollOverlay}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled">
+      {content}
+    </ScrollView>
   );
 };
 
@@ -227,6 +280,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+  },
+  // ScrollView on phones: the outer frame carries no layout props of its own so
+  // the content container is free to size itself.
+  scrollOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#f8f9fe',
+    zIndex: 1000,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 8,
   },
   settingsOverlay: {
     width: '100%',
@@ -250,6 +321,11 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 10,
   },
+  cardCompact: {
+    borderRadius: 22,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+  },
   lockBadge: {
     width: 56,
     height: 56,
@@ -261,6 +337,15 @@ const styles = StyleSheet.create({
   },
   lockIcon: {
     fontSize: 26,
+  },
+  lockBadgeCompact: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    marginBottom: 8,
+  },
+  lockIconCompact: {
+    fontSize: 20,
   },
   title: {
     fontSize: 22,
@@ -277,11 +362,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     maxWidth: 420,
   },
+  titleCompact: {
+    fontSize: 19,
+    marginBottom: 6,
+  },
+  messageTextCompact: {
+    fontSize: 14,
+    lineHeight: 19,
+    marginBottom: 12,
+  },
   tapRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+  },
+  tapRowCompact: {
+    marginBottom: 14,
   },
   tapPill: {
     backgroundColor: 'rgba(255, 107, 53, 0.1)',
@@ -312,6 +409,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
   },
+  keypadGridCompact: {
+    marginBottom: 10,
+  },
   keypadButton: {
     backgroundColor: '#146CF0',
     justifyContent: 'center',
@@ -331,10 +431,17 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
+  keypadButtonTextCompact: {
+    fontSize: 20,
+  },
   statusContainer: {
     minHeight: 20,
     marginBottom: 12,
     justifyContent: 'center',
+  },
+  statusContainerCompact: {
+    minHeight: 18,
+    marginBottom: 8,
   },
   errorText: {
     color: '#FF6B35',
@@ -366,6 +473,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 10,
     paddingHorizontal: 24,
+  },
+  cancelButtonCompact: {
+    marginTop: 10,
+    paddingVertical: 8,
   },
   cancelButtonText: {
     color: '#666',
