@@ -45,6 +45,31 @@ target 'Matalk' do
       # :ccache_enabled => true
     )
     
+    # Workaround for a React Native prebuilt-binaries bug (present in RN 0.86.x and still on upstream main).
+    # Xcode swaps React-Core-prebuilt / ReactNativeDependencies between their Debug and Release xcframeworks
+    # via a `.last_build_configuration` marker file. The CocoaPods pod-directory cleaner deletes that dot-file
+    # on any `pod install` that installs/updates a pod (the podspec preserve_paths "**/*.*" does not match
+    # dot-files) while leaving a previously swapped *Release* framework in place. The RN swap scripts then
+    # assume "no marker == Debug is installed", so Debug builds fail to link with undefined
+    # facebook::react::Sealable / DebugStringConvertible symbols.
+    # Fix: whenever a marker is missing, force-reinstall the Debug flavor so that assumption holds again.
+    pods_root = installer.sandbox.root.to_s
+    react_native_path = File.expand_path(config[:reactNativePath], Pod::Config.instance.installation_root)
+    [
+      ["React-Core-prebuilt", File.join(react_native_path, "scripts", "replace-rncore-version.js")],
+      ["ReactNativeDependencies", File.join(react_native_path, "third-party-podspecs", "replace_dependencies_version.js")],
+    ].each do |pod_name, script|
+      pod_dir = File.join(pods_root, pod_name)
+      marker = File.join(pod_dir, ".last_build_configuration")
+      next if File.exist?(marker) || !File.directory?(pod_dir) || !File.exist?(script)
+      spec = installer.analysis_result.specifications.find { |s| s.name == pod_name }
+      next if spec.nil?
+      Pod::UI.puts "[Prebuilt] #{pod_name}: no .last_build_configuration marker found, reinstalling the Debug xcframework".yellow
+      File.write(marker, "Release") # make the RN script re-extract the Debug tarball (cached in Pods/*-artifacts)
+      ok = system("node", script, "-c", "Debug", "-r", spec.version.to_s, "-p", pods_root, :chdir => pods_root)
+      Pod::UI.warn "[Prebuilt] Failed to reinstall the Debug xcframework for #{pod_name}; the Xcode script phase will retry on the next build" unless ok
+    end
+
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
         config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
