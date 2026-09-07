@@ -82,8 +82,8 @@ android {
         applicationId "com.verbali.matalkai"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 32
-        versionName "MatalkV2"
+        versionCode 37
+        versionName "36"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
         missingDimensionStrategy "store", "play"
 
