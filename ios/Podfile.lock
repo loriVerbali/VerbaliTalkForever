@@ -28,7 +28,7 @@ PODS:
   - json-enum (1.2.3)
   - jsonlogic (1.2.4):
     - json-enum (~> 1.2.3)
-  - KeyWordRNBridge (1.0.1):
+  - KeyWordRNBridge (1.0.14):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
   - libwebp (1.5.0):
@@ -2556,7 +2556,7 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
   - SSZipArchive (2.5.5)
-  - TTSRNBridge (1.0.289):
+  - TTSRNBridge (1.0.304):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
   - Yoga (0.0.0)
@@ -2903,7 +2903,7 @@ SPEC CHECKSUMS:
   hermes-engine: 61fd8c635844c555db542ed5a81a1af19ab2e347
   json-enum: 57ad746d2f0d7852796e9aa50267bd84a778222e
   jsonlogic: 006f892470384401b8ca5b5d8d4cdadb3a0d5c9b
-  KeyWordRNBridge: 2de9c64bf6e4375fa551479e504e176e605e1c3b
+  KeyWordRNBridge: d7309b57f485349f43ae5ef1822f4262113eb0eb
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   Mixpanel-swift: bd4957fb736069f0c1422df2f3d9f4641f2736c4
   MixpanelReactNative: 3a1d7a765e165b045ccb60553253bc1af9e3e5b4
@@ -3013,7 +3013,7 @@ SPEC CHECKSUMS:
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
-  TTSRNBridge: f008e79a3a4a45f7e000b026d682b129c2edbd1e
+  TTSRNBridge: 0f7dbc359d5cef6fc1ff8bbe57b483905f27e7df
   Yoga: 9891cfb1c680f64de9c41b09e7453dea33454d2b
 
 PODFILE CHECKSUM: 2c0e5693d6159ad253e40c9d700eb89fd59e47f2
