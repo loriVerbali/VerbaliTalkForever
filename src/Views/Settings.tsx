@@ -1775,6 +1775,38 @@ const SettingsScreen: React.FC = () => {
                   activeOpacity={0.7}
                   onPress={() => {
                     mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'AI Questions Answered',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
+                  <View style={styles.reportsCardContent}>
+                    <Text style={styles.reportsCardTitle}>
+                      AI Questions Answered
+                    </Text>
+                    <Text style={styles.reportsCardInsight}>
+                      See question resolution rates and rounds needed
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.reportsCardButton}
+                      activeOpacity={0.8}
+                      onPress={e => {
+                        e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'AI Questions Answered',
+                        });
+                        navigation.navigate(views.REPORTS);
+                      }}>
+                      <Text style={styles.reportsCardButtonText}>
+                        enter reports
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.reportsCard}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
                       cardType: 'Total Utterances',
                     });
                     navigation.navigate(views.REPORTS);
@@ -1867,20 +1899,18 @@ const SettingsScreen: React.FC = () => {
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.reportsCard}
+                  style={[styles.reportsCard, styles.reportsCardIep]}
                   activeOpacity={0.7}
                   onPress={() => {
                     mixpanel.track('Settings Reports Card Pressed', {
-                      cardType: 'AI Questions Answered',
+                      cardType: 'IEP Progress',
                     });
-                    navigation.navigate(views.REPORTS);
+                    navigation.navigate(views.IEP_DASHBOARD);
                   }}>
                   <View style={styles.reportsCardContent}>
-                    <Text style={styles.reportsCardTitle}>
-                      AI Questions Answered
-                    </Text>
+                    <Text style={styles.reportsCardTitle}>IEP Progress</Text>
                     <Text style={styles.reportsCardInsight}>
-                      See question resolution rates and rounds needed
+                      Track IEP goals and progress across therapy sessions
                     </Text>
                     <TouchableOpacity
                       style={styles.reportsCardButton}
@@ -1888,9 +1918,9 @@ const SettingsScreen: React.FC = () => {
                       onPress={e => {
                         e.stopPropagation();
                         mixpanel.track('Settings Reports Card Button Pressed', {
-                          cardType: 'AI Questions Answered',
+                          cardType: 'IEP Progress',
                         });
-                        navigation.navigate(views.REPORTS);
+                        navigation.navigate(views.IEP_DASHBOARD);
                       }}>
                       <Text style={styles.reportsCardButtonText}>
                         enter reports
@@ -3237,6 +3267,10 @@ const styles = StyleSheet.create({
     borderColor: '#B3E5FC',
     minWidth: SCREEN_WIDTH * 0.2,
     minHeight: height * 0.12,
+  },
+  reportsCardIep: {
+    borderWidth: 4,
+    borderColor: '#8E24AA',
   },
   reportsCardContent: {
     alignItems: 'center',
