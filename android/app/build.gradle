@@ -77,9 +77,9 @@ android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
-    namespace "com.verbali.matalkaiforever"
+    namespace "com.verbali.matalkforever"
     defaultConfig {
-        applicationId "com.verbali.matalkaiforever"
+        applicationId "com.verbali.matalkforever"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 26
