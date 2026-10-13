@@ -2,14 +2,24 @@
  * The goal progress chart: zero baseline, dashed amber target, blue monotone line with a
  * fading area, points green when met and blue otherwise, value labels up to 16 sessions,
  * at most six date labels. Colour is never the only signal: the legend, the point labels
- * and the interpretation sentence carry the same facts.
+ * and the interpretation sentence carry the same facts. The metric's name sits on the
+ * y-axis once the chart is drawn and in the legend whenever it is not (no sessions, or
+ * before layout), so the card always says what it tracks.
+ *
+ * Also the metric trend card: one supporting metric as a line over its sessions, the
+ * y-axis padded around what was observed and labelled at both ends, weeks along the x-axis
+ * and the latest value called out beside the name. Its spoken label quotes the observed
+ * extremes; the padding is for the axis only.
  */
 
 import React, { useMemo, useState } from 'react';
 import { LayoutChangeEvent, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
+import { MetricTrend } from '../application/details';
 import { GoalProgress, formatValue } from '../application/goalProgress';
+import { monthDay, weekOfYear } from '../application/reportingPeriod';
 import { measuredValue } from '../core';
+import { AiTag } from './primitives';
 import { iepColors, iepStyles, TREND_SYMBOL, TREND_TITLE, trendColor } from './theme';
 
 interface Point {
@@ -51,12 +61,6 @@ function monotonePath(xs: number[], ys: number[]): string {
   return d;
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const shortDate = (ms: number) => {
-  const d = new Date(ms);
-  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
-};
-
 export interface ProgressChartProps {
   progress: GoalProgress;
   onSelectSession?: (sessionId: string) => void;
@@ -93,7 +97,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ progress, onSelect
 
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
-  const padL = 34;
+  const padL = 48;
   const padR = 14;
   const padT = 18;
   const padB = 26;
@@ -109,6 +113,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ progress, onSelect
   const area = points.length > 1 ? `${line} L ${xs[xs.length - 1]} ${padT + plotH} L ${xs[0]} ${padT + plotH} Z` : '';
   const labelEvery = Math.max(1, Math.ceil(points.length / 6));
   const yTicks = [0, Math.round(upper / 2), Math.round(upper)].filter((v, i, arr) => arr.indexOf(v) === i);
+  const axisLabelDrawn = points.length > 0 && width > 0;
 
   return (
     <View style={{ gap: 10 }} accessible accessibilityLabel={`Progress per session. ${interpretation}`}>
@@ -134,6 +139,16 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ progress, onSelect
                   <Stop offset="1" stopColor={iepColors.blue} stopOpacity={0.01} />
                 </LinearGradient>
               </Defs>
+              <SvgText
+                x={11}
+                y={padT + plotH / 2}
+                fontSize={10}
+                fontWeight="600"
+                fill={iepColors.muted}
+                textAnchor="middle"
+                transform={`rotate(-90 11 ${padT + plotH / 2})`}>
+                {label}
+              </SvgText>
               {yTicks.map(v => (
                 <React.Fragment key={`y${v}`}>
                   <Line x1={padL} x2={padL + plotW} y1={yFor(v)} y2={yFor(v)} stroke={iepColors.border} strokeWidth={0.75} />
@@ -161,7 +176,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ progress, onSelect
                   ) : null}
                   {i % labelEvery === 0 || i === points.length - 1 ? (
                     <SvgText x={xs[i]} y={height - 8} fontSize={10} fill={iepColors.muted} textAnchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}>
-                      {shortDate(p.dateMs)}
+                      {monthDay(p.dateMs)}
                     </SvgText>
                   ) : null}
                 </React.Fragment>
@@ -171,7 +186,7 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ progress, onSelect
         </View>
       )}
       <View style={[iepStyles.rowWrap, { gap: 14 }]}>
-        <Text style={iepStyles.caption}>{label}</Text>
+        {axisLabelDrawn ? null : <Text style={iepStyles.caption}>{label}</Text>}
         {target !== null ? (
           <>
             <Text style={[iepStyles.caption, { color: iepColors.green }]}>● Met target</Text>
@@ -187,17 +202,122 @@ export const ProgressChart: React.FC<ProgressChartProps> = ({ progress, onSelect
   );
 };
 
-/** A small axis-free line for supporting measures. */
-export const Sparkline: React.FC<{ values: number[]; width?: number; height?: number; color?: string }> = ({ values, width = 120, height = 32, color = iepColors.teal }) => {
-  if (values.length < 2) {
-    return <View style={{ width, height }} />;
+const DAY = 86_400_000;
+
+/**
+ * Padded around the observed range rather than anchored at zero, so a real 10 → 11 move
+ * stays visible. Counts cannot be negative, so the axis never claims a value below zero
+ * for them.
+ */
+export function trendRange(values: readonly number[]): [number, number] {
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const pad = high > low ? (high - low) * 0.35 : 1;
+  const floor = low >= 0 ? Math.max(0, low - pad) : low - pad;
+  return [floor, high + pad];
+}
+
+/** Sunday midnights inside the span, thinned to at most five. The span's start when it holds none. */
+export function weekTicks(startMs: number, endMs: number): number[] {
+  const cursor = new Date(startMs);
+  cursor.setHours(0, 0, 0, 0);
+  cursor.setDate(cursor.getDate() - cursor.getDay());
+  const ticks: number[] = [];
+  while (cursor.getTime() <= endMs) {
+    if (cursor.getTime() >= startMs) {
+      ticks.push(cursor.getTime());
+    }
+    cursor.setDate(cursor.getDate() + 7);
   }
-  const max = Math.max(1, ...values);
-  const xs = values.map((_, i) => (i / (values.length - 1)) * (width - 4) + 2);
-  const ys = values.map(v => height - 2 - (v / max) * (height - 4));
+  if (ticks.length === 0) {
+    return [startMs];
+  }
+  const step = Math.ceil(ticks.length / 5);
+  return ticks.filter((_, i) => i % step === 0);
+}
+
+/**
+ * One supporting metric over its sessions. A metric that cannot be produced, is awaiting
+ * analysis or recorded nothing says so instead of drawing: a flat line at zero for absent
+ * data is the same wrong claim as a zero in the count.
+ */
+export const MetricTrendCard: React.FC<{ trend: MetricTrend; height?: number }> = ({ trend, height = 120 }) => {
+  const [width, setWidth] = useState(0);
+  const { points, targetLine } = trend;
+  const latest = points.length > 0 ? points[points.length - 1].value : null;
+  const latestText = latest === null ? '—' : formatValue(latest);
+  const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
+
+  const padL = 34;
+  const padR = 10;
+  const padT = 8;
+  const padB = 20;
+  const plotW = Math.max(0, width - padL - padR);
+  const plotH = Math.max(0, height - padT - padB);
+
+  const values = points.map(p => p.value);
+  const [low, high] = trendRange([...values, ...(targetLine !== null ? [targetLine] : [])]);
+  let startMs = points.length > 0 ? Math.min(...points.map(p => p.dateMs)) : 0;
+  let endMs = points.length > 0 ? Math.max(...points.map(p => p.dateMs)) : 0;
+  if (endMs <= startMs) {
+    startMs -= 3.5 * DAY;
+    endMs += 3.5 * DAY;
+  }
+  const xFor = (ms: number) => padL + ((ms - startMs) / (endMs - startMs)) * plotW;
+  const yFor = (v: number) => padT + plotH - ((v - low) / (high - low)) * plotH;
+  const xs = points.map(p => xFor(p.dateMs));
+  const ys = points.map(p => yFor(p.value));
+  const ticks = weekTicks(startMs, endMs);
+
+  // What was observed, not the padded axis: "between 6 and 8" would misreport a lone 7.
+  const observedLow = Math.min(...values);
+  const observedHigh = Math.max(...values);
+  const spread = observedLow === observedHigh ? `at ${formatValue(observedLow)}` : `between ${formatValue(observedLow)} and ${formatValue(observedHigh)}`;
+  const label =
+    trend.unavailableReason !== null
+      ? `${trend.name}: ${trend.unavailableReason}`
+      : `${trend.name}: latest ${latestText} ${trend.unit}, ${points.length} ${points.length === 1 ? 'session' : 'sessions'} ${spread}`;
+
   return (
-    <Svg width={width} height={height}>
-      <Path d={monotonePath(xs, ys)} stroke={color} strokeWidth={2} fill="none" strokeLinecap="round" />
-    </Svg>
+    <View style={[iepStyles.innerCard, { flex: 1, minWidth: 240, gap: 12 }]} accessible accessibilityLabel={label}>
+      <View style={[iepStyles.row, { justifyContent: 'space-between', gap: 8 }]}>
+        <View style={[iepStyles.row, { gap: 8, flexShrink: 1 }]}>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: iepColors.muted, flexShrink: 1 }}>{trend.name}</Text>
+          {trend.usesAi ? <AiTag /> : null}
+        </View>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: iepColors.ink }}>{latestText}</Text>
+      </View>
+      {trend.unavailableReason !== null ? (
+        <Text style={[iepStyles.caption, { color: iepColors.amber, fontWeight: '600' }]}>⚠ {trend.unavailableReason}</Text>
+      ) : (
+        <View onLayout={onLayout} style={{ height }}>
+          {width > 0 ? (
+            <Svg width={width} height={height}>
+              {[high, low].map(v => (
+                <React.Fragment key={`y${v}`}>
+                  <Line x1={padL} x2={width - padR} y1={yFor(v)} y2={yFor(v)} stroke={iepColors.border} strokeWidth={0.75} />
+                  <SvgText x={0} y={yFor(v) + 4} fontSize={10} fill={iepColors.muted} textAnchor="start">{formatValue(v)}</SvgText>
+                </React.Fragment>
+              ))}
+              {targetLine !== null ? (
+                <Line x1={padL} x2={width - padR} y1={yFor(targetLine)} y2={yFor(targetLine)} stroke={iepColors.amber} strokeWidth={1.5} strokeDasharray="6 5" />
+              ) : null}
+              {points.length > 1 ? (
+                <Path d={monotonePath(xs, ys)} stroke={iepColors.blue} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              ) : (
+                <Circle cx={xs[0]} cy={ys[0]} r={4} fill={iepColors.blue} />
+              )}
+              {ticks.map(ms => {
+                const x = xFor(ms);
+                const anchor = x < padL + 12 ? 'start' : x > width - padR - 12 ? 'end' : 'middle';
+                return (
+                  <SvgText key={`w${ms}`} x={x} y={height - 6} fontSize={10} fill={iepColors.muted} textAnchor={anchor}>{`W${weekOfYear(ms)}`}</SvgText>
+                );
+              })}
+            </Svg>
+          ) : null}
+        </View>
+      )}
+    </View>
   );
 };

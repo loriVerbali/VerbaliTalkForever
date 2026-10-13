@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { LEVEL_1_LABEL, LEVEL_2_LABEL, LEVEL_3_LABEL } from '../../../src/features/iep/application/planLevels';
+import { MetricCatalogue } from '../../../src/features/iep/core';
 import { buildReportGoal, buildReportModel } from '../../../src/features/iep/export/pdfReportModel';
 import { niceCeiling, pdfFileName, renderIepReport, toWinAnsi } from '../../../src/features/iep/export/pdfRenderer';
 import { NOW, fixtureProgress } from './helpers';
@@ -12,6 +14,23 @@ describe('PDF report model', () => {
     expect(goal.levels[0].rows[0].target).toBe('Target: 3 sessions');
     const single = buildReportGoal(fixtureProgress([1], { target: 1 }));
     expect(single.levels[1].rows[0].target).toBe('Target: 1 sentence');
+  });
+
+  it('heads the plan levels with the shared labels and lists the words-per-sentence bar once', () => {
+    const base = fixtureProgress([5]);
+    const wordsRow = {
+      ...base.metricTargets[1],
+      metric: { ...base.metricTargets[1].metric, id: MetricCatalogue.totalWordCountPerSentence.id, name: 'Words per sentence' },
+      definition: MetricCatalogue.totalWordCountPerSentence,
+      targetValue: 3,
+    };
+    const withBar = buildReportGoal(fixtureProgress([5], { metricTargets: [...base.metricTargets, wordsRow] }));
+    expect(withBar.levels.map(l => l.label)).toEqual([LEVEL_1_LABEL.toUpperCase(), LEVEL_2_LABEL.toUpperCase(), LEVEL_3_LABEL.toUpperCase()]);
+    expect(withBar.levels[2].label).toBe('LEVEL 3 · WHAT MAKES AN EVENT COUNT');
+    expect(withBar.levels[1].rows.map(r => r.name)).toEqual(['Qualifying sentences', 'Total sentences per session']);
+    expect(withBar.levels[2].rows).toEqual([{ name: 'Words per sentence', target: 'Target: 3 words', note: 'Every sentence is measured against this' }]);
+    const noBar = buildReportGoal(fixtureProgress([5], { metricTargets: [...base.metricTargets, wordsRow], minimumWordsPerSentence: null }));
+    expect(noBar.levels[2].rows).toEqual([{ name: 'Words per sentence', target: 'Target: 3 words', note: null }]);
   });
 
   it('says tracking only for a goal without a target and never invents one', () => {

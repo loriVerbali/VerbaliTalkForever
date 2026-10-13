@@ -3,7 +3,12 @@ import {
   loadMockDataset,
   mockColumnsForGoal,
 } from '../../../src/features/iep/mock/mockDataset';
-import { MetricCatalogue, MockSessionMetricSource, measuredValue } from '../../../src/features/iep/core';
+import {
+  MetricCatalogue,
+  MockSessionMetricSource,
+  measuredValue,
+  mockWordsPerSession,
+} from '../../../src/features/iep/core';
 
 describe('mock datasets', () => {
   it('loads the standard dataset with 19 goals and 988 rows', () => {
@@ -52,6 +57,17 @@ describe('mock datasets', () => {
     expect(measuredValue(twoPlus)).toBe(d.rowsByGoalSession.get(goalSessionKey('G04', 'S001'))!.columns.qualifying_sentences_2plus);
     expect(source.measurement(MetricCatalogue.conversationTurns.id, 'S001', null).kind).toBe('unsupported');
     expect(source.measurement(MetricCatalogue.buildSeconds.id, 'S001', null).kind).toBe('unsupported');
+  });
+
+  it('every standard row carries the words per session column', () => {
+    const d = loadMockDataset('standard');
+    for (const list of d.sessionsByGoal.values()) {
+      for (const row of list) {
+        expect(mockWordsPerSession(row.columns)).toBeGreaterThanOrEqual(0);
+      }
+    }
+    const first = d.rowsByGoalSession.get(goalSessionKey('G01', 'S001'))!;
+    expect(mockWordsPerSession(first.columns)).toBe(first.columns.total_word_count_per_sentence);
   });
 
   it('events carry pipe-separated goal ids and elapsed order', () => {

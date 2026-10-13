@@ -1,6 +1,7 @@
 import {
   FixtureSessionMetricSource,
   GoalOutcome,
+  MOCK_WORDS_PER_SESSION_COLUMN,
   MeasurementResult,
   MetricCatalogue,
   MockSessionMetricSource,
@@ -11,6 +12,7 @@ import {
   measuredValue,
   metricCanBeScored,
   mockDatasetColumn,
+  mockWordsPerSession,
 } from '../../../src/features/iep/core';
 
 function source(values: Record<string, number> = {}, session = 'S01') {
@@ -66,6 +68,20 @@ describe('MockSessionMetricSource', () => {
         null,
       );
       expect(measuredValue(result)).toBeNull();
+    });
+
+    it('words per session reads the session total column by name', () => {
+      expect(MOCK_WORDS_PER_SESSION_COLUMN).toBe('total_word_count_per_sentence');
+      expect(mockWordsPerSession({ total_word_count_per_sentence: 17 })).toBe(17);
+      expect(mockWordsPerSession({ total_word_count_per_sentence: 0 })).toBe(0);
+      expect(mockWordsPerSession({ average_words_per_sentence: 4 })).toBeNull();
+      expect(mockWordsPerSession({ total_word_count_per_sentence: Number.NaN })).toBeNull();
+      expect(mockWordsPerSession(undefined)).toBeNull();
+    });
+
+    it('the words per session column is never also read as a metric', () => {
+      expect(mockDatasetColumn(MOCK_WORDS_PER_SESSION_COLUMN, null)).toBeNull();
+      expect(mockDatasetColumn(MOCK_WORDS_PER_SESSION_COLUMN, 3)).toBeNull();
     });
 
     it('total AAC button taps reads its own column', () => {

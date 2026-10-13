@@ -75,6 +75,15 @@ export function reportingPeriod(
   }
 }
 
+/**
+ * Every recorded day through today, for figures that read "since the goal started". Not the
+ * goal record's creation date: a goal added today has a lifetime of hours, and its sessions
+ * may have been recorded before it existed.
+ */
+export function toDatePeriod(nowMs: number): ReportingPeriod {
+  return { preset: 'custom', startMs: 0, endMs: endOfLocalDay(nowMs) };
+}
+
 export function isInPeriod(period: ReportingPeriod, ms: number): boolean {
   return ms >= period.startMs && ms <= period.endMs;
 }
@@ -100,6 +109,12 @@ export function isoDay(ms: number): string {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** "Sep 1" style. */
+export function monthDay(ms: number): string {
+  const d = new Date(ms);
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+}
+
 /** "Sep 1, 2026" style. */
 export function humanDay(ms: number): string {
   const d = new Date(ms);
@@ -114,4 +129,40 @@ export function periodLabel(period: ReportingPeriod): string {
     return `${MONTHS[s.getMonth()]} ${s.getDate()} – ${MONTHS[e.getMonth()]} ${e.getDate()}, ${e.getFullYear()}`;
   }
   return `${humanDay(period.startMs)} – ${humanDay(period.endMs)}`;
+}
+
+/**
+ * The days of a month laid out in Sunday-first weeks for a calendar grid. Cells outside
+ * the month are null, and every week has seven cells.
+ */
+export function monthWeeks(year: number, month: number): Array<Array<number | null>> {
+  const lead = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  const cells: Array<number | null> = [];
+  for (let i = 0; i < lead; i++) {
+    cells.push(null);
+  }
+  for (let d = 1; d <= days; d++) {
+    cells.push(d);
+  }
+  while (cells.length % 7 !== 0) {
+    cells.push(null);
+  }
+  const weeks: Array<Array<number | null>> = [];
+  for (let i = 0; i < cells.length; i += 7) {
+    weeks.push(cells.slice(i, i + 7));
+  }
+  return weeks;
+}
+
+/**
+ * Week of the year as the Evidence tab and the trend cards label it: week 1 holds
+ * 1 January and weeks start on Sunday, so a label matches a wall calendar.
+ */
+export function weekOfYear(ms: number): number {
+  const d = new Date(ms);
+  const start = new Date(d.getFullYear(), 0, 1);
+  // Whole calendar days, not elapsed milliseconds: a Saturday afternoon is still the same
+  // week as that Saturday's midnight, and a DST change cannot shift a day across a week.
+  return Math.ceil((calendarDaysBetween(start.getTime(), ms) + start.getDay() + 1) / 7);
 }

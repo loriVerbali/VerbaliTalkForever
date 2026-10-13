@@ -1,7 +1,7 @@
 /** Small shared pieces: AI tag, status badge, chips, buttons, section headers, modals. */
 
 import React from 'react';
-import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View, ViewStyle, TextStyle } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, Text, TouchableOpacity, View, ViewStyle, TextStyle } from 'react-native';
 import { GOAL_STATUS_LABEL, GOAL_STATUS_SYMBOL, GoalUiStatus } from '../application/goalProgress';
 import { iepColors, iepStyles, statusColor } from './theme';
 
@@ -11,13 +11,23 @@ export const AiTag: React.FC = () => (
   </View>
 );
 
-export const StatusBadge: React.FC<{ status: GoalUiStatus; size?: number }> = ({ status, size = 44 }) => (
-  <View
-    accessibilityLabel={GOAL_STATUS_LABEL[status]}
-    style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: statusColor(status), alignItems: 'center', justifyContent: 'center' }}>
-    <Text style={{ color: iepColors.white, fontWeight: '800', fontSize: size * 0.42 }}>{GOAL_STATUS_SYMBOL[status]}</Text>
-  </View>
+const CHECKMARK = require('../../../assets/checkmark.png');
+
+/** The round green tick used wherever a goal or session met its target. Decorative unless given a label. */
+export const CheckMark: React.FC<{ size?: number; accessibilityLabel?: string }> = ({ size = 20, accessibilityLabel }) => (
+  <Image source={CHECKMARK} accessible={!!accessibilityLabel} accessibilityLabel={accessibilityLabel} style={{ width: size, height: size }} resizeMode="contain" />
 );
+
+export const StatusBadge: React.FC<{ status: GoalUiStatus; size?: number }> = ({ status, size = 44 }) =>
+  status === 'achieved' ? (
+    <CheckMark size={size} accessibilityLabel={GOAL_STATUS_LABEL[status]} />
+  ) : (
+    <View
+      accessibilityLabel={GOAL_STATUS_LABEL[status]}
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: statusColor(status), alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: iepColors.white, fontWeight: '800', fontSize: size * 0.42 }}>{GOAL_STATUS_SYMBOL[status]}</Text>
+    </View>
+  );
 
 export const StatusLabel: React.FC<{ status: GoalUiStatus; style?: TextStyle }> = ({ status, style }) => (
   <Text style={[{ color: statusColor(status), fontWeight: '700', fontSize: 14 }, style]}>

@@ -135,6 +135,9 @@ describe('buildGoalProgress (live)', () => {
     expect(session.rows.filter(r => !r.isCompletion && r.category === 'sentences')).toHaveLength(6);
     expect(filterEvidenceRows(session.rows, new Set(['independent']))).toHaveLength(0);
     expect(session.independentCount + session.promptedCount + session.assistedCount).toBe(0);
+    // What the start sheet recorded, as the Evidence sidebar shows it.
+    expect(session.sessionType).toBe('Therapy');
+    expect(session.partner).toBe('SLP');
   });
 
   it('produces a deterministic comparison only with three sessions per group', async () => {
@@ -178,6 +181,8 @@ describe('buildGoalProgress (mock)', () => {
     const session = mockEvidenceSession(dataset, 'S001', 'G04', 'qualifying_sentences', 'Sam', { support: {}, functions: {} })!;
     expect(session.rows.length).toBeGreaterThan(0);
     expect(session.rows.every(r => r.category === 'sentences')).toBe(true);
+    expect(session.sessionType).toBe('Structured activity');
+    expect(session.partner).toBe('Speech therapist');
     const completion = session.rows.find(r => r.isCompletion)!;
     const overlay = mockEvidenceSession(dataset, 'S001', 'G04', 'qualifying_sentences', 'Sam', {
       support: { [`standard/S001/${completion.sentenceId}`]: 'assisted' },

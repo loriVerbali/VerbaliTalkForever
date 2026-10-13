@@ -1,11 +1,13 @@
 /** Session start, session review, and goal date sheets. */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useIepStore, useIepStoreVersion } from '../hooks/IepStoreProvider';
+import { IEP_EVENTS, trackIep } from '../analytics/iepAnalytics';
 import { requestEventAnalysis } from '../ai/iepAiClient';
 import { COMMUNICATION_FUNCTIONS, COMMUNICATION_FUNCTION_LABEL, CommunicationFunction, SUPPORT_LEVELS, SUPPORT_LEVEL_LABEL, SupportLevel } from '../model/types';
-import { isoDay } from '../application/reportingPeriod';
+import { humanDay, startOfLocalDay } from '../application/reportingPeriod';
+import { Calendar } from './DatePicker';
 import { iepColors, iepStyles } from './theme';
 import { AiTag, PrimaryButton, SecondaryButton, Segmented, Sheet } from './primitives';
 
@@ -33,7 +35,9 @@ export const SessionStartSheet: React.FC<{ visible: boolean; onClose: () => void
       <PrimaryButton
         label="Start session"
         onPress={() => {
-          store.startSession({ partnerType: partner.toLowerCase(), treatmentContext: sessionType.toLowerCase(), trackedGoalIds: store.activeGoals.map(g => g.id) });
+          const trackedGoalIds = store.activeGoals.map(g => g.id);
+          store.startSession({ partnerType: partner.toLowerCase(), treatmentContext: sessionType.toLowerCase(), trackedGoalIds });
+          trackIep(IEP_EVENTS.SESSION_STARTED, { session_type: sessionType.toLowerCase(), partner_type: partner.toLowerCase(), tracked_goal_count: trackedGoalIds.length });
           onClose();
         }}
       />
@@ -45,7 +49,8 @@ export const SessionReviewSheet: React.FC<{ sessionId: string | null; onClose: (
   const { store } = useIepStore();
   const [analysing, setAnalysing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [attempted, setAttempted] = useState(false);
+  // Which classifier produced the suggestions the clinician reviewed; reported with the outcome.
+  const [aiSource, setAiSource] = useState<string | null>(null);
   const version = useIepStoreVersion();
   const sentences = useMemo(
     () => (sessionId ? store.sentences.filter(s => s.sessionId === sessionId).slice().sort((a, b) => a.startedAtMs - b.startedAtMs) : []),
@@ -54,31 +59,55 @@ export const SessionReviewSheet: React.FC<{ sessionId: string | null; onClose: (
   );
 
   useEffect(() => {
-    if (!sessionId || attempted) {
+    if (!sessionId) {
       return;
     }
-    setAttempted(true);
     const communications = store.communications.filter(c => c.sessionId === sessionId && c.content.trim().length > 0);
     if (communications.length === 0) {
+      setAnalysing(false);
       setMessage('There are no completed messages to classify.');
+      setAiSource('none');
       return;
     }
+    // The reply may land after "Review later" or Finalize, when the sheet is closed or
+    // shows another session: the store still learns the labels for a postponed session,
+    // but a finalized session is closed to edits and this sheet's state is never touched.
+    let cancelled = false;
     setAnalysing(true);
     const goalIds = store.session(sessionId)?.trackedGoalIds ?? [];
     const metricIds = store.goals.filter(g => goalIds.includes(g.id)).flatMap(g => g.plan?.metrics.map(m => m.id) ?? []);
     requestEventAnalysis(goalIds[0] ?? 'session', metricIds, communications.map(c => ({ eventId: c.id, content: c.content, source: c.source })))
       .then(reply => {
-        store.applyAiEventAnalysis(reply.results);
+        if (store.session(sessionId)?.reviewState !== 'finalized') {
+          store.applyAiEventAnalysis(reply.results);
+        }
+        if (cancelled) {
+          return;
+        }
+        setAiSource(reply.source);
         setMessage(reply.source === 'provider' ? 'AI suggestions are ready. You can correct any function before finalizing.' : 'AI analysis is unavailable. Local suggestions remain visible and editable.');
       })
-      .catch(() => setMessage('AI analysis is unavailable. Local suggestions remain visible and editable.'))
-      .finally(() => setAnalysing(false));
-  }, [sessionId, attempted, store]);
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setAiSource('error');
+        setMessage('AI analysis is unavailable. Local suggestions remain visible and editable.');
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAnalysing(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, store]);
 
   useEffect(() => {
     if (!sessionId) {
-      setAttempted(false);
       setMessage(null);
+      setAiSource(null);
     }
   }, [sessionId]);
 
@@ -86,14 +115,25 @@ export const SessionReviewSheet: React.FC<{ sessionId: string | null; onClose: (
     return null;
   }
   const canFinalize = store.canFinalizeReview(sessionId);
+  const outcomeProps = { sentence_count: sentences.length, ai_source: aiSource };
+  const postpone = () => {
+    trackIep(IEP_EVENTS.SESSION_REVIEW_POSTPONED, { ...outcomeProps, can_finalize: canFinalize });
+    onClose();
+  };
+  const finalize = () => {
+    if (store.finalizeSessionReview(sessionId)) {
+      trackIep(IEP_EVENTS.SESSION_REVIEW_FINALIZED, outcomeProps);
+      onClose();
+    }
+  };
   return (
     <Sheet
       visible
       title="Review session"
-      onClose={onClose}
+      onClose={postpone}
       closeLabel="Review later"
       trailing={
-        <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: !canFinalize }} disabled={!canFinalize} onPress={() => { if (store.finalizeSessionReview(sessionId)) { onClose(); } }}>
+        <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: !canFinalize }} disabled={!canFinalize} onPress={finalize}>
           <Text style={{ color: canFinalize ? iepColors.blue : iepColors.muted, fontWeight: '700', fontSize: 16 }}>Finalize</Text>
         </TouchableOpacity>
       }>
@@ -149,28 +189,17 @@ export const SessionReviewSheet: React.FC<{ sessionId: string | null; onClose: (
   );
 };
 
-/** Parses yyyy-MM-dd typed by the user into local midnight, or null. */
-export function parseDayInput(text: string): number | null {
-  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text.trim());
-  if (!m) {
-    return null;
-  }
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return Number.isNaN(d.getTime()) ? null : d.getTime();
-}
-
 export const GoalDateSheet: React.FC<{ visible: boolean; targetDateMs: number | null; onSave: (ms: number | null) => void; onClose: () => void }> = ({ visible, targetDateMs, onSave, onClose }) => {
   const [enabled, setEnabled] = useState(targetDateMs !== null);
-  const [text, setText] = useState(isoDay(targetDateMs ?? Date.now()));
+  const [dateMs, setDateMs] = useState(startOfLocalDay(targetDateMs ?? Date.now()));
   useEffect(() => {
     setEnabled(targetDateMs !== null);
-    setText(isoDay(targetDateMs ?? Date.now()));
+    setDateMs(startOfLocalDay(targetDateMs ?? Date.now()));
   }, [targetDateMs, visible]);
-  const parsed = parseDayInput(text);
   return (
     <Sheet visible={visible} title="Goal date" onClose={onClose} maxWidth={480} trailing={
-      <TouchableOpacity accessibilityRole="button" disabled={enabled && parsed === null} onPress={() => { onSave(enabled ? parsed : null); onClose(); }}>
-        <Text style={{ color: enabled && parsed === null ? iepColors.muted : iepColors.blue, fontWeight: '700', fontSize: 16 }}>Save</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={() => { onSave(enabled ? dateMs : null); onClose(); }}>
+        <Text style={{ color: iepColors.blue, fontWeight: '700', fontSize: 16 }}>Save</Text>
       </TouchableOpacity>
     }>
       <View style={[iepStyles.row, { justifyContent: 'space-between' }]}>
@@ -179,9 +208,8 @@ export const GoalDateSheet: React.FC<{ visible: boolean; targetDateMs: number | 
       </View>
       {enabled ? (
         <View style={{ gap: 6 }}>
-          <Text style={iepStyles.captionStrong}>Target date (YYYY-MM-DD)</Text>
-          <TextInput value={text} onChangeText={setText} style={iepStyles.input} keyboardType="numbers-and-punctuation" accessibilityLabel="Target date" />
-          {parsed === null ? <Text style={[iepStyles.caption, { color: iepColors.red }]}>Enter a date as YYYY-MM-DD.</Text> : null}
+          <Text style={iepStyles.captionStrong}>Target date · {humanDay(dateMs)}</Text>
+          <Calendar valueMs={dateMs} onChange={setDateMs} />
         </View>
       ) : null}
       <Text style={iepStyles.caption}>This date is a planning reminder. It does not change which sessions are included in a reporting period.</Text>

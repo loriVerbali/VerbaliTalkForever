@@ -194,4 +194,95 @@ describe('persistence', () => {
       expect(persistence.sessionIds()).toEqual([session]);
     });
   });
+
+  describe('when a write fails', () => {
+    let warn: jest.SpyInstance;
+
+    beforeEach(() => {
+      warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      warn.mockRestore();
+    });
+
+    /** A persistence whose next goals write rejects; every later write goes through. */
+    function failingGoalsOnce(): MemoryPersistence {
+      const persistence = new MemoryPersistence();
+      const saveGoals = persistence.saveGoals.bind(persistence);
+      let failNext = true;
+      persistence.saveGoals = async goals => {
+        if (failNext) {
+          failNext = false;
+          throw new Error('ENOSPC');
+        }
+        return saveGoals(goals);
+      };
+      return persistence;
+    }
+
+    it('a failed goals write is logged and reported, and the next write is still attempted', async () => {
+      const persistence = failingGoalsOnce();
+      const store = await makeStore(persistence);
+      addGoal(store, 'First');
+      const listener = jest.fn();
+      store.subscribe(listener);
+      await store.flush();
+
+      expect(persistence.rawGoals()).toBeNull();
+      expect(store.saveFailure?.what).toBe('goals');
+      expect(store.saveFailure?.message).toContain('ENOSPC');
+      expect(store.storageFailure).toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      addGoal(store, 'Second');
+      await store.flush();
+      expect(persistence.rawGoals()).toContain('First');
+      expect(persistence.rawGoals()).toContain('Second');
+    });
+
+    it('the save failure clears once a write of the same kind succeeds', async () => {
+      const persistence = failingGoalsOnce();
+      const store = await makeStore(persistence);
+      addGoal(store, 'First');
+      await store.flush();
+      expect(store.saveFailure?.what).toBe('goals');
+
+      addGoal(store, 'Second');
+      const listener = jest.fn();
+      store.subscribe(listener);
+      await store.flush();
+      expect(store.saveFailure).toBeNull();
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it('a failed measurements write is reported separately and is not cleared by a goals write', async () => {
+      const persistence = new MemoryPersistence();
+      const saveSession = persistence.saveSession.bind(persistence);
+      let failNext = true;
+      persistence.saveSession = async archive => {
+        if (failNext) {
+          failNext = false;
+          throw new Error('EACCES');
+        }
+        return saveSession(archive);
+      };
+      const store = await makeStore(persistence);
+      const session = store.startSession();
+      await store.flush();
+      expect(store.saveFailure?.what).toBe('measurements');
+      expect(persistence.sessionIds()).toEqual([]);
+
+      addGoal(store, 'Unrelated');
+      await store.flush();
+      expect(store.saveFailure?.what).toBe('measurements');
+      expect(persistence.rawGoals()).toContain('Unrelated');
+
+      store.endActiveSession();
+      await store.flush();
+      expect(store.saveFailure).toBeNull();
+      expect(persistence.sessionIds()).toEqual([session]);
+    });
+  });
 });

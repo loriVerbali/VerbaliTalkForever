@@ -12,6 +12,9 @@ import { MockDatasetId, MockDataset, loadMockDataset } from '../mock/mockDataset
 import { IepGoal } from '../model/types';
 import { useIepStore, useIepStoreVersion } from './IepStoreProvider';
 
+/** Shortest auto-stop length. There is deliberately no upper limit. */
+export const MIN_AUTO_STOP_MINUTES = 5;
+
 export interface IepSettings {
   mockMode: boolean;
   mockDataset: MockDatasetId;
@@ -30,7 +33,7 @@ export function useIepSettings() {
       mockMode: preferences.iepMockMode === '1',
       mockDataset: preferences.iepMockDataset === 'edgeCases' ? 'edgeCases' : 'standard',
       autoStopEnabled: preferences.iepAutoStopEnabled === '1',
-      autoStopMinutes: Math.max(5, parseInt(preferences.iepAutoStopMinutes || '30', 10) || 30),
+      autoStopMinutes: Math.max(MIN_AUTO_STOP_MINUTES, parseInt(preferences.iepAutoStopMinutes || '30', 10) || 30),
       periodPreset: (['4w', '12w', '6m', 'custom'] as ReportingPeriodPreset[]).includes(preferences.iepReportingPeriod as ReportingPeriodPreset)
         ? (preferences.iepReportingPeriod as ReportingPeriodPreset)
         : '12w',

@@ -3,9 +3,9 @@
  * returns null rather than a number when that minimum is not met.
  */
 
-import { Aggregation, MetricCatalogue, MetricId, measuredValue } from '../core';
+import { Aggregation, MetricCatalogue, MetricId } from '../core';
 import { classifyPartOfSpeech } from '../model/partOfSpeech';
-import { GoalProgress, formatValue } from './goalProgress';
+import { GoalProgress, MetricTarget, formatValue } from './goalProgress';
 import { LanguageAnalysis } from './insights';
 
 export interface SentenceSample {
@@ -41,90 +41,91 @@ export function longestStreak(p: GoalProgress): StreakTile | null {
   return best;
 }
 
-export interface LengthShares {
-  one: number;
-  two: number;
-  threePlus: number;
-  total: number;
+export interface LengthShare {
+  label: string;
+  count: number;
+  /** Rounded share of every sampled sentence, in percent. */
+  percent: number;
 }
 
-const bucket = (w: number): keyof Omit<LengthShares, 'total'> => (w <= 1 ? 'one' : w === 2 ? 'two' : 'threePlus');
+const SHARE_LABELS = ['1 word', '2 words', '3+ words'] as const;
+const shareIndex = (words: number): number => (words <= 1 ? 0 : words === 2 ? 1 : 2);
 
-/** Share of sentences by length over the last eight sessions' samples. */
-export function sentenceLengthShares(samples: readonly SentenceSample[], lastSessionDates: readonly number[]): LengthShares | null {
-  const recent = new Set(lastSessionDates.slice(-8).map(startOfDay));
-  const inRecent = recent.size > 0 ? samples.filter(s => recent.has(startOfDay(s.dateMs))) : samples;
-  if (inRecent.length === 0) {
-    return null;
+/** Sentences by length across every sample given, one row per bucket; empty without samples. */
+export function sentenceLengthShares(samples: readonly SentenceSample[]): LengthShare[] {
+  if (samples.length === 0) {
+    return [];
   }
-  const shares: LengthShares = { one: 0, two: 0, threePlus: 0, total: inRecent.length };
-  for (const s of inRecent) {
-    shares[bucket(s.words)] += 1;
+  const counts = [0, 0, 0];
+  for (const s of samples) {
+    counts[shareIndex(s.words)] += 1;
   }
-  return shares;
+  return SHARE_LABELS.map((label, i) => ({ label, count: counts[i], percent: Math.round((counts[i] / samples.length) * 100) }));
 }
 
-function startOfDay(ms: number): number {
-  const d = new Date(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
+/** The sentence-length buckets the build-time figures are held constant over. */
+export const LENGTH_LABELS = ['1 word', '2 words', '3 words', '4+ words'] as const;
+export type LengthLabel = (typeof LENGTH_LABELS)[number];
 
-export function averageBuildSeconds(samples: readonly SentenceSample[]): number | null {
-  const timed = samples.filter(s => s.seconds > 0);
-  if (timed.length === 0) {
-    return null;
-  }
-  return timed.reduce((a, b) => a + b.seconds, 0) / timed.length;
-}
+export const lengthLabel = (words: number): LengthLabel => (words <= 1 ? '1 word' : words === 2 ? '2 words' : words === 3 ? '3 words' : '4+ words');
+
+const meanSeconds = (xs: readonly SentenceSample[]): number => xs.reduce((a, b) => a + b.seconds, 0) / xs.length;
 
 export interface BuildTimeChange {
+  label: LengthLabel;
   earlierSeconds: number;
   recentSeconds: number;
+  earlierCount: number;
+  recentCount: number;
   /** Negative means faster. */
   percentChange: number;
-  minimumWords: number;
 }
 
-/** Needs at least eight samples with three in each half. */
-export function buildTimeChange(samples: readonly SentenceSample[], minimumWords: number): BuildTimeChange | null {
-  const eligible = samples.filter(s => s.seconds > 0 && s.words >= minimumWords).sort((a, b) => a.dateMs - b.dateMs);
-  if (eligible.length < 8) {
-    return null;
+/**
+ * Build time for each sentence length, the earlier half of the timed sentences against
+ * the recent half. Length is held constant because a longer sentence takes longer whatever
+ * the child's progress. Needs eight timed sentences, and a length needs three in each half.
+ */
+export function buildTimeChanges(samples: readonly SentenceSample[]): BuildTimeChange[] {
+  const ordered = samples.filter(s => s.seconds > 0).sort((a, b) => a.dateMs - b.dateMs);
+  if (ordered.length < 8) {
+    return [];
   }
-  const half = Math.floor(eligible.length / 2);
-  const earlier = eligible.slice(0, half);
-  const recent = eligible.slice(half);
-  if (earlier.length < 3 || recent.length < 3) {
-    return null;
+  const midpointMs = ordered[Math.floor(ordered.length / 2)].dateMs;
+  const out: BuildTimeChange[] = [];
+  for (const label of LENGTH_LABELS) {
+    const rows = ordered.filter(s => lengthLabel(s.words) === label);
+    const earlier = rows.filter(s => s.dateMs < midpointMs);
+    const recent = rows.filter(s => s.dateMs >= midpointMs);
+    if (earlier.length < 3 || recent.length < 3) {
+      continue;
+    }
+    const e = meanSeconds(earlier);
+    const r = meanSeconds(recent);
+    out.push({
+      label,
+      earlierSeconds: e,
+      recentSeconds: r,
+      earlierCount: earlier.length,
+      recentCount: recent.length,
+      percentChange: e > 0 ? Math.round(((r - e) / e) * 100) : 0,
+    });
   }
-  const mean = (xs: SentenceSample[]) => xs.reduce((a, b) => a + b.seconds, 0) / xs.length;
-  const e = mean(earlier);
-  const r = mean(recent);
-  return { earlierSeconds: e, recentSeconds: r, percentChange: e > 0 ? Math.round(((r - e) / e) * 100) : 0, minimumWords };
+  return out;
 }
 
 export interface DurationBucket {
-  label: string;
+  label: LengthLabel;
   averageSeconds: number;
   count: number;
 }
 
 /** Average build time by sentence length; buckets need at least three samples. */
 export function durationsByLength(samples: readonly SentenceSample[]): DurationBucket[] {
-  const groups = new Map<string, SentenceSample[]>();
-  for (const s of samples) {
-    if (s.seconds <= 0) {
-      continue;
-    }
-    const label = s.words <= 1 ? '1 word' : s.words === 2 ? '2 words' : s.words === 3 ? '3 words' : '4+ words';
-    const list = groups.get(label) ?? [];
-    list.push(s);
-    groups.set(label, list);
-  }
-  return ['1 word', '2 words', '3 words', '4+ words']
-    .map(label => ({ label, list: groups.get(label) ?? [] }))
+  const timed = samples.filter(s => s.seconds > 0);
+  return LENGTH_LABELS.map(label => ({ label, list: timed.filter(s => lengthLabel(s.words) === label) }))
     .filter(g => g.list.length >= 3)
-    .map(g => ({ label: g.label, averageSeconds: g.list.reduce((a, b) => a + b.seconds, 0) / g.list.length, count: g.list.length }));
+    .map(g => ({ label: g.label, averageSeconds: meanSeconds(g.list), count: g.list.length }));
 }
 
 export type PosFilter = 'all' | 'pronoun' | 'verb' | 'descriptor' | 'noun';
@@ -152,17 +153,36 @@ export function topWords(language: LanguageAnalysis, filter: PosFilter, limit = 
   return language.words.filter(w => matches(w.label)).slice(0, limit);
 }
 
+/**
+ * The series behind "Average words per session": every word in a session's completed
+ * sentences. Not a catalogue metric, so the screen reads it rather than measuring it.
+ */
+export const WORDS_PER_SESSION_SERIES = 'words_per_session';
+export type TrendSeriesId = MetricId | typeof WORDS_PER_SESSION_SERIES;
+
+/** How the words-per-session series presents when no catalogue definition can say. */
+const WORDS_PER_SESSION_PANEL = {
+  name: 'Average words per session',
+  unit: 'words',
+  aggregation: 'average',
+} as const;
+
 export interface SupportingMetric {
-  id: MetricId;
+  id: TrendSeriesId;
   name: string;
   unit: string;
   value: string;
   aggregation: Aggregation;
 }
 
-export const SUPPORTING_PANEL_ORDER: readonly MetricId[] = [
+/**
+ * Panel order from the reference app. Words per session sits with the other language
+ * statistics even though the catalogue does not define it.
+ */
+export const SUPPORTING_PANEL_ORDER: readonly TrendSeriesId[] = [
   'total_sentences',
   'average_words_per_sentence',
+  WORDS_PER_SESSION_SERIES,
   'longest_sentence_words',
   'different_communication_functions',
   'different_pages_visited',
@@ -176,49 +196,186 @@ export const SUPPORTING_PANEL_ORDER: readonly MetricId[] = [
 
 const PANEL_NAME: Partial<Record<string, string>> = { total_sentences: 'Average sentences per session' };
 
-/** Aggregates per-session values by each metric's own aggregation rule. */
-export function supportingMetrics(valuesByMetric: ReadonlyMap<MetricId, readonly number[]>): SupportingMetric[] {
+function aggregate(values: readonly number[], aggregation: Aggregation): number {
+  switch (aggregation) {
+    case 'maximum':
+      return Math.max(...values);
+    case 'total':
+      return values.reduce((a, b) => a + b, 0);
+    case 'latest':
+      return values[values.length - 1];
+    default:
+      return values.reduce((a, b) => a + b, 0) / values.length;
+  }
+}
+
+/** Aggregates per-session values by each series' own aggregation rule. */
+export function supportingMetrics(valuesBySeries: ReadonlyMap<TrendSeriesId, readonly number[]>): SupportingMetric[] {
   const out: SupportingMetric[] = [];
   for (const id of SUPPORTING_PANEL_ORDER) {
-    const def = MetricCatalogue.definitionFor(id);
-    const values = valuesByMetric.get(id);
-    if (!def || !values || values.length === 0) {
+    const values = valuesBySeries.get(id);
+    if (!values || values.length === 0) {
       continue;
     }
-    let value: number;
-    switch (def.aggregation) {
-      case 'maximum':
-        value = Math.max(...values);
-        break;
-      case 'total':
-        value = values.reduce((a, b) => a + b, 0);
-        break;
-      case 'latest':
-        value = values[values.length - 1];
-        break;
-      default:
-        value = values.reduce((a, b) => a + b, 0) / values.length;
+    const def = id === WORDS_PER_SESSION_SERIES ? WORDS_PER_SESSION_PANEL : MetricCatalogue.definitionFor(id);
+    if (!def) {
+      continue;
     }
-    out.push({ id, name: PANEL_NAME[id] ?? def.displayName, unit: def.unit, value: formatValue(value), aggregation: def.aggregation });
+    const name = 'displayName' in def ? PANEL_NAME[id] ?? def.displayName : def.name;
+    out.push({ id, name, unit: def.unit, value: formatValue(aggregate(values, def.aggregation)), aggregation: def.aggregation });
   }
   return out;
 }
 
-/** Latest session outcome text for the calculation block. */
-export function calculationExplanation(p: GoalProgress): string | null {
-  const latest = p.sessions.length > 0 ? p.sessions[p.sessions.length - 1] : null;
-  const latestValue = latest ? measuredValue(latest.result) : null;
-  if (!p.hasTarget || latest === null || latestValue === null || (p.target as number) <= 0) {
+// Metric trend cards ("Metrics behind the goal")
+
+export interface TrendPoint {
+  sessionId: string;
+  dateMs: number;
+  value: number;
+}
+
+export interface MetricTrend {
+  /** The plotted series; unique within one goal. */
+  key: TrendSeriesId;
+  name: string;
+  unit: string;
+  usesAi: boolean;
+  /** Drawn only when the target applies to the plotted series itself. */
+  targetLine: number | null;
+  /** Why no line is drawn; null when the series charts. */
+  unavailableReason: string | null;
+  points: TrendPoint[];
+}
+
+/** One session's value for a series, or null when nothing was measured. Never an invented zero. */
+export type TrendValueReader = (series: TrendSeriesId, sessionId: string) => number | null;
+
+/**
+ * A line over sessions cannot carry a per-sentence quantity, so words per sentence is
+ * charted as each session's average instead. Only the trend cards rename it; the plan
+ * rows keep the metric's own name.
+ */
+const TREND_SERIES_FOR_METRIC: Partial<Record<string, TrendSeriesId>> = {
+  [MetricCatalogue.totalWordCountPerSentence.id]: MetricCatalogue.averageWordsPerSentence.id,
+};
+
+const TREND_NAME: Partial<Record<string, string>> = {
+  [WORDS_PER_SESSION_SERIES]: WORDS_PER_SESSION_PANEL.name,
+};
+
+/** Language statistics every goal charts, whatever its plan names. */
+const ALWAYS_TRACKED: readonly TrendSeriesId[] = [MetricCatalogue.averageWordsPerSentence.id, WORDS_PER_SESSION_SERIES];
+
+const NOT_MEASURED = 'Not measured in this period';
+
+function trendPoints(p: GoalProgress, series: TrendSeriesId, read: TrendValueReader): TrendPoint[] {
+  const points: TrendPoint[] = [];
+  for (const s of p.sessions) {
+    const value = read(series, s.sessionId);
+    if (value !== null) {
+      points.push({ sessionId: s.sessionId, dateMs: s.dateMs, value });
+    }
+  }
+  return points;
+}
+
+/**
+ * The cards under "Metrics behind the goal": every plan metric except the goal's own
+ * measure (the progress chart carries that), then the language statistics the plan did
+ * not already claim. One card per series, so a plan naming a metric twice draws it once.
+ */
+export function metricTrends(p: GoalProgress, read: TrendValueReader): MetricTrend[] {
+  const out: MetricTrend[] = [];
+  const claimed = new Set<string>([p.primaryMetricId]);
+  const isPrimary = (m: MetricTarget) => m.metric.id === p.primaryMetricId || m.definition?.id === p.primaryMetricId;
+
+  for (const m of p.metricTargets) {
+    if (isPrimary(m)) {
+      continue;
+    }
+    if (!m.definition) {
+      if (claimed.has(m.metric.id)) {
+        continue;
+      }
+      claimed.add(m.metric.id);
+      out.push({
+        key: m.metric.id,
+        name: m.metric.name,
+        unit: m.metric.targetUnit ?? '',
+        usesAi: false,
+        targetLine: null,
+        unavailableReason: m.presentation.unavailableReason ?? 'Not measured by the app.',
+        points: [],
+      });
+      continue;
+    }
+    const series = TREND_SERIES_FOR_METRIC[m.definition.id] ?? m.definition.id;
+    if (claimed.has(series)) {
+      continue;
+    }
+    claimed.add(series);
+    const renamed = series !== m.definition.id;
+    const seriesDefinition = MetricCatalogue.definitionFor(series) ?? m.definition;
+    const unsupported = m.presentation.style === 'unsupported';
+    const points = unsupported ? [] : trendPoints(p, series, read);
+    let unavailableReason: string | null = null;
+    if (unsupported || (points.length === 0 && m.presentation.style === 'pending')) {
+      unavailableReason = m.presentation.unavailableReason ?? NOT_MEASURED;
+    } else if (points.length === 0) {
+      unavailableReason = NOT_MEASURED;
+    }
+    out.push({
+      key: series,
+      name: TREND_NAME[series] ?? seriesDefinition.displayName,
+      unit: seriesDefinition.unit,
+      usesAi: m.definition.requirement === 'aiAssisted',
+      // A per-sentence bar says nothing about a session average, so it is not drawn there.
+      targetLine: renamed ? null : m.presentation.targetLine,
+      unavailableReason,
+      points,
+    });
+  }
+
+  for (const series of ALWAYS_TRACKED) {
+    if (claimed.has(series)) {
+      continue;
+    }
+    const points = trendPoints(p, series, read);
+    if (!points.some(pt => pt.value > 0)) {
+      continue;
+    }
+    claimed.add(series);
+    const definition = MetricCatalogue.definitionFor(series);
+    out.push({
+      key: series,
+      name: TREND_NAME[series] ?? definition?.displayName ?? series,
+      unit: definition?.unit ?? 'words',
+      usesAi: false,
+      targetLine: null,
+      unavailableReason: null,
+      points,
+    });
+  }
+  return out;
+}
+
+export interface TrendShift {
+  from: number;
+  to: number;
+}
+
+/**
+ * A series as its earlier half against its recent half, each averaged. Two points is the
+ * minimum: one session has no earlier half to compare with.
+ */
+export function trendShift(points: readonly TrendPoint[]): TrendShift | null {
+  if (points.length < 2) {
     return null;
   }
-  if (p.sessionsRequired > 1) {
-    const q = p.sessionRule === 'consecutive' ? p.outcome.currentStreak : p.outcome.sessionsMeetingTarget;
-    const label = p.sessionRule === 'consecutive' ? 'consecutive successful sessions' : 'successful sessions';
-    return `${q} ${label} ÷ the required ${p.sessionsRequired} = ${Math.min(100, Math.round((q / p.sessionsRequired) * 100))}%.`;
-  }
-  const raw = Math.round((latestValue / (p.target as number)) * 100);
-  const base = `${formatValue(latestValue)} ${p.primaryLabel.toLowerCase()} ÷ goal threshold of ${formatValue(p.target as number)} = ${raw}%`;
-  return raw > 100 ? `${base}, shown as 100%.` : `${base}.`;
+  const split = Math.floor(points.length / 2);
+  const mean = (xs: readonly TrendPoint[]) => xs.reduce((a, b) => a + b.value, 0) / xs.length;
+  return { from: mean(points.slice(0, split)), to: mean(points.slice(split)) };
 }
 
 export function countedNoun(p: GoalProgress): string {

@@ -156,7 +156,7 @@ const MAX_NARRATIVE_CHARS = 600;
 export async function requestGoalOverviewNarrative(goalId: string, facts: NarrativeFacts): Promise<NarrativeReply> {
   let raw: unknown = null;
   try {
-    raw = await fetchHelper('iepDashboard', {}, {
+    raw = await fetchWithTimeout('iepDashboard', {
       ...envelope('iep-goal-overview-insights.v1'),
       goal_id: goalId,
       metrics: facts.metrics,

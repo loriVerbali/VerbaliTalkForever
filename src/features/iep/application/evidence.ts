@@ -35,6 +35,10 @@ export interface EvidenceSessionSummary {
   sessionId: string;
   startedAtMs: number | null;
   endedAtMs: number | null;
+  /** Session type chosen when the session was started ("Therapy", "Structured activity"); null when not recorded. */
+  sessionType: string | null;
+  /** Communication partner chosen when the session was started ("SLP", "Parent"); null when not recorded. */
+  partner: string | null;
   independentCount: number;
   promptedCount: number;
   assistedCount: number;
@@ -52,6 +56,20 @@ export const EVIDENCE_FILTER_LABEL: Record<EvidenceFilter, string> = {
 };
 
 const words = (n: number) => `${n} ${n === 1 ? 'word' : 'words'}`;
+
+const UNRECORDED = new Set(['', 'unknown', 'unspecified', 'none']);
+
+/** "speech_therapist" → "Speech therapist", "slp" → "SLP"; null when the session never recorded a value. */
+export function sessionContextLabel(raw: string | null | undefined): string | null {
+  const text = (raw ?? '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  if (UNRECORDED.has(text.toLowerCase())) {
+    return null;
+  }
+  if (text.toLowerCase() === 'slp') {
+    return 'SLP';
+  }
+  return text[0].toUpperCase() + text.slice(1);
+}
 
 /** Live rows: one per word added showing the sentence as it stood, one completion row per sentence, plus Q&A, navigation and support records. */
 export function liveEvidenceSession(state: MeasurementState, sessionId: string, childName: string): EvidenceSessionSummary | null {
@@ -144,6 +162,8 @@ export function liveEvidenceSession(state: MeasurementState, sessionId: string, 
     sessionId,
     startedAtMs: rows[0]?.timestampMs ?? slice.session.startedAtMs,
     endedAtMs: rows[rows.length - 1]?.timestampMs ?? slice.session.endedAtMs ?? null,
+    sessionType: sessionContextLabel(slice.session.treatmentContext),
+    partner: sessionContextLabel(slice.session.partnerType),
     independentCount: count('independent'),
     promptedCount: count('prompted'),
     assistedCount: count('assisted'),
@@ -193,6 +213,7 @@ export function mockEvidenceSession(
   if (!all) {
     return null;
   }
+  const started = all.find(e => e.eventType === 'session_started') ?? null;
   const isShared = datasetGoalId === null || datasetGoalId === dataset.goals[0]?.goalId;
   const raw = all
     .filter(e => e.eventType !== 'session_started' && e.eventType !== 'session_ended')
@@ -271,6 +292,8 @@ export function mockEvidenceSession(
     sessionId,
     startedAtMs: timestamps.length > 0 ? Math.min(...timestamps) : null,
     endedAtMs: timestamps.length > 0 ? Math.max(...timestamps) : null,
+    sessionType: sessionContextLabel(started?.context),
+    partner: sessionContextLabel(started?.partnerType),
     independentCount: completions.filter(r => r.supportLevel === 'independent').length,
     promptedCount: completions.filter(r => r.supportLevel === 'prompted').length,
     assistedCount: completions.filter(r => r.supportLevel === 'assisted').length,
@@ -308,11 +331,6 @@ export function evidencePatternText(rows: readonly EvidenceRow[]): string | null
     return null;
   }
   return `independent sentence length increased from ${first} to ${peak} words in this session.`;
-}
-
-/** Whether the AI tag belongs on the events table header. */
-export function evidenceUsesAi(rows: readonly EvidenceRow[]): boolean {
-  return rows.some(r => r.badge !== 'Sentence' || r.status === 'independent' || r.status === 'prompted');
 }
 
 export const QUALIFYING_METRIC_ID = MetricCatalogue.qualifyingSentences.id;

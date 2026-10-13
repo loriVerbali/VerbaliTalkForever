@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { IEP_EVENTS, trackIep } from '../analytics/iepAnalytics';
 import { exportAndShare } from '../export/exportService';
 import { useAllGoalProgress, useIepSettings } from '../hooks/useIepDashboard';
 import { Checkbox, PrimaryButton } from '../ui/primitives';
@@ -25,9 +26,26 @@ const IepExportScreen: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [all.length]);
 
+  useEffect(() => {
+    trackIep(IEP_EVENTS.EXPORT_SCREEN_VIEWED, { goal_count: all.length, mock_mode: settings.mockMode, period_preset: settings.periodPreset });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const run = async () => {
     setBusy(true);
     setError(null);
+    const startedAtMs = Date.now();
+    // "Exported" means the files were written and the share sheet opened; a cancelled share still counts.
+    const outcome = {
+      pdf,
+      csv,
+      selected_goal_count: selected.size,
+      goal_count: all.length,
+      all_goals_selected: selected.size === all.length,
+      achieved_goal_count: all.filter(p => selected.has(p.goalId) && p.status === 'achieved').length,
+      mock_mode: settings.mockMode,
+      period_preset: settings.periodPreset,
+    };
     try {
       await exportAndShare({
         student: settings.heroName,
@@ -35,8 +53,10 @@ const IepExportScreen: React.FC = () => {
         goals: all.filter(p => selected.has(p.goalId)),
         formats: { pdf, csv },
       });
+      trackIep(IEP_EVENTS.REPORT_EXPORTED, { ...outcome, duration_ms: Date.now() - startedAtMs });
     } catch (e) {
       setError(`The report could not be created. ${e instanceof Error ? e.message : String(e)}`);
+      trackIep(IEP_EVENTS.REPORT_EXPORT_FAILED, { ...outcome, duration_ms: Date.now() - startedAtMs });
     } finally {
       setBusy(false);
     }

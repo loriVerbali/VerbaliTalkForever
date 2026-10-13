@@ -217,6 +217,17 @@ function measure(
   return source.measurement(metricId, sessionId, plan.minimumWords);
 }
 
+/**
+ * One session's result for any catalogue metric under the goal's own plan options (word
+ * bar, parts of speech, support levels), exactly as the goal's sessions are scored. A
+ * screen reading a metric beside the headline goes through here so the two cannot disagree.
+ */
+export function measureSessionMetric(goal: IepGoal, context: ProgressContext, metricId: string, sessionId: string): MeasurementResult {
+  const plan = resolvePlan(goal);
+  const datasetGoalId = context.kind === 'mock' ? mockDatasetGoalId(goal, context.dataset) : null;
+  return measure(context, datasetGoalId, plan, sessionId, metricId);
+}
+
 function uiStatus(params: {
   scorable: boolean;
   hasTarget: boolean;

@@ -12,9 +12,24 @@ import { MetricCatalogue } from './metricCatalogue';
 import { MetricId } from './metricDefinition';
 import { SessionMetricSource } from './sessionMetricSource';
 
+/**
+ * The dataset column holding every word in a session's completed sentences. It is named
+ * for the per-sentence metric, but it carries a session total, so it is read only through
+ * mockWordsPerSession and never as that metric (see columnsByMetric).
+ */
+export const MOCK_WORDS_PER_SESSION_COLUMN = 'total_word_count_per_sentence';
+
+/** A session's word total from its raw dataset columns, or null when it was not recorded. */
+export function mockWordsPerSession(
+  columns: Record<string, number> | null | undefined,
+): number | null {
+  const value = columns?.[MOCK_WORDS_PER_SESSION_COLUMN];
+  return value === undefined || value === null || Number.isNaN(value) ? null : value;
+}
+
 /** Metrics whose dataset column carries the metric's own name. */
 const columnsByMetric: ReadonlySet<string> = new Set([
-  // total_word_count_per_sentence is deliberately absent: the dataset column of that
+  // MOCK_WORDS_PER_SESSION_COLUMN is deliberately absent: the dataset column of that
   // name holds a session total, and the metric describes one sentence.
   'total_sentences',
   'average_words_per_sentence',

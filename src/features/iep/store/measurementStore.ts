@@ -5,7 +5,8 @@
  * SLP, or a content-understanding service explicitly unavailable rather than guessing.
  * Operations are synchronous on in-memory state; persistence runs behind a serialised
  * queue, one file per session plus one goals file. A file that could not be read blocks
- * every write for the rest of the launch and is surfaced as a storage failure.
+ * every write for the rest of the launch and is surfaced as a storage failure. A write
+ * that fails is logged and surfaced as a save failure; later writes are still attempted.
  */
 
 import { MeasurementResult, MetricId } from '../core';
@@ -82,6 +83,12 @@ export interface SessionMetricSnapshot {
   communicationFunctionCounts: Partial<Record<CommunicationFunction, number>>;
 }
 
+/** A write that failed after its record was already applied in memory. */
+export interface SaveFailure {
+  what: 'goals' | 'measurements';
+  message: string;
+}
+
 export interface StoreOptions {
   clock?: Clock;
   ids?: IdGenerator;
@@ -94,6 +101,7 @@ export class IepMeasurementStore {
   private goalList: IepGoal[] = [];
   private navigationPaths = new Map<string, string[]>();
   private failure: StorageFailure | null = null;
+  private writeFailure: SaveFailure | null = null;
   private listeners = new Set<Listener>();
   private writeQueue: Promise<void> = Promise.resolve();
   private readonly pendingSessionWrites = new Map<string, ReturnType<typeof setTimeout>>();
@@ -202,6 +210,11 @@ export class IepMeasurementStore {
 
   get storageFailure(): StorageFailure | null {
     return this.failure;
+  }
+
+  /** The most recent write that failed; cleared once a write of the same kind succeeds. */
+  get saveFailure(): SaveFailure | null {
+    return this.writeFailure;
   }
 
   get goals(): readonly IepGoal[] {
@@ -936,8 +949,26 @@ export class IepMeasurementStore {
     });
   }
 
-  private enqueue(write: () => Promise<void>): void {
-    this.writeQueue = this.writeQueue.then(write).catch(() => undefined);
+  private enqueue(what: SaveFailure['what'], write: () => Promise<void>): void {
+    this.writeQueue = this.writeQueue
+      .then(write)
+      .then(() => this.clearSaveFailure(what))
+      .catch(error => this.recordSaveFailure(what, error));
+  }
+
+  private clearSaveFailure(what: SaveFailure['what']): void {
+    if (this.writeFailure?.what === what) {
+      this.writeFailure = null;
+      this.notify();
+    }
+  }
+
+  /** The record stays in memory and is written again with the next change to it. */
+  private recordSaveFailure(what: SaveFailure['what'], error: unknown): void {
+    console.warn(`IEP store: ${what} could not be saved`, error);
+    const subject = what === 'goals' ? 'Goal changes' : 'Session measurements';
+    this.writeFailure = { what, message: `${subject} could not be saved and may be lost when the app closes. ${String(error)}` };
+    this.notify();
   }
 
   private persistGoals(): void {
@@ -947,7 +978,7 @@ export class IepMeasurementStore {
       return;
     }
     const goals = this.goalList.map(g => ({ ...g }));
-    this.enqueue(() => this.persistence.saveGoals(goals));
+    this.enqueue('goals', () => this.persistence.saveGoals(goals));
   }
 
   /**
@@ -986,6 +1017,6 @@ export class IepMeasurementStore {
     const archive: SessionArchive = { schemaVersion: MEASUREMENT_SCHEMA_VERSION, ...slice };
     // Serialise now so later mutations cannot leak into a queued write.
     const snapshot = JSON.stringify(archive);
-    this.enqueue(() => this.persistence.saveSession(JSON.parse(snapshot) as SessionArchive));
+    this.enqueue('measurements', () => this.persistence.saveSession(JSON.parse(snapshot) as SessionArchive));
   }
 }

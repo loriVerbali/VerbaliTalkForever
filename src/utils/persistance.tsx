@@ -95,6 +95,8 @@ interface Preferences {
   /** Mock-mode SLP review overlays, JSON maps keyed by dataset/session/sentence. */
   iepMockSupportReviews: string;
   iepMockFunctionReviews: string;
+  /** Goal ids whose achievement was already reported to analytics, as a JSON array. */
+  iepAchievedGoalsReported: string;
   memoryLearningPaused: string;
   memoryAiContextEnabled: string;
   memoryExtractionThreshold: string;
@@ -191,6 +193,7 @@ export const initialPreferences: Preferences = {
   iepReportingEndMs: '',
   iepMockSupportReviews: '{}',
   iepMockFunctionReviews: '{}',
+  iepAchievedGoalsReported: '[]',
   memoryLearningPaused: initEnum.false,
   memoryAiContextEnabled: initEnum.true,
   memoryExtractionThreshold: '0.85',

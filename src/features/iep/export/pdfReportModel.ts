@@ -5,6 +5,7 @@
  */
 
 import { GOAL_STATUS_LABEL, GoalProgress, formatValue, pluralUnit } from '../application/goalProgress';
+import { LEVEL_1_LABEL, LEVEL_2_LABEL, LEVEL_3_LABEL, progressPlanLevels } from '../application/planLevels';
 import { humanDay } from '../application/reportingPeriod';
 
 export interface ReportPlanRow {
@@ -111,24 +112,24 @@ export function buildReportGoal(p: GoalProgress): ReportGoal {
       note: 'Every sentence is measured against this',
     });
   }
-  for (const mt of p.metricTargets) {
-    if (mt.metric.id === p.primaryMetricId) {
-      continue;
-    }
+  const planRow = (mt: GoalProgress['metricTargets'][number]): ReportPlanRow => {
     const name = mt.definition?.displayName ?? mt.metric.name;
     const mUnit = mt.definition?.unit ?? mt.metric.targetUnit ?? '';
-    level3.push({
+    return {
       name: mt.isSupported ? name : `${name} (not measurable by the app)`,
       target: targetText(mt.targetValue, mUnit),
       note: null,
-    });
-  }
+    };
+  };
+  const split = progressPlanLevels(p);
+  level2.push(...split.levelTwo.map(planRow));
+  level3.push(...split.levelThree.map(planRow));
   const levels: ReportLevel[] = [
-    { label: 'LEVEL 1 · ACROSS THE PERIOD', rows: level1 },
-    { label: 'LEVEL 2 · IN EACH SESSION', rows: level2 },
+    { label: LEVEL_1_LABEL.toUpperCase(), rows: level1 },
+    { label: LEVEL_2_LABEL.toUpperCase(), rows: level2 },
   ];
   if (level3.length > 0) {
-    levels.push({ label: 'LEVEL 3 · WHAT MAKES ONE COUNT', rows: level3 });
+    levels.push({ label: LEVEL_3_LABEL.toUpperCase(), rows: level3 });
   }
 
   const measuredSessions = p.sessions.filter(s => s.result.kind === 'value');

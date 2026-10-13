@@ -1,4 +1,4 @@
-import { previousPeriod, reportingPeriod, sentenceLengthShares } from '../../../src/features/iep/application';
+import { monthDay, previousPeriod, reportingPeriod, toDatePeriod, weekOfYear } from '../../../src/features/iep/application';
 
 const DAY = 86_400_000;
 
@@ -24,16 +24,44 @@ describe('reportingPeriod', () => {
   });
 });
 
-describe('sentenceLengthShares', () => {
-  it('matches samples to sessions by calendar day even when sessions start mid-day', () => {
-    const day = new Date(2026, 8, 1).getTime();
-    const sessionStarts = [day + 10 * 3_600_000, day + DAY + 14 * 3_600_000];
-    const samples = [
-      { dateMs: sessionStarts[0], words: 1, seconds: 3 },
-      { dateMs: sessionStarts[0], words: 3, seconds: 8 },
-      { dateMs: sessionStarts[1], words: 2, seconds: 5 },
-    ];
-    const shares = sentenceLengthShares(samples as never, sessionStarts);
-    expect(shares).toEqual({ one: 1, two: 1, threePlus: 1, total: 3 });
+describe('toDatePeriod', () => {
+  it('runs from the beginning of time to the end of today, whatever the goal record says', () => {
+    const period = toDatePeriod(new Date(2026, 8, 17, 15, 30).getTime());
+    expect(period).toEqual({ preset: 'custom', startMs: 0, endMs: new Date(2026, 8, 17, 23, 59, 59, 999).getTime() });
+  });
+});
+
+describe('monthDay', () => {
+  it('gives the month and day without the year', () => {
+    expect(monthDay(new Date(2026, 5, 29).getTime())).toBe('Jun 29');
+  });
+});
+
+describe('weekOfYear', () => {
+  it('starts week 1 on 1 January and each new week on a Sunday', () => {
+    // 1 January 2026 is a Thursday; the first Sunday is the 4th.
+    expect(weekOfYear(new Date(2026, 0, 1).getTime())).toBe(1);
+    expect(weekOfYear(new Date(2026, 0, 3).getTime())).toBe(1);
+    expect(weekOfYear(new Date(2026, 0, 4).getTime())).toBe(2);
+    expect(weekOfYear(new Date(2026, 5, 28).getTime())).toBe(27);
+  });
+
+  it('labels every hour of a Saturday with the same week as that Saturday midnight', () => {
+    // Saturday 3 January 2026 is the last day of week 1; Sunday the 4th starts week 2.
+    const saturday = weekOfYear(new Date(2026, 0, 3).getTime());
+    expect(weekOfYear(new Date(2026, 0, 3, 10).getTime())).toBe(saturday);
+    expect(weekOfYear(new Date(2026, 0, 3, 23, 59).getTime())).toBe(saturday);
+    expect(saturday).toBe(1);
+    expect(weekOfYear(new Date(2026, 0, 4).getTime())).toBe(saturday + 1);
+  });
+
+  it('keeps wall-calendar weeks across a DST change', () => {
+    // In zones with DST the elapsed time since 1 January is an hour short after the March
+    // change and an hour long after the November one; the week must follow the calendar.
+    expect(weekOfYear(new Date(2026, 2, 14, 23, 59).getTime())).toBe(11); // Sat 14 Mar
+    expect(weekOfYear(new Date(2026, 2, 15).getTime())).toBe(12); // Sun 15 Mar
+    expect(weekOfYear(new Date(2026, 9, 31, 23, 59).getTime())).toBe(44); // Sat 31 Oct
+    expect(weekOfYear(new Date(2026, 10, 1).getTime())).toBe(45); // Sun 1 Nov
+    expect(weekOfYear(new Date(2026, 10, 1, 23, 59).getTime())).toBe(45);
   });
 });
