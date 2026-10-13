@@ -38,6 +38,10 @@ Both real conflicts were resolved **keep-ours**:
 | `src/Views/Onboarding.tsx` | Matalk's version has the `subscription` onboarding step | Take Matalk's feature changes, then delete: the `Subscription` import, `SUBSCRIPTIONSKIP`, the `subscription` step object (leave `// Removed subscription step - this is a paid app`), `gotSubscription` state, the subscription `useEffect`, the deferred-navigation special case, and the whole `case 'subscription-selection'` render branch |
 | `src/Views/Settings.tsx` | Matalk's subscription section vs Forever's stripped version | Keep ours for the subscription section; take Matalk's new feature sections (e.g. Personal Memory) — `showAccountSettings` must default `true` |
 | `android/app/build.gradle` | Matalk bumps `versionCode` (29→32 in 2026-08-30) and may change *functional* lines in the same hunk (2026-08-30: `abiFilters` → `arm64-v8a` only, matching `gradle.properties`) | Keep ours (`versionCode` and the integer `versionName` are Forever's own train), then hand-apply the functional change |
+| `src/Views/Home.tsx` | 2026-10-12: Forever's copy is prettier-formatted (`{useDatabase}`), Matalk's has `{ useDatabase }` plus a new `iepCapture` import on the next line | Take Matalk's hunk (both imports); the rest of the file auto-merges |
+| `ios/Podfile.lock`, `yarn.lock` | Both sides regenerated them | Never hand-merge. `yarn.lock`: if the merged `package.json` differs from Matalk's only in name/version/scripts (`git diff matalk/develop -- package.json`), take Matalk's (`git checkout --theirs -- yarn.lock`) — `yarn install` must then be a no-op. `Podfile.lock`: keep ours and regenerate (§6) |
+
+git follows the `ios/Matalk.xcodeproj` → `ios/MatalkForever.xcodeproj` and `ios/Matalk/Info.plist` → `ios/matalkaiforever.verbali.io/Info.plist` renames, so Matalk's edits to those land in Forever's files (as a conflict or an auto-merge).
 
 Everything else auto-merges — but the auto-merge result is **not** shippable. Continue below before committing.
 
@@ -54,6 +58,8 @@ git rm -f src/utils/trialUtils.ts             # trial logic — no trials in For
 ```
 
 ## 4. Keep-ours identity list (restore from HEAD while still in `--no-commit`)
+
+> **Diff before you restore.** Run `git diff develop -- <file>` on the auto-merged result first and restore only files whose identity hunks actually got clobbered. A blanket restore silently drops functional hunks: `TermsAndConditions.tsx` (2026-08-22, accept button), `ios/Podfile` (2026-10-12: the auto-merge correctly kept target `'matalkforever'` *and* took Matalk's new prebuilt-binaries `post_install` block — a restore would have dropped it), `package.json` (new deps). In 2026-10-12 none of the auto-merged files on this list needed restoring.
 
 ```sh
 git checkout HEAD -- \
@@ -113,11 +119,16 @@ Then commit the merge (message pattern: *"Merge Matalk develop (…) — keep Ma
    yarn install
    cd ios && pod install   # new native deps come via autolinking
    ```
+   - If `pod install` stops with *could not find compatible versions* for a pod pinned in our `Podfile.lock`, a JS dependency bump raised its native requirement — unlock just that pod: `pod update <Pod>` (2026-10-12: `pod update Mixpanel-swift`, 6.5.0 → 6.8.0 for mixpanel-react-native 3.8.1).
+   - Then compare with Matalk's lock and align drifted pods so both apps build the same native stack: `git diff --no-index <(git show matalk/develop:ios/Podfile.lock) ios/Podfile.lock` (2026-10-12: `pod update SDWebImage SDWebImageWebPCoder libwebp`). Expected residual diff: the `hermes-engine` checksum and `PODFILE CHECKSUM` only.
+   - `pod install` also normalizes `MatalkForever.xcodeproj/project.pbxproj` (drops empty `inputPaths`/`outputPaths`, rewrites `OTHER_LDFLAGS` as an array) — commit that too.
 3. Commit `Podfile.lock`, `yarn.lock`, and pbxproj changes.
 
 ## 7. Verify
 
 - `tsc` / `lint` / `jest` — **compare against Matalk's baseline, not zero**: both repos share identical pre-existing failures (the `App.test.tsx` suite fails in both).
+- `__tests__/iep/mock/mockAudit.test.ts` (since 2026-10-12) reads CSV fixtures from the gitignored `docs/iep-dashboard-agent-package/mock-data/` and fails with ENOENT on a fresh checkout of either repo. Copy that folder from `../Matalk/docs/` to run it locally (it stays ignored).
+- Settings → Reports: the full-width purple **IEP Progress** card must open the IEP dashboard (`views.IEP_DASHBOARD`).
 - Build and run the iOS app (`Matalk.xcworkspace`, scheme `MatalkForever`); walk Onboarding end-to-end — there must be **no plan-selection step** and no paywall on entry (Open → Convo).
 - Check Settings: new feature sections present, no subscription/manage-plan section, account settings visible.
 - Confirm `.env`, `MaTalkStore.storekit`, `player.js`, `trialUtils.ts` are absent from `git status` / the tree.
@@ -134,3 +145,4 @@ The 2026-08 sync merged Matalk in two steps: first PR #38 (intake) at `05b6cec`,
 | 2026-08-13 | → `46484b7` | `intake-and-memory`, PR #13 | pbxproj, Onboarding, Settings | intake + personal memory + DaVoice |
 | 2026-08-2x | → `abf289e` | `updateAug1`, PR #15 | — | Android upgrade / RN 0.86.2 |
 | 2026-08-30 | `abf289e` → `7e82143` (PRs #42, #43) | `sync-matalk-2026-08-30` | pbxproj, Onboarding, Subscription, `android/app/build.gradle` (all keep-ours; abiFilters hand-applied) | start-up update popup (`appUpdateService`, `AppUpdateModal`, `APP_KEY=matalk_forever`), ParentalGate phone layout, Android arm64-only + KSP pin, DaVoice/wakeword bumps + postinstall Fix 6. Dropped: `android/build.log`, dev `baseUrl`. Follow-up commits: integer app versions (iOS 4 / Android "4") so the popup can evaluate them; back-port of Matalk `5243795` Terms redesign (accept button, no scroll gate) missed by the 2026-08-22 keep-ours. |
+| 2026-10-12 | `7e82143` → `00a2c42` (PR #44, IEP) | `sync-matalk-2026-10-12` | `build.gradle`, pbxproj, `Podfile.lock`, `yarn.lock` (keep-ours / regenerate), `Home.tsx` (import hunk, take Matalk's) | IEP progress dashboard (`src/features/iep`, Settings "IEP Progress" card, session-evidence capture in Home/Convo/SentenceBuilder/Verbi/KeyboardHome, profile export/import of `Documents/iep`), Podfile prebuilt-binaries workaround, new deps pdf-lib / react-native-svg / @types/node, DaVoice TTS 1.0.403 + wakeword 1.1.162. No subscription gating arrived; no pbxproj structural changes. `Podfile.lock` needed `pod update Mixpanel-swift`; image pods aligned to Matalk. tsc identical to Matalk's baseline (31 pre-existing errors); jest at parity (`App.test.tsx` only) once `docs/` fixtures were copied. iOS Debug simulator build of scheme `MatalkForever` succeeded (Xcode 27.0). |
