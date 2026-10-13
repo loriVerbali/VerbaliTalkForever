@@ -35,8 +35,22 @@ const PHONETIC_SUBSTITUTIONS: Array<[RegExp, string]> = [
 
 // Fallback for TTS-only init when the Metro dev-server asset URL can't be
 // loaded by the standalone TTS bridge. Must match the model file used in
-// getTtsModel() below, which is also a native bundle resource.
-const TTS_MODEL_BUNDLED_FILENAME = 'model_ex_hanna_light_davoice_ph.dm';
+// getTtsModel() below, which is also a native bundle resource — but the two
+// platforms name that resource differently:
+//   iOS     bundles the file directly (Xcode Resources), so the bare filename
+//           resolves.
+//   Android has no copy under app/src/main/assets. The RN asset pipeline emits
+//           it as a res/raw entry whose name encodes the source path —
+//           "ios/models/<name>" lowercased with "/" replaced by "_" (see
+//           getAndroidResourceIdentifier in @react-native/assets-registry).
+// Keep the .dm suffix on both: the bridge strips it before
+// Resources.getIdentifier(), and it is how the engine learns the model format
+// (without it the bridge defaults the extension to "onnx" and hands the DaVoice
+// model to the wrong loader).
+const TTS_MODEL_BUNDLED_FILENAME = Platform.select({
+  android: 'ios_models_model_ex_hanna_light_davoice_ph.dm',
+  default: 'model_ex_hanna_light_davoice_ph.dm',
+});
 
 /**
  * Applies phonetic substitutions to `text` before sending it to the TTS engine.

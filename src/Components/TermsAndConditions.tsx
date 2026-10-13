@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,14 @@ const { width, height } = Dimensions.get('window');
 
 interface TermsAndConditionsProps {
   onAgree: (agreed: boolean) => void;
-  // Matalk's redesigned Terms auto-advances via onAccept; Forever keeps the
-  // scroll-and-checkbox flow, so the prop is accepted but unused.
-  onAccept?: () => void;
+  onAccept: () => void;
 }
 
-const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
+const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({
+  onAgree,
+  onAccept,
+}) => {
   const { isTablet } = useAdmin();
-  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
-  const [isAgreed, setIsAgreed] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Responsive values based on device type
@@ -61,15 +60,10 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
     tableRowLineHeight: isTablet ? 24 : 20,
 
     // Agreement section
-    agreementSectionPadding: isTablet ? 15 : 1,
-    scrollPromptFontSize: isTablet ? 18 : 12,
-    scrollPromptMarginBottom: isTablet ? 18 : 1,
-    checkboxSize: isTablet ? 28 : 24,
-    checkboxMarginRight: isTablet ? 15 : 2,
-    checkboxBorderRadius: isTablet ? 6 : 4,
-    checkmarkFontSize: isTablet ? 18 : 16,
-    agreementTextFontSize: isTablet ? 18 : 16,
-    checkboxContainerPadding: isTablet ? 12 : 1,
+    acceptButtonFontSize: isTablet ? 22 : 18,
+    acceptButtonPaddingVertical: isTablet ? 18 : 14,
+    acceptButtonMarginBottom: isTablet ? 18 : 10,
+    disclaimerFontSize: isTablet ? 16 : 12,
 
     // Border and shadow
     borderRadius: isTablet ? 15 : 12,
@@ -77,38 +71,42 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
     marginBottom: isTablet ? 25 : 20,
   };
 
-  const handleScroll = (event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const isScrolledToBottom =
-      contentOffset.y + layoutMeasurement.height >= contentSize.height - 20;
-
-    if (isScrolledToBottom && !hasScrolledToBottom) {
-      setHasScrolledToBottom(true);
-    }
-  };
-
-  const handleCheckboxPress = () => {
-    if (hasScrolledToBottom) {
-      const newAgreedState = !isAgreed;
-      setIsAgreed(newAgreedState);
-      onAgree(newAgreedState);
-    }
+  const handleAccept = () => {
+    onAgree(true);
+    onAccept();
   };
 
   return (
     <View style={[styles.container, { maxHeight: responsiveValues.maxHeight }]}>
-      {!hasScrolledToBottom && (
+      <TouchableOpacity
+        style={[
+          styles.acceptButton,
+          {
+            paddingVertical: responsiveValues.acceptButtonPaddingVertical,
+          },
+        ]}
+        onPress={handleAccept}>
         <Text
           style={[
-            styles.scrollPrompt,
-            {
-              fontSize: responsiveValues.scrollPromptFontSize,
-              marginBottom: responsiveValues.scrollPromptMarginBottom,
-            },
+            styles.acceptButtonText,
+            { fontSize: responsiveValues.acceptButtonFontSize },
           ]}>
-          Please scroll to the bottom to continue
+          I Accept the Terms & Conditions
         </Text>
-      )}
+      </TouchableOpacity>
+      <Text
+        style={[
+          styles.disclaimerText,
+          {
+            fontSize: responsiveValues.disclaimerFontSize,
+            marginBottom: responsiveValues.acceptButtonMarginBottom,
+          },
+        ]}>
+        I agree to the Privacy Policy. I understand that MaTalk AI requires AI
+        processing via Google Gemini and Pollinations AI to function. Text
+        prompts are stored on Verbali servers. Audio recordings and images are
+        never uploaded to our servers or any third party.
+      </Text>
       <ScrollView
         ref={scrollViewRef}
         style={[
@@ -125,8 +123,6 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
             padding: responsiveValues.containerPadding,
           },
         ]}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
         showsVerticalScrollIndicator={true}>
         <Text
           style={[
@@ -1444,58 +1440,6 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ onAgree }) => {
           Privacy inquiries or data requests: info@verbali.io
         </Text>
       </ScrollView>
-
-      <View
-        style={[
-          styles.agreementSection,
-          {
-            flexDirection: isTablet ? 'column' : 'row',
-          },
-          {
-            paddingVertical: responsiveValues.agreementSectionPadding,
-          },
-        ]}>
-        <TouchableOpacity
-          style={[
-            styles.checkboxContainer,
-            { paddingVertical: responsiveValues.checkboxContainerPadding },
-            !hasScrolledToBottom && styles.disabledCheckbox,
-          ]}
-          onPress={handleCheckboxPress}
-          disabled={!hasScrolledToBottom}>
-          <View
-            style={[
-              styles.checkbox,
-              {
-                width: responsiveValues.checkboxSize,
-                height: responsiveValues.checkboxSize,
-                borderRadius: responsiveValues.checkboxBorderRadius,
-                marginRight: responsiveValues.checkboxMarginRight,
-              },
-              isAgreed && styles.checkedBox,
-            ]}>
-            {isAgreed && (
-              <Text
-                style={[
-                  styles.checkmark,
-                  {
-                    fontSize: responsiveValues.checkmarkFontSize,
-                  },
-                ]}>
-                ✓
-              </Text>
-            )}
-          </View>
-          <Text
-            style={[
-              styles.agreementText,
-              { fontSize: responsiveValues.agreementTextFontSize },
-              !hasScrolledToBottom && styles.disabledText,
-            ]}>
-            I agree to the Privacy Policy. I understand that MaTalk AI requires AI processing via Google Gemini and Pollinations AI to function. Text prompts are stored on Verbali servers. Audio recordings and images are never uploaded to our servers or any third party.
-          </Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -1566,49 +1510,30 @@ const styles = StyleSheet.create({
     marginTop: 30,
     color: '#777',
   },
-  agreementSection: {
-    alignItems: 'center',
-
-    // paddingVertical handled by responsive values
-  },
-  scrollPrompt: {
-    color: '#FF6B6B',
-    fontWeight: '600',
-    textAlign: 'center',
-    // fontSize, marginBottom handled by responsive values
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    // paddingVertical handled by responsive values
-  },
-  disabledCheckbox: {
-    opacity: 0.5,
-  },
-  checkbox: {
-    borderWidth: 2,
-    borderColor: '#8E24AA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    // width, height, borderRadius, marginRight handled by responsive values
-  },
-  checkedBox: {
+  acceptButton: {
     backgroundColor: '#8E24AA',
+    borderRadius: 30,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    marginBottom: 10,
+    // paddingVertical handled by responsive values
   },
-  checkmark: {
+  acceptButtonText: {
     color: 'white',
     fontWeight: 'bold',
     // fontSize handled by responsive values
   },
-  agreementText: {
-    color: '#333',
+  disclaimerText: {
+    color: '#555',
     fontWeight: '600',
-    flex: 1,
-    // fontSize handled by responsive values
-  },
-  disabledText: {
-    color: '#999',
+    textAlign: 'center',
+    // fontSize, marginBottom handled by responsive values
   },
 });
 

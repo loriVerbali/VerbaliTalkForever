@@ -77,19 +77,21 @@ android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
-    namespace "com.verbali.matalkai"
+    namespace "com.verbali.matalkaiforever"
     defaultConfig {
-        applicationId "com.verbali.matalkai"
+        applicationId "com.verbali.matalkaiforever"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 26
-        versionName "MATALKFOREVERV3"
+        versionName "4"
         manifestPlaceholders = [auth0Domain: "dev-64l2kpebzn1y4zm7.us.auth0.com", auth0Scheme: "${applicationId}.auth0"]
         missingDimensionStrategy "store", "play"
 
-        // ABIs must match reactNativeArchitectures in gradle.properties
+        // ABIs must match reactNativeArchitectures in gradle.properties.
+        // arm64-v8a only — see the note there: the TTS/wakeword native libs
+        // have no 32-bit build.
         ndk {
-            abiFilters 'armeabi-v7a', 'arm64-v8a'
+            abiFilters 'arm64-v8a'
         }
     }
     signingConfigs {

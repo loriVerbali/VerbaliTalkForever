@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {
   View,
   Text,
@@ -10,14 +10,14 @@ import {
   Animated,
   useWindowDimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, RouteProp } from '@react-navigation/native';
-import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useNavigation, RouteProp} from '@react-navigation/native';
+import {check, request, PERMISSIONS, RESULTS} from 'react-native-permissions';
 
-import Inputs, { InputsRef } from '../Components/Inputs';
+import Inputs, {InputsRef} from '../Components/Inputs';
 import ImageGallery from '../Components/ImageGallery';
 import MatalkIcon from '../Components/MatalkIcon';
-import { useAssistant } from '../contexts/AssistantContext';
+import {useAssistant} from '../contexts/AssistantContext';
 import {
   useChatContext,
   getContextualInfo,
@@ -26,10 +26,10 @@ import TTSService from '../utils/TTSService';
 import FastImage from 'react-native-fast-image';
 import HomeButton from '../Components/HomeButton';
 import mixpanel from '../utils/mixpanelInstance';
-import { logConversation } from '../utils/conversationLogger';
-import { useAdmin } from '../contexts/adminContext';
-import { views } from '../utils/constants';
-import { useAppSettings } from '../utils/persistance';
+import {logConversation} from '../utils/conversationLogger';
+import {useAdmin} from '../contexts/adminContext';
+import {views} from '../utils/constants';
+import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice, {
   logSpeechDiagnostics,
@@ -37,13 +37,13 @@ import Voice, {
   stopSpeechRecognition,
   subscribeToSpeechEvents,
 } from '../utils/STTService';
-import { useDatabase } from '../contexts/DatabaseContext';
+import {useDatabase} from '../contexts/DatabaseContext';
 import {
   personalMemoryService,
   makeMemoryEventId,
 } from '../services/PersonalMemoryService';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 type RootStackParamList = {
   Home: {
@@ -62,7 +62,7 @@ const DEBUGWITHOUTTRANSCRIPTION = false;
 const STT_DEBUG = false;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
-const DEBUGTRANSCRIPTION = 'How was your practice today?';
+const DEBUGTRANSCRIPTION = 'How was school today?';
 
 const sttTrace = (...args: unknown[]) => {
   if (STT_DEBUG) {
@@ -76,25 +76,24 @@ const sttWarn = (...args: unknown[]) => {
   }
 };
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
-  const { width: viewportWidth, height: viewportHeight } =
-    useWindowDimensions();
+const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
+  const {width: viewportWidth, height: viewportHeight} = useWindowDimensions();
   const {
     generateAnswers,
     conversationHistory,
     addToConversationHistory,
     updateLastAssistantMessage,
   } = useAssistant();
-  const { weather, location } = useChatContext();
-  const { isTablet } = useAdmin();
+  const {weather, location} = useChatContext();
+  const {isTablet} = useAdmin();
   const shortSide = Math.min(viewportWidth, viewportHeight);
   const recordingContainerSize = Math.min(
     shortSide * (isTablet ? 0.5 : 0.72),
     isTablet ? 420 : 280,
   );
   const insets = useSafeAreaInsets();
-  const { getItem, preferences } = useAppSettings();
-  const { addUtterance, addAIResponseTime, addAIResolved } = useDatabase();
+  const {getItem, preferences} = useAppSettings();
+  const {addUtterance, addAIResponseTime, addAIResolved} = useDatabase();
   const stateof = route?.params?.stateof ?? '';
   const wakewordPaused = route?.params?.wakewordPaused === true;
   const recordingPermissionsReady =
@@ -134,7 +133,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           }
         }
       }
-    } catch (error) { }
+    } catch (error) {}
 
     return fallbackUrl || '';
   };
@@ -158,7 +157,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const [waitingForNextConversation, setWaitingForNextConversation] =
     useState(false);
   const [directAnswers, setDirectAnswers] = useState<
-    Array<{ word: string; imageUrl?: string }>
+    Array<{word: string; imageUrl?: string}>
   >([]);
   const [accumulatedPriors, setAccumulatedPriors] = useState<string[]>([]);
 
@@ -178,15 +177,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   const responsiveValues = {
     // Icon sizes
     microphoneSize: isTablet
-      ? { width: 45, height: 45 }
-      : { width: 35, height: 35 },
+      ? {width: 45, height: 45}
+      : {width: 35, height: 35},
     fetchingSize: isTablet
-      ? { width: 200, height: 200 }
+      ? {width: 200, height: 200}
       : {
-        width: Math.min(shortSide * 0.32, 120),
-        height: Math.min(shortSide * 0.32, 120),
-      },
-    matalkIconSize: isTablet ? undefined : { transform: [{ scale: 0.8 }] },
+          width: Math.min(shortSide * 0.32, 120),
+          height: Math.min(shortSide * 0.32, 120),
+        },
+    matalkIconSize: isTablet ? undefined : {transform: [{scale: 0.8}]},
 
     // Layout dimensions
     inputNavigationHeight: isTablet ? height * 0.11 : height * 0.1,
@@ -200,14 +199,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Keyboard input dimensions
     keyboardIconSize: isTablet
-      ? { width: width * 0.3, height: width * 0.3 }
-      : { width: width * 0.25, height: width * 0.25 },
+      ? {width: width * 0.3, height: width * 0.3}
+      : {width: width * 0.25, height: width * 0.25},
     recordingIconSize: isTablet
-      ? { width: shortSide * 0.4, height: shortSide * 0.4 }
+      ? {width: shortSide * 0.4, height: shortSide * 0.4}
       : {
-        width: Math.min(shortSide * 0.46, 170),
-        height: Math.min(shortSide * 0.28, 104),
-      },
+          width: Math.min(shortSide * 0.46, 170),
+          height: Math.min(shortSide * 0.28, 104),
+        },
 
     // Typography
     transcriptionFontSize: isTablet ? 22 : 18,
@@ -219,8 +218,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Button dimensions
     keyboardButtonPadding: isTablet
-      ? { vertical: 14, horizontal: 35 }
-      : { vertical: 12, horizontal: 30 },
+      ? {vertical: 14, horizontal: 35}
+      : {vertical: 12, horizontal: 30},
     keyboardButtonMinWidth: isTablet ? 120 : 100,
     keyboardButtonBorderRadius: isTablet ? 28 : 25,
 
@@ -237,16 +236,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     navigationCardBorderRadius: isTablet ? 15 : 12,
     navigationCardPadding: isTablet ? 18 : 15,
     navigationCardImageSize: isTablet
-      ? { width: 70, height: 70 }
-      : { width: 60, height: 60 },
+      ? {width: 70, height: 70}
+      : {width: 60, height: 60},
     navigationCardImageBorderRadius: isTablet ? 35 : 30,
     navigationCardImageIconSize: isTablet
-      ? { width: 50, height: 50 }
-      : { width: 40, height: 40 },
+      ? {width: 50, height: 50}
+      : {width: 40, height: 40},
 
     // Shadow and elevation
     shadowRadius: isTablet ? 5 : 3,
-    shadowOffset: isTablet ? { width: 0, height: 3 } : { width: 0, height: 2 },
+    shadowOffset: isTablet ? {width: 0, height: 3} : {width: 0, height: 2},
     elevation: isTablet ? 6 : 4,
 
     // Waiting for next conversation
@@ -294,7 +293,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
   // Used to drop wakeword-echo partials that arrive in the first ~400 ms.
   const sessionStartTimeRef = useRef<number>(0);
   const WAKEWORD_ECHO_GRACE_MS = 400; // drop early partials that are only the wakeword
-  const WAKEWORD_PHRASES = ['hey verbi,', 'hey verby,', 'hey verbose,', 'hey baby,', 'hey verbi', 'hey verby', 'hey verbose', 'hey baby', 'more baby', 'more baby,']; // normalised variants
+  const WAKEWORD_PHRASES = [
+    'hey verbi,',
+    'hey verby,',
+    'hey verbose,',
+    'hey baby,',
+    'hey verbi',
+    'hey verby',
+    'hey verbose',
+    'hey baby',
+    'more baby',
+    'more baby,',
+  ]; // normalised variants
   const isRecordingRef = useRef(false);
   const isNavigatingToOpenRef = useRef(false);
   // Separate guard that is true from the moment handleRecord is called until
@@ -398,7 +408,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             timetotap: duration,
             dateof: new Date(),
           });
-        } catch (error) { }
+        } catch (error) {}
       }
 
       setResponseTimerStart(null);
@@ -418,7 +428,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       try {
         const setting = await getItem('gobackAfterSelection');
         setGobackAfterSelection(setting === '1');
-      } catch (error) { }
+      } catch (error) {}
     };
 
     // Load the setting
@@ -443,7 +453,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     }
     if (stateof === 'Keyboard') {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.pauseDetection(false).catch(() => { });
+      wakeWordService.pauseDetection(false).catch(() => {});
     }
   }, [stateof, wakewordPaused, recordingPermissionsReady]); // Dependency on stateof ensures this runs when coming from Open.tsx
 
@@ -451,7 +461,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Clear any previous wakeword callback to prevent accidental triggers from Open.tsx
     try {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.setCallback(() => { });
+      wakeWordService.setCallback(() => {});
     } catch (error) {
       sttWarn('[Home] Error clearing wakeword callback on mount:', error);
     }
@@ -604,7 +614,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           }
         },
       },
-      { key: 'Home' },
+      {key: 'Home'},
     );
 
     return () => {
@@ -613,9 +623,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       if (Platform.OS === 'android') {
         // Destroy the recognizer so the mic is fully released for the
         // wakeword engine on the next screen.
-        Promise.resolve(Voice.destroy()).catch(() => { });
+        Promise.resolve(Voice.destroy()).catch(() => {});
       } else {
-        stopSpeechRecognition().catch(() => { });
+        stopSpeechRecognition().catch(() => {});
       }
     };
   }, []);
@@ -625,7 +635,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     return () => {
       if (!isNavigatingToOpenRef.current) {
         const wakeWordService = WakeWordService.getInstance();
-        wakeWordService.pauseDetection(false).catch(() => { });
+        wakeWordService.pauseDetection(false).catch(() => {});
       }
 
       // Only cleanup Whisper service when component actually unmounts
@@ -828,7 +838,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   const stopRecording = async () => {
     sttTrace(
-      `[STT TRACE][Home] stopRecording called partialRef="${partialResultRef.current
+      `[STT TRACE][Home] stopRecording called partialRef="${
+        partialResultRef.current
       }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
     );
     try {
@@ -863,7 +874,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
   const processVoiceResults = async () => {
     sttTrace(
-      `[STT TRACE][Home] processVoiceResults begin partialRef="${partialResultRef.current
+      `[STT TRACE][Home] processVoiceResults begin partialRef="${
+        partialResultRef.current
       }" resultsRef=${JSON.stringify(voiceResultsRef.current)}`,
     );
     try {
@@ -939,7 +951,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
             parseInt(preferences.answersCount as string) || 5;
           const answers = await generateAnswers(transcribedText, {
             mode: 'generate_answers',
-            metadata: { contextInfo: contextInfo },
+            metadata: {contextInfo: contextInfo},
             number: currentAnswersCount,
             countMin: currentAnswersCount,
             countMax: currentAnswersCount,
@@ -952,7 +964,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                   answer.word,
                   answer.imageUrl,
                 );
-                return { ...answer, imageUrl: pepesImageUrl || answer.imageUrl };
+                return {...answer, imageUrl: pepesImageUrl || answer.imageUrl};
               }),
             );
 
@@ -1048,7 +1060,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     // Clean up wake word service if waiting
     if (waitingForNextConversation) {
       const wakeWordService = WakeWordService.getInstance();
-      wakeWordService.pauseDetection(false).catch(() => { });
+      wakeWordService.pauseDetection(false).catch(() => {});
     }
   };
 
@@ -1216,7 +1228,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
 
     // Update AI Resolved record with the selected answer
     if (currentAIRecord) {
-      const updatedRecord = { ...currentAIRecord };
+      const updatedRecord = {...currentAIRecord};
 
       if (currentAIRecord.currentRound === 1) {
         updatedRecord.round1Picked = selectedAnswer;
@@ -1243,7 +1255,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               : undefined,
             round3_picked: updatedRecord.round3Picked,
           });
-        } catch (error) { }
+        } catch (error) {}
 
         // Clear the current AI record
         setCurrentAIRecord(null);
@@ -1333,8 +1345,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       <View
         style={[
           styles.container,
-          Platform.OS === 'android' ? { paddingTop: width * 0.03 } : {},
-          { backgroundColor: '#FFF8E7' },
+          Platform.OS === 'android' ? {paddingTop: width * 0.03} : {},
+          {backgroundColor: '#FFF8E7'},
         ]}>
         {stateof === 'Keyboard' ? null : (
           <TouchableOpacity
@@ -1398,16 +1410,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
           style={[
             styles.inputNavigationContainer,
             stateof === 'Keyboard'
-              ? { height: 0, opacity: 0 }
+              ? {height: 0, opacity: 0}
               : {
-                height: responsiveValues.inputNavigationHeight,
-                marginTop: Math.max(insets.top, 10),
-              },
+                  height: responsiveValues.inputNavigationHeight,
+                  marginTop: Math.max(insets.top, 10),
+                },
           ]}>
           {stateof !== 'Keyboard' && <Inputs ref={inputsRef} mode={stateof} />}
         </View>
 
-        <View style={{ flex: 1, width: '100%' }}>
+        <View style={{flex: 1, width: '100%'}}>
           <View
             style={[
               styles.contentContainer,
@@ -1418,7 +1430,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, { zIndex: 10 }]}
+              style={[styles.imageCardContainer, {zIndex: 10}]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1436,7 +1448,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       try {
                         // Handle direct answers format
                         return {
-                          url: { url: item.imageUrl || '' },
+                          url: {url: item.imageUrl || ''},
                           prompt: item.word || '',
                         };
                       } catch (err) {
@@ -1444,7 +1456,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       }
                     })
                     .filter(
-                      (item): item is { url: { url: string }; prompt: string } =>
+                      (item): item is {url: {url: string}; prompt: string} =>
                         item !== null,
                     );
 
@@ -1454,7 +1466,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         <Text
                           style={[
                             styles.errorText,
-                            { fontSize: responsiveValues.errorFontSize },
+                            {fontSize: responsiveValues.errorFontSize},
                           ]}>
                           We have an issue. Please be patient.
                         </Text>
@@ -1506,7 +1518,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                { fontSize: responsiveValues.cardTextFontSize },
+                                {fontSize: responsiveValues.cardTextFontSize},
                               ]}>
                               ShortCuts
                             </Text>
@@ -1556,7 +1568,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             <Text
                               style={[
                                 styles.cardText,
-                                { fontSize: responsiveValues.cardTextFontSize },
+                                {fontSize: responsiveValues.cardTextFontSize},
                               ]}>
                               Feelings
                             </Text>
@@ -1597,7 +1609,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                       <View
                         style={[
                           styles.waitingForNextContainer,
-                          { padding: responsiveValues.waitingContainerPadding },
+                          {padding: responsiveValues.waitingContainerPadding},
                         ]}>
                         <Text
                           style={[
@@ -1609,7 +1621,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             },
                           ]}>
                           Say{' '}
-                          <Text style={{ fontWeight: 'bold', color: 'blue' }}>
+                          <Text style={{fontWeight: 'bold', color: 'blue'}}>
                             Hey Verbi
                           </Text>{' '}
                           to continue the conversation or tap below
@@ -1646,7 +1658,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                         </TouchableOpacity>
                       </View>
                     ) : stateof === 'Keyboard' ? null : isTranscribing ? ( // Keyboard mode handled by KeyboardHome view
-                      <View style={{ alignItems: 'center' }}>
+                      <View style={{alignItems: 'center'}}>
                         <FastImage
                           source={require('../assets/movie/output.gif')}
                           style={[
@@ -1702,7 +1714,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           justifyContent: 'center',
                           alignItems: 'center',
                         }}>
-                        <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                        <View style={{alignItems: 'center', marginBottom: 20}}>
                           <Text
                             style={{
                               fontSize: responsiveValues.transcriptionFontSize,
@@ -1719,23 +1731,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                                 color: isUsingLocalWhisper
                                   ? '#4CAF50'
                                   : modelNotAvailable
-                                    ? '#FF9800'
-                                    : '#2196F3',
+                                  ? '#FF9800'
+                                  : '#2196F3',
                                 fontWeight: '500',
                                 fontStyle: 'italic',
                               }}>
                               {isUsingLocalWhisper
                                 ? '🔒 Local Whisper'
                                 : modelNotAvailable
-                                  ? '☁️ Cloud (Model not downloaded)'
-                                  : '☁️ Cloud'}
+                                ? '☁️ Cloud (Model not downloaded)'
+                                : '☁️ Cloud'}
                             </Text>
                           )}
                         </View>
 
                         {/* Show different loading states based on processing phase */}
                         {isRetrying ? (
-                          <View style={{ alignItems: 'center' }}>
+                          <View style={{alignItems: 'center'}}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1757,7 +1769,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                             </Text>
                           </View>
                         ) : isProcessingAnswer ? (
-                          <View style={{ alignItems: 'center' }}>
+                          <View style={{alignItems: 'center'}}>
                             <FastImage
                               source={require('../assets/movie/output.gif')}
                               style={[
@@ -1788,8 +1800,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
                           />
                         ) : null}
                         {finishedTranscribing &&
-                          (transcribedText.length === 0 ||
-                            transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
+                        (transcribedText.length === 0 ||
+                          transcribedText === TRANSCRIPTIONERRORMESSAGE) ? (
                           <HomeButton
                             navigation={navigation}
                             onReset={resetLocalStates}
@@ -1859,7 +1871,7 @@ const styles = StyleSheet.create({
       height: 5,
       backgroundColor: '#CE93D8',
       shadowColor: '#8E24AA',
-      shadowOffset: { width: 0, height: 4 },
+      shadowOffset: {width: 0, height: 4},
       shadowOpacity: 1,
       shadowRadius: 14,
       zIndex: 999,

@@ -1163,6 +1163,13 @@
     slash "^3.0.0"
     strip-ansi "^6.0.0"
 
+"@jest/create-cache-key-function@^29.7.0":
+  version "29.7.0"
+  resolved "https://registry.yarnpkg.com/@jest/create-cache-key-function/-/create-cache-key-function-29.7.0.tgz#793be38148fab78e65f40ae30c36785f4ad859f0"
+  integrity sha512-4QqS3LY5PBmTRHj9sAg1HLoPzqAI0uOX6wI/TRqHIcOxlFidy6YEmCQJk6FSZjNLGCeubDMfmkWL+qaLKhSGQA==
+  dependencies:
+    "@jest/types" "^29.6.3"
+
 "@jest/environment@^29.7.0":
   version "29.7.0"
   resolved "https://registry.yarnpkg.com/@jest/environment/-/environment-29.7.0.tgz#24d61f54ff1f786f3cd4073b4b94416383baf2a7"
@@ -1707,6 +1714,17 @@
   version "0.86.2"
   resolved "https://registry.yarnpkg.com/@react-native/gradle-plugin/-/gradle-plugin-0.86.2.tgz#75229b451ec8936919ffd3bbf45be70874e4b408"
   integrity sha512-2F6x14NcHMpVmfTTFKfMkpV5dZedZrLiv6PE+c3vgnesV2bjleUBydr4U+NI8VkI7OwW71L0A5qQ76I9LCrfoQ==
+
+"@react-native/jest-preset@0.86.2":
+  version "0.86.2"
+  resolved "https://registry.yarnpkg.com/@react-native/jest-preset/-/jest-preset-0.86.2.tgz#11857e29d578a4f32bcf6a28fa3df32a25c3300d"
+  integrity sha512-wneoqwKWdv6wIcWotVgp6NMlMWcJDjxDnp7fVYym2Pn6JLgAKgkbmuHGmxW0cLCGoa9wtcO680uciv+Kzx0G7w==
+  dependencies:
+    "@jest/create-cache-key-function" "^29.7.0"
+    "@react-native/js-polyfills" "0.86.2"
+    babel-jest "^29.7.0"
+    jest-environment-node "^29.7.0"
+    regenerator-runtime "^0.13.2"
 
 "@react-native/js-polyfills@0.86.2":
   version "0.86.2"
@@ -5671,10 +5689,10 @@ react-native-config@^1.5.5:
   resolved "https://registry.yarnpkg.com/react-native-config/-/react-native-config-1.6.1.tgz#f8428829fda74384484d773fe36820159c559159"
   integrity sha512-HvKtxr6/Tq3iMdFx5REYZsjCtPi0RxQOMCs15+DqrUPTNFtWHuEuh+zw7fJp+dmuO79YMfdtlsPWIGTHtaXwjg==
 
-react-native-davoice-tts@^1.0.363:
-  version "1.0.363"
-  resolved "https://registry.yarnpkg.com/react-native-davoice-tts/-/react-native-davoice-tts-1.0.363.tgz#af3e77219f250d2aeb7942396b5121b04aa5b659"
-  integrity sha512-sCze0TwEqk0hpyZ1K+EbFNuhdHS5AbeSJf4wE1ruKTwG2F5kqkvuspWlRLQ27s5PNWyKPSTMq4sd8Uc8jPUaTg==
+react-native-davoice-tts@^1.0.369:
+  version "1.0.369"
+  resolved "https://registry.yarnpkg.com/react-native-davoice-tts/-/react-native-davoice-tts-1.0.369.tgz#0018ebc82ce430062d38c69cf8aaf665a96b9feb"
+  integrity sha512-Gz9T1q89gkaVlhfgIiaU5H7w71CZtFnTpKgS4FPQNvKvuhfOby0slyLg0exuBSQX5lYm7KuVMlsk5MZIXVWmow==
 
 react-native-default-preference@^1.4.4:
   version "1.4.4"
@@ -5794,10 +5812,10 @@ react-native-video@6.16.0:
   resolved "https://registry.yarnpkg.com/react-native-video/-/react-native-video-6.16.0.tgz#78ad0affc6f4a09c366d83532b36be562149d3f5"
   integrity sha512-FS9lb7qCd5wN6KAifziXH8PogAkAPy5YD8lJ2t/1FkBG+09hD+CsP4C7EfWFzvY/RxhO30iVZ1g5ZquofKIzrg==
 
-react-native-wakeword@^1.1.131:
-  version "1.1.131"
-  resolved "https://registry.yarnpkg.com/react-native-wakeword/-/react-native-wakeword-1.1.131.tgz#5edb08f08f3883e919a15e3cfdcb2eb1d6008839"
-  integrity sha512-YbWKPc6kLkjNmuBxNxNBG+d/BUnjrT8joqBj4NKhUqTXoUU2u+2pX7DZEe7+d2hSR5oMEMz1hIm31yP1sWIzcA==
+react-native-wakeword@^1.1.143:
+  version "1.1.143"
+  resolved "https://registry.yarnpkg.com/react-native-wakeword/-/react-native-wakeword-1.1.143.tgz#da20ed30c8d680148adb526cac315b2e33c3a2d7"
+  integrity sha512-vhRS4qH1o9rsuqSRbWgApK8i4p+SkPj8BwOnP0ZUJs/MN5pSnevjyBR3/yGpqhW1VXu1LUwEi/x6YQqYcsi53w==
 
 react-native-webview@^13.13.5:
   version "13.17.0"
