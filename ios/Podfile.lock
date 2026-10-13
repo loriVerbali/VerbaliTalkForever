@@ -28,7 +28,7 @@ PODS:
   - json-enum (1.2.3)
   - jsonlogic (1.2.4):
     - json-enum (~> 1.2.3)
-  - KeyWordRNBridge (1.0.14):
+  - KeyWordRNBridge (1.0.33):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
   - libwebp (1.6.0):
@@ -43,17 +43,17 @@ PODS:
   - libwebp/sharpyuv (1.6.0)
   - libwebp/webp (1.6.0):
     - libwebp/sharpyuv
-  - Mixpanel-swift (6.5.0):
+  - Mixpanel-swift (6.8.0):
     - jsonlogic (~> 1.2.0)
-    - Mixpanel-swift/Complete (= 6.5.0)
-    - MixpanelSwiftCommon (~> 1.0.0)
-  - Mixpanel-swift/Complete (6.5.0):
+    - Mixpanel-swift/Complete (= 6.8.0)
+    - MixpanelSwiftCommon (~> 1.1.0)
+  - Mixpanel-swift/Complete (6.8.0):
     - jsonlogic (~> 1.2.0)
-    - MixpanelSwiftCommon (~> 1.0.0)
-  - MixpanelReactNative (3.6.0):
-    - Mixpanel-swift (= 6.5.0)
+    - MixpanelSwiftCommon (~> 1.1.0)
+  - MixpanelReactNative (3.8.1):
+    - Mixpanel-swift (= 6.8.0)
     - React-Core
-  - MixpanelSwiftCommon (1.0.1)
+  - MixpanelSwiftCommon (1.1.0)
   - NitroIap (16.1.0):
     - hermes-engine
     - NitroModules
@@ -1671,7 +1671,7 @@ PODS:
     - Yoga
   - react-native-orientation-locker (1.7.0):
     - React-Core
-  - react-native-safe-area-context (5.9.1):
+  - react-native-safe-area-context (5.10.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1683,8 +1683,8 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - react-native-safe-area-context/common (= 5.9.1)
-    - react-native-safe-area-context/fabric (= 5.9.1)
+    - react-native-safe-area-context/common (= 5.10.1)
+    - react-native-safe-area-context/fabric (= 5.10.1)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -1695,7 +1695,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-safe-area-context/common (5.9.1):
+  - react-native-safe-area-context/common (5.10.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1717,7 +1717,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-safe-area-context/fabric (5.9.1):
+  - react-native-safe-area-context/fabric (5.10.1):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2278,13 +2278,14 @@ PODS:
     - React-Core
   - RNDeviceInfo (15.0.2):
     - React-Core
-  - RNFastImage (8.6.3):
+  - RNFastImage (8.31.2):
     - React-Core
-    - SDWebImage (~> 5.11.1)
-    - SDWebImageWebPCoder (~> 0.8.4)
+    - SDWebImage (< 6.0, >= 5.11.1)
+    - SDWebImagePhotosPlugin (< 2.0, >= 1.2.0)
+    - SDWebImageWebPCoder (< 1.0, >= 0.8.4)
   - RNFS (2.20.0):
     - React-Core
-  - RNGestureHandler (2.32.0):
+  - RNGestureHandler (2.33.0):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2306,7 +2307,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNLocalize (3.7.0):
+  - RNLocalize (3.7.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2328,7 +2329,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNPermissions (5.6.1):
+  - RNPermissions (5.6.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2471,6 +2472,51 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNSVG (15.15.5):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - RNSVG/common (= 15.15.5)
+    - Yoga
+  - RNSVG/common (15.15.5):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNWorklets (0.11.4):
     - hermes-engine
     - RCTRequired
@@ -2542,21 +2588,23 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNZipArchive (7.1.2):
+  - RNZipArchive (7.1.3):
     - React-Core
-    - RNZipArchive/Core (= 7.1.2)
+    - RNZipArchive/Core (= 7.1.3)
     - SSZipArchive (~> 2.5.5)
-  - RNZipArchive/Core (7.1.2):
+  - RNZipArchive/Core (7.1.3):
     - React-Core
     - SSZipArchive (~> 2.5.5)
-  - SDWebImage (5.11.1):
-    - SDWebImage/Core (= 5.11.1)
-  - SDWebImage/Core (5.11.1)
-  - SDWebImageWebPCoder (0.8.5):
-    - libwebp (~> 1.0)
+  - SDWebImage (5.21.7):
+    - SDWebImage/Core (= 5.21.7)
+  - SDWebImage/Core (5.21.7)
+  - SDWebImagePhotosPlugin (1.2.1):
     - SDWebImage/Core (~> 5.10)
+  - SDWebImageWebPCoder (0.15.0):
+    - libwebp (~> 1.0)
+    - SDWebImage/Core (~> 5.17)
   - SSZipArchive (2.5.5)
-  - TTSRNBridge (1.0.304):
+  - TTSRNBridge (1.0.392):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
   - Yoga (0.0.0)
@@ -2664,6 +2712,7 @@ DEPENDENCIES:
   - RNPermissions (from `../node_modules/react-native-permissions`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNShare (from `../node_modules/react-native-share`)
+  - RNSVG (from `../node_modules/react-native-svg`)
   - RNWorklets (from `../node_modules/react-native-worklets`)
   - RNZipArchive (from `../node_modules/react-native-zip-archive`)
   - TTSRNBridge (from `../node_modules/react-native-davoice-tts`)
@@ -2681,6 +2730,7 @@ SPEC REPOS:
     - openiap
     - PostHog
     - SDWebImage
+    - SDWebImagePhotosPlugin
     - SDWebImageWebPCoder
     - SSZipArchive
 
@@ -2888,6 +2938,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-reanimated"
   RNShare:
     :path: "../node_modules/react-native-share"
+  RNSVG:
+    :path: "../node_modules/react-native-svg"
   RNWorklets:
     :path: "../node_modules/react-native-worklets"
   RNZipArchive:
@@ -2903,11 +2955,11 @@ SPEC CHECKSUMS:
   hermes-engine: 61fd8c635844c555db542ed5a81a1af19ab2e347
   json-enum: 57ad746d2f0d7852796e9aa50267bd84a778222e
   jsonlogic: 006f892470384401b8ca5b5d8d4cdadb3a0d5c9b
-  KeyWordRNBridge: d7309b57f485349f43ae5ef1822f4262113eb0eb
+  KeyWordRNBridge: d2768e947a20906fb9c0f4cd99d953281ff90243
   libwebp: af5937a13536ef73f3784d69cc342b98961acf33
-  Mixpanel-swift: bd4957fb736069f0c1422df2f3d9f4641f2736c4
-  MixpanelReactNative: 3a1d7a765e165b045ccb60553253bc1af9e3e5b4
-  MixpanelSwiftCommon: 6fc461403945422a2e1d0989d712c0db2c26ecdb
+  Mixpanel-swift: 2704715b3c57e4c1695e35265ea3fa0c96a79f43
+  MixpanelReactNative: d28a9b8e097a25c1d7d70570e9903697912edc4e
+  MixpanelSwiftCommon: 558018032a946849b1277812b3f810bdeb22f654
   NitroIap: aea078b5e25102f015543e1d18f5951a5a4350f3
   NitroModules: 452230d9b63c6c3f59dd97eeaa27ec3449271d4a
   onnxruntime-c: 07cfff40dda7e1c54a4350bb2ad226c63150fce3
@@ -2959,7 +3011,7 @@ SPEC CHECKSUMS:
   react-native-in-app-review: 1516ba69d60d58053b7eb3aaaf8d2a5a74af8b57
   react-native-netinfo: 4319d381f35bc11b53dafebd5cd99c04c66a9fb4
   react-native-orientation-locker: cc6f357b289a2e0dd2210fea0c52cb8e0727fdaa
-  react-native-safe-area-context: 8368d1052ccc8fe8725adfb6a83498c8bdb48250
+  react-native-safe-area-context: 3d2fac6d8e7405ec6d9325ff13b4c9145fa466c4
   react-native-slider: 6f0c45414cd6ddd89eba696588dc0da5edce53a9
   react-native-sqlite-storage: 0c84826214baaa498796c7e46a5ccc9a82e114ed
   react-native-video: e99ab35352391cfa849f7661215fe2e5c57cc4e6
@@ -3001,19 +3053,21 @@ SPEC CHECKSUMS:
   ReactNativeDependencies: 2bd6854ade79bf1b60586d1ab7813a389df1b6bf
   RNDefaultPreference: ee13d69e6693d193cd223d10e15e5b3c012d31ba
   RNDeviceInfo: 4c852998208b60dc192ae3529e5867817719ad1e
-  RNFastImage: 462a183c4b0b6b26fdfd639e1ed6ba37536c3b87
+  RNFastImage: 4bbf05dbc6c7d3b67f228da909421dc3ddfd3cd3
   RNFS: 89de7d7f4c0f6bafa05343c578f61118c8282ed8
-  RNGestureHandler: 92172e79df6e88e0e93b6341f9dcd8b5a02746ba
-  RNLocalize: f370284ea42c48f29f0d8dd3a7bcc28a04f82155
-  RNPermissions: 5f2d2c0183449dd5a3b45cd6bdceec70884c87b5
+  RNGestureHandler: 820091e7c8a218a357ec492872fab965b31acfd2
+  RNLocalize: 74d0d3383e04991641b20342353d0776ce49a563
+  RNPermissions: 72d33eb58ae9c90c2593ba0808cdc2dd5c8ad6ad
   RNReanimated: 8e15e9c39a36a01b296bf9f7254a6a35ed9c5a6c
   RNShare: 7344a3a7d4e5df58c356ad0f79e4a3ef1325c635
+  RNSVG: 6cae8d4082913be2eb43eaec2a456222c42195ed
   RNWorklets: 0000755d812f23d0fc703319e2b1f65d9204c954
-  RNZipArchive: b390452af35c081c3be04a85c66ad31ff9ffd955
-  SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
-  SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
+  RNZipArchive: fc1b9b12b91b996f32bc8ca8251813c2fd594bc6
+  SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
+  SDWebImagePhotosPlugin: aaf5bc35fd49b66876de58c33eeb6e38b50920e5
+  SDWebImageWebPCoder: 0e06e365080397465cc73a7a9b472d8a3bd0f377
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
-  TTSRNBridge: 0f7dbc359d5cef6fc1ff8bbe57b483905f27e7df
+  TTSRNBridge: f84cd50b4f66e69259b3d8f0aa3219362c273e20
   Yoga: 9891cfb1c680f64de9c41b09e7453dea33454d2b
 
 PODFILE CHECKSUM: 45a19bd328f6c52a4889dad285f958f23b4ebc9b

@@ -15,6 +15,7 @@ import mixpanel from '../utils/mixpanelInstance';
 import HomeButton from '../Components/HomeButton';
 import MatalkIcon from '../Components/MatalkIcon';
 import TTSService from '../utils/TTSService';
+import { iepCapture } from '../features/iep/capture/iepCapture';
 import { polishText } from '../utils/polishApi';
 import { useAdmin } from '../contexts/adminContext';
 
@@ -35,6 +36,8 @@ const KeyboardHomeScreen: React.FC = () => {
             await TTSService.speak(inputText, true, () => {
                 setKeyboardInput('');
             });
+            // IEP session evidence: a typed message spoken aloud.
+            iepCapture.typedMessageSpoken(inputText);
         } catch (error) {
         } finally {
             setIsSubmittingKeyboard(false);

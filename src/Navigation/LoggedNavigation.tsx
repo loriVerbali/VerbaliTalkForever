@@ -13,6 +13,10 @@ import ReportsScreen from '../Views/Reports';
 import MetricDetailScreen from '../Views/MetricDetail';
 import KeyboardHomeScreen from '../Views/KeyboardHome';
 import HeroProfileScreen from '../Views/HeroProfile';
+import IepDashboardScreen from '../features/iep/screens/IepDashboardScreen';
+import IepGoalScreen from '../features/iep/screens/IepGoalScreen';
+import IepAddGoalScreen from '../features/iep/screens/IepAddGoalScreen';
+import IepExportScreen from '../features/iep/screens/IepExportScreen';
 
 const HomeStack = createStackNavigator();
 
@@ -93,6 +97,10 @@ function LoggedNavigation() {
             headerShown: false,
           }}
         />
+        <HomeStack.Screen name={views.IEP_DASHBOARD} component={IepDashboardScreen} options={{ headerShown: false }} />
+        <HomeStack.Screen name={views.IEP_GOAL} component={IepGoalScreen} options={{ headerShown: false }} />
+        <HomeStack.Screen name={views.IEP_ADD_GOAL} component={IepAddGoalScreen} options={{ headerShown: false }} />
+        <HomeStack.Screen name={views.IEP_EXPORT} component={IepExportScreen} options={{ headerShown: false }} />
       </HomeStack.Navigator>
     </AssistantProvider>
   );

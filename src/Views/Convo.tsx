@@ -12,6 +12,7 @@ import {useAppSettings} from '../utils/persistance';
 import mixpanel from '../utils/mixpanelInstance';
 import {GridConfigKey, Node} from '../types/sentenceBuilder';
 import {useVerbiController} from '../features/verbi/hooks/useVerbiController';
+import {iepCapture} from '../features/iep/capture/iepCapture';
 import type {
   VerbiSuggestion,
   VerbiFolder,
@@ -40,6 +41,8 @@ const Convo = () => {
   // need to know "was this the first word?". Nothing renders from these, so
   // they are refs rather than state.
   const sentenceTokensRef = useRef<string[]>([]);
+  // Latest board nodes, readable from timers without re-creating callbacks.
+  const currentNodesRef = useRef<Node[]>([]);
   const sentenceStartTimeRef = useRef<number | null>(null);
 
   // ─── One-time welcome guide ──────────────────────────────────────────────
@@ -119,6 +122,16 @@ const Convo = () => {
 
       // Set timeout for 4 minutes (240 seconds)
       timerRef.current = setTimeout(() => {
+        // IEP session evidence: the sentence was abandoned by inactivity.
+        iepCapture.sentenceEnded(
+          sentenceTokensRef.current
+            .map(id => {
+              const node = currentNodesRef.current.find(n => n.id === id);
+              return node ? (node.ttsText || node.title).trim() : '';
+            })
+            .filter(text => text !== ''),
+          'inactivity',
+        );
         // Timeout reached - reset timer
         sentenceStartTimeRef.current = null;
         sentenceTokensRef.current = [];
@@ -130,6 +143,7 @@ const Convo = () => {
   }, [verbiOnSentenceCleared]);
 
   const handleNodesChanged = useCallback((nodes: Node[]) => {
+    currentNodesRef.current = nodes;
     setCurrentNodes(nodes);
   }, []);
 
@@ -160,22 +174,34 @@ const Convo = () => {
 
   // Handle sentence play - save to database
   const handleSentencePlayed = useCallback(
-    async (sentenceTokens: string[], nodes: any[]) => {
+    async (sentenceTokens: string[], nodes: any[], reason: 'play' | 'clear' = 'play') => {
       // Update the nodes snapshot for Verbi context
       setCurrentNodes(nodes);
 
-      // Build sentence text
-      const sentenceText = sentenceTokens
+      // One entry per board token, the same shape the inactivity timer and the
+      // store's own draft use, so a multi-word symbol counts the same however the
+      // sentence ends.
+      const tokenTexts = sentenceTokens
         .map(nodeId => {
           const node = nodes.find(n => n.id === nodeId);
-          return node ? node.ttsText || node.title : '';
+          return node ? (node.ttsText || node.title).trim() : '';
         })
-        .filter(text => text.trim() !== '')
-        .join(' ');
+        .filter(text => text !== '');
+      const sentenceText = tokenTexts.join(' ');
 
       // Notify Verbi that the sentence was spoken; the text is recorded as the
       // child's side of the conversation so predictions see the full dialogue.
-      verbiOnSentenceSpoken(sentenceText);
+      // A cleared sentence was never said: it must not become a child turn in the
+      // conversation, and through that a turn in the IEP session evidence.
+      if (reason === 'play') {
+        verbiOnSentenceSpoken(sentenceText);
+      } else {
+        verbiOnSentenceCleared();
+      }
+
+      // IEP session evidence: the sentence ended with Play, or was cleared.
+      currentNodesRef.current = nodes;
+      iepCapture.sentenceEnded(tokenTexts, reason);
 
       const startedAt = sentenceStartTimeRef.current;
       if (startedAt === null) return;

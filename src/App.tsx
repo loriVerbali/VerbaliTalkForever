@@ -23,6 +23,7 @@ import {ChatContextProvider} from './contexts/ChatContextProvider';
 import {ConnectionProvider} from './utils/connection';
 import {ToastProvider} from './contexts/ToastContext';
 import {DatabaseProvider} from './contexts/DatabaseContext';
+import {IepStoreProvider} from './features/iep/hooks/IepStoreProvider';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {sessionManager} from './utils/sessionManager';
 import mixpanel from './utils/mixpanelInstance';
@@ -309,11 +310,13 @@ const App = () => {
               }}>
               <AppSettingsProvider>
                 <DatabaseProvider>
+                  <IepStoreProvider>
                   <AdminProvider>
                     <ChatContextProvider>
                       <RootControllerView />
                     </ChatContextProvider>
                   </AdminProvider>
+                  </IepStoreProvider>
                 </DatabaseProvider>
               </AppSettingsProvider>
             </PostHogProvider>

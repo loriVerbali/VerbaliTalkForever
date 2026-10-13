@@ -38,6 +38,7 @@ import Voice, {
   subscribeToSpeechEvents,
 } from '../utils/STTService';
 import { useDatabase } from '../contexts/DatabaseContext';
+import { iepCapture } from '../features/iep/capture/iepCapture';
 import {
   personalMemoryService,
   makeMemoryEventId,
@@ -1182,6 +1183,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
       });
     }
 
+    // IEP session evidence: response time from question to tap, before the timer resets.
+    // Unknown (timer not running) is recorded as null, never as an instant answer.
+    const iepResponseTimeMs = responseTimerStart ? Date.now() - responseTimerStart : null;
+
     // Stop response timer if running
     stopResponseTimer('card');
 
@@ -1189,6 +1194,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ route }) => {
     const possibleAnswers = directAnswers
       .filter(item => item && item.word)
       .map(item => item.word);
+
+    if (selectedAnswer === 'MoreAnswers') {
+      iepCapture.qaMoreAnswersRequested();
+    } else {
+      iepCapture.qaAnswerSelected({
+        question: currentAIRecord?.question ?? transcribedText,
+        answer: selectedAnswer,
+        options: possibleAnswers,
+        answerRoundCount: currentAIRecord?.currentRound ?? 1,
+        askedForMoreAnswers: (currentAIRecord?.currentRound ?? 1) > 1,
+        responseTimeMs: iepResponseTimeMs,
+      });
+    }
 
     // Log the conversation
     logConversation({
