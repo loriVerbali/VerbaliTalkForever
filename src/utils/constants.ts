@@ -24,6 +24,10 @@ type Views = {
   LOGIN: string;
   KEYBOARD_HOME: string;
   HERO_PROFILE: string;
+  IEP_DASHBOARD: string;
+  IEP_GOAL: string;
+  IEP_ADD_GOAL: string;
+  IEP_EXPORT: string;
 };
 
 type Stacks = {
@@ -67,6 +71,10 @@ export const views: Views = {
   LOGIN: 'LOGIN',
   KEYBOARD_HOME: 'view.KEYBOARD_HOME',
   HERO_PROFILE: 'view.HERO_PROFILE',
+  IEP_DASHBOARD: 'view.IEP_DASHBOARD',
+  IEP_GOAL: 'view.IEP_GOAL',
+  IEP_ADD_GOAL: 'view.IEP_ADD_GOAL',
+  IEP_EXPORT: 'view.IEP_EXPORT',
 };
 
 export const stacks: Stacks = {

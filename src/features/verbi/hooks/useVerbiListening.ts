@@ -11,6 +11,7 @@ import {
 } from '../state/verbiTypes';
 import { verbiApi } from '../services/verbiApi';
 import { generateEventId } from '../utils/generateRequestId';
+import { iepCapture } from '../../iep/capture/iepCapture';
 import mixpanel from '../../../utils/mixpanelInstance';
 
 const INACTIVITY_TIMEOUT_MS = 60_000; // 60 seconds
@@ -303,6 +304,12 @@ export function useVerbiListening({ state, dispatch }: UseVerbiListeningInput) {
       status: 'final',
       finalizedAt: new Date().toISOString(),
     };
+
+    // IEP session evidence: a partner turn. The store treats the first turn it sees
+    // for a conversation as the initiator. Partner speech content is not stored.
+    if (iepCapture.isRecording()) {
+      iepCapture.turnObserved({ turnId: body.turnId, conversationId: state.conversationId, speaker: 'partner', startedAtMs: Date.now(), content: null });
+    }
 
     try {
       const result = await verbiApi.appendUtterance(

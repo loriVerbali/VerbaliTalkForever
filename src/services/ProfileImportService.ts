@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { closeDatabase, initDatabase } from '../utils/database';
 // @ts-ignore
 import { sentenceBuilderSqlite } from '../utils/sentenceBuilderSqlite';
+import { IEP_DIRECTORY_NAME } from '../features/iep/store/fsPersistence';
 import { personalMemoryDb } from '../utils/personalMemoryDb';
 import { personalMemoryService } from './PersonalMemoryService';
 
@@ -286,6 +287,7 @@ export const ProfileImportService = {
         const imageDirs = [
             `${RNFS.DocumentDirectoryPath}/sentenceBuilder`,
             `${RNFS.DocumentDirectoryPath}/my8words`,
+            `${RNFS.DocumentDirectoryPath}/${IEP_DIRECTORY_NAME}`,
         ];
 
         for (const dir of imageDirs) {
