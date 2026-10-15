@@ -8,7 +8,6 @@ import React, {
   useRef,
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
-import {validateReceiptOnLaunch} from './recieptValidation';
 import {sessionManager} from './sessionManager';
 
 interface Preferences {
@@ -225,7 +224,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const [preferences, setPreferences] =
     useState<Preferences>(initialPreferences);
   const initializationRef = useRef(false);
-  const receiptValidationRef = useRef(false);
   const [restartKey, setRestartKey] = useState(0);
 
   const restartApp = () => {
@@ -309,25 +307,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         await setItem('trialInstallationDate', currentTimestamp);
       }
 
-      // validate purchase on launch
-      if (!receiptValidationRef.current) {
-        receiptValidationRef.current = true;
-
-        // Use a single timeout reference to prevent multiple executions
-        const timeoutId = setTimeout(async () => {
-          try {
-            const purchaseValid = await validateReceiptOnLaunch();
-            if (purchaseValid === false) {
-              await setItem('isIOSActive', '0');
-            } else if (purchaseValid === true) {
-              await setItem('isIOSActive', '1');
-            }
-          } catch (error) {}
-        }, 3000);
-
-        // Store the timeout ID so we can clear it if needed
-        (receiptValidationRef as any).timeoutId = timeoutId;
-      }
+      // This is a paid app - no receipt validation on launch
 
       return loaded as Preferences;
     } catch (error) {
@@ -362,12 +342,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
 
     return () => {
       initializationRef.current = false;
-      receiptValidationRef.current = false;
-
-      // Clear any pending timeout
-      if ((receiptValidationRef as any).timeoutId) {
-        clearTimeout((receiptValidationRef as any).timeoutId);
-      }
     };
   }, []);
 

@@ -10,6 +10,7 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		5D669F289B065356B98D707B /* libPods-matalkforever.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B433A4E528A671A012788A0 /* libPods-matalkforever.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
+		761780EF2CA45674006654EE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EE /* SceneDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		8A150549300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm in Resources */ = {isa = PBXBuildFile; fileRef = 8A150548300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm */; };
 		8A69E13D2E1CF2EE00B320B9 /* hey_verbi_v1.onnx in Resources */ = {isa = PBXBuildFile; fileRef = 8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */; };
@@ -40,6 +41,7 @@
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = matalkaiforever.verbali.io/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		5840EF52C0C9F3EE39BE3F6C /* Pods-matalkforever.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-matalkforever.release.xcconfig"; path = "Target Support Files/Pods-matalkforever/Pods-matalkforever.release.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = matalkaiforever.verbali.io/AppDelegate.swift; sourceTree = "<group>"; };
+		761780EE2CA45674006654EE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = matalkaiforever.verbali.io/SceneDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = matalkaiforever.verbali.io/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8A150548300C397300BD9C62 /* model_ex_hanna_light_davoice_ph.dm */ = {isa = PBXFileReference; lastKnownFileType = file; path = model_ex_hanna_light_davoice_ph.dm; sourceTree = "<group>"; };
 		8A69E13B2E1CF2EE00B320B9 /* hey_verbi_v1.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = hey_verbi_v1.onnx; sourceTree = "<group>"; };
@@ -69,6 +71,7 @@
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				761780EE2CA45674006654EE /* SceneDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -316,6 +319,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				761780EF2CA45674006654EE /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

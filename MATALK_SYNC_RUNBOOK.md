@@ -55,6 +55,8 @@ git checkout HEAD -- .env 2>/dev/null || rm -f .env   # keep local untracked cop
 git rm -f ios/MaTalkStore.storekit            # StoreKit config — subscription-only
 git rm -f src/utils/player.js                 # contains a leaked sk-proj- key
 git rm -f src/utils/trialUtils.ts             # trial logic — no trials in Forever
+git rm -f src/Components/Subscription.tsx     # subscription screen — paid app, no IAP (deleted 2026-10-15)
+git rm -f src/utils/recieptValidation.ts      # receipt validation — paid app, nothing to validate (deleted 2026-10-15)
 ```
 
 ## 4. Keep-ours identity list (restore from HEAD while still in `--no-commit`)
@@ -69,8 +71,6 @@ git checkout HEAD -- \
   ios/Matalk.xcworkspace/contents.xcworkspacedata \
   ios/matalkaiforever.verbali.io/ \
   src/Components/TermsAndConditions.tsx \
-  src/Components/Subscription.tsx \
-  src/utils/recieptValidation.ts \
   src/utils/config.ts \
   src/utils/appIdentity.ts \
   android/app/build.gradle \
@@ -86,8 +86,7 @@ Notes on why each:
 - `ios/Podfile` — target is `'matalkforever'`.
 - `package.json` — keep Forever's name/version and the `copyHermes` / `deleteDerivedData` scripts; **do** take Matalk's new dependencies (last time: memory deps, posthog).
 - `TermsAndConditions.tsx` — keep Forever's one-time-license **text** (title "MaTalk AI Forever", §payment "one time license fee", the extra license sections), but **take Matalk's component mechanics**. A blanket keep-ours here silently dropped Matalk `5243795` (2026-08-22: scroll-to-bottom checkbox → top "I Accept" button + `onAccept` prop, which Onboarding already wires to `handleNext`); it had to be back-ported on 2026-08-30. Recipe: `git diff <base> matalk/develop -- src/Components/TermsAndConditions.tsx > /tmp/t.diff && patch -p1 -F3 < /tmp/t.diff`, then eyeball the text hunks.
-- `Subscription.tsx` — Forever keeps a de-trialed orphan copy (not rendered anywhere); don't let Matalk's trial version replace it.
-- `recieptValidation.ts` — Forever's paid-app receipt handling.
+- `Subscription.tsx` / `recieptValidation.ts` — **no longer kept**: deleted on 2026-10-15 (paid app, nothing to validate). They are in the §3 never-let-in list now.
 - `config.ts` — Matalk's develop periodically lands with `baseUrl` flipped to a LAN dev IP (`http://192.168.1.175:3000`, 2026-08-30). Keep ours and confirm `baseUrl` is the railway URL; hand-apply only *new* config keys.
 - `appIdentity.ts` — `APP_KEY` must be `'matalk_forever'` (Matalk's is `'matalk'`). It selects the backend update-popup policy; accepted keys live in MatalkBE `matalkapi/services/appUpdate/appUpdate.service.js`. `__tests__/appUpdateService.test.ts` asserts the value twice (the `APP_KEY` describe block and the end-to-end URL check `appKey=${APP_KEY}&platform=ios`, which Matalk hardcodes as `appKey=matalk`) — fix the assertions, not the key.
 
@@ -101,6 +100,7 @@ Known guard locations (from commit `f2a87cc`):
 - **`src/Views/Settings.tsx`** — subscription/manage-plan section; `showAccountSettings` defaults `true`.
 - **`src/Views/Login.tsx`** — trial-date sync on login. Remove.
 - **`src/utils/fetcher.ts`** — `__DEV__` receipt stub. Remove.
+- **`src/utils/persistance.tsx`** — `validateReceiptOnLaunch` call inside `initializePreferences` (plus its import, `receiptValidationRef`, and the timeout cleanup in the unmount effect). Remove — Forever is paid upfront, there is no receipt to validate. Removed 2026-10-15 after every debug build red-boxed on launch with `[RN-IAP] [getReceiptDataIOS] Failed: … purchase-verification-failed` (react-native-iap v16 `console.error`s before throwing).
 - **`src/utils/trialUtils.ts`** — delete the whole file (§3) and every import of it.
 - **`src/Views/Convo.tsx` is never guarded directly** — don't add or expect guards there.
 
