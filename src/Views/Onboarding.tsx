@@ -1345,7 +1345,11 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.18,
     width: '90%',
     marginBottom: 20,
-    zIndex: 1000,
+    // No zIndex here. Fabric flattens the plain Views between this header and
+    // the SafeAreaView, so a zIndex on it makes it a sibling of the absolute
+    // Back/Verbi chrome and sorts it above them. On landscape phones the header
+    // starts at 12% of a ~440pt-high screen, right on top of the Back button,
+    // which then never received taps (tablets start it lower, so they worked).
   },
   question: {
     fontSize: Math.min(22, width * 0.05),
