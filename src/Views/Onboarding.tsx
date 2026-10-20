@@ -382,6 +382,7 @@ const OnboardingScreen: React.FC = () => {
               />
               <View style={styles.inputContainer}>
                 <TextInput
+                  disableFullscreenUI
                   style={isTablet ? styles.input : styles.inputPhone}
                   placeholder="First name"
                   placeholderTextColor="#888"
@@ -637,6 +638,7 @@ const OnboardingScreen: React.FC = () => {
                   }
                 }}>
                 <TextInput
+                  disableFullscreenUI
                   ref={pinInputRef}
                   value={adminCode}
                   onChangeText={text => {

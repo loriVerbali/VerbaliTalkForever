@@ -1340,10 +1340,12 @@ const SettingsScreen: React.FC = () => {
                       marginBottom: 10,
                     }}>
                     <TextInput
+                      disableFullscreenUI
                       style={[styles.codeInput, { flex: 1 }]}
                       value={newHeroName}
                       onChangeText={setNewHeroName}
                       placeholder="Name"
+                      placeholderTextColor="#999"
                       maxLength={32}
                       autoFocus
                       returnKeyType="done"
@@ -1406,10 +1408,12 @@ const SettingsScreen: React.FC = () => {
                       marginBottom: 10,
                     }}>
                     <TextInput
+                      disableFullscreenUI
                       style={[styles.codeInput, { flex: 1 }]}
                       value={newHandshakeMessage}
                       onChangeText={setNewHandshakeMessage}
                       placeholder="Enter handshake message"
+                      placeholderTextColor="#999"
                       maxLength={100}
                       autoFocus
                       returnKeyType="done"
@@ -2226,6 +2230,7 @@ const SettingsScreen: React.FC = () => {
                     {isEditingAdminCode ? (
                       <View style={styles.adminCodeEditContainer}>
                         <TextInput
+                          disableFullscreenUI
                           style={[
                             styles.codeInput,
                             adminCodeError ? styles.errorInput : null,
@@ -2241,6 +2246,7 @@ const SettingsScreen: React.FC = () => {
                           keyboardType="numeric"
                           maxLength={4}
                           placeholder="Enter new 4-digit code"
+                          placeholderTextColor="#999"
                           secureTextEntry={false}
                           editable={!isSaving}
                           returnKeyType="done"
@@ -3402,6 +3408,7 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     height: 40,
+    color: '#000',
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingHorizontal: 12,

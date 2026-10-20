@@ -256,6 +256,7 @@ const ContextModal: React.FC<ContextModalProps> = ({
                         </>
                       )}
                       <TextInput
+                        disableFullscreenUI
                         ref={inputRef}
                         style={styles.textInput}
                         multiline

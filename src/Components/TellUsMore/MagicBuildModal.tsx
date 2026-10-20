@@ -200,6 +200,7 @@ const MagicBuildModal: React.FC<MagicBuildModalProps> = ({
                   )}
 
                   <TextInput
+                    disableFullscreenUI
                     ref={inputRef}
                     style={styles.textInput}
                     multiline

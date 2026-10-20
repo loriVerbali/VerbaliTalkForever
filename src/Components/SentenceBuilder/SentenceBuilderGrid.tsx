@@ -1853,6 +1853,7 @@ const SentenceBuilderGrid = forwardRef<
                           }
                         }}>
                         <TextInput
+                          disableFullscreenUI
                           ref={pinInputRef}
                           value={adminCodeInput}
                           onChangeText={text => {
@@ -1994,6 +1995,7 @@ const SentenceBuilderGrid = forwardRef<
                           }
                         }}>
                         <TextInput
+                          disableFullscreenUI
                           ref={forgotPinInputRef}
                           value={forgotPinInput}
                           onChangeText={text => {
@@ -2116,6 +2118,7 @@ const SentenceBuilderGrid = forwardRef<
                           }
                         }}>
                         <TextInput
+                          disableFullscreenUI
                           ref={newPinInputRef}
                           value={newPinInput}
                           onChangeText={text => {

@@ -78,6 +78,7 @@ const KeyboardHomeScreen: React.FC = () => {
                     <View style={styles.contentContainer}>
                         <View style={styles.inputContainer}>
                             <TextInput
+                              disableFullscreenUI
                                 style={styles.textInput}
                                 value={keyboardInput}
                                 onChangeText={setKeyboardInput}

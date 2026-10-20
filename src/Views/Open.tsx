@@ -1072,6 +1072,7 @@ const OpenScreen: React.FC = () => {
                         }
                       }}>
                       <TextInput
+                        disableFullscreenUI
                         ref={pinInputRef}
                         value={adminCodeInput}
                         onChangeText={text => {
@@ -1209,6 +1210,7 @@ const OpenScreen: React.FC = () => {
                         }
                       }}>
                       <TextInput
+                        disableFullscreenUI
                         ref={forgotPinInputRef}
                         value={forgotPinInput}
                         onChangeText={text => {
@@ -1330,6 +1332,7 @@ const OpenScreen: React.FC = () => {
                         }
                       }}>
                       <TextInput
+                        disableFullscreenUI
                         ref={newPinInputRef}
                         value={newPinInput}
                         onChangeText={text => {

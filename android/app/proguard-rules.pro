@@ -10,7 +10,7 @@
 # Add any project specific keep options here:
 
 # Keep native libraries for 16 KB memory page size support
--keep class com.verbali.matalkforever.** { *; }
+-keep class com.verbali.matalkaiforever.** { *; }
 
 # Keep native method implementations
 -keepclasseswithmembernames class * {

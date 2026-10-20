@@ -491,6 +491,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
     return (
       <View style={styles.addressForm}>
         <TextInput
+          disableFullscreenUI
           style={styles.input}
           placeholder="Address *"
           value={place.addressDetails.address}
@@ -500,6 +501,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         />
 
         <TextInput
+          disableFullscreenUI
           style={styles.input}
           placeholder="Address 2 (Optional)"
           value={place.addressDetails.address2}
@@ -509,6 +511,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         />
 
         <TextInput
+          disableFullscreenUI
           style={styles.input}
           placeholder="City *"
           value={place.addressDetails.city}
@@ -549,6 +552,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
           )}
 
           <TextInput
+            disableFullscreenUI
             style={[styles.input, {flex: 1}]}
             placeholder={
               place.addressDetails.country === 'Canada'

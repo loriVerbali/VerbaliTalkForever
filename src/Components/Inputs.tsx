@@ -60,6 +60,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
               ]}
               pointerEvents="none">
               <TextInput
+                disableFullscreenUI
                 style={[
                   styles.textInput,
                   { fontSize: responsiveFontSize },
@@ -86,6 +87,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
               ]}>
               <View style={styles.inputWrapper}>
                 <TextInput
+                  disableFullscreenUI
                   style={[
                     styles.textKBInput,
                     { fontSize: responsiveFontSize },

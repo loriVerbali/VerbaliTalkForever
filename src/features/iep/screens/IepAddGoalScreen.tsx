@@ -258,6 +258,7 @@ const IepAddGoalScreen: React.FC = () => {
                 </View>
               ) : null}
               <TextInput
+                disableFullscreenUI
                 accessibilityLabel="Goal text"
                 multiline
                 value={goalText}
@@ -283,7 +284,8 @@ const IepAddGoalScreen: React.FC = () => {
               </View>
               <View style={[iepStyles.card, { gap: 10 }]}>
                 <View style={[iepStyles.row, { gap: 10 }]}><Text style={iepStyles.captionStrong}>Goal</Text><AiTag /></View>
-                <TextInput accessibilityLabel="Goal title" value={title} onChangeText={setTitle} placeholder="Goal title" style={iepStyles.input} />
+                <TextInput
+                  disableFullscreenUI accessibilityLabel="Goal title" value={title} onChangeText={setTitle} placeholder="Goal title" style={iepStyles.input} />
                 <Text style={iepStyles.body}>{plan.goalSummary}</Text>
                 {plan.condition ? <Text style={iepStyles.caption}>{plan.condition}</Text> : null}
               </View>
@@ -297,6 +299,7 @@ const IepAddGoalScreen: React.FC = () => {
                   <View style={[iepStyles.row, { gap: 8 }]}>
                     <Text style={iepStyles.caption}>Target</Text>
                     <TextInput
+                      disableFullscreenUI
                       accessibilityLabel="Sessions required"
                       keyboardType="number-pad"
                       value={sessionsText}
@@ -419,7 +422,8 @@ const MetricRow: React.FC<{ metric: GoalMetric; plan: GoalPlan; targetText: stri
       ) : (
         <View style={[iepStyles.row, { gap: 8, flexWrap: 'wrap' }]}>
           <Text style={iepStyles.caption}>{sentenceScoped ? 'Target per sentence' : 'Target'}</Text>
-          <TextInput accessibilityLabel={`Target for ${metric.name}`} keyboardType="decimal-pad" value={targetText} onChangeText={onTarget} placeholder="none" placeholderTextColor={iepColors.muted} style={[iepStyles.input, { width: 72, textAlign: 'center' }]} />
+          <TextInput
+            disableFullscreenUI accessibilityLabel={`Target for ${metric.name}`} keyboardType="decimal-pad" value={targetText} onChangeText={onTarget} placeholder="none" placeholderTextColor={iepColors.muted} style={[iepStyles.input, { width: 72, textAlign: 'center' }]} />
           <Text style={iepStyles.caption}>{metric.targetUnit ?? MetricCatalogue.definitionFor(MetricCatalogue.resolve(metric.id)?.id ?? '')?.unit ?? ''}</Text>
         </View>
       )}

@@ -304,6 +304,7 @@ const IepDashboardScreen: React.FC = () => {
                   <View style={[iepStyles.row, { gap: 6 }]}>
                     <SecondaryButton label="−5" onPress={() => chooseAutoStopMinutes(settings.autoStopMinutes - 5, 'step')} accessibilityLabel="Shorten by 5 minutes" />
                     <TextInput
+                      disableFullscreenUI
                       accessibilityLabel="Session length in minutes"
                       keyboardType="number-pad"
                       value={customMinutesText}
