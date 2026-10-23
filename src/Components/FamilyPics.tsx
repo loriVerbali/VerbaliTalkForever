@@ -283,6 +283,7 @@ const FamilyPics: React.FC<FamilyPicsProps> = ({onFamilyMemberSelect}) => {
       {showAddInput ? (
         <View style={styles.inputContainer}>
           <TextInput
+            disableFullscreenUI
             style={styles.input}
             placeholder="Enter family member name"
             placeholderTextColor="#888"

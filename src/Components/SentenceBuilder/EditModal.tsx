@@ -507,6 +507,7 @@ const EditModal: React.FC<EditModalProps> = ({
 
                 <View style={styles.searchInputContainer}>
                   <TextInput
+                    disableFullscreenUI
                     style={styles.searchInput}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
@@ -606,6 +607,7 @@ const EditModal: React.FC<EditModalProps> = ({
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Folder Name</Text>
                 <TextInput
+                  disableFullscreenUI
                   style={styles.input}
                   value={name}
                   onChangeText={setName}
@@ -682,6 +684,7 @@ const EditModal: React.FC<EditModalProps> = ({
 
                 <View style={styles.searchInputContainer}>
                   <TextInput
+                    disableFullscreenUI
                     style={styles.searchInput}
                     value={folderSearchQuery}
                     onChangeText={setFolderSearchQuery}

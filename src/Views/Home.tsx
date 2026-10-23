@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
   Platform,
   PermissionsAndroid,
@@ -33,17 +32,17 @@ import {useAppSettings} from '../utils/persistance';
 import WakeWordService from '../utils/wakewordService';
 import Voice, {
   logSpeechDiagnostics,
+  releaseMicrophone,
   startSpeechRecognition,
   stopSpeechRecognition,
   subscribeToSpeechEvents,
 } from '../utils/STTService';
-import {useDatabase} from '../contexts/DatabaseContext';
+import { useDatabase } from '../contexts/DatabaseContext';
+import { iepCapture } from '../features/iep/capture/iepCapture';
 import {
   personalMemoryService,
   makeMemoryEventId,
 } from '../services/PersonalMemoryService';
-
-const {width, height} = Dimensions.get('window');
 
 type RootStackParamList = {
   Home: {
@@ -78,6 +77,11 @@ const sttWarn = (...args: unknown[]) => {
 
 const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const {width: viewportWidth, height: viewportHeight} = useWindowDimensions();
+  // Read live rather than captured at module load: on Android the size seeded
+  // at startup can still be the pre-rotation (portrait) one, and a release
+  // bundle evaluates this file before the corrected size arrives.
+  const width = viewportWidth;
+  const height = viewportHeight;
   const {
     generateAnswers,
     conversationHistory,
@@ -621,9 +625,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       sttTrace('[STT TRACE][Home] unsubscribing from speech events');
       unsubscribe();
       if (Platform.OS === 'android') {
-        // Destroy the recognizer so the mic is fully released for the
-        // wakeword engine on the next screen.
-        Promise.resolve(Voice.destroy()).catch(() => {});
+        // Hand the mic back to the wakeword engine on the next screen.
+        // Nothing is torn down — the old Voice.destroy() here also destroyed
+        // the shared TTS bridge, leaving every later screen unable to speak.
+        Promise.resolve(releaseMicrophone()).catch(() => {});
       } else {
         stopSpeechRecognition().catch(() => {});
       }
@@ -1194,6 +1199,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       });
     }
 
+    // IEP session evidence: response time from question to tap, before the timer resets.
+    // Unknown (timer not running) is recorded as null, never as an instant answer.
+    const iepResponseTimeMs = responseTimerStart ? Date.now() - responseTimerStart : null;
+
     // Stop response timer if running
     stopResponseTimer('card');
 
@@ -1201,6 +1210,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     const possibleAnswers = directAnswers
       .filter(item => item && item.word)
       .map(item => item.word);
+
+    if (selectedAnswer === 'MoreAnswers') {
+      iepCapture.qaMoreAnswersRequested();
+    } else {
+      iepCapture.qaAnswerSelected({
+        question: currentAIRecord?.question ?? transcribedText,
+        answer: selectedAnswer,
+        options: possibleAnswers,
+        answerRoundCount: currentAIRecord?.currentRound ?? 1,
+        askedForMoreAnswers: (currentAIRecord?.currentRound ?? 1) > 1,
+        responseTimeMs: iepResponseTimeMs,
+      });
+    }
 
     // Log the conversation
     logConversation({
@@ -1308,9 +1330,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
           // Activate wake word listening with callback
           try {
             if (Platform.OS === 'android') {
-              // Release the recognizer connection before the wakeword engine
-              // re-acquires the mic.
-              await Voice.destroy();
+              // Hand the mic over before the wakeword engine re-acquires it.
+              // Nothing is torn down, so the next word tap can still speak.
+              await releaseMicrophone();
             }
             const wakeWordService = WakeWordService.getInstance();
 
@@ -1430,7 +1452,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
               },
             ]}>
             <View
-              style={[styles.imageCardContainer, {zIndex: 10}]}
+              style={[
+                styles.imageCardContainer,
+                {zIndex: 10, marginTop: height * 0.02},
+              ]}
               key={`gallery`}>
               {showImages ? (
                 (() => {
@@ -1896,15 +1921,6 @@ const styles = StyleSheet.create({
   playIcon: {
     fontSize: 40,
   },
-  input: {
-    flex: 1,
-    height: height * 0.15,
-    backgroundColor: '#E5E5E5',
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    fontSize: height * 0.07,
-    marginHorizontal: 10,
-  },
   inlineNavigationButtons: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1950,7 +1966,6 @@ const styles = StyleSheet.create({
   imageCardContainer: {
     width: '100%',
     flex: 1,
-    marginTop: height * 0.02,
   },
   loadingContainer: {
     flex: 1,

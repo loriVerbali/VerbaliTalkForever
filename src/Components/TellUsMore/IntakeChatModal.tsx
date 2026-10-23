@@ -1463,6 +1463,7 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
               {/* ── Input area ────────────────────────────────────────────────── */}
               <View style={styles.inputArea}>
                 <TextInput
+                  disableFullscreenUI
                   style={styles.input}
                   value={inputText}
                   onChangeText={text => {

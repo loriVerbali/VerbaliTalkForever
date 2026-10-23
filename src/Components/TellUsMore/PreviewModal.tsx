@@ -318,6 +318,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
                             </Text>
                           ) : (
                             <TextInput
+                              disableFullscreenUI
                               style={styles.tileNameInput}
                               value={tile.name}
                               onChangeText={txt =>
@@ -357,6 +358,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
                           {/* Aliases */}
                           {!isDeleted && (
                             <TextInput
+                              disableFullscreenUI
                               style={styles.aliasInput}
                               value={
                                 aliasInputs[tile.id] !== undefined
@@ -405,6 +407,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({
                   <View style={styles.freeTextBox}>
                     {isEditingText ? (
                       <TextInput
+                        disableFullscreenUI
                         style={styles.freeTextInput}
                         multiline
                         value={editedFreeText}

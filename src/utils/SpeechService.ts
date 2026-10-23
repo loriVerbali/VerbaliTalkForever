@@ -118,6 +118,8 @@ class SpeechServiceClass {
   // In-flight full init. Deduplicates concurrent initialize() calls and lets
   // TTS-only callers wait for an upgrade that is already under way.
   private initializePromise: Promise<void> | null = null;
+  // In-flight recovery from a native teardown (see recoverFromNativeTeardown).
+  private recoveryPromise: Promise<boolean> | null = null;
   private isPlaying: boolean = false;
   private queue: SpeechQueueItem[] = [];
   private processingQueue: boolean = false;
@@ -320,6 +322,57 @@ class SpeechServiceClass {
     }
   }
 
+  /**
+   * True when a native speak() rejection means the TTS engine itself is gone —
+   * its bridge was destroyed underneath us — rather than a transient
+   * synthesis failure. Retrying a dead instance can never succeed.
+   *   Android: "the voice TTS interface not initialized. Call initTTS first."
+   *   iOS:     code "no_instance", message "TTS not initialized".
+   */
+  private static isEngineTornDownError(error: unknown): boolean {
+    if (error == null) return false;
+    const err = error as { message?: unknown; code?: unknown };
+    if (String(err.code ?? '') === 'no_instance') return true;
+    return /not initialized|initTTS first/i.test(String(err.message ?? error));
+  }
+
+  /**
+   * Re-initialize after something destroyed the native engine (destroyAll()
+   * takes down the TTS bridge too on Android). The JS `initialized` flag
+   * survives that teardown, so initialize() would no-op — clear it first.
+   * Deduplicated so a burst of queued utterances pays for one re-init.
+   */
+  private async recoverFromNativeTeardown(): Promise<boolean> {
+    if (this.recoveryPromise) return this.recoveryPromise;
+
+    const wasTtsOnly = this.ttsOnlyMode && !this.initialized;
+    this.recoveryPromise = (async () => {
+      console.warn(
+        '[SpeechService] native TTS engine was torn down; re-initializing',
+      );
+      this.initialized = false;
+      this.ttsOnlyMode = false;
+      try {
+        if (wasTtsOnly) {
+          await this.initializeTtsOnly();
+          return this.ttsOnlyMode;
+        }
+        await this.initialize();
+        return this.initialized;
+      } catch (error) {
+        console.error(
+          '[SpeechService] re-initialization after teardown failed:',
+          error,
+        );
+        return false;
+      } finally {
+        this.recoveryPromise = null;
+      }
+    })();
+
+    return this.recoveryPromise;
+  }
+
   private async speakNativeWithRetry(
     text: string,
     speakerId: number,
@@ -328,6 +381,13 @@ class SpeechServiceClass {
       await this.speechInstance.speak(text, speakerId, 0.9);
       trace('[STT TRACE][SpeechService] speak resolved');
     } catch (error) {
+      if (SpeechServiceClass.isEngineTornDownError(error)) {
+        const recovered = await this.recoverFromNativeTeardown();
+        if (!recovered) throw error;
+        await this.speechInstance.speak(text, speakerId, 0.9);
+        trace('[STT TRACE][SpeechService] speak resolved after engine recovery');
+        return;
+      }
       traceWarn('[SpeechService] First TTS attempt failed, retrying...', error);
       // Wait a bit longer and retry once
       await new Promise<void>(resolve => setTimeout(resolve, 200));

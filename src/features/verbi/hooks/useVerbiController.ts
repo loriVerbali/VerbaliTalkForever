@@ -18,6 +18,7 @@ import {
 import { useVerbiPrediction } from './useVerbiPrediction';
 import { useVerbiListening } from './useVerbiListening';
 import mixpanel from '../../../utils/mixpanelInstance';
+import { iepCapture } from '../../iep/capture/iepCapture';
 
 interface UseVerbiControllerInput {
   sentenceTokenIds: string[];
@@ -54,6 +55,7 @@ export function useVerbiController({
   const { preferences, setItem } = useAppSettings();
   const [state, dispatch] = useReducer(verbiReducer, initialVerbiState);
   const conversationCreatedRef = useRef(false);
+  // Conversation id already reported to IEP capture as observed.
   const permissionCheckedRef = useRef(false);
 
   // ─── Sync Settings ────────────────────────────────────────────────────────
@@ -177,6 +179,13 @@ export function useVerbiController({
 
       const text = spokenText?.trim();
       if (!text || !state.conversationId) return;
+
+      // IEP session evidence: the child's turn in the observed conversation. The
+      // store treats the first turn it sees for a conversation as the initiator.
+      if (iepCapture.isRecording()) {
+        const turnId = state.activeTurnId ?? `turn_spoken_${Date.now().toString(36)}`;
+        iepCapture.turnObserved({ turnId, conversationId: state.conversationId, speaker: 'child', startedAtMs: Date.now(), content: text });
+      }
 
       verbiApi
         .appendUtterance(state.conversationId, {
