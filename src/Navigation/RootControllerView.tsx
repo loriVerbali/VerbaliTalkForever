@@ -5,12 +5,11 @@ import LoggedNavigation from '../Navigation/LoggedNavigation';
 import InitNavigation from '../Navigation/InitNavigation';
 import {useAppSettings} from '../utils/persistance';
 import {stacks} from '../utils/constants';
-import {View, Text, Dimensions, StatusBar} from 'react-native';
+import {View, Text, StatusBar, useWindowDimensions} from 'react-native';
 import FastImage from 'react-native-fast-image';
 import NoInternetConnection from '../Components/NoInternetConnection';
 import {navigationRef} from '../utils/navigation';
 
-const {width, height} = Dimensions.get('window');
 // Create a context to set onboarding state
 export const OnboardingContext = React.createContext<{
   completeOnboarding: () => void;
@@ -80,6 +79,8 @@ const RootControllerView: React.FC = () => {
 };
 
 const LoadingScreen = () => {
+  // Live window size: Android's module-load value can be pre-rotation.
+  const {width, height} = useWindowDimensions();
   return (
     <View
       style={{

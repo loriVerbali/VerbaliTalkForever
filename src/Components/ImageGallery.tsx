@@ -33,19 +33,38 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // slot is the "Get more answers" card.
   const rowSize = answersCount <= 5 ? 3 : 4;
   const rowCount = Math.ceil((answersCount + 1) / rowSize);
-  const rowPaddingHorizontal = isTablet ? 16 : 6;
   const cardGap = isTablet ? 14 : 8;
-  const rowMarginVertical = isTablet ? height * 0.01 : height * 0.005;
   const labelHeightAllowance = isTablet ? 38 : 30;
-  const imageWidth =
-    (containerWidth -
-      rowPaddingHorizontal * 2 -
-      cardGap * (rowSize - 1)) /
-    rowSize;
-  const heightAvailablePerRow =
-    containerHeight / rowCount -
-    labelHeightAllowance -
-    rowMarginVertical * 2;
+
+  const measure = (paddingHorizontal: number, marginVertical: number) => {
+    const cardWidth =
+      (containerWidth - paddingHorizontal * 2 - cardGap * (rowSize - 1)) /
+      rowSize;
+    const rowHeight =
+      containerHeight / rowCount - labelHeightAllowance - marginVertical * 2;
+    return { cardWidth, rowHeight };
+  };
+
+  // Wide-and-short windows (16:10 tablets, phones in landscape) run out of
+  // row height before they run out of width, so the cards get clamped short
+  // while still spanning the full width. On a 4:3 iPad the width is the
+  // binding term and this branch never runs, leaving that layout untouched.
+  const roomy = measure(isTablet ? 16 : 6, isTablet ? height * 0.01 : height * 0.005);
+  const heightConstrained = roomy.cardWidth * 0.78 > roomy.rowHeight;
+
+  // When height is the limit, spend the chrome budget on the cards instead:
+  // tighten the outer padding and row margins to hand the extra back.
+  const rowPaddingHorizontal = heightConstrained ? 4 : isTablet ? 16 : 6;
+  const rowMarginVertical = heightConstrained
+    ? Math.min(4, height * 0.005)
+    : isTablet
+      ? height * 0.01
+      : height * 0.005;
+
+  const { cardWidth: imageWidth, rowHeight: heightAvailablePerRow } = measure(
+    rowPaddingHorizontal,
+    rowMarginVertical,
+  );
   const imageHeight = Math.max(
     1,
     Math.min(imageWidth * 0.78, heightAvailablePerRow),

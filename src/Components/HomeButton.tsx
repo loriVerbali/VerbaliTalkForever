@@ -1,11 +1,15 @@
 import React from 'react';
-import {Pressable, Text, StyleSheet, Dimensions, Platform} from 'react-native';
+import {
+  Pressable,
+  Text,
+  StyleSheet,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {views} from '../utils/constants';
 import {useAssistant} from '../contexts/AssistantContext';
 import {useAdmin} from '../contexts/adminContext';
-
-const {width, height} = Dimensions.get('window');
 
 interface HomeButtonProps {
   zIndex?: number;
@@ -26,6 +30,8 @@ const HomeButton: React.FC<HomeButtonProps> = ({
   const navigationHook = useNavigation();
   const navigation = navigationProp || navigationHook;
   const {isTablet} = useAdmin();
+  // Live window size: Android's module-load value can be pre-rotation.
+  const {width, height} = useWindowDimensions();
 
   // Responsive values for home button
   const responsiveValues = {
@@ -61,6 +67,7 @@ const HomeButton: React.FC<HomeButtonProps> = ({
       disabled={disabled}
       style={({pressed}) => [
         inScreen ? styles.homeIconInScreen : styles.homeIcon,
+        !inScreen && {top: height * 0.04, right: width * 0.03},
         responsiveValues.iconSize,
         {borderRadius: responsiveValues.borderRadius},
         pressed && !disabled && styles.buttonPressed,
@@ -81,10 +88,8 @@ const HomeButton: React.FC<HomeButtonProps> = ({
 
 const styles = StyleSheet.create({
   homeIcon: {
-    top: height * 0.04,
     justifyContent: 'center',
     alignItems: 'center',
-    right: width * 0.03,
     position: 'absolute',
     backgroundColor: '#FFF',
     // Platform-specific shadows
@@ -102,7 +107,7 @@ const styles = StyleSheet.create({
         elevation: 5,
       },
     }),
-    // width, height, borderRadius are now handled dynamically
+    // top, right, width, height, borderRadius are handled dynamically
   },
   homeIconInScreen: {
     justifyContent: 'center',

@@ -13,8 +13,8 @@ import {
   AppStateStatus,
   StatusBar,
   View,
-  Dimensions,
   Text,
+  useWindowDimensions,
 } from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
@@ -43,9 +43,9 @@ import {
 } from './utils/appUpdateService';
 import type {DisplayableUpdatePolicy} from './types/appUpdate';
 
-const {width, height} = Dimensions.get('window');
-
 const App = () => {
+  // Live window size: Android's module-load value can be pre-rotation.
+  const {width, height} = useWindowDimensions();
   const appState = useRef(AppState.currentState);
   // Bootstrap tracks whether the init-once startup sequence has completed.
   // The Navigator (and therefore Open.tsx) is not rendered until this is true,

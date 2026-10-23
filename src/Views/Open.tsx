@@ -1,9 +1,8 @@
-import React, {useRef, useEffect, useState, useCallback} from 'react';
+import React, {useRef, useEffect, useState, useCallback, useMemo} from 'react';
 import {
   View,
   StyleSheet,
   Text,
-  Dimensions,
   StatusBar,
   Pressable,
   Animated,
@@ -15,6 +14,7 @@ import {
   BackHandler,
   ActivityIndicator,
   PermissionsAndroid,
+  useWindowDimensions,
 } from 'react-native';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -74,13 +74,16 @@ type RootStackParamList = {
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const {height, width} = Dimensions.get('window');
-
 /** Flip to true while developing to show the welcome guide on every visit. */
 const FORCE_SHOW_WELCOME = false;
 
 const OpenScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  // Read live rather than captured at module load: on Android the size seeded
+  // at startup can still be the pre-rotation (portrait) one, and a release
+  // bundle evaluates this file before the corrected size arrives.
+  const {width, height} = useWindowDimensions();
+  const styles = useMemo(() => createStyles(width, height), [width, height]);
   const isListening = useRef(false);
   const {isTablet} = useAdmin();
   const [recognizedText, setRecognizedText] = useState('');
@@ -435,10 +438,7 @@ const OpenScreen: React.FC = () => {
         await wakeWordService.pauseDetection(false);
         wakewordPausedForHandoff = true;
       } catch (error) {
-        console.error(
-          '[Open] Error pausing wake word before navigate:',
-          error,
-        );
+        console.error('[Open] Error pausing wake word before navigate:', error);
       }
       navigation.navigate('HOME' as any, {
         stateof: 'Attention',
@@ -1489,515 +1489,516 @@ const OpenScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headerContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    paddingTop:
-      Platform.OS === 'android'
-        ? height * 0.03
-        : StatusBar.currentHeight || height * 0.03,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerText: {
-    fontSize: height * 0.06,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
-  contentContainer: {
-    flex: 1,
-    backgroundColor: '#FFF8E7',
-    flexDirection: 'row',
-    width: '100%',
-    height: '100%',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: width * 0.02,
-  },
-  leftSideContainer: {
-    width: '50%',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  rightSideContainer: {
-    width: '50%',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingLeft: width * 0.01,
-  },
-  wrapper: {
-    flexDirection: 'row',
-    height: height * 0.38,
-    justifyContent: 'space-between',
-    marginTop: height * 0.01,
-    marginBottom: height * 0.01,
-    width: '100%',
-  },
-  imageWrapper: {
-    width: '90%',
-    height: '90%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  image: {
-    width: '85%',
-    height: '85%',
-  },
-  rowContent: {
-    width: '48%',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    height: '100%',
-  },
-  tileWrapper: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'visible',
-    borderRadius: 16,
-    shadowColor: 'rgba(0, 0, 0, 0.50)',
-    shadowOpacity: 8,
-    shadowRadius: 4,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
-    backgroundColor: 'white',
-  },
-  yesNoWrapper: {
-    flexDirection: 'row',
-    height: height * 0.84, // Same height as both main card rows (0.42 * 2)
-    justifyContent: 'space-between',
-    width: '100%',
-    marginTop: height * 0.01,
-  },
-  yesNoColumn: {
-    flexDirection: 'column',
-    width: '48%',
-    height: '100%',
-    justifyContent: 'flex-start',
-  },
-  yesNoCard: {
-    width: '100%',
-    height: height * 0.18, // Reduced height to prevent overflow
-    marginBottom: height * 0.02, // Small gap between cards
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 16,
-    shadowColor: 'rgba(0, 0, 0, 0.50)',
-    shadowOpacity: 8,
-    shadowRadius: 4,
-    shadowOffset: {width: 0, height: 8},
-    elevation: 8,
-    backgroundColor: 'white',
-  },
-  yesNoText: {
-    fontSize: height * 0.04,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
-  yesNoTextSmall: {
-    fontSize: height * 0.025,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
-  cardImageContainer: {
-    width: '60%',
-    height: '60%',
-    marginBottom: height * 0.01,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 8,
-  },
-  microphoneButton: {
-    top: height * 0.04,
-    justifyContent: 'center',
-    alignItems: 'center',
-    left: width * 0.015,
-    position: 'absolute',
-    width: width * 0.05,
-    height: width * 0.05,
-    zIndex: 2,
-  },
-  topButtonsContainer: {
-    top: height * 0.04,
-    right: width * 0.02,
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  handshakeButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: width * 0.01,
-    elevation: 17,
-    width: width * 0.04,
-    height: width * 0.04,
-    borderRadius: width * 0.04,
-  },
-  handshakeButtonPhone: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: width * 0.01,
-    elevation: 17,
-    width: width * 0.035,
-    height: width * 0.035,
-    borderRadius: width * 0.035,
-  },
-  settingsButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 17,
-    width: width * 0.04,
-    height: width * 0.04,
-    borderRadius: width * 0.04,
-  },
-  settingsButtonPhone: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 17,
-    width: width * 0.035,
-    height: width * 0.035,
-    borderRadius: width * 0.035,
-  },
-  speakingButton: {
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-  },
-  iconSize: {
-    width: width * 0.04,
-    height: width * 0.04,
-    resizeMode: 'contain',
-  },
-  microphoneImage: {
-    width: width * 0.04,
-    height: width * 0.04,
-  },
-  microphoneImagePhone: {
-    width: width * 0.035,
-    height: width * 0.035,
-  },
-  kidText: {
-    fontSize: height * 0.032,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-  },
+const createStyles = (width: number, height: number) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    headerContainer: {
+      width: '100%',
+      flexDirection: 'row',
+      paddingTop:
+        Platform.OS === 'android'
+          ? height * 0.03
+          : StatusBar.currentHeight || height * 0.03,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerText: {
+      fontSize: height * 0.06,
+      fontWeight: 'bold',
+      color: '#333',
+      textAlign: 'center',
+    },
+    contentContainer: {
+      flex: 1,
+      backgroundColor: '#FFF8E7',
+      flexDirection: 'row',
+      width: '100%',
+      height: '100%',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      paddingHorizontal: width * 0.02,
+    },
+    leftSideContainer: {
+      width: '50%',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+    },
+    rightSideContainer: {
+      width: '50%',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingLeft: width * 0.01,
+    },
+    wrapper: {
+      flexDirection: 'row',
+      height: height * 0.38,
+      justifyContent: 'space-between',
+      marginTop: height * 0.01,
+      marginBottom: height * 0.01,
+      width: '100%',
+    },
+    imageWrapper: {
+      width: '90%',
+      height: '90%',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    image: {
+      width: '85%',
+      height: '85%',
+    },
+    rowContent: {
+      width: '48%',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      height: '100%',
+    },
+    tileWrapper: {
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      overflow: 'visible',
+      borderRadius: 16,
+      shadowColor: 'rgba(0, 0, 0, 0.50)',
+      shadowOpacity: 8,
+      shadowRadius: 4,
+      shadowOffset: {width: 0, height: 8},
+      elevation: 8,
+      backgroundColor: 'white',
+    },
+    yesNoWrapper: {
+      flexDirection: 'row',
+      height: height * 0.84, // Same height as both main card rows (0.42 * 2)
+      justifyContent: 'space-between',
+      width: '100%',
+      marginTop: height * 0.01,
+    },
+    yesNoColumn: {
+      flexDirection: 'column',
+      width: '48%',
+      height: '100%',
+      justifyContent: 'flex-start',
+    },
+    yesNoCard: {
+      width: '100%',
+      height: height * 0.18, // Reduced height to prevent overflow
+      marginBottom: height * 0.02, // Small gap between cards
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: 16,
+      shadowColor: 'rgba(0, 0, 0, 0.50)',
+      shadowOpacity: 8,
+      shadowRadius: 4,
+      shadowOffset: {width: 0, height: 8},
+      elevation: 8,
+      backgroundColor: 'white',
+    },
+    yesNoText: {
+      fontSize: height * 0.04,
+      fontWeight: 'bold',
+      color: '#333',
+      textAlign: 'center',
+    },
+    yesNoTextSmall: {
+      fontSize: height * 0.025,
+      fontWeight: 'bold',
+      color: '#333',
+      textAlign: 'center',
+    },
+    cardImageContainer: {
+      width: '60%',
+      height: '60%',
+      marginBottom: height * 0.01,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    cardImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 8,
+    },
+    microphoneButton: {
+      top: height * 0.04,
+      justifyContent: 'center',
+      alignItems: 'center',
+      left: width * 0.015,
+      position: 'absolute',
+      width: width * 0.05,
+      height: width * 0.05,
+      zIndex: 2,
+    },
+    topButtonsContainer: {
+      top: height * 0.04,
+      right: width * 0.02,
+      position: 'absolute',
+      flexDirection: 'row',
+      alignItems: 'center',
+      zIndex: 2,
+    },
+    handshakeButton: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: width * 0.01,
+      elevation: 17,
+      width: width * 0.04,
+      height: width * 0.04,
+      borderRadius: width * 0.04,
+    },
+    handshakeButtonPhone: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: width * 0.01,
+      elevation: 17,
+      width: width * 0.035,
+      height: width * 0.035,
+      borderRadius: width * 0.035,
+    },
+    settingsButton: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 17,
+      width: width * 0.04,
+      height: width * 0.04,
+      borderRadius: width * 0.04,
+    },
+    settingsButtonPhone: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 17,
+      width: width * 0.035,
+      height: width * 0.035,
+      borderRadius: width * 0.035,
+    },
+    speakingButton: {
+      backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    },
+    iconSize: {
+      width: width * 0.04,
+      height: width * 0.04,
+      resizeMode: 'contain',
+    },
+    microphoneImage: {
+      width: width * 0.04,
+      height: width * 0.04,
+    },
+    microphoneImagePhone: {
+      width: width * 0.035,
+      height: width * 0.035,
+    },
+    kidText: {
+      fontSize: height * 0.032,
+      fontWeight: 'bold',
+      color: '#333',
+      textAlign: 'center',
+    },
 
-  logoutText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
+    logoutText: {
+      color: 'white',
+      fontWeight: 'bold',
+      fontSize: 14,
+    },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: height * 0.1,
-  },
-  modalContent: {
-    backgroundColor: '#f5f0e8',
-    borderRadius: 20,
-    padding: width * 0.05,
-    width: '80%',
-    maxWidth: 450,
-    alignItems: 'center',
-  },
-  lockIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  modalTitle: {
-    fontSize: height * 0.03,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    color: '#333',
-  },
-  modalDescription: {
-    fontSize: height * 0.018,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: height * 0.02,
-  },
-  pinRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: height * 0.025,
-    width: '100%',
-  },
-  pinBox: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#ddd',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  pinBoxFilled: {
-    borderColor: '#007bff',
-  },
-  pinBoxError: {
-    borderColor: '#ff3b30',
-    backgroundColor: '#fff0f0',
-  },
-  pinInput: {
-    width: '100%',
-    height: '100%',
-    textAlign: 'center',
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  eyeButton: {
-    padding: 8,
-    marginLeft: 4,
-  },
-  eyeIcon: {
-    fontSize: 22,
-  },
-  forgotCodeText: {
-    fontSize: height * 0.016,
-    color: '#888',
-    textAlign: 'center',
-    marginTop: height * 0.015,
-    lineHeight: height * 0.022,
-    paddingHorizontal: 16,
-    fontStyle: 'italic',
-  },
-  forgotCodeLabel: {
-    fontWeight: 'bold',
-    color: '#007bff',
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: height * 0.02,
-    borderRadius: 10,
-    marginHorizontal: width * 0.01,
-  },
-  cancelButton: {
-    backgroundColor: '#ff3b30',
-  },
-  submitButton: {
-    backgroundColor: '#34c759',
-  },
-  buttonText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: height * 0.02,
-    fontWeight: 'bold',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  recognitionStatusContainer: {
-    position: 'absolute',
-    top: height * 0.05,
-    left: 0,
-    right: 0,
-    alignSelf: 'center',
-    width: '80%',
-    padding: height * 0.01,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 10,
-    zIndex: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+      paddingTop: height * 0.1,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  recognitionStatusText: {
-    fontSize: height * 0.02,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-  },
-  labelContainer: {
-    width: '100%',
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  matanImage: {
-    width: width * 0.03,
-    height: width * 0.03,
-    resizeMode: 'contain',
-    marginLeft: width * 0.015,
-  },
-  avatarImage: {
-    width: width * 0.05,
-    height: width * 0.05,
-    borderRadius: width * 0.025,
-    marginLeft: width * 0.015,
-    borderWidth: 2,
-    borderColor: '#8B5CF6',
-  },
-  pointHandBubble: {
-    position: 'absolute',
-    top: height * 0.04,
-    left: width * 0.08,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  pointHandImage: {
-    width: width * 0.04,
-    height: width * 0.04,
-    marginRight: width * 0.03,
-  },
-  speechBubble: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 12,
-    paddingHorizontal: width * 0.02,
-    paddingVertical: height * 0.008,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+    modalContent: {
+      backgroundColor: '#f5f0e8',
+      borderRadius: 20,
+      padding: width * 0.05,
+      width: '80%',
+      maxWidth: 450,
+      alignItems: 'center',
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  speechBubbleText: {
-    fontSize: height * 0.018,
-    fontWeight: '600',
-    color: '#333',
-    textAlign: 'center',
-  },
-  settingsPointHandBubble: {
-    position: 'absolute',
-    top: height * 0.04,
-    right: width * 0.04,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  startupModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: width * 0.05,
-  },
-  startupModalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    width: '95%',
-    height: '90%',
-    padding: width * 0.05,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
+    lockIcon: {
+      fontSize: 32,
+      marginBottom: 8,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
-  },
-  showAndTellHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: height * 0.02,
-  },
-  showAndTellTitle: {
-    fontSize: height * 0.04,
-    fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
-  },
-  closeButton: {
-    width: width * 0.08,
-    height: width * 0.08,
-    borderRadius: width * 0.04,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: height * 0.025,
-    color: '#666',
-    fontWeight: 'bold',
-  },
-  showAndTellVideoContainer: {
-    flex: 1,
-    marginBottom: height * 0.02,
-  },
-  getStartedButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 12,
-    paddingVertical: height * 0.02,
-    alignItems: 'center',
-    shadowColor: '#4CAF50',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+    modalTitle: {
+      fontSize: height * 0.03,
+      fontWeight: 'bold',
+      marginBottom: 4,
+      color: '#333',
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  getStartedButtonText: {
-    color: 'white',
-    fontSize: height * 0.025,
-    fontWeight: 'bold',
-  },
-  loadingModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingModalContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingGif: {
-    width: width * 0.3,
-    height: width * 0.3,
-    marginBottom: height * 0.02,
-  },
-  loadingActivityIndicator: {
-    marginBottom: height * 0.02,
-  },
-  loadingText: {
-    fontSize: height * 0.03,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-});
+    modalDescription: {
+      fontSize: height * 0.018,
+      color: '#666',
+      textAlign: 'center',
+      marginBottom: height * 0.02,
+    },
+    pinRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: height * 0.025,
+      width: '100%',
+    },
+    pinBox: {
+      backgroundColor: '#fff',
+      borderWidth: 2,
+      borderColor: '#ddd',
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 1},
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    pinBoxFilled: {
+      borderColor: '#007bff',
+    },
+    pinBoxError: {
+      borderColor: '#ff3b30',
+      backgroundColor: '#fff0f0',
+    },
+    pinInput: {
+      width: '100%',
+      height: '100%',
+      textAlign: 'center',
+      color: '#333',
+      fontWeight: 'bold',
+    },
+    eyeButton: {
+      padding: 8,
+      marginLeft: 4,
+    },
+    eyeIcon: {
+      fontSize: 22,
+    },
+    forgotCodeText: {
+      fontSize: height * 0.016,
+      color: '#888',
+      textAlign: 'center',
+      marginTop: height * 0.015,
+      lineHeight: height * 0.022,
+      paddingHorizontal: 16,
+      fontStyle: 'italic',
+    },
+    forgotCodeLabel: {
+      fontWeight: 'bold',
+      color: '#007bff',
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+    },
+    modalButton: {
+      flex: 1,
+      paddingVertical: height * 0.02,
+      borderRadius: 10,
+      marginHorizontal: width * 0.01,
+    },
+    cancelButton: {
+      backgroundColor: '#ff3b30',
+    },
+    submitButton: {
+      backgroundColor: '#34c759',
+    },
+    buttonText: {
+      color: 'white',
+      textAlign: 'center',
+      fontSize: height * 0.02,
+      fontWeight: 'bold',
+    },
+    disabledButton: {
+      opacity: 0.5,
+    },
+    recognitionStatusContainer: {
+      position: 'absolute',
+      top: height * 0.05,
+      left: 0,
+      right: 0,
+      alignSelf: 'center',
+      width: '80%',
+      padding: height * 0.01,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+      borderRadius: 10,
+      zIndex: 20,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    recognitionStatusText: {
+      fontSize: height * 0.02,
+      fontWeight: '600',
+      color: '#333',
+      textAlign: 'center',
+    },
+    labelContainer: {
+      width: '100%',
+      borderBottomLeftRadius: 16,
+      borderBottomRightRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    matanImage: {
+      width: width * 0.03,
+      height: width * 0.03,
+      resizeMode: 'contain',
+      marginLeft: width * 0.015,
+    },
+    avatarImage: {
+      width: width * 0.05,
+      height: width * 0.05,
+      borderRadius: width * 0.025,
+      marginLeft: width * 0.015,
+      borderWidth: 2,
+      borderColor: '#8B5CF6',
+    },
+    pointHandBubble: {
+      position: 'absolute',
+      top: height * 0.04,
+      left: width * 0.08,
+      flexDirection: 'row',
+      alignItems: 'center',
+      zIndex: 2,
+    },
+    pointHandImage: {
+      width: width * 0.04,
+      height: width * 0.04,
+      marginRight: width * 0.03,
+    },
+    speechBubble: {
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderRadius: 12,
+      paddingHorizontal: width * 0.02,
+      paddingVertical: height * 0.008,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: 'rgba(0, 0, 0, 0.1)',
+    },
+    speechBubbleText: {
+      fontSize: height * 0.018,
+      fontWeight: '600',
+      color: '#333',
+      textAlign: 'center',
+    },
+    settingsPointHandBubble: {
+      position: 'absolute',
+      top: height * 0.04,
+      right: width * 0.04,
+      flexDirection: 'row',
+      alignItems: 'center',
+      zIndex: 2,
+    },
+    startupModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: width * 0.05,
+    },
+    startupModalContent: {
+      backgroundColor: 'white',
+      borderRadius: 20,
+      width: '95%',
+      height: '90%',
+      padding: width * 0.05,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 10,
+    },
+    showAndTellHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: height * 0.02,
+    },
+    showAndTellTitle: {
+      fontSize: height * 0.04,
+      fontWeight: 'bold',
+      color: '#333',
+      flex: 1,
+    },
+    closeButton: {
+      width: width * 0.08,
+      height: width * 0.08,
+      borderRadius: width * 0.04,
+      backgroundColor: '#f0f0f0',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      fontSize: height * 0.025,
+      color: '#666',
+      fontWeight: 'bold',
+    },
+    showAndTellVideoContainer: {
+      flex: 1,
+      marginBottom: height * 0.02,
+    },
+    getStartedButton: {
+      backgroundColor: '#4CAF50',
+      borderRadius: 12,
+      paddingVertical: height * 0.02,
+      alignItems: 'center',
+      shadowColor: '#4CAF50',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    getStartedButtonText: {
+      color: 'white',
+      fontSize: height * 0.025,
+      fontWeight: 'bold',
+    },
+    loadingModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingModalContent: {
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingGif: {
+      width: width * 0.3,
+      height: width * 0.3,
+      marginBottom: height * 0.02,
+    },
+    loadingActivityIndicator: {
+      marginBottom: height * 0.02,
+    },
+    loadingText: {
+      fontSize: height * 0.03,
+      fontWeight: 'bold',
+      color: '#FFFFFF',
+      textAlign: 'center',
+    },
+  });
 
 export default OpenScreen;
