@@ -13,10 +13,10 @@
 		8A9345E4303176050094B5FA /* model_ex_hanna_light_davoice_ph.dm in Resources */ = {isa = PBXBuildFile; fileRef = 8A9345E2303176050094B5FA /* model_ex_hanna_light_davoice_ph.dm */; };
 		8A9345E5303176050094B5FA /* model_ex_rich_fast_davoice_phoneme.dm in Resources */ = {isa = PBXBuildFile; fileRef = 8A9345E3303176050094B5FA /* model_ex_rich_fast_davoice_phoneme.dm */; };
 		8AB51D032F031A8900700AAC /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB51CFB2F031A8900700AAC /* AppDelegate.swift */; };
-		8AB51D0B2F031A8900700AAC /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB51D0A2F031A8900700AAC /* SceneDelegate.swift */; };
 		8AB51D052F031A8900700AAC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D022F031A8900700AAC /* PrivacyInfo.xcprivacy */; };
 		8AB51D062F031A8900700AAC /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */; };
 		8AB51D072F031A8900700AAC /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51CFF2F031A8900700AAC /* Images.xcassets */; };
+		8AB51D0B2F031A8900700AAC /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB51D0A2F031A8900700AAC /* SceneDelegate.swift */; };
 		8AB51D192F0322C300700AAC /* VerbaliTalkForever.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D182F0322C300700AAC /* VerbaliTalkForever.storekit */; };
 		D5DA32E19A245EE89997A3B3 /* libPods-VerbaliTalkForever.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E8073B5B7A33D7743B334D98 /* libPods-VerbaliTalkForever.a */; };
 /* End PBXBuildFile section */
@@ -47,11 +47,11 @@
 		8A9345E2303176050094B5FA /* model_ex_hanna_light_davoice_ph.dm */ = {isa = PBXFileReference; lastKnownFileType = file; path = model_ex_hanna_light_davoice_ph.dm; sourceTree = "<group>"; };
 		8A9345E3303176050094B5FA /* model_ex_rich_fast_davoice_phoneme.dm */ = {isa = PBXFileReference; lastKnownFileType = file; path = model_ex_rich_fast_davoice_phoneme.dm; sourceTree = "<group>"; };
 		8AB51CFB2F031A8900700AAC /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		8AB51D0A2F031A8900700AAC /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		8AB51CFF2F031A8900700AAC /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
 		8AB51D002F031A8900700AAC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8AB51D022F031A8900700AAC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		8AB51D0A2F031A8900700AAC /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		8AB51D182F0322C300700AAC /* VerbaliTalkForever.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = VerbaliTalkForever.storekit; sourceTree = "<group>"; };
 		E8073B5B7A33D7743B334D98 /* libPods-VerbaliTalkForever.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VerbaliTalkForever.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -285,13 +285,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalkForever/Pods-VerbaliTalkForever-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalkForever/Pods-VerbaliTalkForever-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -306,13 +302,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalkForever/Pods-VerbaliTalkForever-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-VerbaliTalkForever/Pods-VerbaliTalkForever-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -488,7 +480,10 @@
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
@@ -564,7 +559,10 @@
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
