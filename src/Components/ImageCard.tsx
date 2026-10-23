@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Pressable,
-  Dimensions,
   Image,
 } from 'react-native';
 import FastImage from 'react-native-fast-image';
@@ -40,8 +39,6 @@ export interface ImageCardProps {
   onAnswerSelected?: (answer: string) => void;
   ttsService: typeof TTSService;
 }
-const { width } = Dimensions.get('window');
-
 const ImageCard: React.FC<ImageCardProps> = ({
   images,
   width = 200,

@@ -281,6 +281,7 @@ const EditModal: React.FC<EditModalProps> = ({
                   {isFolder && renderFolderModeToggle()}
                 </View>
                 <TextInput
+                  disableFullscreenUI
                   style={styles.input}
                   value={name}
                   onChangeText={setName}
@@ -306,6 +307,7 @@ const EditModal: React.FC<EditModalProps> = ({
 
                 <View style={styles.searchInputContainer}>
                   <TextInput
+                    disableFullscreenUI
                     style={styles.searchInput}
                     value={folderSearchQuery}
                     onChangeText={setFolderSearchQuery}

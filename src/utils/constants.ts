@@ -24,6 +24,10 @@ type Views = {
   LOGIN: string;
   KEYBOARD_HOME: string;
   HERO_PROFILE: string;
+  IEP_DASHBOARD: string;
+  IEP_GOAL: string;
+  IEP_ADD_GOAL: string;
+  IEP_EXPORT: string;
 };
 
 type Stacks = {
@@ -67,6 +71,10 @@ export const views: Views = {
   LOGIN: 'LOGIN',
   KEYBOARD_HOME: 'view.KEYBOARD_HOME',
   HERO_PROFILE: 'view.HERO_PROFILE',
+  IEP_DASHBOARD: 'view.IEP_DASHBOARD',
+  IEP_GOAL: 'view.IEP_GOAL',
+  IEP_ADD_GOAL: 'view.IEP_ADD_GOAL',
+  IEP_EXPORT: 'view.IEP_EXPORT',
 };
 
 export const stacks: Stacks = {
@@ -141,89 +149,4 @@ export const MODEL_CONFIG = {
     return this.getCurrentModel().description;
   },
 
-  // Whisper model configuration
-  // Available models (smaller = faster but less accurate):
-  // - tiny.en (75MB) - Fastest, least accurate
-  // - base.en (142MB) - Good balance of speed and accuracy
-  // - small.en (466MB) - Better accuracy, slower [CURRENT]
-  WHISPER_BIG: {
-    name: 'Whisper Base English',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin',
-    fileName: 'ggml-small.en.bin',
-    size: '466MB',
-    description: 'Whisper transcription model for voice-to-text conversion',
-  },
-  WHISPER: {
-    name: 'Whisper Tiny Base English',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
-    fileName: 'ggml-tiny.en.bin',
-    size: '75MB',
-    description: 'Whisper transcription model for voice-to-text conversion',
-  },
-  WHISPER_TINY: {
-    name: 'Whisper Tiny English',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin',
-    fileName: 'ggml-tiny.en-q5_1.bin',
-    size: '32.2MB',
-    description: 'Whisper transcription model for voice-to-text conversion',
-  },
-
-  // Get Whisper model URL (optionally for low-end devices)
-  getWhisperModelUrl(isLowEndDevice?: boolean) {
-    if (isLowEndDevice) {
-      return this.WHISPER_TINY.url;
-    }
-    return this.WHISPER.url;
-  },
-
-  // Get Whisper model file name (optionally for low-end devices)
-  getWhisperModelFileName(isLowEndDevice?: boolean) {
-    if (isLowEndDevice) {
-      return this.WHISPER_TINY.fileName;
-    }
-    return this.WHISPER.fileName;
-  },
-
-  // Get Whisper model size (optionally for low-end devices)
-  getWhisperModelSize(isLowEndDevice?: boolean) {
-    if (isLowEndDevice) {
-      return this.WHISPER_TINY.size;
-    }
-    return this.WHISPER.size;
-  },
-
-  // Get Whisper model name (optionally for low-end devices)
-  getWhisperModelName(isLowEndDevice?: boolean) {
-    if (isLowEndDevice) {
-      return this.WHISPER_TINY.name;
-    }
-    return this.WHISPER.name;
-  },
-
-  // Get Whisper model description (optionally for low-end devices)
-  getWhisperModelDescription(isLowEndDevice?: boolean) {
-    if (isLowEndDevice) {
-      return this.WHISPER_TINY.description;
-    }
-    return this.WHISPER.description;
-  },
-
-  // Transcription configuration
-  TRANSCRIPTION: {
-    useLocalWhisper: true, // Always use local Whisper - cloud disabled
-    fallbackToCloud: false, // Never fallback to cloud - local only
-  },
-
-  // Get transcription preference (now dynamic based on settings)
-  shouldUseLocalWhisper(useLocalWhisper?: boolean) {
-    // Use the local whisper setting if provided, otherwise use default
-    return useLocalWhisper !== undefined
-      ? useLocalWhisper
-      : this.TRANSCRIPTION.useLocalWhisper;
-  },
-
-  // Get fallback preference
-  shouldFallbackToCloud() {
-    return this.TRANSCRIPTION.fallbackToCloud;
-  },
 };

@@ -1,4 +1,4 @@
-package com.verbali.matalkai
+package verbalitalk.io.verbali
 
 import android.app.Application
 import com.facebook.react.PackageList

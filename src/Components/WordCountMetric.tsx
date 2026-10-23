@@ -470,6 +470,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
             <Text style={styles.modalTitle}>Select Date Range</Text>
             <Text style={styles.modalLabel}>Start Date (YYYY-MM-DD):</Text>
             <TextInput
+              disableFullscreenUI
               style={styles.modalInput}
               value={dateRangeStart}
               onChangeText={setDateRangeStart}
@@ -477,6 +478,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
             />
             <Text style={styles.modalLabel}>End Date (YYYY-MM-DD):</Text>
             <TextInput
+              disableFullscreenUI
               style={styles.modalInput}
               value={dateRangeEnd}
               onChangeText={setDateRangeEnd}
@@ -520,6 +522,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
               <Text style={styles.modalLabel}>Time of Day (HH:mm):</Text>
               <View style={styles.timeInputRow}>
                 <TextInput
+                  disableFullscreenUI
                   style={[styles.modalInput, styles.timeInput]}
                   value={timeStart}
                   onChangeText={setTimeStart}
@@ -527,6 +530,7 @@ const WordCountMetric: React.FC<WordCountMetricProps> = () => {
                 />
                 <Text style={styles.timeSeparator}>to</Text>
                 <TextInput
+                  disableFullscreenUI
                   style={[styles.modalInput, styles.timeInput]}
                   value={timeEnd}
                   onChangeText={setTimeEnd}

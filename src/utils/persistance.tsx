@@ -8,9 +8,7 @@ import React, {
   useRef,
 } from 'react';
 import DefaultPreference from 'react-native-default-preference';
-import { validateReceiptOnLaunch } from './recieptValidation';
-import WhisperModelManager from './WhisperModelManager';
-import { sessionManager } from './sessionManager';
+import {sessionManager} from './sessionManager';
 
 interface Preferences {
   loggedIn: string;
@@ -48,9 +46,6 @@ interface Preferences {
   isInTrial: string;
   trialInstallationDate: string;
   pepes: string;
-  whisperModelAvailable: string;
-  whisperModelLastChecked: string;
-  useLocalWhisper: string;
   watchedVideos: string;
   settingsTappedOnce: string;
   microphoneTappedOnce: string;
@@ -85,6 +80,22 @@ interface Preferences {
   homeWelcomeGuideShown: string;
   // Personal Memory (on-device learning)
   memoryEnabled: string;
+  /** IEP dashboard: '1' when synthetic mock data replaces recorded sessions. */
+  iepMockMode: string;
+  /** IEP dashboard mock dataset: 'standard' or 'edgeCases'. */
+  iepMockDataset: string;
+  /** IEP session auto-stop: '1' enabled, and the duration in minutes. */
+  iepAutoStopEnabled: string;
+  iepAutoStopMinutes: string;
+  /** IEP reporting period preset: '4w' | '12w' | '6m' | 'custom' plus custom bounds. */
+  iepReportingPeriod: string;
+  iepReportingStartMs: string;
+  iepReportingEndMs: string;
+  /** Mock-mode SLP review overlays, JSON maps keyed by dataset/session/sentence. */
+  iepMockSupportReviews: string;
+  iepMockFunctionReviews: string;
+  /** Goal ids whose achievement was already reported to analytics, as a JSON array. */
+  iepAchievedGoalsReported: string;
   memoryLearningPaused: string;
   memoryAiContextEnabled: string;
   memoryExtractionThreshold: string;
@@ -138,16 +149,13 @@ export const initialPreferences: Preferences = {
   isInTrial: initEnum.false,
   trialInstallationDate: initEnum.notSet,
   pepes: '',
-  whisperModelAvailable: initEnum.false,
-  whisperModelLastChecked: '0',
-  useLocalWhisper: initEnum.true,
   watchedVideos: '',
   settingsTappedOnce: initEnum.false,
   microphoneTappedOnce: initEnum.false,
   showAndTellModalShown: initEnum.false,
   my8words: '',
   handshakeMessage:
-    'Hi ,this is how I communicate say Hey Verby and it will record the question.',
+    'Hi ,this is how I communicate say Hey Ver-bee and it will record the question.',
   // Device-based organization access
   deviceId: initEnum.notSet,
   isEnrolled: initEnum.false,
@@ -175,6 +183,16 @@ export const initialPreferences: Preferences = {
   homeWelcomeGuideShown: initEnum.false,
   // Personal Memory (on-device learning)
   memoryEnabled: initEnum.true,
+  iepMockMode: '0',
+  iepMockDataset: 'standard',
+  iepAutoStopEnabled: '0',
+  iepAutoStopMinutes: '30',
+  iepReportingPeriod: '12w',
+  iepReportingStartMs: '',
+  iepReportingEndMs: '',
+  iepMockSupportReviews: '{}',
+  iepMockFunctionReviews: '{}',
+  iepAchievedGoalsReported: '[]',
   memoryLearningPaused: initEnum.false,
   memoryAiContextEnabled: initEnum.true,
   memoryExtractionThreshold: '0.85',
@@ -206,7 +224,6 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const [preferences, setPreferences] =
     useState<Preferences>(initialPreferences);
   const initializationRef = useRef(false);
-  const receiptValidationRef = useRef(false);
   const [restartKey, setRestartKey] = useState(0);
 
   const restartApp = () => {
@@ -219,13 +236,10 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   ): Promise<void> => {
     try {
       await DefaultPreference.set(key, value);
-      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: value }));
+      setPreferences(prevPreferences => ({...prevPreferences, [key]: value}));
       if (key === 'isInTrial') {
-
       }
-    } catch (error) {
-
-    }
+    } catch (error) {}
   };
 
   const getItem = async (key: keyof Preferences): Promise<string> => {
@@ -248,19 +262,15 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
   const removeItem = async (key: keyof Preferences): Promise<void> => {
     try {
       await DefaultPreference.set(key, initEnum.notSet);
-      setPreferences(prevPreferences => ({ ...prevPreferences, [key]: '' }));
-    } catch (error) {
-
-    }
+      setPreferences(prevPreferences => ({...prevPreferences, [key]: ''}));
+    } catch (error) {}
   };
 
   const initializePreferences = async (): Promise<Preferences> => {
     // Prevent multiple initializations
     if (initializationRef.current) {
-
       return preferences;
     }
-
 
     initializationRef.current = true;
 
@@ -272,11 +282,11 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       const results = await Promise.all(
         getKeys.map(async key => {
           const found = await DefaultPreference.get(key);
-          return { key, value: found };
+          return {key, value: found};
         }),
       );
 
-      for (const { key, value } of results) {
+      for (const {key, value} of results) {
         // Fallback to initial value if stored value is null, undefined, empty, or placeholders
         const fallbackValue = initialPreferences[key];
         const isMissing =
@@ -286,15 +296,9 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
           value === initEnum.notSet;
 
         loaded[key] = isMissing ? fallbackValue : value;
-
-        if (key === 'answersCount') {
-          console.log(
-            `[Persistence] Loaded answersCount: "${loaded[key]}" (original: "${value}", fallback: "${fallbackValue}")`,
-          );
-        }
       }
       setPreferences(
-        prevPreferences => ({ ...prevPreferences, ...loaded } as Preferences),
+        prevPreferences => ({...prevPreferences, ...loaded} as Preferences),
       );
 
       // Set trial installation date on first app launch (never override)
@@ -303,31 +307,10 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         await setItem('trialInstallationDate', currentTimestamp);
       }
 
-      // validate purchase on launch
-      if (!receiptValidationRef.current) {
-        receiptValidationRef.current = true;
-
-        // Use a single timeout reference to prevent multiple executions
-        const timeoutId = setTimeout(async () => {
-          try {
-            const purchaseValid = await validateReceiptOnLaunch();
-            if (purchaseValid === false) {
-              await setItem('isIOSActive', '0');
-            } else if (purchaseValid === true) {
-              await setItem('isIOSActive', '1');
-            }
-          } catch (error) {
-
-          }
-        }, 3000);
-
-        // Store the timeout ID so we can clear it if needed
-        (receiptValidationRef as any).timeoutId = timeoutId;
-      }
+      // This is a paid app - no receipt validation on launch
 
       return loaded as Preferences;
     } catch (error) {
-
       return initialPreferences;
     }
   };
@@ -352,22 +335,13 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
       // Initialize guest session
       try {
         await sessionManager.ensureValidSession();
-
-      } catch (error) {
-
-      }
+      } catch (error) {}
     };
 
     initApp();
 
     return () => {
       initializationRef.current = false;
-      receiptValidationRef.current = false;
-
-      // Clear any pending timeout
-      if ((receiptValidationRef as any).timeoutId) {
-        clearTimeout((receiptValidationRef as any).timeoutId);
-      }
     };
   }, []);
 
@@ -378,9 +352,7 @@ export const AppSettingsProvider: FC<AppSettingsProviderProps> = ({
         await DefaultPreference.set(key, initialPreferences[key]);
       }
       setPreferences(initialPreferences);
-    } catch (error) {
-
-    }
+    } catch (error) {}
   };
 
   return (

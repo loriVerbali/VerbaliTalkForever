@@ -13,8 +13,8 @@ import {
   AppStateStatus,
   StatusBar,
   View,
-  Dimensions,
   Text,
+  useWindowDimensions,
 } from 'react-native';
 import RootControllerView from './Navigation/RootControllerView';
 import {AppSettingsProvider} from './utils/persistance';
@@ -23,6 +23,7 @@ import {ChatContextProvider} from './contexts/ChatContextProvider';
 import {ConnectionProvider} from './utils/connection';
 import {ToastProvider} from './contexts/ToastContext';
 import {DatabaseProvider} from './contexts/DatabaseContext';
+import {IepStoreProvider} from './features/iep/hooks/IepStoreProvider';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {sessionManager} from './utils/sessionManager';
 import mixpanel from './utils/mixpanelInstance';
@@ -34,10 +35,17 @@ import DefaultPreference from 'react-native-default-preference';
 import DeviceInfo from 'react-native-device-info';
 import FastImage from 'react-native-fast-image';
 import {PostHogProvider} from 'posthog-react-native';
-
-const {width, height} = Dimensions.get('window');
+import AppUpdateModal from './Components/AppUpdateModal';
+import {
+  checkForUpdatePopup,
+  hasUpdatePopupBeenShownThisSession,
+  markUpdatePopupShown,
+} from './utils/appUpdateService';
+import type {DisplayableUpdatePolicy} from './types/appUpdate';
 
 const App = () => {
+  // Live window size: Android's module-load value can be pre-rotation.
+  const {width, height} = useWindowDimensions();
   const appState = useRef(AppState.currentState);
   // Bootstrap tracks whether the init-once startup sequence has completed.
   // The Navigator (and therefore Open.tsx) is not rendered until this is true,
@@ -45,6 +53,13 @@ const App = () => {
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const bootstrapRanRef = useRef(false);
   const bootstrapDoneRef = useRef(false);
+
+  // Start-up update popup. The policy request runs in parallel with bootstrap
+  // and the modal is shown once the root UI is available. The once-per-session
+  // guard lives in appUpdateService (in-memory only, by design).
+  const [updatePolicy, setUpdatePolicy] =
+    useState<DisplayableUpdatePolicy | null>(null);
+  const [updateModalVisible, setUpdateModalVisible] = useState(false);
 
   useEffect(() => {
     bootstrapDoneRef.current = bootstrapDone;
@@ -84,6 +99,17 @@ const App = () => {
       const wasOnboarded = await DefaultPreference.get('wasOnboarded');
       const isOnboardingComplete = wasOnboarded === '1';
 
+      // Update popup: only for users who have completed onboarding. Fetched in
+      // parallel — never awaited by bootstrap, fails safely to null so startup
+      // is unaffected by network issues.
+      if (isOnboardingComplete && !hasUpdatePopupBeenShownThisSession()) {
+        checkForUpdatePopup()
+          .then(policy => {
+            if (policy) setUpdatePolicy(policy);
+          })
+          .catch(() => {});
+      }
+
       if (isOnboardingComplete) {
         try {
           // Step 1: init WakeWord, leave it paused
@@ -120,6 +146,23 @@ const App = () => {
 
     bootstrap();
   }, []);
+
+  // ─── UPDATE POPUP (once per native session) ──────────────────────────────
+  // Show only after the root UI is rendered; mark the guard when displayed.
+  useEffect(() => {
+    if (!bootstrapDone || !updatePolicy) return;
+    if (hasUpdatePopupBeenShownThisSession()) return;
+    markUpdatePopupShown();
+    setUpdateModalVisible(true);
+    try {
+      mixpanel.track('Update Popup Shown', {
+        importance: updatePolicy.importance,
+        installed_build: updatePolicy.installedBuild,
+        minimum_popup_build: updatePolicy.minimumPopupBuild,
+        latest_build: updatePolicy.latestBuild,
+      });
+    } catch {}
+  }, [bootstrapDone, updatePolicy]);
 
   // ─── APP STATE (background ↔ foreground) ─────────────────────────────────
   // Use pause/resume — never stop/start — so the instance is never torn down.
@@ -217,6 +260,10 @@ const App = () => {
           <ConnectionProvider>
             <PostHogProvider
               apiKey="phc_xTg6VY6vzemW5JDCkTY63fQxpzQhHGG3y8zWGk5Lgaws"
+              // Screen autocapture calls useNavigation(), but this provider
+              // sits above NavigationContainer so it can only ever log
+              // "useNavigation error". Screens are tracked via mixpanel.
+              autocapture={{ captureScreens: false }}
               options={{
                 host: 'https://us.i.posthog.com',
 
@@ -263,16 +310,24 @@ const App = () => {
               }}>
               <AppSettingsProvider>
                 <DatabaseProvider>
+                  <IepStoreProvider>
                   <AdminProvider>
                     <ChatContextProvider>
                       <RootControllerView />
                     </ChatContextProvider>
                   </AdminProvider>
+                  </IepStoreProvider>
                 </DatabaseProvider>
               </AppSettingsProvider>
             </PostHogProvider>
           </ConnectionProvider>
         </ToastProvider>
+        {/* Root-owned so it works for onboarding and logged-in stacks alike */}
+        <AppUpdateModal
+          visible={updateModalVisible}
+          policy={updatePolicy}
+          onClose={() => setUpdateModalVisible(false)}
+        />
       </GestureHandlerRootView>
     </>
   );

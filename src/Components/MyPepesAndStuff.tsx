@@ -1774,6 +1774,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                   Name
                 </Text>
                 <TextInput
+                  disableFullscreenUI
                   style={[
                     styles.textInput,
                     {
@@ -1804,6 +1805,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                   Aliases (comma-separated)
                 </Text>
                 <TextInput
+                  disableFullscreenUI
                   style={[
                     styles.textInput,
                     {
@@ -1990,6 +1992,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
 
                   <View style={styles.inputSection}>
                     <TextInput
+                      disableFullscreenUI
                       style={styles.textInput}
                       placeholder="Address"
                       placeholderTextColor="#888"
@@ -2000,6 +2003,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                       }}
                     />
                     <TextInput
+                      disableFullscreenUI
                       style={[styles.textInput, { marginTop: 10 }]}
                       placeholder="Address 2 (Optional)"
                       placeholderTextColor="#888"
@@ -2010,6 +2014,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                       }}
                     />
                     <TextInput
+                      disableFullscreenUI
                       style={[styles.textInput, { marginTop: 10 }]}
                       placeholder="City"
                       placeholderTextColor="#888"
@@ -2180,6 +2185,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                     )}
 
                     <TextInput
+                      disableFullscreenUI
                       style={[styles.textInput, { marginTop: 10 }]}
                       placeholder={
                         placeAddress.country === 'Canada'

@@ -5,10 +5,13 @@ import ReactAppDependencyProvider
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
+  // Assigned by SceneDelegate once the window scene connects; kept so libraries that still
+  // read `UIApplication.shared.delegate?.window` keep working.
   var window: UIWindow?
 
   var reactNativeDelegate: ReactNativeDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
+  var launchOptions: [UIApplication.LaunchOptionsKey: Any]?
 
   func application(
     _ application: UIApplication,
@@ -20,21 +23,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
+    self.launchOptions = launchOptions
 
-    window = UIWindow(frame: UIScreen.main.bounds)
-
-    factory.startReactNative(
-      withModuleName: "VerbaliTalkForever",
-      in: window,
-      launchOptions: launchOptions
-    )
-
+    // The UIWindow and the React Native root view are created in SceneDelegate
+    // (UIScene life cycle is mandatory for apps built with the iOS 27 SDK).
     return true
   }
 
-  // Handle linking
-  func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-    return RCTLinkingManager.application(app, open: url, options: options)
+  // MARK: - UIScene life cycle
+
+  func application(
+    _ application: UIApplication,
+    configurationForConnecting connectingSceneSession: UISceneSession,
+    options: UIScene.ConnectionOptions
+  ) -> UISceneConfiguration {
+    let configuration = UISceneConfiguration(
+      name: "Default Configuration",
+      sessionRole: connectingSceneSession.role
+    )
+    configuration.delegateClass = SceneDelegate.self
+    return configuration
   }
 
   // Handle orientation changes for react-native-orientation-locker

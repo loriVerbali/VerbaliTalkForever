@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,10 @@ import {
   ScrollView,
   FlatList,
 } from 'react-native';
-import { useAppSettings } from '../utils/persistance';
-import { useChatContext } from '../contexts/ChatContextProvider';
+import {useAppSettings} from '../utils/persistance';
+import {useChatContext} from '../contexts/ChatContextProvider';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 interface AddressDetails {
   address: string;
@@ -111,8 +111,8 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
   onComplete,
   isSettingsMode = false,
 }) => {
-  const { setItem, getItem } = useAppSettings();
-  const { location } = useChatContext();
+  const {setItem, getItem} = useAppSettings();
+  const {location} = useChatContext();
 
   const [places, setPlaces] = useState<SpecialPlace[]>([
     {
@@ -156,12 +156,12 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
   const [showStateModal, setShowStateModal] = useState<{
     show: boolean;
     placeType: 'home' | 'school' | 'therapy' | null;
-  }>({ show: false, placeType: null });
+  }>({show: false, placeType: null});
 
   const [showCountryModal, setShowCountryModal] = useState<{
     show: boolean;
     placeType: 'home' | 'school' | 'therapy' | null;
-  }>({ show: false, placeType: null });
+  }>({show: false, placeType: null});
 
   // Load saved places on component mount
   useEffect(() => {
@@ -211,8 +211,8 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         parts[8] === 'United States'
           ? 'USA'
           : parts[8] === 'Canada'
-            ? 'Canada'
-            : 'USA';
+          ? 'Canada'
+          : 'USA';
     } else if (parts.length >= 5) {
       // Format: "123, Main Street, City, State, Country"
       address = `${parts[0]} ${parts[1]}`.trim();
@@ -287,7 +287,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         });
         setPlaces(migratedPlaces);
       }
-    } catch (error) { }
+    } catch (error) {}
   };
 
   const handleAddressFieldChange = (
@@ -299,13 +299,13 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
       prev.map(place =>
         place.type === type
           ? {
-            ...place,
-            addressDetails: {
-              ...place.addressDetails,
-              [field]: value,
-            },
-            isCurrentLocation: false,
-          }
+              ...place,
+              addressDetails: {
+                ...place.addressDetails,
+                [field]: value,
+              },
+              isCurrentLocation: false,
+            }
           : place,
       ),
     );
@@ -323,12 +323,12 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
       prev.map(place =>
         place.type === type
           ? {
-            ...place,
-            isCurrentLocation: !place.isCurrentLocation,
-            addressDetails: !place.isCurrentLocation
-              ? parseLocationToAddressDetails(location.display_name || '')
-              : place.addressDetails,
-          }
+              ...place,
+              isCurrentLocation: !place.isCurrentLocation,
+              addressDetails: !place.isCurrentLocation
+                ? parseLocationToAddressDetails(location.display_name || '')
+                : place.addressDetails,
+            }
           : place,
       ),
     );
@@ -402,10 +402,10 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                 prev.map(place =>
                   place.type === type
                     ? {
-                      ...place,
-                      addressDetails: emptyAddressDetails,
-                      isCurrentLocation: false,
-                    }
+                        ...place,
+                        addressDetails: emptyAddressDetails,
+                        isCurrentLocation: false,
+                      }
                     : place,
                 ),
               );
@@ -418,17 +418,18 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
               const updatedPlaces = places.map(place =>
                 place.type === type
                   ? {
-                    ...place,
-                    addressDetails: emptyAddressDetails,
-                    isCurrentLocation: false,
-                  }
+                      ...place,
+                      addressDetails: emptyAddressDetails,
+                      isCurrentLocation: false,
+                    }
                   : place,
               );
               await setItem('specialPlaces', JSON.stringify(updatedPlaces));
 
               Alert.alert(
                 'Deleted',
-                `${type.charAt(0).toUpperCase() + type.slice(1)
+                `${
+                  type.charAt(0).toUpperCase() + type.slice(1)
                 } address deleted.`,
               );
             } catch (error) {
@@ -490,6 +491,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
     return (
       <View style={styles.addressForm}>
         <TextInput
+          disableFullscreenUI
           style={styles.input}
           placeholder="Address *"
           value={place.addressDetails.address}
@@ -499,6 +501,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         />
 
         <TextInput
+          disableFullscreenUI
           style={styles.input}
           placeholder="Address 2 (Optional)"
           value={place.addressDetails.address2}
@@ -508,6 +511,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         />
 
         <TextInput
+          disableFullscreenUI
           style={styles.input}
           placeholder="City *"
           value={place.addressDetails.city}
@@ -519,7 +523,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         <TouchableOpacity
           style={[styles.input, styles.dropdown]}
           onPress={() =>
-            setShowCountryModal({ show: true, placeType: place.type })
+            setShowCountryModal({show: true, placeType: place.type})
           }>
           <Text style={styles.dropdownText}>
             {place.addressDetails.country === 'Other'
@@ -532,9 +536,9 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
         <View style={styles.rowContainer}>
           {place.addressDetails.country !== 'Other' && (
             <TouchableOpacity
-              style={[styles.input, styles.dropdown, { flex: 1, marginRight: 8 }]}
+              style={[styles.input, styles.dropdown, {flex: 1, marginRight: 8}]}
               onPress={() =>
-                setShowStateModal({ show: true, placeType: place.type })
+                setShowStateModal({show: true, placeType: place.type})
               }>
               <Text
                 style={[
@@ -548,7 +552,8 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
           )}
 
           <TextInput
-            style={[styles.input, { flex: 1 }]}
+            disableFullscreenUI
+            style={[styles.input, {flex: 1}]}
             placeholder={
               place.addressDetails.country === 'Canada'
                 ? 'Postal Code'
@@ -589,7 +594,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
               </Text>
               <TouchableOpacity
                 onPress={() =>
-                  setShowStateModal({ show: false, placeType: null })
+                  setShowStateModal({show: false, placeType: null})
                 }>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
@@ -597,7 +602,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
             <FlatList
               data={states}
               keyExtractor={item => item}
-              renderItem={({ item }) => (
+              renderItem={({item}) => (
                 <TouchableOpacity
                   style={styles.modalItem}
                   onPress={() => {
@@ -606,7 +611,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                       'state',
                       item,
                     );
-                    setShowStateModal({ show: false, placeType: null });
+                    setShowStateModal({show: false, placeType: null});
                   }}>
                   <Text style={styles.modalItemText}>{item}</Text>
                 </TouchableOpacity>
@@ -635,7 +640,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
               <Text style={styles.modalTitle}>Select Country</Text>
               <TouchableOpacity
                 onPress={() =>
-                  setShowCountryModal({ show: false, placeType: null })
+                  setShowCountryModal({show: false, placeType: null})
                 }>
                 <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
@@ -656,7 +661,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                     'state',
                     '',
                   );
-                  setShowCountryModal({ show: false, placeType: null });
+                  setShowCountryModal({show: false, placeType: null});
                 }}>
                 <Text style={styles.modalItemText}>
                   {country === 'Other' ? 'Other' : country}
@@ -673,8 +678,8 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
     <View style={isSettingsMode ? styles.settingsContainer : styles.container}>
       {!isSettingsMode && (
         <Text style={styles.headerText}>
-          Help VerbaliTalk Forever provide better suggestions by setting up your
-          special places. You can skip this step and set them up later.
+          Help MaTalk provide better suggestions by setting up your special
+          places. You can skip this step and set them up later.
         </Text>
       )}
 
@@ -696,14 +701,14 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                   style={[
                     styles.currentLocationButton,
                     place.isCurrentLocation &&
-                    styles.currentLocationButtonActive,
+                      styles.currentLocationButtonActive,
                   ]}
                   onPress={() => handleCurrentLocationToggle(place.type)}>
                   <Text
                     style={[
                       styles.currentLocationText,
                       place.isCurrentLocation &&
-                      styles.currentLocationTextActive,
+                        styles.currentLocationTextActive,
                     ]}>
                     {place.isCurrentLocation
                       ? '✓ Current Location'
@@ -715,7 +720,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                   style={[
                     styles.saveButton,
                     !isAddressComplete(place.addressDetails) &&
-                    styles.saveButtonDisabled,
+                      styles.saveButtonDisabled,
                   ]}
                   onPress={() => handleSave(place.type)}
                   disabled={!isAddressComplete(place.addressDetails)}>
@@ -723,7 +728,7 @@ const SpecialPlaces: React.FC<SpecialPlacesProps> = ({
                     style={[
                       styles.saveButtonText,
                       !isAddressComplete(place.addressDetails) &&
-                      styles.saveButtonTextDisabled,
+                        styles.saveButtonTextDisabled,
                     ]}>
                     Save
                   </Text>
