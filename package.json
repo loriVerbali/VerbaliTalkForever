@@ -20,7 +20,8 @@
     "iep:mock-audit": "node scripts/iep-mock-coverage.js --weeks 12 && node scripts/iep-reconcile-mock.js --dry-run",
     "iep:test": "jest __tests__/iep",
     "iep:sample-report": "IEP_PDF_OUT=docs/iep-samples jest __tests__/iep/export/pdfReport.test.ts",
-    "iep:bundle-mock-data": "node scripts/iep-bundle-mock-data.js"
+    "iep:bundle-mock-data": "node scripts/iep-bundle-mock-data.js",
+    "killmetro": "kill -9 $(lsof -ti:8081)"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",
