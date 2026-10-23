@@ -72,6 +72,8 @@ Rules that held up last time:
 | `android/app/build.gradle` | Keep our `applicationId` / `versionName`, take upstream's higher `versionCode`. |
 | `.gitignore` | Union both sides. |
 | Card rendering | Ours — see [Adult invariants](#adult-invariants). |
+| `ios/matalkaiforever.verbali.io/*.swift` | Dead here — our target compiles `ios/AppDelegate.swift`. Port upstream's edits to `ios/AppDelegate.swift`; `git mv` any *new* source (2026-10-23: `SceneDelegate.swift`) to `ios/` and register it in `VerbaliTalkForever.xcodeproj` by hand. See [Traps](#6-traps). |
+| `android/app/src/main/java/com/verbali/matalkai/*.kt` | Take upstream's code, but `package verbalitalk.io.verbali` (must equal the gradle `namespace` — the manifest uses relative `.MainActivity`) and `getMainComponentName() = "VerbaliTalkForever"` (must equal `app.json` `name`). |
 | Everything else | Theirs, unless it collides with an invariant. |
 
 **Deleted-by-us conflicts (`DU`)**: our iOS restructure moved app sources from
@@ -99,6 +101,10 @@ marked ⚠️ have silently reverted before.
 - `My8WordsCustomizer.tsx` — image search stays removed; new words save `imageUrl: ''`.
 - `SentenceBuilderGrid.tsx` ⚠️ — word and folder cards render the word filling the
   card. No image branch, no label strip underneath.
+- `NavigationBar.tsx` ⚠️ — the sentence bar shows each word as the word itself in
+  large print (`sentenceFontSize`, ~32-43pt on iPad). No circle, no `FastImage`,
+  no initial-letter placeholder, no small caption. Upstream renders a symbol circle
+  with the word under it, so `renderToken` conflicts on every merge: keep ours.
 - `VerbiSuggestionTile.tsx` ⚠️ — word fills the tile. No `FastImage`, no label strip.
 - `EditModal.tsx` ⚠️ — no image search; words are **typed** (`name.trim()`), not picked
   from the library.
@@ -109,9 +115,15 @@ marked ⚠️ have silently reverted before.
 - 5 extra avatars in Onboarding + Settings: `oman`, `obman`, `owwoman`, `obwoman`, `aowoman`.
 - Keyboard text is `isTablet ? 48 : 32` with `72/56` buttons, not upstream's flat `18`/`40`.
 - Verbi predictions send `isAdult: true` (`useVerbiPrediction.ts`).
+- `Home.tsx` `resolvePepesImage` lists `Medicine`, not upstream's `Toys` (unified Home since 2026-10-23).
 
 **Identity** — `applicationId verbalitalk.io.verbali`, `versionName VERBALITALKV1`,
 `ios/VerbaliTalkForever.xcodeproj`. Never take MatalkForever branding.
+Also: Kotlin `package verbalitalk.io.verbali` + `getMainComponentName() = "VerbaliTalkForever"`;
+iOS `startReactNative(withModuleName: "VerbaliTalkForever")` (in `ios/SceneDelegate.swift` since 2026-10-23);
+`src/utils/appIdentity.ts` `APP_KEY = 'verbali_talk_forever'` (upstream: `matalk_forever`) — the backend's
+accepted keys are in `matalkapi/services/appUpdate/appUpdate.service.js`, and
+`__tests__/appUpdateService.test.ts` asserts the value.
 
 > Image **assets** are still in the repo (28 feelings, 41 shortcuts) — just unimported.
 > Re-enabling images is a code change, not an asset restore.
@@ -213,3 +225,35 @@ and `isAdult` on `/v1/verbi/predictions`.
 
 **Deployment ≠ source.** The backend repo having a route says nothing about whether
 `matalkapi-copy-nologin` is running that build. Verify against the live host.
+
+**Two AppDelegates, one compiled.** Git follows the
+`ios/matalkaiforever.verbali.io/Info.plist → ios/Info.plist` rename but not the AppDelegate
+one, so upstream's AppDelegate edits land in the dead `ios/matalkaiforever.verbali.io/`
+folder while their Info.plist edits land in the live `ios/Info.plist`. On 2026-10-23 that put
+the UIScene manifest in the live plist and `SceneDelegate.swift` in the dead folder — a black
+screen at launch, had it shipped. The dead AppDelegate is deleted now (next time it is a `DU`
+conflict: keep our deletion), but any *new* native source upstream adds under that folder still
+has to be moved to `ios/` and added to the pbxproj (file ref, build file, group child, Sources
+phase — four edits, fresh 24-hex ids).
+→ After the merge: `git status -- ios/matalkaiforever.verbali.io` must show nothing you want compiled.
+
+**The update popup is silently off here.** `appUpdateService.checkForUpdatePopup()` only runs
+when `DeviceInfo.getVersion()` is a plain integer (`/^\d+$/`). Ours are `MARKETING_VERSION = 6.2`
+and `versionName "VERBALITALKV1"`, so the popup never evaluates. Upstream switched to integer
+versions for exactly this (`f8dc7fd`: iOS 4 / Android "4"). Making ours integers is a
+release-train decision, not a merge step — but until then the backend's `verbali_talk_forever`
+policy does nothing.
+
+**Upstream's `'Toys'` is our `Medicine` — only partly.** `Home.tsx` and `MyPepesAndStuff.tsx` say
+Medicine; `pepesUtils.ts`, `ProfileExportService.ts`, `ProfileImportService.ts`,
+`My8WordsCustomizer.tsx` and `TellUsMore/*` still say Toys (pre-existing, not from a merge), so
+profile export/import skips Medicine pepes. Not touched on 2026-10-23 — out of merge scope.
+
+---
+
+## 7. Sync log
+
+| Date | Upstream range | Branch | Conflicts | Notes |
+|---|---|---|---|---|
+| 2026-08-16 | → `0127b0e` | `upgrademe`, merge `1e261b0` | 10 (after graft) | First merge. Surfaced the four runtime bugs in §4. |
+| 2026-10-23 | `0127b0e` → `5cf008b` (42 commits) | `sync-matalk-20261023` | 11: `build.gradle`, `gradle-wrapper.jar`, `Podfile.lock`, pbxproj, `EditModal`, `SpecialPlaces`, `TermsAndConditions`, `Home.android.tsx` (modify/delete — deleted, Medicine ported to the unified `Home.tsx`), `KeyboardHome.{ios,android}`, `Open.tsx` (upstream moved styles into `createStyles(width,height)`; our adult style deltas re-applied inside it) | RN 0.82 → 0.86.2 (reanimated 4 / worklets / nitro), IEP progress dashboard, start-up update popup (`APP_KEY = verbali_talk_forever`), iOS 27 UIScene life cycle (`SceneDelegate.swift`, ported by hand — see §6), unified `Home.tsx`, Terms accept button (disclaimer re-branded), Gradle 9.3.1 / Kotlin 2.4.10 / arm64-only Android, Whisper / `react-native-tts` / `Subscription.tsx` / `recieptValidation.ts` removed upstream. `versionCode` 26 → 30. tsc: no new errors vs upstream's baseline (ours adds only the dead `soundContext.tsx`). iOS + Android bundles OK. jest 48/50 suites — `App.test.tsx` and `iep/mock/mockAudit.test.ts` fail upstream too (the latter needs the gitignored `docs/` fixtures). Native: `pod install` stopped on `hermes-engine` because `Pods/Local Podspecs` was still RN 0.82's — `pod update hermes-engine --no-repo-update` fixed it; the lock then differs from upstream's only in the hermes checksum and `PODFILE CHECKSUM`. Xcode 27 Debug simulator build of scheme `VerbaliTalkForever` succeeded and the app launches to Onboarding on iPad Pro 13-inch (M5) under the UIScene life cycle. If the MatalkForever Metro is holding port 8081, run ours on 8082 and point the simulator app at it: `xcrun simctl spawn <sim> defaults write verbalitalkforever.verbali.io RCT_jsLocation localhost:8082` (delete the default afterwards). Android (same day, after freeing disk): `assembleDebug` OK and the app runs to Onboarding on the Pixel_9a emulator (API 37, arm64, 16 KB pages) against Metro on 8081; `bundleRelease` first died with `OutOfMemoryError: Metaspace` in `lintVitalAnalyzeRelease` (react-native-iap, nitro-modules, gesture-handler — the K2 UAST lint pass outgrows the 512 MB metaspace upstream ships), fixed by raising `org.gradle.jvmargs` to `-Xmx4096m -XX:MaxMetaspaceSize=1024m` in `android/gradle.properties`; the resulting `app-release.aab` (versionCode 30, arm64-v8a only, signed with the MatalkVerbali upload key) verifies with `jarsigner`. |

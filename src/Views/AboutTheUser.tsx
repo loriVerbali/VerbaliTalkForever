@@ -490,6 +490,7 @@ export const AboutTheUserContent: React.FC = () => {
             <Text style={styles.actionSheetTitle}>Edit fact</Text>
             <Text style={styles.inputLabel}>Statement</Text>
             <TextInput
+              disableFullscreenUI
               style={styles.input}
               value={editStatement}
               onChangeText={setEditStatement}
@@ -497,6 +498,7 @@ export const AboutTheUserContent: React.FC = () => {
             />
             <Text style={styles.inputLabel}>Value (optional)</Text>
             <TextInput
+              disableFullscreenUI
               style={styles.input}
               value={editValue}
               onChangeText={setEditValue}

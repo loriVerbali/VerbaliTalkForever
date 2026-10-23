@@ -77,8 +77,7 @@ const SETTINGS_SECTIONS: SectionNavItem[] = [
     icon: '👤',
     color: '#e8f4fc',
     title: 'Account',
-    description:
-      'Shows your subscription status and lets you activate or manage your MaTalk AI subscription.',
+    description: 'Shows your MaTalk AI account information.',
   },
   {
     key: 'accountSettings',
@@ -355,6 +354,7 @@ const SettingsScreen: React.FC = () => {
   const [showGobackAfterSelectionInfo, setShowGobackAfterSelectionInfo] =
     useState(false);
   const [showGenderInfo, setShowGenderInfo] = useState(false);
+  const [showProfileInfo, setShowProfileInfo] = useState(false);
   // Hero name state
   const [heroName, setHeroName] = useState('Name');
   const [isEditingHeroName, setIsEditingHeroName] = useState(false);
@@ -765,6 +765,16 @@ const SettingsScreen: React.FC = () => {
   );
   // 5 tiles per row: section padding (20 × 2) + 4 gaps of 10 between tiles.
   const navTileWidth = (windowWidth - 40 - 4 * 10) / 5;
+  // Reports cards: 4 per row on tablets, 2 per row on phones, with the IEP
+  // card on its own full-width row below. Explicit widths instead of flex: 1 +
+  // minWidth inside a wrapping row — Yoga under-measured the wrapped row, so
+  // the IEP card overflowed into the next section and wasn't pressable.
+  const reportsCardsPerRow = windowWidth >= 768 ? 4 : 2;
+  const reportsCardSize = {
+    width: Math.floor(
+      (windowWidth - 40 - (reportsCardsPerRow - 1) * 12) / reportsCardsPerRow,
+    ),
+  };
 
   const handleFamilyMemberSelect = (member: FamilyMember) => {
     // You can add additional logic here if needed
@@ -1347,10 +1357,12 @@ const SettingsScreen: React.FC = () => {
                       marginBottom: 10,
                     }}>
                     <TextInput
+                      disableFullscreenUI
                       style={[styles.codeInput, { flex: 1 }]}
                       value={newHeroName}
                       onChangeText={setNewHeroName}
                       placeholder="Name"
+                      placeholderTextColor="#999"
                       maxLength={32}
                       autoFocus
                       returnKeyType="done"
@@ -1413,10 +1425,12 @@ const SettingsScreen: React.FC = () => {
                       marginBottom: 10,
                     }}>
                     <TextInput
+                      disableFullscreenUI
                       style={[styles.codeInput, { flex: 1 }]}
                       value={newHandshakeMessage}
                       onChangeText={setNewHandshakeMessage}
                       placeholder="Enter handshake message"
+                      placeholderTextColor="#999"
                       maxLength={100}
                       autoFocus
                       returnKeyType="done"
@@ -1664,7 +1678,39 @@ const SettingsScreen: React.FC = () => {
               </Text>
               <View style={styles.reportsCardsContainer}>
                 <TouchableOpacity
-                  style={styles.reportsCard}
+                  style={[styles.reportsCard, reportsCardSize]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    mixpanel.track('Settings Reports Card Pressed', {
+                      cardType: 'AI Questions Answered',
+                    });
+                    navigation.navigate(views.REPORTS);
+                  }}>
+                  <View style={styles.reportsCardContent}>
+                    <Text style={styles.reportsCardTitle}>
+                      AI Questions Answered
+                    </Text>
+                    <Text style={styles.reportsCardInsight}>
+                      See question resolution rates and rounds needed
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.reportsCardButton}
+                      activeOpacity={0.8}
+                      onPress={e => {
+                        e.stopPropagation();
+                        mixpanel.track('Settings Reports Card Button Pressed', {
+                          cardType: 'AI Questions Answered',
+                        });
+                        navigation.navigate(views.REPORTS);
+                      }}>
+                      <Text style={styles.reportsCardButtonText}>
+                        enter reports
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.reportsCard, reportsCardSize]}
                   activeOpacity={0.7}
                   onPress={() => {
                     mixpanel.track('Settings Reports Card Pressed', {
@@ -1696,7 +1742,7 @@ const SettingsScreen: React.FC = () => {
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.reportsCard}
+                  style={[styles.reportsCard, reportsCardSize]}
                   activeOpacity={0.7}
                   onPress={() => {
                     mixpanel.track('Settings Reports Card Pressed', {
@@ -1728,7 +1774,7 @@ const SettingsScreen: React.FC = () => {
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.reportsCard}
+                  style={[styles.reportsCard, reportsCardSize]}
                   activeOpacity={0.7}
                   onPress={() => {
                     mixpanel.track('Settings Reports Card Pressed', {
@@ -1759,39 +1805,37 @@ const SettingsScreen: React.FC = () => {
                     </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.reportsCard}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    mixpanel.track('Settings Reports Card Pressed', {
-                      cardType: 'AI Questions Answered',
-                    });
-                    navigation.navigate(views.REPORTS);
-                  }}>
-                  <View style={styles.reportsCardContent}>
-                    <Text style={styles.reportsCardTitle}>
-                      AI Questions Answered
-                    </Text>
-                    <Text style={styles.reportsCardInsight}>
-                      See question resolution rates and rounds needed
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.reportsCardButton}
-                      activeOpacity={0.8}
-                      onPress={e => {
-                        e.stopPropagation();
-                        mixpanel.track('Settings Reports Card Button Pressed', {
-                          cardType: 'AI Questions Answered',
-                        });
-                        navigation.navigate(views.REPORTS);
-                      }}>
-                      <Text style={styles.reportsCardButtonText}>
-                        enter reports
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                style={[styles.reportsCard, styles.reportsCardIep]}
+                activeOpacity={0.7}
+                onPress={() => {
+                  mixpanel.track('Settings Reports Card Pressed', {
+                    cardType: 'IEP Progress',
+                  });
+                  navigation.navigate(views.IEP_DASHBOARD);
+                }}>
+                <View style={styles.reportsCardContent}>
+                  <Text style={styles.reportsCardTitle}>IEP Progress</Text>
+                  <Text style={styles.reportsCardInsight}>
+                    Track IEP goals and progress across therapy sessions
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.reportsCardButton}
+                    activeOpacity={0.8}
+                    onPress={e => {
+                      e.stopPropagation();
+                      mixpanel.track('Settings Reports Card Button Pressed', {
+                        cardType: 'IEP Progress',
+                      });
+                      navigation.navigate(views.IEP_DASHBOARD);
+                    }}>
+                    <Text style={styles.reportsCardButtonText}>
+                      enter reports
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
 
               {renderBackToTop('reports')}
             </View>
@@ -1801,6 +1845,49 @@ const SettingsScreen: React.FC = () => {
               style={[styles.section]}
               onLayout={registerSectionPosition('memory')}>
               <Text style={styles.sectionTitle}>Personal Memory</Text>
+
+              <TouchableOpacity
+                style={styles.memoryNavRow}
+                activeOpacity={0.7}
+                onPress={() => navigation.navigate(views.HERO_PROFILE)}>
+                <View style={styles.memoryNavIconCircle}>
+                  <Text style={styles.memoryNavIconText}>👤</Text>
+                </View>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <View style={styles.memoryNavTitleRow}>
+                    <Text style={styles.memoryNavTitle}>
+                      {heroName === 'Name' ? 'Hero' : heroName}'s Profile
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        mixpanel.track('Settings Info Button Pressed', {
+                          infoType: 'Hero Profile',
+                        });
+                        setShowProfileInfo(true);
+                      }}
+                      style={styles.infoButton}>
+                      <Text style={styles.infoIcon}>i</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.aboutDescription}>
+                    What we learned about{' '}
+                    {heroName === 'Name' ? 'your hero' : heroName}
+                  </Text>
+                </View>
+                <View style={styles.memoryNavRight}>
+                  {memoryReviewCount > 0 && (
+                    <View style={styles.memoryBadge}>
+                      <Text style={styles.memoryBadgeText}>
+                        {memoryReviewCount} to review
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.memoryNavChevronCircle}>
+                    <Text style={styles.memoryNavChevron}>›</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
               <Text style={styles.aboutDescription}>
                 Matalk learns from the words, answers, phrases, and sentences
                 selected on this device. Personal Memory is stored locally on
@@ -1858,30 +1945,6 @@ const SettingsScreen: React.FC = () => {
                   value={memoryAiPref}
                 />
               </View>
-
-              <TouchableOpacity
-                style={styles.memoryNavRow}
-                onPress={() => navigation.navigate(views.HERO_PROFILE)}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={styles.settingLabel}>
-                    {heroName === 'Name' ? 'Hero' : heroName}'s Profile
-                  </Text>
-                  <Text style={styles.aboutDescription}>
-                    What we learned about{' '}
-                    {heroName === 'Name' ? 'your hero' : heroName}
-                  </Text>
-                </View>
-                <View style={styles.memoryNavRight}>
-                  {memoryReviewCount > 0 && (
-                    <View style={styles.memoryBadge}>
-                      <Text style={styles.memoryBadgeText}>
-                        {memoryReviewCount} to review
-                      </Text>
-                    </View>
-                  )}
-                  <Text style={styles.memoryNavChevron}>›</Text>
-                </View>
-              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.exportButton}
@@ -2340,6 +2403,7 @@ const SettingsScreen: React.FC = () => {
                     {isEditingAdminCode ? (
                       <View style={styles.adminCodeEditContainer}>
                         <TextInput
+                          disableFullscreenUI
                           style={[
                             styles.codeInput,
                             adminCodeError ? styles.errorInput : null,
@@ -2355,6 +2419,7 @@ const SettingsScreen: React.FC = () => {
                           keyboardType="numeric"
                           maxLength={4}
                           placeholder="Enter new 4-digit code"
+                          placeholderTextColor="#999"
                           secureTextEntry={false}
                           editable={!isSaving}
                           returnKeyType="done"
@@ -2895,6 +2960,20 @@ const SettingsScreen: React.FC = () => {
         />
 
         <InfoModal
+          visible={showProfileInfo}
+          onClose={() => {
+            mixpanel.track('Settings Info Modal Closed', {
+              modalType: 'Hero Profile',
+            });
+            setShowProfileInfo(false);
+          }}
+          title={`${heroName === 'Name' ? 'Hero' : heroName}'s Profile`}
+          description={`This is everything MaTalk AI has learned about ${
+            heroName === 'Name' ? 'your hero' : heroName
+          } from daily use — favorite people, foods, activities, and routines. Tap the card to review what was learned: you can approve, edit, or delete any item. Items waiting for your review show up in the red badge. Everything stays on this device.`}
+        />
+
+        <InfoModal
           visible={navInfo !== null}
           onClose={() => setNavInfo(null)}
           title={navInfo?.title ?? ''}
@@ -3239,7 +3318,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   reportsCard: {
-    flex: 1,
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
@@ -3251,8 +3329,13 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 2,
     borderColor: '#B3E5FC',
-    minWidth: SCREEN_WIDTH * 0.2,
     minHeight: height * 0.12,
+  },
+  reportsCardIep: {
+    alignSelf: 'stretch',
+    marginTop: 12,
+    borderWidth: 4,
+    borderColor: '#8E24AA',
   },
   reportsCardContent: {
     alignItems: 'center',
@@ -3375,21 +3458,59 @@ const styles = StyleSheet.create({
   },
   memoryNavRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e8dff0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  memoryNavIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(142, 36, 170, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  memoryNavIconText: {
+    fontSize: 22,
+  },
+  memoryNavTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  memoryNavTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#333',
   },
   memoryNavRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  memoryNavChevronCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#8E24AA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
   memoryNavChevron: {
-    fontSize: 22,
-    color: '#999',
-    marginLeft: 8,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: -2,
   },
   memoryBadge: {
     backgroundColor: '#E53935',
@@ -3460,6 +3581,7 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     height: 40,
+    color: '#000',
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingHorizontal: 12,

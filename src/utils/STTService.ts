@@ -355,6 +355,17 @@ export const startSpeechRecognition = (
 ): Promise<void> =>
   enqueueTransition(async () => {
     if (Platform.OS !== 'ios') {
+      // The mic may be paused from a previous screen's wakeword handoff
+      // (releaseMicrophone). Un-pause first — otherwise start() runs against a
+      // muted input and the recognizer hears nothing, silently.
+      try {
+        await DaVoice.unPauseMicrophone();
+      } catch (error) {
+        traceWarn(
+          '[STT TRACE][service] unPauseMicrophone before start failed',
+          describeError(error),
+        );
+      }
       await DaVoice.start(locale, options);
       return;
     }
@@ -459,6 +470,39 @@ export const stopSpeechRecognition = (): Promise<void> =>
         describeError(error),
       );
       throw error;
+    }
+  });
+
+/**
+ * Hand the microphone back to the wakeword engine without tearing anything
+ * down. The recognizer instance, its listeners and the shared TTS bridge all
+ * stay alive — only the mic is released.
+ *
+ * This replaces the old `Voice.destroy()` here, which was inherited from the
+ * @react-native-voice idiom. On the DaVoice unified bridge destroy() maps to
+ * destroyAll(), which on Android also runs NativeTTS.destroy(); the next
+ * speak() then threw
+ *   java.lang.IllegalStateException: the voice TTS interface not initialized.
+ *   Call initTTS first.
+ * while JS still believed TTS was initialized, killing speech for the session.
+ *
+ * pauseMicrophone() is the mic-specific call (STTModule.pauseMicrophone), not
+ * pauseSpeechRecognitionLite() — "Lite" deliberately keeps the audio path warm
+ * for a fast unpause, which is the opposite of handing the mic over.
+ * startSpeechRecognition() un-pauses before every Android start, so this is
+ * self-healing.
+ */
+export const releaseMicrophone = (): Promise<void> =>
+  enqueueTransition(async () => {
+    trace('[STT TRACE][service] pausing microphone for wakeword handoff');
+    try {
+      await DaVoice.pauseMicrophone();
+      trace('[STT TRACE][service] microphone paused');
+    } catch (error) {
+      traceWarn(
+        '[STT TRACE][service] pauseMicrophone failed',
+        describeError(error),
+      );
     }
   });
 

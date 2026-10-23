@@ -16,6 +16,7 @@
 		8AB51D052F031A8900700AAC /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D022F031A8900700AAC /* PrivacyInfo.xcprivacy */; };
 		8AB51D062F031A8900700AAC /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */; };
 		8AB51D072F031A8900700AAC /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51CFF2F031A8900700AAC /* Images.xcassets */; };
+		8AB51D0B2F031A8900700AAC /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB51D0A2F031A8900700AAC /* SceneDelegate.swift */; };
 		8AB51D192F0322C300700AAC /* VerbaliTalkForever.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 8AB51D182F0322C300700AAC /* VerbaliTalkForever.storekit */; };
 		D5DA32E19A245EE89997A3B3 /* libPods-VerbaliTalkForever.a in Frameworks */ = {isa = PBXBuildFile; fileRef = E8073B5B7A33D7743B334D98 /* libPods-VerbaliTalkForever.a */; };
 /* End PBXBuildFile section */
@@ -50,6 +51,7 @@
 		8AB51D002F031A8900700AAC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8AB51D022F031A8900700AAC /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		8AB51D0A2F031A8900700AAC /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		8AB51D182F0322C300700AAC /* VerbaliTalkForever.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = VerbaliTalkForever.storekit; sourceTree = "<group>"; };
 		E8073B5B7A33D7743B334D98 /* libPods-VerbaliTalkForever.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VerbaliTalkForever.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -72,6 +74,7 @@
 			isa = PBXGroup;
 			children = (
 				8AB51CFB2F031A8900700AAC /* AppDelegate.swift */,
+				8AB51D0A2F031A8900700AAC /* SceneDelegate.swift */,
 				8AB51CFF2F031A8900700AAC /* Images.xcassets */,
 				8AB51D002F031A8900700AAC /* Info.plist */,
 				8AB51D012F031A8900700AAC /* LaunchScreen.storyboard */,
@@ -250,7 +253,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
+			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"\\\"$WITH_ENVIRONMENT\\\" \\\"$REACT_NATIVE_XCODE\\\"\"\n";
 		};
 		C44193CA38C81D0AC136AF1E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -324,6 +327,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8AB51D032F031A8900700AAC /* AppDelegate.swift in Sources */,
+				8AB51D0B2F031A8900700AAC /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -350,7 +354,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.2;
+				MARKETING_VERSION = 7;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -390,7 +394,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 6.2;
+				MARKETING_VERSION = 7;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -471,6 +475,10 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -478,11 +486,14 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
 				OTHER_LDFLAGS = "$(inherited)  ";
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 			};
 			name = Debug;
@@ -540,6 +551,10 @@
 					"\"$(inherited)\"",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -547,10 +562,13 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
 				OTHER_LDFLAGS = "$(inherited)  ";
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};

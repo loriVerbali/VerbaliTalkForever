@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { closeDatabase, getDatabase, initDatabase } from '../utils/database';
 // @ts-ignore
 import { sentenceBuilderSqlite } from '../utils/sentenceBuilderSqlite';
+import { IEP_DIRECTORY_NAME } from '../features/iep/store/fsPersistence';
 import { personalMemoryDb } from '../utils/personalMemoryDb';
 import { personalMemoryService } from './PersonalMemoryService';
 import { initialPreferences } from '../utils/persistance';
@@ -122,10 +123,6 @@ export const ProfileExportService = {
                 // specific logic: if value is null/undefined, do we default to initial?
                 // The requirement says "Export all key-value persistence for the active profile".
                 prefsToExport[key] = value ?? (initialPreferences as any)[key];
-
-                if (key === 'tellUsMore') {
-                    console.log(`[Export] Including tellUsMore context (${(prefsToExport[key] || '').length} chars)`);
-                }
             } catch (e) {
                 console.warn(`Failed to get preference for ${key}`, e);
                 prefsToExport[key] = (initialPreferences as any)[key];
@@ -233,6 +230,13 @@ export const ProfileExportService = {
         // 2. my8words images
         if (await RNFS.exists(my8wordsDir)) {
             await RNFS.copyFile(my8wordsDir, `${destPath}/my8words`);
+        }
+
+        // 2b. IEP goals and recorded sessions (JSON files under Documents/iep). Restored
+        // by the import's folder loop like the image folders.
+        const iepDir = `${RNFS.DocumentDirectoryPath}/${IEP_DIRECTORY_NAME}`;
+        if (await RNFS.exists(iepDir)) {
+            await RNFS.copyFile(iepDir, `${destPath}/${IEP_DIRECTORY_NAME}`);
         }
 
         // 3. pepes images — read from preference data and copy each referenced image

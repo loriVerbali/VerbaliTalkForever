@@ -403,6 +403,7 @@ const My8WordsCustomizer: React.FC<My8WordsCustomizerProps> = ({ isTablet }) => 
             <View>
               <View style={styles.searchInputContainer}>
                 <TextInput
+                  disableFullscreenUI
                   style={[styles.searchInput, isTablet && styles.searchInputTablet]}
                   value={searchQuery}
                   onChangeText={setSearchQuery}

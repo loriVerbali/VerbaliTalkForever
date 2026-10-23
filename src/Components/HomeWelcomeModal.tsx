@@ -1,4 +1,4 @@
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect, useMemo, useRef} from 'react';
 import {
   Modal,
   View,
@@ -7,12 +7,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import mixpanel from '../utils/mixpanelInstance';
 // import TTSService from '../utils/TTSService';
-
-const {width, height} = Dimensions.get('window');
 
 const ACCENT = '#4A3AFF';
 const HIGHLIGHT = '#8B5CF6';
@@ -31,54 +29,62 @@ const THEME_QA = stepTheme(66, 136, 76); // #42884c
 const THEME_BOARD = stepTheme(22, 75, 205); // #164bcd
 const THEME_DASHBOARD = stepTheme(105, 83, 200); // #6953c8
 
-/** Card is kept narrow on purpose so the highlighted Home buttons stay visible. */
-const CARD_WIDTH = Math.min(width * 0.62, 860);
-
-// ─── Positions of the Home screen elements this guide points at ──────────────
-// Mirrors the absolute layout in Views/Open.tsx (microphoneButton /
-// topButtonsContainer / the "Start Talking" tile). The overlay dims those real
-// controls, so each one is re-drawn here at the same spot, undimmed, and its
-// arrow is anchored to that copy.
-const RING_PAD = width * 0.012;
-const MIC_TOP = height * 0.04;
-const MIC_LEFT = width * 0.015;
-const MIC_SIZE = width * 0.05;
-const SETTINGS_TOP = height * 0.04;
-const SETTINGS_RIGHT = width * 0.02;
-const SETTINGS_SIZE = width * 0.04;
-// The "Start Talking" label is the bottom strip of the first tile. The header
-// runs to ~0.102 of the screen, `wrapper` adds a 0.01 margin and is 0.38 tall,
-// and contentContainer's 0.02 padding plus the 48%-of-50% column puts the tile
-// at 0.02..0.2504 of the width.
-const TALK_LEFT = width * 0.02;
-const TALK_WIDTH = width * 0.2304;
-const TALK_HEIGHT = height * 0.05;
-const TALK_TOP = height * 0.445;
-
-/** Distance from the bottom of a highlighted control to its arrow tip. */
-const ARROW_GAP = height * 0.012;
-
 /**
- * Neon halo for the highlighted controls, so their borders glow like the
- * arrows do. Two passes: a tight bright one that hugs the border and a wide
- * faint one that fades into the dimmed screen.
+ * Everything below scales with the window, so it is computed from the live
+ * window size rather than captured at module load: on Android the size seeded
+ * at startup can still be the pre-rotation (portrait) one, and a release
+ * bundle evaluates this file before the corrected size arrives.
  */
-const BORDER_GLOW = [
-  {
-    offsetX: 0,
-    offsetY: 0,
-    blurRadius: height * 0.016,
-    spreadDistance: 1,
-    color: 'rgba(139, 92, 246, 0.95)',
-  },
-  {
-    offsetX: 0,
-    offsetY: 0,
-    blurRadius: height * 0.04,
-    spreadDistance: height * 0.006,
-    color: 'rgba(139, 92, 246, 0.5)',
-  },
-];
+const createLayout = (width: number, height: number) => ({
+  /** Card is kept narrow on purpose so the highlighted Home buttons stay visible. */
+  CARD_WIDTH: Math.min(width * 0.62, 860),
+
+  // ─── Positions of the Home screen elements this guide points at ──────────────
+  // Mirrors the absolute layout in Views/Open.tsx (microphoneButton /
+  // topButtonsContainer / the "Start Talking" tile). The overlay dims those real
+  // controls, so each one is re-drawn here at the same spot, undimmed, and its
+  // arrow is anchored to that copy.
+  RING_PAD: width * 0.012,
+  MIC_TOP: height * 0.04,
+  MIC_LEFT: width * 0.015,
+  MIC_SIZE: width * 0.05,
+  SETTINGS_TOP: height * 0.04,
+  SETTINGS_RIGHT: width * 0.02,
+  SETTINGS_SIZE: width * 0.04,
+  // The "Start Talking" label is the bottom strip of the first tile. The header
+  // runs to ~0.102 of the screen, `wrapper` adds a 0.01 margin and is 0.38 tall,
+  // and contentContainer's 0.02 padding plus the 48%-of-50% column puts the tile
+  // at 0.02..0.2504 of the width.
+  TALK_LEFT: width * 0.02,
+  TALK_WIDTH: width * 0.2304,
+  TALK_HEIGHT: height * 0.05,
+  TALK_TOP: height * 0.445,
+
+  /** Distance from the bottom of a highlighted control to its arrow tip. */
+  ARROW_GAP: height * 0.012,
+
+  /**
+   * Neon halo for the highlighted controls, so their borders glow like the
+   * arrows do. Two passes: a tight bright one that hugs the border and a wide
+   * faint one that fades into the dimmed screen.
+   */
+  BORDER_GLOW: [
+    {
+      offsetX: 0,
+      offsetY: 0,
+      blurRadius: height * 0.016,
+      spreadDistance: 1,
+      color: 'rgba(139, 92, 246, 0.95)',
+    },
+    {
+      offsetX: 0,
+      offsetY: 0,
+      blurRadius: height * 0.04,
+      spreadDistance: height * 0.006,
+      color: 'rgba(139, 92, 246, 0.5)',
+    },
+  ],
+});
 
 /**
  * Illustrations are per-avatar (skin tone + boy/girl) because the guide talks
@@ -149,7 +155,7 @@ const anchorArrow = (
   tipX: number,
   tipY: number,
   edge: 'left' | 'right',
-  gap: {x: number; y: number} = {x: 0, y: ARROW_GAP},
+  gap: {x: number; y: number},
 ) => {
   const arrowHeight = arrowWidth / arrow.ratio;
   const anchorX = tipX + gap.x;
@@ -198,7 +204,9 @@ interface HomeWelcomeModalProps {
 }
 
 /** Small mock dashboard used by the "Data Dashboard" step. */
-const MiniDashboard: React.FC = () => (
+type Styles = ReturnType<typeof createStyles>;
+
+const MiniDashboard: React.FC<{styles: Styles}> = ({styles}) => (
   <View style={styles.dashboard}>
     <View style={styles.dashboardScreen}>
       <View style={styles.dashboardBars}>
@@ -233,6 +241,8 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
 }) => {
   const name = (heroName || '').trim();
   const illustrations = getIllustrations(gender);
+  const {width, height} = useWindowDimensions();
+  const styles = useMemo(() => createStyles(width, height), [width, height]);
 
   // Stamped when the guide appears, so both exit paths can report how long it
   // was on screen.
@@ -258,7 +268,9 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
   // }, [visible, name]);
 
   const handleCancel = () => {
-    mixpanel.track('Home Welcome Guide Cancelled', {secondsOpen: secondsOpen()});
+    mixpanel.track('Home Welcome Guide Cancelled', {
+      secondsOpen: secondsOpen(),
+    });
     onClose();
   };
 
@@ -405,7 +417,7 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
                   },
                 ]}>
                 <View style={styles.illustration}>
-                  <MiniDashboard />
+                  <MiniDashboard styles={styles} />
                 </View>
 
                 <View style={styles.stepHeader}>
@@ -495,321 +507,341 @@ const HomeWelcomeModal: React.FC<HomeWelcomeModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 22,
-    width: CARD_WIDTH,
-    maxHeight: height * 0.9,
-    paddingVertical: height * 0.03,
-    paddingHorizontal: width * 0.02,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 6},
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 10,
-  },
-  scrollContent: {
-    paddingBottom: 4,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: height * 0.02,
-    right: width * 0.015,
-    width: height * 0.055,
-    height: height * 0.055,
-    borderRadius: height * 0.0275,
-    backgroundColor: ACCENT,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  closeButtonText: {
-    color: '#fff',
-    fontSize: height * 0.026,
-    fontWeight: '700',
-  },
-  title: {
-    fontSize: height * 0.05,
-    fontWeight: '800',
-    color: '#2C2C54',
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: height * 0.024,
-    color: '#555',
-    textAlign: 'center',
-    marginTop: height * 0.008,
-    marginBottom: height * 0.022,
-  },
-  stepsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  // Colours below are per-step: each column supplies its own from THEME_*.
-  step: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: width * 0.008,
-    marginHorizontal: width * 0.005,
-  },
-  illustration: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#ECEAF8',
-    height: height * 0.2,
-    padding: height * 0.008,
-    marginBottom: height * 0.014,
-    overflow: 'hidden',
-  },
-  // The source art carries wide white margins, so it reads small inside the
-  // frame. Scaling up crops into those margins rather than the drawing, and
-  // the frame is white too, so the crop is invisible.
-  illustrationImage: {
-    width: '100%',
-    height: '100%',
-    transform: [{scale: 1.5}],
-  },
-  stepHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: height * 0.01,
-  },
-  stepBadge: {
-    width: height * 0.038,
-    height: height * 0.038,
-    borderRadius: height * 0.019,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: width * 0.006,
-  },
-  stepBadgeText: {
-    color: '#fff',
-    fontSize: height * 0.022,
-    fontWeight: '700',
-  },
-  stepTitle: {
-    flex: 1,
-    fontSize: height * 0.026,
-    fontWeight: '700',
-  },
-  stepBody: {
-    fontSize: height * 0.021,
-    lineHeight: height * 0.03,
-    color: '#4A4A63',
-  },
-  stepBodyEmphasis: {
-    fontWeight: '700',
-  },
-  // Step 3 illustration
-  dashboard: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dashboardScreen: {
-    width: '78%',
-    height: '80%',
-    borderWidth: 2,
-    borderColor: '#3B3B5C',
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    padding: height * 0.012,
-    justifyContent: 'space-between',
-  },
-  dashboardBars: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  dashboardBar: {
-    width: '13%',
-    borderRadius: 3,
-    backgroundColor: '#9AA7E8',
-  },
-  dashboardStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: height * 0.008,
-  },
-  dashboardStat: {
-    width: '46%',
-    height: height * 0.012,
-    borderRadius: 4,
-    backgroundColor: '#E6E3F7',
-  },
-  dashboardGear: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: height * 0.05,
-    height: height * 0.05,
-    borderRadius: height * 0.025,
-    borderWidth: 2,
-    borderColor: HIGHLIGHT,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dashboardGearIcon: {
-    width: '60%',
-    height: '60%',
-  },
-  // Footer
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E2DEF7',
-    borderRadius: 12,
-    backgroundColor: '#F6F4FF',
-    paddingVertical: height * 0.014,
-    paddingHorizontal: width * 0.014,
-    marginTop: height * 0.02,
-  },
-  footerText: {
-    flexShrink: 1,
-    fontSize: height * 0.022,
-    color: '#3B3B5C',
-  },
-  footerTextEmphasis: {
-    color: ACCENT,
-    fontWeight: '700',
-  },
-  // Drawn rather than typed so it can run roughly 4x the length of the "→"
-  // glyph it replaces and still sit centred against the gear button.
-  footerArrow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: width * 0.012,
-  },
-  footerArrowLine: {
-    width: height * 0.112,
-    height: height * 0.005,
-    borderRadius: height * 0.0025,
-    backgroundColor: '#3B3B5C',
-  },
-  footerArrowHead: {
-    width: 0,
-    height: 0,
-    borderTopWidth: height * 0.012,
-    borderBottomWidth: height * 0.012,
-    borderLeftWidth: height * 0.018,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#3B3B5C',
-  },
-  footerSettingsButton: {
-    width: height * 0.06,
-    height: height * 0.06,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#C9C2EE',
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  footerSettingsIcon: {
-    width: '55%',
-    height: '55%',
-  },
-  // Callouts. Each ring repeats a real Home control at its real position with
-  // an opaque backdrop, so the control reads clearly through the dimmed
-  // overlay and the arrow below it has something to point at.
-  micRing: {
-    position: 'absolute',
-    top: MIC_TOP - RING_PAD,
-    left: MIC_LEFT - RING_PAD,
-    width: MIC_SIZE + RING_PAD * 2,
-    height: MIC_SIZE + RING_PAD * 2,
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: HIGHLIGHT,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    boxShadow: BORDER_GLOW,
-  },
-  micIcon: {
-    width: MIC_SIZE * 0.8,
-    height: MIC_SIZE * 0.8,
-  },
-  micArrow: anchorArrow(
-    ARROWS.mic,
-    width * 0.065,
-    MIC_LEFT + MIC_SIZE / 2,
-    MIC_TOP + MIC_SIZE + RING_PAD,
-    'left',
-  ),
-  settingsRing: {
-    position: 'absolute',
-    top: SETTINGS_TOP - RING_PAD,
-    right: SETTINGS_RIGHT - RING_PAD,
-    width: SETTINGS_SIZE + RING_PAD * 2,
-    height: SETTINGS_SIZE + RING_PAD * 2,
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: HIGHLIGHT,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    boxShadow: BORDER_GLOW,
-  },
-  settingsIcon: {
-    width: SETTINGS_SIZE * 0.7,
-    height: SETTINGS_SIZE * 0.7,
-  },
-  // This one comes in from the side rather than from below: its tip sits level
-  // with the middle of the gear, just clear of the ring's left edge.
-  settingsArrow: anchorArrow(
-    ARROWS.settings,
-    width * 0.06,
-    SETTINGS_RIGHT + SETTINGS_SIZE + RING_PAD,
-    SETTINGS_TOP + SETTINGS_SIZE / 2,
-    'right',
-    {x: width * 0.008, y: 0},
-  ),
-  // The label strip of the "Start Talking" tile. Its right end runs under the
-  // card, so the text is pinned left to stay readable.
-  talkTile: {
-    position: 'absolute',
-    top: TALK_TOP,
-    left: TALK_LEFT,
-    width: TALK_WIDTH,
-    height: TALK_HEIGHT,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: HIGHLIGHT,
-    backgroundColor: '#DEE9FB',
-    justifyContent: 'center',
-    paddingLeft: width * 0.02,
-    boxShadow: BORDER_GLOW,
-  },
-  talkTileText: {
-    fontSize: height * 0.028,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  talkArrow: anchorArrow(
-    ARROWS.talk,
-    width * 0.095,
-    TALK_LEFT + TALK_WIDTH * 0.3,
-    TALK_TOP + TALK_HEIGHT,
-    'left',
-  ),
-});
+const createStyles = (width: number, height: number) => {
+  const {
+    CARD_WIDTH,
+    RING_PAD,
+    MIC_TOP,
+    MIC_LEFT,
+    MIC_SIZE,
+    SETTINGS_TOP,
+    SETTINGS_RIGHT,
+    SETTINGS_SIZE,
+    TALK_LEFT,
+    TALK_WIDTH,
+    TALK_HEIGHT,
+    TALK_TOP,
+    ARROW_GAP,
+    BORDER_GLOW,
+  } = createLayout(width, height);
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    card: {
+      backgroundColor: '#fff',
+      borderRadius: 22,
+      width: CARD_WIDTH,
+      maxHeight: height * 0.9,
+      paddingVertical: height * 0.03,
+      paddingHorizontal: width * 0.02,
+      shadowColor: '#000',
+      shadowOffset: {width: 0, height: 6},
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 10,
+    },
+    scrollContent: {
+      paddingBottom: 4,
+    },
+    closeButton: {
+      position: 'absolute',
+      top: height * 0.02,
+      right: width * 0.015,
+      width: height * 0.055,
+      height: height * 0.055,
+      borderRadius: height * 0.0275,
+      backgroundColor: ACCENT,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 2,
+    },
+    closeButtonText: {
+      color: '#fff',
+      fontSize: height * 0.026,
+      fontWeight: '700',
+    },
+    title: {
+      fontSize: height * 0.05,
+      fontWeight: '800',
+      color: '#2C2C54',
+      textAlign: 'center',
+    },
+    subtitle: {
+      fontSize: height * 0.024,
+      color: '#555',
+      textAlign: 'center',
+      marginTop: height * 0.008,
+      marginBottom: height * 0.022,
+    },
+    stepsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    // Colours below are per-step: each column supplies its own from THEME_*.
+    step: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: width * 0.008,
+      marginHorizontal: width * 0.005,
+    },
+    illustration: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#fff',
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#ECEAF8',
+      height: height * 0.2,
+      padding: height * 0.008,
+      marginBottom: height * 0.014,
+      overflow: 'hidden',
+    },
+    // The source art carries wide white margins, so it reads small inside the
+    // frame. Scaling up crops into those margins rather than the drawing, and
+    // the frame is white too, so the crop is invisible.
+    illustrationImage: {
+      width: '100%',
+      height: '100%',
+      transform: [{scale: 1.5}],
+    },
+    stepHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: height * 0.01,
+    },
+    stepBadge: {
+      width: height * 0.038,
+      height: height * 0.038,
+      borderRadius: height * 0.019,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: width * 0.006,
+    },
+    stepBadgeText: {
+      color: '#fff',
+      fontSize: height * 0.022,
+      fontWeight: '700',
+    },
+    stepTitle: {
+      flex: 1,
+      fontSize: height * 0.026,
+      fontWeight: '700',
+    },
+    stepBody: {
+      fontSize: height * 0.021,
+      lineHeight: height * 0.03,
+      color: '#4A4A63',
+    },
+    stepBodyEmphasis: {
+      fontWeight: '700',
+    },
+    // Step 3 illustration
+    dashboard: {
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dashboardScreen: {
+      width: '78%',
+      height: '80%',
+      borderWidth: 2,
+      borderColor: '#3B3B5C',
+      borderRadius: 10,
+      backgroundColor: '#fff',
+      padding: height * 0.012,
+      justifyContent: 'space-between',
+    },
+    dashboardBars: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+    },
+    dashboardBar: {
+      width: '13%',
+      borderRadius: 3,
+      backgroundColor: '#9AA7E8',
+    },
+    dashboardStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: height * 0.008,
+    },
+    dashboardStat: {
+      width: '46%',
+      height: height * 0.012,
+      borderRadius: 4,
+      backgroundColor: '#E6E3F7',
+    },
+    dashboardGear: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: height * 0.05,
+      height: height * 0.05,
+      borderRadius: height * 0.025,
+      borderWidth: 2,
+      borderColor: HIGHLIGHT,
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dashboardGearIcon: {
+      width: '60%',
+      height: '60%',
+    },
+    // Footer
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: '#E2DEF7',
+      borderRadius: 12,
+      backgroundColor: '#F6F4FF',
+      paddingVertical: height * 0.014,
+      paddingHorizontal: width * 0.014,
+      marginTop: height * 0.02,
+    },
+    footerText: {
+      flexShrink: 1,
+      fontSize: height * 0.022,
+      color: '#3B3B5C',
+    },
+    footerTextEmphasis: {
+      color: ACCENT,
+      fontWeight: '700',
+    },
+    // Drawn rather than typed so it can run roughly 4x the length of the "→"
+    // glyph it replaces and still sit centred against the gear button.
+    footerArrow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginHorizontal: width * 0.012,
+    },
+    footerArrowLine: {
+      width: height * 0.112,
+      height: height * 0.005,
+      borderRadius: height * 0.0025,
+      backgroundColor: '#3B3B5C',
+    },
+    footerArrowHead: {
+      width: 0,
+      height: 0,
+      borderTopWidth: height * 0.012,
+      borderBottomWidth: height * 0.012,
+      borderLeftWidth: height * 0.018,
+      borderTopColor: 'transparent',
+      borderBottomColor: 'transparent',
+      borderLeftColor: '#3B3B5C',
+    },
+    footerSettingsButton: {
+      width: height * 0.06,
+      height: height * 0.06,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: '#C9C2EE',
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    footerSettingsIcon: {
+      width: '55%',
+      height: '55%',
+    },
+    // Callouts. Each ring repeats a real Home control at its real position with
+    // an opaque backdrop, so the control reads clearly through the dimmed
+    // overlay and the arrow below it has something to point at.
+    micRing: {
+      position: 'absolute',
+      top: MIC_TOP - RING_PAD,
+      left: MIC_LEFT - RING_PAD,
+      width: MIC_SIZE + RING_PAD * 2,
+      height: MIC_SIZE + RING_PAD * 2,
+      borderRadius: 14,
+      borderWidth: 3,
+      borderColor: HIGHLIGHT,
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      boxShadow: BORDER_GLOW,
+    },
+    micIcon: {
+      width: MIC_SIZE * 0.8,
+      height: MIC_SIZE * 0.8,
+    },
+    micArrow: anchorArrow(
+      ARROWS.mic,
+      width * 0.065,
+      MIC_LEFT + MIC_SIZE / 2,
+      MIC_TOP + MIC_SIZE + RING_PAD,
+      'left',
+      {x: 0, y: ARROW_GAP},
+    ),
+    settingsRing: {
+      position: 'absolute',
+      top: SETTINGS_TOP - RING_PAD,
+      right: SETTINGS_RIGHT - RING_PAD,
+      width: SETTINGS_SIZE + RING_PAD * 2,
+      height: SETTINGS_SIZE + RING_PAD * 2,
+      borderRadius: 14,
+      borderWidth: 3,
+      borderColor: HIGHLIGHT,
+      backgroundColor: '#fff',
+      justifyContent: 'center',
+      alignItems: 'center',
+      boxShadow: BORDER_GLOW,
+    },
+    settingsIcon: {
+      width: SETTINGS_SIZE * 0.7,
+      height: SETTINGS_SIZE * 0.7,
+    },
+    // This one comes in from the side rather than from below: its tip sits level
+    // with the middle of the gear, just clear of the ring's left edge.
+    settingsArrow: anchorArrow(
+      ARROWS.settings,
+      width * 0.06,
+      SETTINGS_RIGHT + SETTINGS_SIZE + RING_PAD,
+      SETTINGS_TOP + SETTINGS_SIZE / 2,
+      'right',
+      {x: width * 0.008, y: 0},
+    ),
+    // The label strip of the "Start Talking" tile. Its right end runs under the
+    // card, so the text is pinned left to stay readable.
+    talkTile: {
+      position: 'absolute',
+      top: TALK_TOP,
+      left: TALK_LEFT,
+      width: TALK_WIDTH,
+      height: TALK_HEIGHT,
+      borderRadius: 12,
+      borderWidth: 3,
+      borderColor: HIGHLIGHT,
+      backgroundColor: '#DEE9FB',
+      justifyContent: 'center',
+      paddingLeft: width * 0.02,
+      boxShadow: BORDER_GLOW,
+    },
+    talkTileText: {
+      fontSize: height * 0.028,
+      fontWeight: 'bold',
+      color: '#333',
+    },
+    talkArrow: anchorArrow(
+      ARROWS.talk,
+      width * 0.095,
+      TALK_LEFT + TALK_WIDTH * 0.3,
+      TALK_TOP + TALK_HEIGHT,
+      'left',
+      {x: 0, y: ARROW_GAP},
+    ),
+  });
+};
 
 export default HomeWelcomeModal;

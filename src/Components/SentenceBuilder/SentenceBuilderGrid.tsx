@@ -43,6 +43,7 @@ import {
   DEFAULT_COLOR_MAP,
   GRID_CONFIGS,
   GridConfigKey,
+  WordType,
 } from '../../types/sentenceBuilder';
 import {views} from '../../utils/constants';
 import NavigationBar from './NavigationBar';
@@ -58,6 +59,7 @@ import {
   parseVerbiSuggestionLimit,
 } from '../../features/verbi/state/verbiTypes';
 import {useDatabase} from '../../contexts/DatabaseContext';
+import {iepCapture} from '../../features/iep/capture/iepCapture';
 import {
   personalMemoryService,
   makeMemoryEventId,
@@ -105,7 +107,8 @@ interface SentenceBuilderGridProps {
   onNodesChanged?: (nodes: Node[]) => void;
   onWordAdded?: (nodeId: string) => void;
   onWordRemoved?: (nodeId: string, index: number) => void;
-  onSentencePlayed?: (sentenceTokens: string[], nodes: Node[]) => void;
+  /** The sentence bar emptied: 'play' after the Play button, 'clear' for Trash or a reset. */
+  onSentencePlayed?: (sentenceTokens: string[], nodes: Node[], reason: 'play' | 'clear') => void;
   onBreadcrumbTapped?: (index: number) => void;
   onGridSizeChanged?: (size: GridConfigKey) => void;
   onGridSizeLoaded?: (size: GridConfigKey) => void;
@@ -274,7 +277,7 @@ const SentenceBuilderGrid = forwardRef<
     // Reset sentence whenever the screen is focused
     useFocusEffect(
       useCallback(() => {
-        handleResetSentence();
+        handleResetSentence('clear');
       }, []),
     );
 
@@ -311,7 +314,7 @@ const SentenceBuilderGrid = forwardRef<
         setAllFolders(allFoldersData);
 
         // Reset sentence on initial load
-        await handleResetSentence();
+        await handleResetSentence('clear');
 
         // Load grid size from settings
         const gridConfigKey = Object.keys(GRID_CONFIGS).find(key => {
@@ -610,19 +613,31 @@ const SentenceBuilderGrid = forwardRef<
       navigation.navigate(views.OPEN as never);
     };
 
+    // IEP session evidence: the board page the child is on, by folder title.
+    const iepCurrentPageId = () =>
+      folderStack.length > 0 ? folderStack[folderStack.length - 1].title : 'Mainboard';
+
     const handleBackPress = () => {
       if (folderStack.length > 0) {
+        const to = folderStack.length > 1 ? folderStack[folderStack.length - 2].title : 'Mainboard';
+        iepCapture.pageOpened(iepCurrentPageId(), to);
         setFolderStack(prev => prev.slice(0, -1));
       }
     };
 
     // Function to go back to root of sentence builder (not navigate away)
     const handleBackToRoot = () => {
+      if (folderStack.length > 0) {
+        iepCapture.pageOpened(iepCurrentPageId(), 'Mainboard');
+      }
       setFolderStack([]);
     };
 
     // Function to log word selection to database
-    const logWordSelection = async (word: string) => {
+    const logWordSelection = async (word: string, partOfSpeech?: WordType) => {
+      // IEP session evidence: a word added to the sentence in progress. The board's own
+      // word type is the SLP-configured part of speech; the store only guesses without it.
+      iepCapture.wordSelected(word.trim(), iepCurrentPageId(), partOfSpeech ?? null);
       try {
         await addUtterance({
           word: word.trim(),
@@ -691,6 +706,7 @@ const SentenceBuilderGrid = forwardRef<
 
         if (node.kind === 'folder') {
           // Navigate to folder - this should navigate, not add to sentence
+          iepCapture.pageOpened(iepCurrentPageId(), node.title);
           setFolderStack(prev => [
             ...prev,
             {nodeId: node.id, title: node.title},
@@ -726,7 +742,7 @@ const SentenceBuilderGrid = forwardRef<
             onWordAdded?.(node.id);
 
             // Log word selection to database (analytics/history)
-            await logWordSelection(textToSpeak);
+            await logWordSelection(textToSpeak, node.type);
           }
         }
       } catch (error) {
@@ -929,6 +945,12 @@ const SentenceBuilderGrid = forwardRef<
     const handleRemoveToken = async (nodeId: string, index: number) => {
       try {
         await sentenceBuilderSqlite.removeWordFromSentence(index);
+        // IEP session evidence: a word removed before the sentence ended. Recorded only
+        // once the removal has actually happened.
+        const removed = nodes.find(n => n.id === nodeId);
+        if (removed) {
+          iepCapture.wordRemoved((removed.ttsText || removed.title).trim(), iepCurrentPageId());
+        }
         setSentenceTokenIds(prev => {
           const newState = [...prev];
           newState.splice(index, 1);
@@ -949,7 +971,7 @@ const SentenceBuilderGrid = forwardRef<
       }
     };
 
-    const handleResetSentence = async () => {
+    const handleResetSentence = async (reason: 'play' | 'clear') => {
       try {
         // Prevent errors if DB is not yet initialized
         if (!sentenceBuilderSqlite.isInitialized()) {
@@ -957,9 +979,9 @@ const SentenceBuilderGrid = forwardRef<
           return;
         }
 
-        // Notify parent component about sentence being played before clearing
+        // Notify parent component about the sentence ending before clearing
         if (sentenceTokenIds.length > 0) {
-          onSentencePlayed?.(sentenceTokenIds, nodes);
+          onSentencePlayed?.(sentenceTokenIds, nodes, reason);
         }
 
         await sentenceBuilderSqlite.clearSentence();
@@ -1012,7 +1034,7 @@ const SentenceBuilderGrid = forwardRef<
                   setSentenceTokenIds(nextTokens);
                   onWordAdded?.(existingNode.id);
                   // Log word selection to database (analytics/history)
-                  logWordSelection(textToSpeak);
+                  logWordSelection(textToSpeak, existingNode.type);
                 })
                 .catch(() => {});
             }
@@ -1061,12 +1083,18 @@ const SentenceBuilderGrid = forwardRef<
     };
 
     const handleTrashPress = () => {
-      handleResetSentence();
+      handleResetSentence('clear');
     };
 
     // Handle breadcrumb folder navigation
     const handleBreadcrumbFolderPress = (index: number) => {
       onBreadcrumbTapped?.(index);
+      {
+        const to = index === -1 ? 'Mainboard' : folderStack[index]?.title ?? 'Mainboard';
+        if (to !== iepCurrentPageId()) {
+          iepCapture.pageOpened(iepCurrentPageId(), to);
+        }
+      }
       if (index === -1) {
         // Go to root (Mainboard)
         setFolderStack([]);
@@ -1486,7 +1514,7 @@ const SentenceBuilderGrid = forwardRef<
           onMicrophonePress={handleMicrophonePress}
           isListening={verbiState?.listeningState === 'listening'}
           onTrashPress={handleTrashPress}
-          onPlayPress={handleResetSentence}
+          onPlayPress={() => handleResetSentence('play')}
           nodes={nodes}
           sentenceTokenIds={sentenceTokenIds}
           onRemoveToken={handleRemoveToken}
@@ -1751,6 +1779,7 @@ const SentenceBuilderGrid = forwardRef<
                           }
                         }}>
                         <TextInput
+                          disableFullscreenUI
                           ref={pinInputRef}
                           value={adminCodeInput}
                           onChangeText={text => {
@@ -1892,6 +1921,7 @@ const SentenceBuilderGrid = forwardRef<
                           }
                         }}>
                         <TextInput
+                          disableFullscreenUI
                           ref={forgotPinInputRef}
                           value={forgotPinInput}
                           onChangeText={text => {
@@ -2014,6 +2044,7 @@ const SentenceBuilderGrid = forwardRef<
                           }
                         }}>
                         <TextInput
+                          disableFullscreenUI
                           ref={newPinInputRef}
                           value={newPinInput}
                           onChangeText={text => {

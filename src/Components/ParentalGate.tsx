@@ -4,26 +4,30 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
-  Platform,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import {useAdmin} from '../contexts/adminContext';
 import TTSService from '../utils/TTSService';
 
-const {width, height} = Dimensions.get('window');
-
 interface ParentalGateProps {
   onSuccess: () => void;
+  onCancel?: () => void;
   isSettingsContext?: boolean;
   message?: string;
+  /** Rendered below the gate card — for actions kids may take without a parent */
+  footer?: React.ReactNode;
 }
 
 const ParentalGate: React.FC<ParentalGateProps> = ({
   onSuccess,
+  onCancel,
   isSettingsContext = false,
   message,
+  footer,
 }) => {
   const {isTablet} = useAdmin();
+  const {width, height} = useWindowDimensions();
   const [currentSequence, setCurrentSequence] = useState<string[]>([]);
   const [userInput, setUserInput] = useState<string[]>([]);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -118,97 +122,102 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
     return numberMap[number] || number;
   };
 
-  const dynamicStyles = {
-    container: {
-      ...styles.container,
-      width: isTablet ? width * 0.4 : width * 0.9,
-    },
-    keypadContainer: {
-      ...styles.keypadContainer,
-      width: isTablet ? width * 0.35 : width * 0.8,
-    },
-    soundButton: {
-      ...styles.soundButton,
-      marginLeft: isTablet ? 20 : 15,
-      padding: isTablet ? 8 : 12,
-      borderRadius: isTablet ? 22 : 25,
-      width: isTablet ? 44 : 50,
-      height: isTablet ? 44 : 50,
-    },
-    soundIcon: {
-      ...styles.soundIcon,
-      fontSize: isTablet ? 22 : 24,
-    },
-  };
+  // Phones get a tighter layout so the whole gate (plus any footer) fits
+  // without the keypad or the Go Back link being pushed off screen.
+  const isCompactPhone = !isTablet && height < 780;
+  const cardWidth = isTablet
+    ? Math.min(width * 0.6, 640)
+    : Math.min(width * 0.92, 420);
+  const keypadButtonSize = isTablet ? 78 : isCompactPhone ? 54 : 62;
+  const keypadGap = isTablet ? 18 : isCompactPhone ? 10 : 12;
+  // Fixed width forces a 3x3 grid regardless of card width
+  const keypadWidth = keypadButtonSize * 3 + keypadGap * 2;
 
-  return (
-    <View style={isSettingsContext ? styles.settingsOverlay : styles.overlay}>
-      <View style={styles.simpleContainer}>
-        {/* Simple Message Row */}
-        <View style={styles.messageRow}>
-          <Text style={styles.messageText}>
-            {message || 'Ask your parents to continue this a protected area:'}
+  const content = (
+    <>
+      <View
+        style={[
+          styles.card,
+          {width: cardWidth},
+          isCompactPhone && styles.cardCompact,
+        ]}>
+        <View style={[styles.lockBadge, isCompactPhone && styles.lockBadgeCompact]}>
+          <Text style={[styles.lockIcon, isCompactPhone && styles.lockIconCompact]}>
+            🔒
           </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: 10,
-            }}>
-            <Text
-              style={[styles.messageText, {fontWeight: '900', color: 'red'}]}>
-              {`Tap: ${showSequence && currentSequence.join(', ')}`}
+        </View>
+        <Text style={[styles.title, isCompactPhone && styles.titleCompact]}>
+          Adults Only
+        </Text>
+        <Text
+          style={[styles.messageText, isCompactPhone && styles.messageTextCompact]}>
+          {message ||
+            'Ask your parents or a caregiver to continue, this is a protected area:'}
+        </Text>
+
+        <View style={[styles.tapRow, isCompactPhone && styles.tapRowCompact]}>
+          <View style={styles.tapPill}>
+            <Text style={styles.tapText}>
+              {`Tap: ${showSequence ? currentSequence.join(', ') : ''}`}
             </Text>
-            <TouchableOpacity
-              style={dynamicStyles.soundButton}
-              onPress={() => {
-                TTSService.speak(
-                  'Please ask your parents to help you with this next step',
-                  true,
-                );
-              }}>
-              <Text style={dynamicStyles.soundIcon}>🔊</Text>
-            </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            style={styles.soundButton}
+            onPress={() => {
+              TTSService.speak(
+                'Please ask your parents to help you with this next step',
+                true,
+              );
+            }}>
+            <Text style={styles.soundIcon}>🔊</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Keypad */}
-        <View style={dynamicStyles.keypadContainer}>
-          <View style={styles.keypadGrid}>
-            {numberWords.map((number, index) => (
-              <TouchableOpacity
-                key={index}
+        <View
+          style={[
+            styles.keypadGrid,
+            {width: keypadWidth, gap: keypadGap},
+            isCompactPhone && styles.keypadGridCompact,
+          ]}>
+          {numberWords.map((number, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.keypadButton,
+                {
+                  width: keypadButtonSize,
+                  height: keypadButtonSize,
+                  borderRadius: keypadButtonSize / 2,
+                },
+                userInput.includes(number) && styles.pressedButton,
+              ]}
+              onPress={() => handleNumberPress(number)}
+              disabled={userInput.length >= 4}>
+              <Text
                 style={[
-                  styles.keypadButton,
-                  userInput.includes(number) && styles.pressedButton,
-                ]}
-                onPress={() => handleNumberPress(number)}
-                disabled={userInput.length >= 4}>
-                <Text
-                  style={[
-                    styles.keypadButtonText,
-                    userInput.includes(number) && styles.pressedButtonText,
-                  ]}>
-                  {getNumberDisplay(number)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                  styles.keypadButtonText,
+                  isCompactPhone && styles.keypadButtonTextCompact,
+                ]}>
+                {getNumberDisplay(number)}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Status Messages */}
-        {isCorrect === false && (
-          <View style={styles.statusContainer}>
+        <View
+          style={[
+            styles.statusContainer,
+            isCompactPhone && styles.statusContainerCompact,
+          ]}>
+          {isCorrect === false && (
             <Text style={styles.errorText}>Incorrect sequence. Try again.</Text>
-          </View>
-        )}
-
-        {isCorrect === true && (
-          <View style={styles.statusContainer}>
+          )}
+          {isCorrect === true && (
             <Text style={styles.successText}>Correct! Proceeding...</Text>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Progress Indicator */}
         <View style={styles.progressContainer}>
@@ -222,115 +231,188 @@ const ParentalGate: React.FC<ParentalGateProps> = ({
             />
           ))}
         </View>
+
+        {onCancel && (
+          <TouchableOpacity
+            style={[
+              styles.cancelButton,
+              isCompactPhone && styles.cancelButtonCompact,
+            ]}
+            onPress={onCancel}>
+            <Text style={styles.cancelButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        )}
       </View>
-    </View>
+      {footer}
+    </>
+  );
+
+  // Tablets keep the original centered, non-scrolling layout. Phones scroll so
+  // the keypad, Go Back and any footer stay reachable on short screens.
+  if (isTablet || isSettingsContext) {
+    return (
+      <View style={isSettingsContext ? styles.settingsOverlay : styles.overlay}>
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.scrollOverlay}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled">
+      {content}
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  // Fully opaque so the screen underneath is never visible through the gate
   overlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'transparent',
+    backgroundColor: '#f8f9fe',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
+  },
+  // ScrollView on phones: the outer frame carries no layout props of its own so
+  // the content container is free to size itself.
+  scrollOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#f8f9fe',
+    zIndex: 1000,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 8,
   },
   settingsOverlay: {
-    backgroundColor: 'transparent',
+    width: '100%',
+    backgroundColor: '#f8f9fe',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 24,
     zIndex: 1000,
   },
-  container: {
+  card: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 28,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 10},
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 108, 240, 0.12)',
+    shadowColor: '#146CF0',
+    shadowOffset: {width: 0, height: 12},
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
     elevation: 10,
   },
-  simpleContainer: {
-    backgroundColor: 'white',
-    padding: 20,
-    alignItems: 'center',
-    borderRadius: 10,
+  cardCompact: {
+    borderRadius: 22,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
   },
-  messageRow: {
-    marginBottom: 20,
-    flexDirection: 'column',
-    alignItems: 'center',
+  lockBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(20, 108, 240, 0.1)',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  lockIcon: {
+    fontSize: 26,
+  },
+  lockBadgeCompact: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    marginBottom: 8,
+  },
+  lockIconCompact: {
+    fontSize: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#146CF0',
+    marginBottom: 8,
   },
   messageText: {
     fontSize: 16,
-    color: '#146CF0',
+    color: '#555',
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '500',
+    lineHeight: 22,
+    marginBottom: 16,
+    maxWidth: 420,
   },
-  soundButton: {
-    marginLeft: 15,
-    padding: 12,
-    borderRadius: 25,
-    backgroundColor: 'white',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 50,
-    height: 50,
+  titleCompact: {
+    fontSize: 19,
+    marginBottom: 6,
   },
-  soundIcon: {
-    fontSize: 24,
-    color: 'white',
+  messageTextCompact: {
+    fontSize: 14,
+    lineHeight: 19,
+    marginBottom: 12,
   },
-  header: {
+  tapRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
     justifyContent: 'center',
-    minHeight: 80,
-    paddingVertical: 20,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#146CF0',
-    marginBottom: 5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  sequenceText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#146CF0',
-    textTransform: 'capitalize',
-  },
-
-  keypadContainer: {
     marginBottom: 20,
+  },
+  tapRowCompact: {
+    marginBottom: 14,
+  },
+  tapPill: {
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+  },
+  tapText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FF6B35',
+  },
+  soundButton: {
+    marginLeft: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(20, 108, 240, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  soundIcon: {
+    fontSize: 20,
   },
   keypadGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 15,
+    marginBottom: 16,
+  },
+  keypadGridCompact: {
+    marginBottom: 10,
   },
   keypadButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     backgroundColor: '#146CF0',
     justifyContent: 'center',
     alignItems: 'center',
@@ -346,14 +428,20 @@ const styles = StyleSheet.create({
   },
   keypadButtonText: {
     color: 'white',
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
   },
-  pressedButtonText: {
-    color: 'white',
+  keypadButtonTextCompact: {
+    fontSize: 20,
   },
   statusContainer: {
-    marginBottom: 15,
+    minHeight: 20,
+    marginBottom: 12,
+    justifyContent: 'center',
+  },
+  statusContainerCompact: {
+    minHeight: 18,
+    marginBottom: 8,
   },
   errorText: {
     color: '#FF6B35',
@@ -380,6 +468,21 @@ const styles = StyleSheet.create({
   },
   progressDotFilled: {
     backgroundColor: '#146CF0',
+  },
+  cancelButton: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  cancelButtonCompact: {
+    marginTop: 10,
+    paddingVertical: 8,
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontSize: 15,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
 

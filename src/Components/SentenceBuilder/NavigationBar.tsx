@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -52,19 +52,20 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
 }) => {
   const navigation = useNavigation();
   const { isTablet } = useAdmin();
+  const sentenceScrollRef = useRef<ScrollView>(null);
 
-  // Responsive values for circle sizes - tokens 15% smaller
+  // The app is landscape-only, so `height` is the short side of the screen.
   const responsiveValues = {
-    tokenSize: isTablet ? height * 0.0612 : height * 0.068, // 15% smaller
-    tokenBorderRadius: isTablet ? height * 0.0306 : height * 0.034,
     playButtonSize: isTablet ? height * 0.045 : height * 0.06,
     playButtonBorderRadius: isTablet ? height * 0.0225 : height * 0.025,
-    // Total token height including label (token + label + spacing)
+    // Height of the sentence bar's content. Fixed so the grid below never
+    // reflows; the word text is sized to fit inside it.
     tokenTotalHeight: isTablet ? height * 0.085 : height * 0.095,
-    tokenLabelHeight: isTablet ? height * 0.018 : height * 0.02,
+    // Large print for adult readers: roughly 32-43pt on iPads, 18-20pt on
+    // phones, where the bar height is what caps it.
+    sentenceFontSize: isTablet ? height * 0.042 : height * 0.046,
     trashIconSize: isTablet ? height * 0.04 : height * 0.06,
     playIconSize: isTablet ? height * 0.04 : height * 0.06,
-
   };
 
   // Go to mainboard (root) - same as Breadcrumb behavior
@@ -105,40 +106,35 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
     return nodes.find(node => node.id === nodeId);
   };
 
+  // Text-only build: each word in the sentence is the word itself, in large
+  // print, rather than a symbol with a caption. Tapping a word removes it.
   const renderToken = (nodeId: string, index: number) => {
     const node = getNodeById(nodeId);
     if (!node) return null;
 
     return (
-      <View key={`${nodeId}-${index}`} style={styles.tokenContainer}>
-        <TouchableOpacity
-          style={[
-            styles.token,
-            {
-              width: responsiveValues.tokenSize,
-              height: responsiveValues.tokenSize,
-              borderRadius: responsiveValues.tokenBorderRadius,
-            },
-            node.kind === 'word' && styles.wordToken,
-            node.kind === 'folder' && styles.folderToken,
-          ]}
-          onPress={() => onRemoveToken(nodeId, index)}>
-          {/* Text-only: word images are not shown in this build. The full word
-              renders in the label below; this chip shows an initial. */}
-          <View style={[styles.tokenImage, styles.tokenPlaceholder]}>
-            <Text style={styles.tokenPlaceholderText}>
-              {node.kind === 'folder'
-                ? '📁'
-                : node.title.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        </TouchableOpacity>
+      <TouchableOpacity
+        key={`${nodeId}-${index}`}
+        style={[
+          styles.wordChip,
+          { maxHeight: responsiveValues.tokenTotalHeight },
+          node.kind === 'folder' && styles.folderChip,
+        ]}
+        onPress={() => onRemoveToken(nodeId, index)}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${node.title}`}>
         <Text
-          style={[styles.tokenLabel, { maxWidth: responsiveValues.tokenSize }]}
+          style={[
+            styles.wordChipText,
+            {
+              fontSize: responsiveValues.sentenceFontSize,
+              lineHeight: responsiveValues.sentenceFontSize * 1.2,
+            },
+          ]}
           numberOfLines={1}>
           {node.title}
         </Text>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -172,7 +168,7 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
       </TouchableOpacity>
 
       {/* Sentence Building Area with Round Border */}
-      {/* Fixed height, not minHeight: token chips are taller than the empty
+      {/* Fixed height, not minHeight: word chips are taller than the empty
           placeholder text, so a content-driven height makes the bar grow when
           the first word lands — which reflows the grid below it and remounts
           the whole board (itemHeight is part of the DraggableGrid key).
@@ -183,15 +179,26 @@ const NavigationBar: React.FC<NavigationBarProps> = ({
           { height: responsiveValues.tokenTotalHeight + 8 },
         ]}>
         <ScrollView
+          ref={sentenceScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
+          // Large words overflow the bar sooner; keep the newest word in view.
+          onContentSizeChange={() =>
+            sentenceScrollRef.current?.scrollToEnd({ animated: true })
+          }
           style={[
             styles.scrollView,
             { maxHeight: responsiveValues.tokenTotalHeight },
           ]}
           contentContainerStyle={styles.scrollContent}>
           {sentenceTokenIds.length === 0 ? (
-            <Text style={styles.emptyText}>Tap words to build a sentence</Text>
+            <Text
+              style={[
+                styles.emptyText,
+                { fontSize: Math.max(16, responsiveValues.sentenceFontSize * 0.7) },
+              ]}>
+              Tap words to build a sentence
+            </Text>
           ) : (
             sentenceTokenIds.map((nodeId, index) => renderToken(nodeId, index))
           )}
@@ -328,50 +335,29 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   emptyText: {
-    fontSize: 14,
     color: '#6c757d',
     fontStyle: 'italic',
     textAlign: 'center',
   },
-  token: {
-    borderWidth: 2,
-    borderColor: '#dee2e6',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  wordToken: {
-    borderColor: '#2196f3',
-  },
-  folderToken: {
-    borderColor: '#9c27b0',
-  },
-  tokenImage: {
-    width: '100%',
-    height: '100%',
-  },
-  tokenPlaceholder: {
-    backgroundColor: '#f8f9fa',
+  // One word of the sentence: a tappable pill holding the word in large print.
+  wordChip: {
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tokenPlaceholderText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#666',
-  },
-  tokenContainer: {
-    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 4,
     marginRight: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#2196f3',
+    backgroundColor: '#f3f8fe',
   },
-  tokenLabel: {
-    fontSize: height * 0.012,
-    fontWeight: '500',
-    color: '#333',
-    textAlign: 'center',
+  folderChip: {
+    borderColor: '#9c27b0',
+    backgroundColor: '#f9f1fc',
+  },
+  wordChipText: {
+    fontWeight: '700',
+    color: '#111',
+    includeFontPadding: false,
   },
   playButton: {
     justifyContent: 'center',

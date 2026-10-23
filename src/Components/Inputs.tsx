@@ -3,7 +3,13 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from 'react';
-import { View, StyleSheet, TextInput, Dimensions, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { useAdmin } from '../contexts/adminContext';
 
 interface InputsProps {
@@ -16,12 +22,12 @@ export interface InputsRef {
   setInput: (text: string) => void;
 }
 
-const { width, height } = Dimensions.get('window');
-
 const Inputs = forwardRef<InputsRef, InputsProps>(
   ({ mode, onInputChange }, ref) => {
     const [inputText, setInputText] = useState<string>('');
     const { isTablet } = useAdmin();
+    // Live window size: Android's module-load value can be pre-rotation.
+    const { height } = useWindowDimensions();
 
     // Responsive font sizes and container height
     const responsiveFontSize = isTablet ? 16 : 14;
@@ -52,7 +58,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
     return (
       <View style={styles.container}>
         {mode === 'Attention' ? (
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { marginTop: height * 0.04 }]}>
             <View
               style={[
                 styles.KBinputContainer,
@@ -60,6 +66,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
               ]}
               pointerEvents="none">
               <TextInput
+                disableFullscreenUI
                 style={[
                   styles.textInput,
                   { fontSize: responsiveFontSize },
@@ -78,7 +85,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
             </View>
           </View>
         ) : (
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { marginTop: height * 0.04 }]}>
             <View
               style={[
                 styles.KBinputContainer,
@@ -86,6 +93,7 @@ const Inputs = forwardRef<InputsRef, InputsProps>(
               ]}>
               <View style={styles.inputWrapper}>
                 <TextInput
+                  disableFullscreenUI
                   style={[
                     styles.textKBInput,
                     { fontSize: responsiveFontSize },
@@ -128,7 +136,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'center',
     width: '100%',
-    marginTop: height * 0.04,
   },
   KBinputContainer: {
     flexDirection: 'row',
@@ -179,11 +186,6 @@ const styles = StyleSheet.create({
   iconSize: {
     width: 45,
     height: 45,
-    resizeMode: 'contain',
-  },
-  playIcon: {
-    width: width * 0.03,
-    height: width * 0.03,
     resizeMode: 'contain',
   },
   imageWrapper: {

@@ -5,7 +5,11 @@ buildscript {
         compileSdkVersion = 36
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
-        kotlinVersion = "2.1.20"
+        kotlinVersion = "2.4.10"
+        // async-storage picks its KSP from a lookup table keyed by Kotlin version;
+        // that table predates KSP's move to standalone versioning, so Kotlin 2.4.10
+        // falls back to KSP 2.1.0-1.0.28, which calls Kotlin APIs that no longer exist.
+        kspVersion = "2.3.11"
         androidXAnnotation = "1.1.0"
         androidXBrowser = "1.0.0"
         
@@ -26,6 +30,7 @@ buildscript {
 allprojects {
     repositories {
         maven { url "${project(":react-native-wakeword").projectDir}/libs" }
+        maven { url "${project(":react-native-davoice-tts").projectDir}/libs" }
         google()
         mavenCentral()
     }
