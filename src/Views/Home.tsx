@@ -37,8 +37,8 @@ import Voice, {
   stopSpeechRecognition,
   subscribeToSpeechEvents,
 } from '../utils/STTService';
-import { useDatabase } from '../contexts/DatabaseContext';
-import { iepCapture } from '../features/iep/capture/iepCapture';
+import {useDatabase} from '../contexts/DatabaseContext';
+import {iepCapture} from '../features/iep/capture/iepCapture';
 import {
   personalMemoryService,
   makeMemoryEventId,
@@ -57,11 +57,11 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = false;
+const DEBUGWITHOUTTRANSCRIPTION = true;
 const STT_DEBUG = false;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
-const DEBUGTRANSCRIPTION = 'How was school today?';
+const DEBUGTRANSCRIPTION = 'how are you feeling after that walk?';
 
 const sttTrace = (...args: unknown[]) => {
   if (STT_DEBUG) {
@@ -690,6 +690,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
     isStartingRef.current = true; // ← startup-phase guard only
     sttTrace('[STT TRACE][Home] startup lock acquired');
 
+    if (DEBUGWITHOUTTRANSCRIPTION) {
+      // Dev-only: skip permissions, wakeword and the microphone entirely and
+      // run the answer pipeline on DEBUGTRANSCRIPTION, so the result cards can
+      // be screenshotted without having to speak.
+      sttTrace(
+        `[STT TRACE][Home] DEBUGWITHOUTTRANSCRIPTION: using "${DEBUGTRANSCRIPTION}"`,
+      );
+      isStartingRef.current = false;
+      setVoiceResults([DEBUGTRANSCRIPTION]);
+      setPartialResult(DEBUGTRANSCRIPTION);
+      voiceResultsRef.current = [DEBUGTRANSCRIPTION];
+      partialResultRef.current = DEBUGTRANSCRIPTION;
+      if (inputsRef.current) {
+        inputsRef.current.setInput(DEBUGTRANSCRIPTION);
+      }
+      setIsTranscribing(true);
+      await processVoiceResults();
+      return;
+    }
+
     mixpanel.track('Microphone Pressed');
 
     try {
@@ -1201,7 +1221,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
     // IEP session evidence: response time from question to tap, before the timer resets.
     // Unknown (timer not running) is recorded as null, never as an instant answer.
-    const iepResponseTimeMs = responseTimerStart ? Date.now() - responseTimerStart : null;
+    const iepResponseTimeMs = responseTimerStart
+      ? Date.now() - responseTimerStart
+      : null;
 
     // Stop response timer if running
     stopResponseTimer('card');
