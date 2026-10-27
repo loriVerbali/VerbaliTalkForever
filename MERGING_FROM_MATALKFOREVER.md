@@ -116,6 +116,17 @@ marked ⚠️ have silently reverted before.
 - Keyboard text is `isTablet ? 48 : 32` with `72/56` buttons, not upstream's flat `18`/`40`.
 - Verbi predictions send `isAdult: true` (`useVerbiPrediction.ts`).
 - `Home.tsx` `resolvePepesImage` lists `Medicine`, not upstream's `Toys` (unified Home since 2026-10-23).
+- **On-device AI** (added 2026-10-23, nothing like it upstream): `llama.rn` in `package.json` /
+  `Podfile.lock`, `src/services/localLlm/*`, `src/Components/LocalLlmSettings.tsx`, the
+  `localLlmEnabled` / `localLlmModel` preferences in `persistance.tsx`, the local branch at the top of
+  `AssistantContext.generateAnswers` (plus `localLlm`, `prefillAnswers` and `refreshLocalLlm` in its
+  context value, and the `latest` ref its answer paths read through), the "On-Device AI" tile and
+  section in `Settings.tsx`, in `Home.tsx` the `localLlm.status` loading text, the `prefillAnswers(...)`
+  call inside `onSpeechPartialResults` and the `refreshLocalLlm()` mount effect, the `libOpenCL.so`
+  `uses-native-library` in the Android manifest and the `com.rnllama` proguard keep. While the option is
+  on, **no answer request may reach the backend** (a model that cannot load shows the heuristic answers). ⚠️
+  `AssistantContext.tsx` and `Settings.tsx` will conflict on every merge: take upstream's changes
+  *around* these blocks, keep the blocks. `__mocks__/llama.rn.js` keeps jest loading.
 
 **Identity** — `applicationId verbalitalk.io.verbali`, `versionName VERBALITALKV1`,
 `ios/VerbaliTalkForever.xcodeproj`. Never take MatalkForever branding.

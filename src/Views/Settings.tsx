@@ -39,6 +39,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { ProfileExportService } from '../services/ProfileExportService';
 import { ProfileImportService } from '../services/ProfileImportService';
 import WakeWordService from '../utils/wakewordService';
+import LocalLlmSettings from '../Components/LocalLlmSettings';
 
 const { height, width: SCREEN_WIDTH } = Dimensions.get('window');
 const statusBarHeight = StatusBar.currentHeight || 40;
@@ -133,6 +134,15 @@ const SETTINGS_SECTIONS: SectionNavItem[] = [
     title: 'Verbi Board Predictions',
     description:
       'Turn AI word suggestions on or off while building sentences, and choose whether the microphone listens to your conversation partner to improve suggestions.',
+  },
+  {
+    key: 'localAi',
+    label: 'On-Device AI',
+    icon: '📱',
+    color: '#e3f2fd',
+    title: 'On-Device AI',
+    description:
+      'Build the answer cards with an AI model stored on this device, so answering works without internet and the conversation never leaves the device. Download a model here first.',
   },
   {
     key: 'data',
@@ -2807,6 +2817,15 @@ const SettingsScreen: React.FC = () => {
               {renderBackToTop('verbi')}
             </View>
 
+            {/* ─── On-Device AI (adult fork only) ───────────────────── */}
+            <View
+              style={[styles.section, styles.sectionLocalAi]}
+              onLayout={registerSectionPosition('localAi')}>
+              <Text style={styles.sectionTitle}>On-Device AI</Text>
+              <LocalLlmSettings />
+              {renderBackToTop('localAi')}
+            </View>
+
             <View
               style={[styles.section]}
               onLayout={registerSectionPosition('data')}>
@@ -3165,6 +3184,9 @@ const styles = StyleSheet.create({
   },
   sectionReset: {
     backgroundColor: '#fce8e8',
+  },
+  sectionLocalAi: {
+    backgroundColor: '#e3f2fd',
   },
   sectionAccountStatus: {
     backgroundColor: '#fffbe6',

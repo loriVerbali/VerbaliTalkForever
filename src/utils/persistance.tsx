@@ -100,6 +100,10 @@ interface Preferences {
   memoryAiContextEnabled: string;
   memoryExtractionThreshold: string;
   memorySchemaVersion: string;
+  /** On-device AI (adult fork only): '1' builds answer cards with a local model. */
+  localLlmEnabled: string;
+  /** Which downloaded model to run; a LocalModelKey from services/localLlm. */
+  localLlmModel: string;
 }
 
 const initEnum = {
@@ -197,6 +201,8 @@ export const initialPreferences: Preferences = {
   memoryAiContextEnabled: initEnum.true,
   memoryExtractionThreshold: '0.85',
   memorySchemaVersion: '1',
+  localLlmEnabled: initEnum.false,
+  localLlmModel: 'GEMMA_2B',
 };
 
 interface AppSettingsContextProps {

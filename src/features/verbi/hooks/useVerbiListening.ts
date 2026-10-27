@@ -1,6 +1,11 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
-import { subscribeToSpeechEvents, startSpeechRecognition, stopSpeechRecognition } from '../../../utils/STTService';
+import {
+  subscribeToSpeechEvents,
+  startSpeechRecognition,
+  stopSpeechRecognition,
+  endSpeechRecognitionSession,
+} from '../../../utils/STTService';
 import TTSService from '../../../utils/TTSService';
 import WakeWordService from '../../../utils/wakewordService';
 import {
@@ -75,10 +80,11 @@ export function useVerbiListening({ state, dispatch }: UseVerbiListeningInput) {
   useEffect(() => {
     const unsubStart = TTSService.onSpeakStart(() => {
       ttsSpeakingRef.current = true;
-      if (isListeningRef.current) {
-        dispatch({ type: 'LISTENING_STATE_CHANGED', payload: 'paused_for_tts' });
-        pausePartnerSTT();
-      }
+      if (!isListeningRef.current) return;
+      dispatch({ type: 'LISTENING_STATE_CHANGED', payload: 'paused_for_tts' });
+      // Returned so the speech service waits for the mic to be released
+      // before it starts playing: on iOS both share one audio session.
+      return pausePartnerSTT();
     });
 
     const unsubEnd = TTSService.onSpeakEnd(() => {
@@ -172,7 +178,7 @@ export function useVerbiListening({ state, dispatch }: UseVerbiListeningInput) {
       isListeningRef.current = true;
       pausedForTtsRef.current = false;
       await releaseMicFromWakeWord();
-      await startSpeechRecognition('en-US');
+      await startSpeechRecognition('en-US', {}, 'verbi-partner');
       resetInactivityTimer();
 
       mixpanel.track(VERBI_EVENTS.LISTENING_STARTED, {
@@ -229,7 +235,10 @@ export function useVerbiListening({ state, dispatch }: UseVerbiListeningInput) {
       pausedForTtsRef.current = false;
 
       try {
-        await stopSpeechRecognition();
+        // End, not pause: the turn is over, so whatever the partner had half
+        // said is discarded at the native level and must never surface on the
+        // next screen. Buffered finals were already flushed above.
+        await endSpeechRecognitionSession();
       } catch {
         // Best-effort
       }
@@ -398,7 +407,8 @@ export function useVerbiListening({ state, dispatch }: UseVerbiListeningInput) {
         utteranceAbortRef.current.abort();
       }
       if (isListeningRef.current || pausedForTtsRef.current) {
-        stopSpeechRecognition().catch(() => {});
+        // Leaving the screen: discard the open segment for good.
+        endSpeechRecognitionSession().catch(() => {});
         isListeningRef.current = false;
         pausedForTtsRef.current = false;
       }

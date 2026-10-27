@@ -404,12 +404,16 @@ const IntakeChatModal: React.FC<IntakeChatModalProps> = ({
         throw new Error('Speech recognition permission was not granted.');
       }
 
-      await startSpeechRecognition('en-US', {
-        EXTRA_PARTIAL_RESULTS: true,
-        EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: silenceTimeout,
-        EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS:
-          silenceTimeout,
-      });
+      await startSpeechRecognition(
+        'en-US',
+        {
+          EXTRA_PARTIAL_RESULTS: true,
+          EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: silenceTimeout,
+          EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS:
+            silenceTimeout,
+        },
+        'intake',
+      );
     },
     [getSilenceTimeout],
   );

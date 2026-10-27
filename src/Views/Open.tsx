@@ -143,6 +143,9 @@ const OpenScreen: React.FC = () => {
   const heroName = preferences?.heroName;
   const [settingsTappedOnce, setSettingsTappedOnce] = useState(false);
   const [microphoneTappedOnce, setMicrophoneTappedOnce] = useState(false);
+  // Mirrors microphoneTappedOnce for the wake-word callback, which is
+  // registered once and would otherwise read the value from its first render.
+  const microphoneTappedOnceRef = useRef(false);
   const [showAndTellModalShown, setShowAndTellModalShown] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [isHandshakeSpeaking, setIsHandshakeSpeaking] = useState(false);
@@ -193,6 +196,7 @@ const OpenScreen: React.FC = () => {
 
         const microphoneTapped = await getItem('microphoneTappedOnce');
         setMicrophoneTappedOnce(microphoneTapped === '1');
+        microphoneTappedOnceRef.current = microphoneTapped === '1';
 
         const modalShown = await getItem('showAndTellModalShown');
         setShowAndTellModalShown(modalShown === '1');
@@ -445,6 +449,17 @@ const OpenScreen: React.FC = () => {
     [],
   );
 
+  // The hint bubble reads "Tap here or Say Hey Verbi": either one means the
+  // user has found the microphone, so both paths retire the hint for good.
+  const markMicrophoneUsed = () => {
+    if (microphoneTappedOnceRef.current) {
+      return;
+    }
+    microphoneTappedOnceRef.current = true;
+    setMicrophoneTappedOnce(true);
+    setItem('microphoneTappedOnce', '1').catch(() => {});
+  };
+
   // ─── WAKEWORD CALLBACK ──────────────────────────────────────────────────────
   // Defined once so useFocusEffect can re-register it without re-creating it.
   // Services are already initialized and live when this component mounts
@@ -461,6 +476,9 @@ const OpenScreen: React.FC = () => {
       if (!permissionsReady) {
         return;
       }
+
+      // Saying the wake word counts as finding the microphone.
+      markMicrophoneUsed();
 
       // Pause (not stop) — instance stays warm for when we return to Open
       let wakewordPausedForHandoff = false;
@@ -562,11 +580,7 @@ const OpenScreen: React.FC = () => {
       );
     }
 
-    // Mark microphone as tapped once
-    if (!microphoneTappedOnce) {
-      setMicrophoneTappedOnce(true);
-      setItem('microphoneTappedOnce', '1').catch(() => {});
-    }
+    markMicrophoneUsed();
 
     navigation.navigate('HOME' as any, {
       stateof: 'Attention',

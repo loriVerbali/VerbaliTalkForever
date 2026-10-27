@@ -65,8 +65,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
     imageBorderRadius: isTablet ? width * 0.045 : width * 0.04,
 
     // Label container - calculated from screen dimensions
-    labelPaddingVertical: isTablet ? height * 0.012 : height * 0.007,
     labelBorderRadius: isTablet ? width * 0.045 : width * 0.04,
+    // Fixed strip under an image for the word. Keeping it inside the card's
+    // height means image cards and text-only cards share one footprint, so a
+    // long word can never make a card taller than its neighbours.
+    labelStripHeight: Math.max(isTablet ? 44 : 36, Math.round(height * 0.3)),
 
     // Typography - calculated from screen dimensions
     labelFontSize: isTablet ? width * 0.15 : width * 0.2,
@@ -137,6 +140,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
               style={[
                 styles.imageContainer,
                 {
+                  width: width,
+                  height: height,
                   borderRadius: responsiveValues.containerBorderRadius,
                   shadowRadius: responsiveValues.shadowRadius,
                   shadowOffset: responsiveValues.shadowOffset,
@@ -166,7 +171,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                   style={[
                     {
                       width: width,
-                      height: height,
+                      height: height - responsiveValues.labelStripHeight,
                       backgroundColor: '#f0f0f0',
                     },
                     {
@@ -181,7 +186,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 style={[
                   styles.labelContainer,
                   {
-                    paddingVertical: responsiveValues.labelPaddingVertical,
+                    height: responsiveValues.labelStripHeight,
                     borderBottomLeftRadius: responsiveValues.labelBorderRadius,
                     borderBottomRightRadius: responsiveValues.labelBorderRadius,
                   },
@@ -206,6 +211,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
             style={[
               styles.imageContainer,
               {
+                width: width,
+                height: height,
                 borderRadius: responsiveValues.containerBorderRadius,
                 shadowRadius: responsiveValues.shadowRadius,
                 shadowOffset: responsiveValues.shadowOffset,
@@ -286,7 +293,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
                   style={[
                     {
                       width: width,
-                      height: height,
+                      height: height - responsiveValues.labelStripHeight,
                       backgroundColor: '#f0f0f0',
                     },
                     {
@@ -307,15 +314,23 @@ const ImageCard: React.FC<ImageCardProps> = ({
                 style={[
                   styles.labelContainer,
                   {
-                    paddingVertical: responsiveValues.labelPaddingVertical,
+                    height: responsiveValues.labelStripHeight,
                     borderBottomLeftRadius: responsiveValues.labelBorderRadius,
                     borderBottomRightRadius: responsiveValues.labelBorderRadius,
                   },
                 ]}>
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit={true}
+                  minimumFontScale={0.5}
                   style={[
                     styles.label,
-                    { fontSize: responsiveValues.labelFontSize },
+                    {
+                      fontSize: Math.min(
+                        responsiveValues.labelFontSize,
+                        responsiveValues.labelStripHeight * 0.62,
+                      ),
+                    },
                   ]}>
                   {image.prompt}
                 </Text>
@@ -346,6 +361,8 @@ const styles = StyleSheet.create({
   labelContainer: {
     backgroundColor: '#FFFFFF',
     width: '100%',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   moreButton: {
     backgroundColor: '#ffffff',
@@ -374,6 +391,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     width: '100%',
+    paddingHorizontal: 4,
+    // Android adds ascender/descender padding that pushes a big word out of
+    // its strip; iOS ignores this prop.
+    includeFontPadding: false,
   },
   disabledContainer: {
     backgroundColor: '#f0f0f0',

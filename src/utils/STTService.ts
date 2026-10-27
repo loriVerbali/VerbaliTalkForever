@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import DaVoice from 'react-native-davoice-tts/speech';
 import AppConfig from './config';
+import { SpeechCarryOverGuard } from './speechCarryOver';
 
 type SpeechEventHandlers = {
   onSpeechStart?: (event: any) => void;
@@ -34,6 +35,17 @@ let initialized = false;
 let initPromise: Promise<void> | null = null;
 let licenseActivated = false;
 let speechRecognitionNeedsPause = false;
+// Text a paused session leaves open must not resume into another screen's
+// session (see speechCarryOver.ts). Fed from dispatch(), start and pause.
+// This guard is the LAST line of defence; the first is below: a session is
+// natively cancelled when its owner is done (endSpeechRecognitionSession) and
+// a change of owner forces a brand-new native session instead of resuming the
+// warm one, so the open segment cannot follow the user to the next screen.
+const carryOver = new SpeechCarryOverGuard();
+// Who ran the previous session; null until the first session of the process.
+let lastSpeechOwner: string | null = null;
+// Set when a session was ended for good: the next start must not resume it.
+let freshStartNeeded = false;
 
 // Lazy-load the model to avoid synchronous asset URL resolution on the
 // main thread at module load time. In dev mode Metro serves .dm files over
@@ -88,6 +100,22 @@ const dispatch = (eventName: SpeechEventName, event: any) => {
     lastSpeechErrorAt = now;
     if (STT_DEBUG || lastSpeechErrorCode !== 'already_started') {
       console.error('[STT PACKAGE ERROR][event]', tracePayload(event));
+    }
+  }
+  if (eventName === 'onSpeechPartialResults' || eventName === 'onSpeechResults') {
+    const values: unknown[] = Array.isArray(event?.value) ? event.value : [];
+    if (values.length > 0) {
+      const kept = carryOver.filter(values as string[]);
+      if (kept.length === 0) {
+        trace(
+          `[STT TRACE][router] ${eventName} dropped: only text left over from the previous screen's session`,
+        );
+        return;
+      }
+      if (kept !== values) {
+        trace(`[STT TRACE][router] ${eventName} trimmed leftover text from the previous screen's session`);
+        event = { ...event, value: kept };
+      }
     }
   }
   if (
@@ -327,6 +355,7 @@ const resetIOSSpeechRecognition = async (): Promise<void> => {
 
   await sleep(300);
   await DaVoice.destroyWithoutModel();
+  carryOver.reset();
   initialized = false;
   await sleep(300);
   await DaVoice.initWithoutModel();
@@ -336,8 +365,37 @@ const resetIOSSpeechRecognition = async (): Promise<void> => {
   await sleep(300);
 };
 
+/**
+ * End the current owner's recognition for good: the open segment (words
+ * heard but not finalized) is discarded at the native level and the next
+ * start — any owner's — begins a brand-new session instead of resuming this
+ * one. Call it when leaving a screen; keep stopSpeechRecognition for pauses
+ * within a screen (TTS ducking, between questions), where the warm resume is
+ * wanted for its speed and pending finals must still be delivered.
+ */
+export const endSpeechRecognitionSession = (): Promise<void> =>
+  enqueueTransition(async () => {
+    trace('[STT TRACE][service] end session (discard open segment)');
+    // Belt and braces: remember what the session had, so that if the native
+    // cancel fails to kill the segment the carry-over guard still trims it.
+    carryOver.sessionPaused();
+    freshStartNeeded = true;
+    try {
+      await DaVoice.cancel();
+    } catch (error) {
+      traceWarn('[STT TRACE][service] cancel on end-session failed', describeError(error));
+    }
+    if (Platform.OS === 'ios') {
+      // The task is cancelled; there is nothing left to pause.
+      speechRecognitionNeedsPause = false;
+    }
+  });
+
 export const pauseSpeechRecognition = (): Promise<void> =>
-  enqueueTransition(pauseSpeechRecognitionNow);
+  enqueueTransition(async () => {
+    carryOver.sessionPaused();
+    await pauseSpeechRecognitionNow();
+  });
 
 export const prepareSpeechRecognitionAfterFullInit = (): Promise<void> =>
   enqueueTransition(async () => {
@@ -349,11 +407,36 @@ export const prepareSpeechRecognitionAfterFullInit = (): Promise<void> =>
     await pauseSpeechRecognitionNow();
   });
 
+/**
+ * Start recognition for `owner`, the screen or feature that will consume the
+ * results. The same owner starting again resumes the warm session (fast; iOS
+ * resumes with a Lite unpause). A DIFFERENT owner, or any start after
+ * endSpeechRecognitionSession, cancels whatever the engine still holds and
+ * starts a brand-new native session, so one screen's unfinished speech can
+ * never surface on another. The carry-over guard trims anything that slips
+ * through regardless.
+ */
 export const startSpeechRecognition = (
   locale: string = 'en-US',
   options: Record<string, unknown> = {},
+  owner: string = 'default',
 ): Promise<void> =>
   enqueueTransition(async () => {
+    carryOver.sessionStarted(owner);
+    // First-ever start resumes the initAll-warmed session (not "fresh"): a
+    // forced cold start there would pay the full reset at boot for nothing.
+    const fresh =
+      freshStartNeeded || (lastSpeechOwner !== null && owner !== lastSpeechOwner);
+    freshStartNeeded = false;
+    lastSpeechOwner = owner;
+    if (fresh) {
+      trace(`[STT TRACE][service] fresh session for owner=${owner}: cancelling the previous one`);
+      try {
+        await DaVoice.cancel();
+      } catch (error) {
+        traceWarn('[STT TRACE][service] cancel before fresh start failed', describeError(error));
+      }
+    }
     if (Platform.OS !== 'ios') {
       // The mic may be paused from a previous screen's wakeword handoff
       // (releaseMicrophone). Un-pause first — otherwise start() runs against a
@@ -384,7 +467,14 @@ export const startSpeechRecognition = (
       lastSpeechErrorAt = 0;
 
       try {
-        if (typeof DaVoice.unPauseSpeechRecognition === 'function') {
+        if (fresh) {
+          // Never resume across owners: a new task, so the previous owner's
+          // open segment cannot continue into this session. If the engine
+          // objects (already_started), the catch below resets it outright.
+          trace('[STT TRACE][service] starting a new STT session');
+          await DaVoice.start(locale, options);
+          speechRecognitionNeedsPause = true;
+        } else if (typeof DaVoice.unPauseSpeechRecognition === 'function') {
           trace('[STT TRACE][service] unpausing warm STT session');
           await DaVoice.unPauseSpeechRecognition(1);
           speechRecognitionNeedsPause = true;
@@ -461,6 +551,10 @@ export const startSpeechRecognition = (
 export const stopSpeechRecognition = (): Promise<void> =>
   enqueueTransition(async () => {
     trace('[STT TRACE][service] pause session');
+    // The owner is done: whatever the session has said so far may resume
+    // with the next one. (The pauses inside init and reset are not this -
+    // they happen in the middle of a start - so they do not count.)
+    carryOver.sessionPaused();
     try {
       await pauseSpeechRecognitionNow();
       trace('[STT TRACE][service] pause session resolved');

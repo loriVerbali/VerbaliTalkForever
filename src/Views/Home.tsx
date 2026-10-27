@@ -57,7 +57,7 @@ type HomeScreenRouteProp = RouteProp<RootStackParamList, 'Home'>;
 interface HomeScreenProps {
   route?: HomeScreenRouteProp;
 }
-const DEBUGWITHOUTTRANSCRIPTION = true;
+const DEBUGWITHOUTTRANSCRIPTION = false;
 const STT_DEBUG = false;
 const TRANSCRIPTIONERRORMESSAGE = "Verbi couldn't hear you. Tap Home to retry.";
 const ISSUEMESSAGE = 'I am having an issue, Tap Home to retry';
@@ -84,9 +84,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
   const height = viewportHeight;
   const {
     generateAnswers,
+    prefillAnswers,
+    refreshLocalLlm,
     conversationHistory,
     addToConversationHistory,
     updateLastAssistantMessage,
+    localLlm,
   } = useAssistant();
   const {weather, location} = useChatContext();
   const {isTablet} = useAdmin();
@@ -585,6 +588,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
             sttTrace(
               `[STT TRACE][Home] partial stored ref="${partialResultRef.current}"`,
             );
+            // On-device AI: evaluate the words heard so far while the partner
+            // is still talking, so the final question only pays for its last
+            // words. Same context string as processVoiceResults sends, so the
+            // two prompts share their prefix. A no-op when the option is off.
+            prefillAnswers(partialText, {
+              metadata: {contextInfo: getCachedContextInfo()},
+              number: parseInt(preferences.answersCount as string) || 5,
+            });
             if (inputsRef.current) {
               inputsRef.current.setInput(partialText);
               sttTrace('[STT TRACE][Home] partial pushed to Inputs ref');
@@ -634,6 +645,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
       }
     };
   }, []);
+
+  // On-device AI: the people list or personal memory may have changed since
+  // the model was warmed up. Re-prime the cached prompt head on entering the
+  // conversation screen; a no-op when nothing changed or the option is off.
+  useEffect(() => {
+    refreshLocalLlm();
+  }, [refreshLocalLlm]);
 
   // Cleanup useEffect for wake word service and Voice timers
   useEffect(() => {
@@ -833,7 +851,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
 
       sttTrace('[STT TRACE][Home] STT session start requested');
       setIsUsingLocalWhisper(true);
-      await startSpeechRecognition('en-US');
+      await startSpeechRecognition('en-US', {}, 'home');
       // startSpeechRecognition resolved — the native session is now live.
       // Only NOW arm isRecordingRef so the event handlers accept incoming
       // speech events, and clear the startup guard.
@@ -1833,7 +1851,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({route}) => {
                                   marginTop: 10,
                                 },
                               ]}>
-                              Finding answers...
+                              {localLlm.status === 'loading'
+                                ? 'Loading on-device AI...'
+                                : 'Finding answers...'}
                             </Text>
                           </View>
                         ) : transcribedText.length === 0 ? (

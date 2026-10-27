@@ -28,7 +28,7 @@ PODS:
   - json-enum (1.2.3)
   - jsonlogic (1.2.4):
     - json-enum (~> 1.2.3)
-  - KeyWordRNBridge (1.0.33):
+  - KeyWordRNBridge (1.0.36):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
   - libwebp (1.6.0):
@@ -43,6 +43,30 @@ PODS:
   - libwebp/sharpyuv (1.6.0)
   - libwebp/webp (1.6.0):
     - libwebp/sharpyuv
+  - llama-rn (0.13.0-rc.8):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React
+    - React-callinvoker
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - Mixpanel-swift (6.8.0):
     - jsonlogic (~> 1.2.0)
     - Mixpanel-swift/Complete (= 6.8.0)
@@ -2604,7 +2628,7 @@ PODS:
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
   - SSZipArchive (2.5.5)
-  - TTSRNBridge (1.0.392):
+  - TTSRNBridge (1.0.407):
     - onnxruntime-objc (~> 1.20.0)
     - React-Core
   - Yoga (0.0.0)
@@ -2614,6 +2638,7 @@ DEPENDENCIES:
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - KeyWordRNBridge (from `../node_modules/react-native-wakeword`)
+  - llama-rn (from `../node_modules/llama.rn`)
   - MixpanelReactNative (from `../node_modules/mixpanel-react-native`)
   - NitroIap (from `../node_modules/react-native-iap`)
   - NitroModules (from `../node_modules/react-native-nitro-modules`)
@@ -2744,6 +2769,8 @@ EXTERNAL SOURCES:
     :tag: hermes-v250829098.0.16
   KeyWordRNBridge:
     :path: "../node_modules/react-native-wakeword"
+  llama-rn:
+    :path: "../node_modules/llama.rn"
   MixpanelReactNative:
     :path: "../node_modules/mixpanel-react-native"
   NitroIap:
@@ -2955,8 +2982,9 @@ SPEC CHECKSUMS:
   hermes-engine: a576d7c7a636d83594caf872b75dcb5f72b2d6c4
   json-enum: 57ad746d2f0d7852796e9aa50267bd84a778222e
   jsonlogic: 006f892470384401b8ca5b5d8d4cdadb3a0d5c9b
-  KeyWordRNBridge: d2768e947a20906fb9c0f4cd99d953281ff90243
+  KeyWordRNBridge: 7b27eab0d5ceaeb123da6d1ba3e6a5d9f34249d1
   libwebp: af5937a13536ef73f3784d69cc342b98961acf33
+  llama-rn: 7741387e6cabb1ac3c89fa40e4256f7efc93a7db
   Mixpanel-swift: 2704715b3c57e4c1695e35265ea3fa0c96a79f43
   MixpanelReactNative: d28a9b8e097a25c1d7d70570e9903697912edc4e
   MixpanelSwiftCommon: 558018032a946849b1277812b3f810bdeb22f654
@@ -3067,7 +3095,7 @@ SPEC CHECKSUMS:
   SDWebImagePhotosPlugin: aaf5bc35fd49b66876de58c33eeb6e38b50920e5
   SDWebImageWebPCoder: 0e06e365080397465cc73a7a9b472d8a3bd0f377
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
-  TTSRNBridge: f84cd50b4f66e69259b3d8f0aa3219362c273e20
+  TTSRNBridge: aee614466844a9fbb7c918d6f4815db67bdeddfa
   Yoga: 9891cfb1c680f64de9c41b09e7453dea33454d2b
 
 PODFILE CHECKSUM: c165a0c973f45505cf9f485152d72263ff62b348

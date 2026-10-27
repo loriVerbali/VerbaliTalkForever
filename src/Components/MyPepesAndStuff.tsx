@@ -27,6 +27,7 @@ import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import { useAppSettings } from '../utils/persistance';
 import { useAdmin } from '../contexts/adminContext';
 import TellUsMoreSection from './TellUsMore/TellUsMoreSection';
+import OptionPickerModal from './OptionPickerModal';
 import { isPlaceholderImage, resolveImageSource } from '../utils/imageSourceResolver';
 import { personalMemoryService } from '../services/PersonalMemoryService';
 
@@ -142,6 +143,10 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     'People' | 'Medicine' | 'Pets' | 'TVShows' | 'Food' | 'Drinks' | 'Places'
   >('People');
   const [showDropdown, setShowDropdown] = useState(false);
+  // Which list picker (if any) is open inside the add/edit modal.
+  const [activePicker, setActivePicker] = useState<
+    'type' | 'relationship' | 'state' | null
+  >(null);
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<PepeItem | null>(null);
   const [pepesData, setPepesData] = useState<PepesData>({
@@ -260,6 +265,8 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
       'Dad',
       'Sister',
       'Brother',
+      'Son',
+      'Daughter',
       'Grandpa',
       'Grandma',
       'Uncle',
@@ -589,6 +596,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
 
   const closeModal = () => {
     setShowModal(false);
+    setActivePicker(null);
     setEditingItem(null);
     setItemName('');
     setItemAliases('');
@@ -1430,6 +1438,54 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
     setShowDropdown(false);
   };
 
+  // Options and handler for whichever list picker is open. These used to be
+  // Alert.alert button lists, but Android alerts show at most three buttons.
+  const pickerConfig = (() => {
+    switch (activePicker) {
+      case 'type':
+        return {
+          title: 'Select Type',
+          options: typeOptions[selectedCategory] || [],
+          selected: itemType,
+          onSelect: (option: string) => {
+            setItemType(option);
+            // Reset relationship when type changes
+            setItemRelationship('');
+            if (errorMessage) setErrorMessage('');
+          },
+        };
+      case 'relationship':
+        return {
+          title: 'Select Relationship',
+          options: relationshipOptions[itemType] || [],
+          selected: itemRelationship,
+          onSelect: (option: string) => {
+            setItemRelationship(option);
+            if (errorMessage) setErrorMessage('');
+          },
+        };
+      case 'state':
+        return {
+          title:
+            placeAddress.country === 'Canada'
+              ? 'Select Province'
+              : 'Select State',
+          options: getStatesForCountry(placeAddress.country),
+          selected: placeAddress.state,
+          onSelect: (state: string) => {
+            setPlaceAddress(prev => ({
+              ...prev,
+              state,
+              country: inferCountryFromState(state, prev.country),
+            }));
+            setPlaceIsCurrentLocation(false);
+          },
+        };
+      default:
+        return null;
+    }
+  })();
+
   return (
     <View style={styles.container}>
       {/* Single scrollable body */}
@@ -1841,25 +1897,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                     </Text>
                     <TouchableOpacity
                       style={styles.dropdownContainer}
-                      onPress={() => {
-                        const options = typeOptions[selectedCategory];
-                        Alert.alert(
-                          selectedCategory === 'People'
-                            ? 'Select Type'
-                            : 'Select Type',
-                          '',
-                          options.map((option: string) => ({
-                            text: option,
-                            onPress: () => {
-                              setItemType(option);
-                              // Reset relationship when type changes
-                              setItemRelationship('');
-                              if (errorMessage) setErrorMessage('');
-                            },
-                          })),
-                          { cancelable: true },
-                        );
-                      }}>
+                      onPress={() => setActivePicker('type')}>
                       <View
                         style={[
                           styles.dropdown,
@@ -1906,21 +1944,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                     </Text>
                     <TouchableOpacity
                       style={styles.dropdownContainer}
-                      onPress={() => {
-                        const options = relationshipOptions[itemType] || [];
-                        Alert.alert(
-                          'Select Relationship',
-                          '',
-                          options.map((option: string) => ({
-                            text: option,
-                            onPress: () => {
-                              setItemRelationship(option);
-                              if (errorMessage) setErrorMessage('');
-                            },
-                          })),
-                          { cancelable: true },
-                        );
-                      }}>
+                      onPress={() => setActivePicker('relationship')}>
                       <View
                         style={[
                           styles.dropdown,
@@ -2130,39 +2154,7 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
                                 responsiveValues.textInputPaddingVertical,
                             },
                           ]}
-                          onPress={() => {
-                            const states = getStatesForCountry(
-                              placeAddress.country,
-                            );
-                            Alert.alert(
-                              placeAddress.country === 'Canada'
-                                ? 'Select Province'
-                                : 'Select State',
-                              '',
-                              [
-                                ...states.map(state => ({
-                                  text: state,
-                                  onPress: () => {
-                                    setPlaceAddress(prev => {
-                                      const inferredCountry =
-                                        inferCountryFromState(
-                                          state,
-                                          prev.country,
-                                        );
-                                      return {
-                                        ...prev,
-                                        state,
-                                        country: inferredCountry,
-                                      };
-                                    });
-                                    setPlaceIsCurrentLocation(false);
-                                  },
-                                })),
-                                { text: 'Cancel', style: 'cancel' },
-                              ],
-                              { cancelable: true },
-                            );
-                          }}>
+                          onPress={() => setActivePicker('state')}>
                           <Text
                             style={[
                               styles.dropdownText,
@@ -2249,6 +2241,18 @@ const MyPepesAndStuff: React.FC<MyPepesAndStuffProps> = ({
             </View>
           </View>
         </View>
+        <OptionPickerModal
+          visible={pickerConfig !== null}
+          title={pickerConfig?.title ?? ''}
+          options={pickerConfig?.options ?? []}
+          selected={pickerConfig?.selected}
+          fontSize={isTablet ? 22 : 20}
+          onSelect={option => {
+            pickerConfig?.onSelect(option);
+            setActivePicker(null);
+          }}
+          onClose={() => setActivePicker(null)}
+        />
       </Modal >
 
       {/* Tell Us More modals are handled inside TellUsMoreSection */}

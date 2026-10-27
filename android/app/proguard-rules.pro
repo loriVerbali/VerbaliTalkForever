@@ -34,3 +34,6 @@
 
 # whisper.rn
 -keep class com.rnwhisper.** { *; }
+
+# llama.rn (on-device AI)
+-keep class com.rnllama.** { *; }

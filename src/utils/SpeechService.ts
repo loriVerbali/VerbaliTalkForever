@@ -7,6 +7,12 @@ import WakeWordService from './wakewordService';
 
 const STT_DEBUG = false;
 const IOS_TTS_AUDIO_SETTLE_MS = 150;
+/**
+ * Longest wait for the speak-start listeners (Verbi pausing the partner's
+ * STT) before a word is spoken anyway. A slow or stuck listener may delay a
+ * word a little; it must never swallow it.
+ */
+const SPEAK_START_CALLBACK_MAX_MS = 700;
 
 /**
  * How long after the TTS queue drains before the wakeword mic is re-opened.
@@ -125,7 +131,7 @@ class SpeechServiceClass {
   private processingQueue: boolean = false;
   private currentItem: SpeechQueueItem | null = null;
   private volumeCleanup: (() => void) | null = null;
-  private speakStartCallbacks: Set<() => void> = new Set();
+  private speakStartCallbacks: Set<() => void | Promise<void>> = new Set();
   private speakEndCallbacks: Set<() => void> = new Set();
   // Android: incremented by stop() so an in-flight chunk loop aborts instead of
   // enqueueing sentences from a cancelled utterance.
@@ -137,6 +143,10 @@ class SpeechServiceClass {
   private synthesisInProgress: boolean = false;
   // iOS: pending deferred wakeword resume (see WAKEWORD_RESUME_AFTER_TTS_MS).
   private wakeWordResumeTimer: ReturnType<typeof setTimeout> | null = null;
+  // True from the moment the current utterance reaches the engine, i.e. once
+  // it can be heard. Before that (the iOS mic handoff) an immediate speak()
+  // swaps the pending word in rather than stopping it; see speak().
+  private audible: boolean = false;
 
   private speechInstance = Speech;
 
@@ -254,12 +264,21 @@ class SpeechServiceClass {
     return SpeechServiceClass.instance;
   }
 
-  private async speakText(text: string) {
-    if (!text) return;
-    text = normalizeForSpeech(text);
-
+  /**
+   * Speak the queue item that is current once the audio path is ready.
+   *
+   * Resolves with the item that reached the engine, or null when none did:
+   * stop() ran while the mic was still being handed over, or speaking
+   * failed. The item spoken can differ from `firstItem`: a tap that lands
+   * during the handoff swaps the word in (see speak()), and the handoff,
+   * already paid for, carries the newer word.
+   */
+  private async speakText(
+    firstItem: SpeechQueueItem,
+  ): Promise<SpeechQueueItem | null> {
+    const generation = this.speakGeneration;
     try {
-      trace(`[STT TRACE][SpeechService] speakText begin text="${text}"`);
+      trace(`[STT TRACE][SpeechService] speakText begin text="${firstItem.text}"`);
       const speakerId = 0; // Piper uses 0 for single‑speaker models
 
       if (Platform.OS === 'ios') {
@@ -279,8 +298,10 @@ class SpeechServiceClass {
           }
         }
 
-        // Notify Verbi that TTS is starting (pause partner STT)
-        this.speakStartCallbacks.forEach(cb => { try { cb(); } catch { } });
+        // Verbi pauses the partner's STT here. Wait for it (bounded): the
+        // recogniser and the player share one audio session, and audio
+        // started while the mic is still being released can come out silent.
+        await this.notifySpeakStart();
 
         if (releasedMic) {
           // Give the audio session a moment to settle after releasing the mic.
@@ -290,6 +311,17 @@ class SpeechServiceClass {
         }
       }
 
+      // stop() ran during the handoff: the word was cancelled before it could
+      // be heard, so it must not be spoken late over whatever came next.
+      if (generation !== this.speakGeneration || !this.currentItem) {
+        trace('[STT TRACE][SpeechService] speakText aborted: stopped during handoff');
+        return null;
+      }
+      // A tap during the handoff may have swapped the word in.
+      const item = this.currentItem;
+      const text = normalizeForSpeech(item.text);
+      this.audible = true;
+
       if (Platform.OS === 'android') {
         // The Android engine synthesizes an ENTIRE string to PCM before it
         // enqueues anything for playback, so time-to-first-audio scales with
@@ -297,7 +329,6 @@ class SpeechServiceClass {
         // resolves once that sentence is synthesized and enqueued, and the
         // native side plays clips serially — so the first sentence is audible
         // while the rest are still synthesizing.
-        const generation = this.speakGeneration;
         const chunks = splitIntoSentenceChunks(text);
         this.synthesisInProgress = true;
         try {
@@ -316,10 +347,37 @@ class SpeechServiceClass {
       } else {
         await this.speakNativeWithRetry(text, speakerId);
       }
+      return item;
     } catch (e) {
       console.error('[SpeechService] speakText error after retries:', e);
       this.handlePlaybackFinished();
+      return null;
     }
+  }
+
+  /**
+   * Run the speak-start listeners and wait for the asynchronous ones, up to
+   * SPEAK_START_CALLBACK_MAX_MS.
+   */
+  private async notifySpeakStart(): Promise<void> {
+    const pending: Promise<unknown>[] = [];
+    this.speakStartCallbacks.forEach(cb => {
+      try {
+        const result = cb();
+        if (result && typeof (result as Promise<void>).then === 'function') {
+          pending.push((result as Promise<void>).catch(() => undefined));
+        }
+      } catch {
+        // A failing listener must not block speech.
+      }
+    });
+    if (pending.length === 0) return;
+    await Promise.race([
+      Promise.all(pending),
+      new Promise<void>(resolve =>
+        setTimeout(resolve, SPEAK_START_CALLBACK_MAX_MS),
+      ),
+    ]);
   }
 
   /**
@@ -403,6 +461,7 @@ class SpeechServiceClass {
     );
     this.isPlaying = false;
     this.processingQueue = false;
+    this.audible = false;
 
     const completedItem = this.currentItem;
     this.currentItem = null;
@@ -621,6 +680,22 @@ class SpeechServiceClass {
           return;
         }
 
+        // The previous tap is still getting the mic: nothing has been heard
+        // yet. Swap the word in rather than stop. stop() threw away the
+        // handoff already paid for, and with the restart below the first word
+        // of a quick pair was spoken late or not at all - the user had to tap
+        // again. Only plain words are swapped: an utterance with a completion
+        // callback (Open's handshake, Home's answers) keeps the stop-and-
+        // restart path so its callback runs exactly once.
+        if (!this.audible && this.currentItem && !this.currentItem.onComplete) {
+          trace(
+            `[STT TRACE][SpeechService] speak: replacing pending word "${this.currentItem.text}"`,
+          );
+          this.currentItem = { text, onComplete, resumeWakeWordOnComplete };
+          this.queue = [];
+          return;
+        }
+
         await this.stop();
         // Wait a bit to ensure previous playback is fully stopped
         const stopDelay = Platform.OS === 'ios' ? 200 : 50;
@@ -655,13 +730,14 @@ class SpeechServiceClass {
       if (nextItem) {
         this.currentItem = nextItem;
         this.isPlaying = true;
-        await this.speakText(nextItem.text);
+        this.audible = false;
+        const spoken = await this.speakText(nextItem);
 
         // DaVoice's speak() resolves after playback. Keep the native
         // onFinishedSpeaking event as the primary path, but finish here too if
         // that event was missed. The identity check prevents completing a
         // newer queued item when the event already advanced the queue.
-        if (this.currentItem === nextItem && this.isPlaying) {
+        if (spoken && this.currentItem === spoken && this.isPlaying) {
           this.handlePlaybackFinished();
         }
       }
@@ -689,11 +765,13 @@ class SpeechServiceClass {
       this.queue = [];
       this.processingQueue = false;
       this.currentItem = null;
+      this.audible = false;
     } catch (error) {
       console.error('[SpeechService] stop error:', error);
       this.isPlaying = false;
       this.queue = [];
       this.processingQueue = false;
+      this.audible = false;
     }
   }
 
@@ -737,9 +815,10 @@ class SpeechServiceClass {
 
   /**
    * Register a callback that fires when TTS begins speaking.
-   * Returns an unsubscribe function. Used by Verbi to pause partner STT.
+   * Returns an unsubscribe function. Used by Verbi to pause partner STT; a
+   * callback that returns a promise is awaited (bounded) before audio starts.
    */
-  public onSpeakStart(cb: () => void): () => void {
+  public onSpeakStart(cb: () => void | Promise<void>): () => void {
     this.speakStartCallbacks.add(cb);
     return () => this.speakStartCallbacks.delete(cb);
   }

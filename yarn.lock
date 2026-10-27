@@ -4902,6 +4902,11 @@ lines-and-columns@^1.1.6:
   resolved "https://registry.yarnpkg.com/lines-and-columns/-/lines-and-columns-1.2.4.tgz#eca284f75d2965079309dc0ad9255abb2ebc1632"
   integrity sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==
 
+llama.rn@0.13.0-rc.8:
+  version "0.13.0-rc.8"
+  resolved "https://registry.yarnpkg.com/llama.rn/-/llama.rn-0.13.0-rc.8.tgz#44840a9cda80b062ae063959fd61001695bdf520"
+  integrity sha512-hwiGoS6t994DzMimUtjr3xiSLGXcv8wGJInL6FW8dR3ZsChMasM1NROdQ/PBqg4szHtLiafzlTW348e5Zjfz/Q==
+
 locate-path@^5.0.0:
   version "5.0.0"
   resolved "https://registry.yarnpkg.com/locate-path/-/locate-path-5.0.0.tgz#1afba396afd676a6d42504d0a67a3a7eb9f62aa0"
@@ -5772,10 +5777,10 @@ react-native-config@^1.5.5:
   resolved "https://registry.yarnpkg.com/react-native-config/-/react-native-config-1.7.2.tgz#fde34ba7641e8670883f7c6e4f0bf4b928e4f5de"
   integrity sha512-sOzjs2oGPqlgJu7WjlYa/zA8/uShebQeQVYumgPd8pO+l/TrHWhOZPWrDAphxrshpnFVgPgQeXXT3eVSTNQGpg==
 
-react-native-davoice-tts@^1.0.403:
-  version "1.0.403"
-  resolved "https://registry.yarnpkg.com/react-native-davoice-tts/-/react-native-davoice-tts-1.0.403.tgz#de156190241c35d2b988b0032ee1bfcc8d69c67d"
-  integrity sha512-9adkzAhibxXNx3KiTiNN5BUPtY+7ZEuHsbQF1xTkWEOhq31ra/nwby29ExBclUCheuIlmVuzRUxYLDCFPrgH5A==
+react-native-davoice-tts@^1.0.410:
+  version "1.0.410"
+  resolved "https://registry.yarnpkg.com/react-native-davoice-tts/-/react-native-davoice-tts-1.0.410.tgz#5efd537e8afc129a45de27f087eaedff204cf157"
+  integrity sha512-E6mAiAgvWyH8as0XpMOCoqlkmNo6Ro9WWso/AZpY56VsEXMFtAyKudq8iyugBa/efMSwYMxv9xFvXwxxlcADkw==
 
 react-native-default-preference@^1.4.4:
   version "1.4.4"
@@ -5903,10 +5908,10 @@ react-native-video@6.16.0:
   resolved "https://registry.yarnpkg.com/react-native-video/-/react-native-video-6.16.0.tgz#78ad0affc6f4a09c366d83532b36be562149d3f5"
   integrity sha512-FS9lb7qCd5wN6KAifziXH8PogAkAPy5YD8lJ2t/1FkBG+09hD+CsP4C7EfWFzvY/RxhO30iVZ1g5ZquofKIzrg==
 
-react-native-wakeword@^1.1.162:
-  version "1.1.162"
-  resolved "https://registry.yarnpkg.com/react-native-wakeword/-/react-native-wakeword-1.1.162.tgz#126b0b86612afe0c199422b0ed428fb478434a70"
-  integrity sha512-tesGFgubwEs+DB8lcO1JFk87uDG+xK0QYpe16hYLLJUDZ8Dxd539RdN03L0tBIcq1wTcXzSVTIX1rycxACRBrA==
+react-native-wakeword@^1.1.165:
+  version "1.1.165"
+  resolved "https://registry.yarnpkg.com/react-native-wakeword/-/react-native-wakeword-1.1.165.tgz#71fe91a14c77562e6457da41b780e2ea4287ce36"
+  integrity sha512-goVFd6fIBSrDyKTqhlnMALKvECPbehs+02he1OWCALDD6UU6NZdYwCO1lT0G+x1Tp+1Q8F9/Echbm6Z9QzyNzg==
 
 react-native-webview@^13.13.5:
   version "13.17.0"
